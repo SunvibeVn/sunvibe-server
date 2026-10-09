@@ -15,9 +15,9 @@ CREATE TABLE users (
     created_date TIMESTAMP WITH TIME ZONE NOT NULL,
     last_update TIMESTAMP WITH TIME ZONE NOT NULL,
     last_login TIMESTAMP WITH TIME ZONE,
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    CONSTRAINT uk_users_id_card_number_hash UNIQUE (id_card_number_hash)
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE UNIQUE INDEX idx_users_username ON users (username);
-CREATE UNIQUE INDEX idx_users_email ON users (email);
+CREATE UNIQUE INDEX idx_users_username ON users (username) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_users_email ON users (email) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_users_id_card_number_hash ON users (id_card_number_hash) WHERE deleted_at IS NULL;

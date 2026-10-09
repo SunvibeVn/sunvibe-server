@@ -73,4 +73,54 @@ class UserJpaRepositorySoftDeleteTest {
 
         assertFalse(userJpaRepository.existsByIdCardNumberHash("shared-hash"));
     }
+
+    @Test
+    void existsByEmail_findsNonDeletedRow() {
+        userJpaRepository.save(buildUser("id-5", "0933333333", "e@example.com", null));
+
+        assertTrue(userJpaRepository.existsByEmail("e@example.com"));
+    }
+
+    @Test
+    void existsByIdCardNumberHash_findsNonDeletedRow() {
+        UserEntity active = buildUser("id-6", "0944444444", "f@example.com", null);
+        active.setIdCardNumberHash("active-hash");
+        userJpaRepository.save(active);
+
+        assertTrue(userJpaRepository.existsByIdCardNumberHash("active-hash"));
+    }
+
+    @Test
+    void findByUsername_ignoresSoftDeletedRow() {
+        userJpaRepository.save(buildUser("id-7", "0955555555", "g@example.com", Instant.now()));
+
+        assertTrue(userJpaRepository.findByUsername("0955555555").isEmpty());
+    }
+
+    @Test
+    void findByEmail_ignoresSoftDeletedRow() {
+        userJpaRepository.save(buildUser("id-8", "0966666666", "h@example.com", Instant.now()));
+
+        assertTrue(userJpaRepository.findByEmail("h@example.com").isEmpty());
+    }
+
+    /**
+     * Soft-deleted users must not block re-use of their username, email or
+     * ID card. H2 has no partial indexes, so this only pins that the entity
+     * no longer declares full (all-rows) uniqueness; the Postgres partial
+     * unique indexes in the Flyway migration enforce it for live rows.
+     */
+    @Test
+    void save_allowsActiveUserReusingSoftDeletedUsersIdentifiers() {
+        UserEntity deleted = buildUser("id-9", "0977777777", "i@example.com", Instant.now());
+        deleted.setIdCardNumberHash("reused-hash");
+        userJpaRepository.saveAndFlush(deleted);
+
+        UserEntity active = buildUser("id-10", "0977777777", "i@example.com", null);
+        active.setIdCardNumberHash("reused-hash");
+        userJpaRepository.saveAndFlush(active);
+
+        assertTrue(userJpaRepository.findById("id-9").isPresent());
+        assertTrue(userJpaRepository.findById("id-10").isPresent());
+    }
 }

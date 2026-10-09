@@ -9,10 +9,9 @@ import java.util.regex.Pattern;
 
 /**
  * A Vietnamese national ID card number: either the legacy 9-digit CMND
- * or the current 12-digit CCCD format. The plaintext value never leaves
- * this object's constructor validation — persistence-layer encryption
- * (see {@code EncryptedStringAttributeConverter}) is an infrastructure
- * concern this value object has no knowledge of.
+ * or the current 12-digit CCCD format. Holds the plaintext number;
+ * encryption at rest is handled by the persistence layer, which the
+ * domain knows nothing about.
  */
 @Getter
 public final class IdCardNumber extends ValueObject<IdCardNumber> {

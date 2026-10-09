@@ -12,20 +12,23 @@ import vn.sunvibe.auth.core.infrastructure.persistence.converter.manual.Encrypte
 import java.time.Instant;
 import java.util.Set;
 
+/*
+ * Uniqueness of username, email and id_card_number_hash is enforced by
+ * partial unique indexes in the Flyway migration, scoped to non-deleted
+ * rows (WHERE deleted_at IS NULL) so a soft-deleted user's identifiers can
+ * be reused. It must NOT be declared here (unique = true / unique @Index):
+ * ddl-auto would turn that into a full, all-rows constraint.
+ */
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "USERS",
-        indexes = {
-                @Index(name = "idx_users_username", columnList = "username", unique = true),
-                @Index(name = "idx_users_email", columnList = "email", unique = true)
-        })
+@Table(name = "USERS")
 public class UserEntity {
 
     @Id
-    @Column(name = "id")
+    @Column(name = "id", length = 26)
     private String id;
 
     /**
@@ -37,14 +40,14 @@ public class UserEntity {
     /**
      * Username (VO → String)
      */
-    @Column(nullable = false, length = 32, unique = true)
+    @Column(nullable = false, length = 32)
     private String username;
 
     /**
      * Email (VO → String, lower-case). Stays nullable — a user may not
      * have one set yet.
      */
-    @Column(name = "email", length = 100, unique = true)
+    @Column(name = "email", length = 100)
     private String email; // nullable – user may not be update yet
 
     /**
@@ -71,7 +74,7 @@ public class UserEntity {
      * for the duplicate-registration lookup — never decrypted/compared
      * to plaintext directly.
      */
-    @Column(name = "id_card_number_hash", nullable = false, length = 64, unique = true)
+    @Column(name = "id_card_number_hash", nullable = false, length = 64)
     private String idCardNumberHash;
 
     @Column(name = "id_card_front_url", columnDefinition = "TEXT")

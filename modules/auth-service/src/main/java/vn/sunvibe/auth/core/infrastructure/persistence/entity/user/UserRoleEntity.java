@@ -15,14 +15,14 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "ROLES")
+@Table(name = "ROLES", uniqueConstraints = @UniqueConstraint(name = "uk_roles_name", columnNames = "name"))
 public class UserRoleEntity {
     @Id
     @UuidGenerator
     @Column(name = "id")
     private UUID id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String name; // eg: ADMIN, USER, MODERATOR
 
     @Column(length = 500)
