@@ -9,6 +9,8 @@ public interface UserDomainRepository {
 
     boolean existsByEmail(String email);
 
+    boolean existsByIdCardNumberHash(String idCardNumberHash);
+
     AppUser save(AppUser user);
 
     AppUser findByUsername(String username);

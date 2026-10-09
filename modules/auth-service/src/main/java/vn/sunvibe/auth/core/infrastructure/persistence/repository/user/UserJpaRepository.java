@@ -7,18 +7,27 @@ import org.springframework.stereotype.Repository;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface UserJpaRepository extends JpaRepository<UserEntity, UUID> {
+public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
 
-    boolean existsByUsername(String username);
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM UserEntity u " +
+            "WHERE u.username = :username AND u.deletedAt IS NULL")
+    boolean existsByUsername(@Param("username") String username);
 
-    boolean existsByEmail(String email);
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM UserEntity u " +
+            "WHERE u.email = :email AND u.deletedAt IS NULL")
+    boolean existsByEmail(@Param("email") String email);
 
-    Optional<UserEntity> findByEmail(String email);
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM UserEntity u " +
+            "WHERE u.idCardNumberHash = :idCardNumberHash AND u.deletedAt IS NULL")
+    boolean existsByIdCardNumberHash(@Param("idCardNumberHash") String idCardNumberHash);
 
-    @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.userRoles WHERE u.username = :username")
+    @Query("SELECT u FROM UserEntity u WHERE u.email = :email AND u.deletedAt IS NULL")
+    Optional<UserEntity> findByEmail(@Param("email") String email);
+
+    @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.userRoles " +
+            "WHERE u.username = :username AND u.deletedAt IS NULL")
     Optional<UserEntity> findByUsername(@Param("username") String username);
 
 }

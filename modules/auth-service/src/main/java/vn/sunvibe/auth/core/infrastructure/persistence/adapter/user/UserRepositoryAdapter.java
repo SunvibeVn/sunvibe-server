@@ -11,6 +11,7 @@ import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntit
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserRoleJpaRepository;
 import vn.sunvibe.auth.core.shared.constant.UserMessage;
+import vn.sunvibe.common.crypto.CryptoService;
 
 import java.util.Set;
 
@@ -21,6 +22,7 @@ public class UserRepositoryAdapter implements UserDomainRepository {
     private final UserJpaRepository userJpaRepository;
     private final UserRoleJpaRepository userRoleJpaRepository;
     private final UserMapper userMapper;
+    private final CryptoService cryptoService;
 
     @Override
     public boolean existsByUsername(String username) {
@@ -33,8 +35,15 @@ public class UserRepositoryAdapter implements UserDomainRepository {
     }
 
     @Override
+    public boolean existsByIdCardNumberHash(String idCardNumberHash) {
+        return userJpaRepository.existsByIdCardNumberHash(idCardNumberHash);
+    }
+
+    @Override
     public AppUser save(AppUser appUser) {
         UserEntity userEntity = userMapper.toEntity(appUser);
+        userEntity.setIdCardNumberHash(cryptoService.blindIndex(appUser.getIdCardNumber().getValue()));
+
         // Get role from DB by input
         Set<UserRoleEntity> userRoleEntities = userRoleJpaRepository.findByNameIn(appUser.getUserRoles());
         userEntity.setUserRoles(userRoleEntities);
