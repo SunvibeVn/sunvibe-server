@@ -1,13 +1,23 @@
 package vn.sunvibe.auth.core.shared.service;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.WebUtils;
 
 import java.time.Duration;
 
 @Service
 public class CookieService {
+
+    /**
+     * The refresh token is only sent to the endpoints that consume it
+     * ({@code /api/auth/refresh-token}, {@code /api/auth/logout}), never to the rest of the API.
+     */
+    public static final String REFRESH_TOKEN_COOKIE_PATH = "/api/auth";
+    private static final String ACCESS_TOKEN_COOKIE_PATH = "/";
 
     @Value("${app.jwt.expiration.minutes}")
     private long accessTokenExpirationMinutes;
@@ -26,8 +36,8 @@ public class CookieService {
                 .httpOnly(true)          // JS không đọc được → chống XSS
                 .secure(true)            // Chỉ gửi qua HTTPS
                 .sameSite("Strict")      // Chống CSRF
-                .path("/")
-                .maxAge(Duration.ofMinutes(accessTokenExpirationMinutes))
+                .path(ACCESS_TOKEN_COOKIE_PATH)
+                .maxAge(accessTokenTtl())
                 .build();
     }
 
@@ -36,7 +46,7 @@ public class CookieService {
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
-                .path("/api/loginResponse")       // Chỉ gửi lên endpoint loginResponse — giới hạn scope
+                .path(REFRESH_TOKEN_COOKIE_PATH)
                 .maxAge(Duration.ofMillis(refreshTokenExpirationMs))
                 .build();
     }
@@ -47,7 +57,7 @@ public class CookieService {
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
-                .path("/")
+                .path(ACCESS_TOKEN_COOKIE_PATH)
                 .maxAge(0)
                 .build();
     }
@@ -57,8 +67,19 @@ public class CookieService {
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
-                .path("/api/loginResponse")
+                .path(REFRESH_TOKEN_COOKIE_PATH)
                 .maxAge(0)
                 .build();
+    }
+
+    /** The refresh token sent by the browser, or null when the cookie is absent. */
+    public String readRefreshToken(HttpServletRequest request) {
+        Cookie cookie = WebUtils.getCookie(request, refreshTokenCookieName);
+        return cookie != null ? cookie.getValue() : null;
+    }
+
+    /** How long an access token (and its cookie) stays valid. */
+    public Duration accessTokenTtl() {
+        return Duration.ofMinutes(accessTokenExpirationMinutes);
     }
 }

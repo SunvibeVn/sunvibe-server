@@ -1,7 +1,11 @@
 package vn.sunvibe.auth.core.presentation.converter.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.command.auth.PasswordChangeCommand;
+import vn.sunvibe.auth.core.application.command.auth.TokenRefreshCommand;
 import vn.sunvibe.auth.core.application.command.auth.PasswordForgotCommand;
 import vn.sunvibe.auth.core.application.command.auth.LoginCommand;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordChangeRequest;
@@ -37,5 +41,18 @@ public class AuthConverter {
                 .currentPassword(passwordChangeRequest.currentPassword())
                 .newPassword(passwordChangeRequest.newPassword())
                 .build();
+    }
+
+    /**
+     * The requesting device. The IP is the direct peer address; behind a reverse
+     * proxy, set {@code server.forward-headers-strategy} so it is the client's
+     * (reading {@code X-Forwarded-For} here would let any client spoof it).
+     */
+    public ClientInfo toClientInfo(HttpServletRequest httpRequest) {
+        return new ClientInfo(httpRequest.getHeader(HttpHeaders.USER_AGENT), httpRequest.getRemoteAddr());
+    }
+
+    public TokenRefreshCommand toTokenRefreshCommand(String refreshToken, HttpServletRequest httpRequest) {
+        return new TokenRefreshCommand(refreshToken, toClientInfo(httpRequest));
     }
 }

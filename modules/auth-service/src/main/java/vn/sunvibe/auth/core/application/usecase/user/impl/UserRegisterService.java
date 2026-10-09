@@ -29,7 +29,7 @@ public class UserRegisterService implements UserRegisterUseCase {
 
     @Transactional
     @Override
-    public void execute(UserRegisterCommand userRegisterCommand, String rawFingerprint) {
+    public void execute(UserRegisterCommand userRegisterCommand) {
 
         // Check username exists
         if (userRepository.existsByUsername(userRegisterCommand.username())) {

@@ -82,6 +82,28 @@ CREATE TABLE user_roles (
     PRIMARY KEY (user_id, role_id)
 );
 
+-- Refresh token của phiên đăng nhập: mỗi lần refresh sinh một dòng mới (rotation),
+-- các token cùng phiên chung family_id. Chỉ lưu SHA-256 (hex) của token.
+CREATE TABLE refresh_tokens (
+    id BIGINT NOT NULL PRIMARY KEY,
+    user_id VARCHAR(26) NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    family_id UUID NOT NULL,
+    token_hash VARCHAR(64) NOT NULL,
+    status VARCHAR(20) NOT NULL, -- ACTIVE | USED | REVOKED
+    issued_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL, -- hạn idle (7 ngày, trượt theo mỗi lần refresh)
+    session_expires_at TIMESTAMP WITH TIME ZONE NOT NULL, -- hạn tuyệt đối của phiên (30 ngày kể từ login)
+    used_at TIMESTAMP WITH TIME ZONE,
+    revoked_at TIMESTAMP WITH TIME ZONE,
+    revoke_reason VARCHAR(30), -- LOGOUT | LOGOUT_ALL | PASSWORD_CHANGED | PASSWORD_RESET | REUSE_DETECTED | ACCOUNT_INACTIVE
+    user_agent VARCHAR(255),
+    ip_address VARCHAR(45),
+    CONSTRAINT uk_refresh_tokens_token_hash UNIQUE (token_hash)
+);
+CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens (family_id);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens (user_id);
+CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens (expires_at);
+
 CREATE TABLE agent_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,

@@ -21,7 +21,6 @@ import vn.sunvibe.auth.core.presentation.dto.request.user.UserRegisterRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.LoginResponse;
 import vn.sunvibe.common.response.ApiResponse;
 import vn.sunvibe.auth.core.shared.constant.UserMessage;
-import vn.sunvibe.auth.core.shared.utils.http.HttpRequestUtils;
 
 @RestController
 @RequestMapping("/api/users/command")
@@ -35,15 +34,13 @@ public class UserCommandController {
 
     @PostMapping(value = "/register")
     public ResponseEntity<ApiResponse<LoginResponse>> register(@Valid @RequestBody UserRegisterRequest userRegisterRequest, HttpServletRequest httpRequest) {
-        // Get fingerprint to create refresh token
-        String rawFingerprint = HttpRequestUtils.getRawFingerprint(httpRequest);
         // Register user
         UserRegisterCommand userRegisterCommand = userConverter.toUserRegisterCommand(userRegisterRequest);
-        userRegisterUseCase.execute(userRegisterCommand, rawFingerprint);
+        userRegisterUseCase.execute(userRegisterCommand);
 
-        // Login user after register success
+        // Login user after register success, starting a session for this device
         LoginCommand loginCommand = authConverter.toLoginCommand(userRegisterRequest);
-        AuthResult result = loginUseCase.execute(loginCommand, rawFingerprint);
+        AuthResult result = loginUseCase.execute(loginCommand, authConverter.toClientInfo(httpRequest));
 
         return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, String.valueOf(result.accessCookie())).header(HttpHeaders.SET_COOKIE, String.valueOf(result.refreshCookie()))
                 .body((ApiResponse.<LoginResponse>builder().code(HttpStatus.CREATED.value()).message(UserMessage.USER_CREATE_SUCCESS).result(result.loginResponse()).build()));

@@ -6,20 +6,21 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
-import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordResetUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
+import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.OtpCode;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
+import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordResetResponse;
+import vn.sunvibe.common.time.AppClock;
 
 import java.time.LocalDateTime;
 
@@ -32,8 +33,7 @@ public class PasswordResetService implements PasswordResetUseCase {
     private final UserDomainRepository userDomainRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailServicePort emailService;
-    private final JWTProvider jwtTokenProvider;
-    private final RefreshTokenGenerateUseCase refreshTokenGenerateUseCase;
+    private final RefreshTokenDomainRepository refreshTokenRepository;
 
     @Override
     @Transactional
@@ -79,9 +79,9 @@ public class PasswordResetService implements PasswordResetUseCase {
         // Mark reset token as used
         passwordResetTokenDomainRepository.markAsUsed(request.getResetToken());
 
-        // Generate new tokens
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getUsername().getValue());
-        String refreshToken = refreshTokenGenerateUseCase.generateRefreshToken(user.getId().getValue(), "");
+        // Whoever knew the old password may hold a session: end all of them.
+        // No new session is started here; the user signs in with the new password.
+        refreshTokenRepository.revokeAllForUser(user.getId(), RevokeReason.PASSWORD_RESET, AppClock.currentUTC());
 
         // Send confirmation email
         emailService.sendPasswordResetConfirmationEmail(user.getEmail().getValue());
@@ -90,8 +90,6 @@ public class PasswordResetService implements PasswordResetUseCase {
 
         return PasswordResetResponse.builder()
                 .message("Password reset successfully")
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
                 .passwordChangedAt(LocalDateTime.now())
                 .build();
     }

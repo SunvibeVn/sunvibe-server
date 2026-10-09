@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.command.auth.PasswordChangeCommand;
 import vn.sunvibe.auth.core.application.usecase.user.PasswordChangeUseCase;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
+import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
+import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
+import vn.sunvibe.common.time.AppClock;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
@@ -20,6 +23,7 @@ public class PasswordChangeService implements PasswordChangeUseCase {
 
     private final UserDomainRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenDomainRepository refreshTokenRepository;
 
     @Override
     @Transactional
@@ -45,6 +49,9 @@ public class PasswordChangeService implements PasswordChangeUseCase {
         // Set new password for user
         appUser.changePassword(newHashedPassword);
         userRepository.save(appUser);
+
+        // Sign out every device; the caller starts a fresh session for this one
+        refreshTokenRepository.revokeAllForUser(appUser.getId(), RevokeReason.PASSWORD_CHANGED, AppClock.currentUTC());
 
         return PasswordChangeResponse.builder().username(username).build();
     }

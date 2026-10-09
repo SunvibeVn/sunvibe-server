@@ -5,6 +5,6 @@ import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
 
 public interface UserRegisterUseCase {
 
-    void execute(UserRegisterCommand userRegisterRequest, String rawFingerprint);
+    void execute(UserRegisterCommand userRegisterRequest);
 
 }

@@ -54,6 +54,11 @@ class CustomUserDetailsServiceTest {
         public AppUser findByEmail(String email) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public java.util.Optional<AppUser> findById(vn.sunvibe.auth.core.domain.model.user.vo.UserId userId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Test

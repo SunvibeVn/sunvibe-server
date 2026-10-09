@@ -7,6 +7,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
+import jakarta.servlet.http.Cookie;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -45,6 +46,7 @@ class JWTRequestFilterTest {
     private static final String SECRET = "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=";
     private static final String USERNAME = "0912345678";
     private static final String USER_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    private static final String ACCESS_COOKIE = "cookie-jwt";
 
     /** Current state of the user store, as the filter will see it. */
     private final Map<String, CustomUserDetails> users = new HashMap<>();
@@ -65,6 +67,7 @@ class JWTRequestFilterTest {
         jwtProvider = new JWTProvider(userDetailsService);
         ReflectionTestUtils.setField(jwtProvider, "jwtSecretKey", SECRET);
         ReflectionTestUtils.setField(jwtProvider, "jwtExpirationMinutes", 60L);
+        ReflectionTestUtils.setField(jwtProvider, "jwtCookie", ACCESS_COOKIE);
         filter = new JWTRequestFilter(jwtProvider, userDetailsService);
         SecurityContextHolder.clearContext();
     }
@@ -166,5 +169,52 @@ class JWTRequestFilterTest {
                 .compact();
 
         assertNull(filterWith(tokenWithoutUid));
+    }
+
+    /** Browser clients send the access token only as its HttpOnly cookie. */
+    @Test
+    void tokenInAccessCookie_isAuthenticatedWithoutAuthorizationHeader() throws Exception {
+        String token = issueTokenForActiveUser();
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/users/query/me");
+        request.setServletPath("/api/users/query/me");
+        request.setCookies(new Cookie(ACCESS_COOKIE, token));
+
+        filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        assertNotNull(authentication);
+        assertEquals(USERNAME, authentication.getPrincipal());
+    }
+
+    @Test
+    void authorizationHeaderWinsOverAccessCookie() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/users/query/me");
+        request.addHeader(HttpHeaders.AUTHORIZATION, JWTProvider.TOKEN_PREFIX + "header-token");
+        request.setCookies(new Cookie(ACCESS_COOKIE, "cookie-token"));
+
+        assertEquals("header-token", filter.getJwtFromRequest(request).orElseThrow());
+    }
+
+    @Test
+    void expiredToken_isNotAuthenticated() throws Exception {
+        users.put(USERNAME, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
+        Instant past = Instant.now().minus(2, ChronoUnit.HOURS);
+        String expired = Jwts.builder()
+                .subject(USERNAME)
+                .claim(JWTProvider.USER_ID_CLAIM, USER_ID)
+                .issuedAt(Date.from(past))
+                .expiration(Date.from(past.plus(15, ChronoUnit.MINUTES)))
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET)))
+                .compact();
+
+        assertNull(filterWith(expired));
+    }
+
+    @Test
+    void refreshEndpoint_isNotFiltered() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/refresh-token");
+        request.setServletPath("/api/auth/refresh-token");
+
+        assertTrue(filter.shouldNotFilter(request));
     }
 }

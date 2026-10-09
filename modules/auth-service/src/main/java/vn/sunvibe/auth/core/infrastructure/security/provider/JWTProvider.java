@@ -9,22 +9,19 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.WebUtils;
-import vn.sunvibe.auth.core.domain.exception.auth.TokenExpiredException;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
-import vn.sunvibe.auth.core.shared.constant.AuthMessage;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -43,15 +40,6 @@ public class JWTProvider {
 
     @Value("${app.jwt.jwtCookieName}")
     private String jwtCookie;
-
-    @Value("${app.jwt.jwtRefreshCookieName}")
-    private String jwtRefreshCookie;
-
-    @Value("${app.jwt.expiration.minutes}")
-    private Long jwtExpiration;
-
-    @Value("${app.jwt.jwtRefreshExpirationMs}")
-    private Long jwtRFTExpiration;
 
     public static final String TOKEN_TYPE = "JWT";
     public static final String TOKEN_ISSUER = "Nestify";
@@ -79,10 +67,9 @@ public class JWTProvider {
                 .map(GrantedAuthority::getAuthority)
                 .toList();
 
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime expiration = now.plusMinutes(jwtExpirationMinutes);
+        Instant now = Instant.now();
+        Instant expiration = now.plus(Duration.ofMinutes(jwtExpirationMinutes));
 
-//        log.info("JWTProvider.generateToken");
         return Jwts.builder()
                 .header().add("typ", TOKEN_TYPE)
                 .and()
@@ -91,8 +78,8 @@ public class JWTProvider {
                 .claim("email", userDetails.getEmail())
                 .claim("rol", roles)
                 .issuer(TOKEN_ISSUER)
-                .issuedAt(Date.from(now.atZone(ZoneId.systemDefault()).toInstant()))
-                .expiration(Date.from(expiration.atZone(ZoneId.systemDefault()).toInstant()))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiration))
                 .audience().and()
                 .signWith(getSignInKey())
                 .compact();
@@ -107,92 +94,33 @@ public class JWTProvider {
         return extractAllClaims(token).getSubject();
     }
 
-    public boolean isTokenExpired(String token) {
-        return extractAllClaims(token).getExpiration().before(new Date());
-    }
-
-    public void validateToken(String token) {
-        if (isTokenExpired(token)) {
-            throw new TokenExpiredException(AuthMessage.TOKEN_EXPIRED);
-        }
-    }
-
+    /**
+     * Verifies signature and expiry. Never logs the token itself. Expiry is the
+     * normal end of an access token's life (the client then refreshes), so it is
+     * logged at debug; anything else hints at a broken or forged token.
+     */
     public Optional<Jws<Claims>> validateTokenAndGetJws(String token) {
-
         try {
-            validateToken(token);
-
             SecretKey secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecretKey));
-
-            Jws<Claims> jws = Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token);
-
-            return Optional.of(jws);
+            return Optional.of(Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token));
         } catch (ExpiredJwtException exception) {
-            log.error("Request to parse expired JWT : {} failed : {}", token, exception.getMessage());
-        } catch (UnsupportedJwtException exception) {
-            log.error("Request to parse unsupported JWT : {} failed : {}", token, exception.getMessage());
-        } catch (MalformedJwtException exception) {
-            log.error("Request to parse incorrect format JWT : {} failed : {}", token, exception.getMessage());
-        } catch (SecurityException exception) {
-            log.error("Request to parse invalid JWT: {} failed : {}", token, exception.getMessage());
-        } catch (IllegalArgumentException exception) {
-            log.error("Request to parse empty or null JWT : {} failed : {}", token, exception.getMessage());
-        } catch (TokenExpiredException exception) {
-            log.error("Request to parse expired JWT : {} failed : {}", token, exception.getMessage());
+            log.debug("Rejected expired access token");
+        } catch (JwtException | IllegalArgumentException exception) {
+            log.warn("Rejected invalid access token: {}", exception.getMessage());
         }
-
         return Optional.empty();
     }
 
+    /** The access token from its HttpOnly cookie, or null. */
     public String getJwtFromCookies(HttpServletRequest request) {
-        return getCookieValueByName(request, jwtCookie);
-    }
-
-    public String getJwtRefreshFromCookies(HttpServletRequest request) {
-        return getCookieValueByName(request, jwtRefreshCookie);
-    }
-
-    public ResponseCookie getCleanJwtCookie() {
-        return ResponseCookie.from(jwtCookie, null).path("/api").build();
-    }
-
-    public ResponseCookie getCleanJwtRefreshCookie() {
-        return ResponseCookie.from(jwtRefreshCookie, null).path("/api/loginResponse/refreshtoken").build();
-    }
-
-    private String getCookieValueByName(HttpServletRequest request, String name) {
-        Cookie cookie = WebUtils.getCookie(request, name);
-        if (cookie != null) {
-            return cookie.getValue();
-        } else {
-            return null;
-        }
+        Cookie cookie = WebUtils.getCookie(request, jwtCookie);
+        return cookie != null ? cookie.getValue() : null;
     }
 
     private SecretKey getSignInKey() {
         byte[] bytes = Base64.getDecoder()
                 .decode(jwtSecretKey.getBytes(StandardCharsets.UTF_8));
         return new SecretKeySpec(bytes, "HmacSHA256");
-    }
-
-    public ResponseCookie generateJwtCookie(String jwt) {
-        return generateCookie(jwtCookie, jwt, "/api/loginResponse/access-token", jwtExpiration);
-    }
-
-    public ResponseCookie generateRefreshJwtCookie(String refreshTokenPlainText) {
-        return generateCookie(jwtRefreshCookie, refreshTokenPlainText, "/api/loginResponse/refresh-token", jwtRFTExpiration);
-    }
-
-    private ResponseCookie generateCookie(String name, String value, String path, Long maxAge) {
-        return ResponseCookie.from(name, value)
-                .path(path)
-                .maxAge(maxAge)
-                .httpOnly(true)
-                .secure(true)
-                .build();
     }
 
 }

@@ -6,25 +6,29 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
+import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
+import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.common.time.AppClock;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Plain-JUnit test with hand-written fakes (Mockito isn't on this module's
- * classpath): a locked/disabled user must not reset their password or get
- * tokens through the public OTP reset endpoint.
+ * classpath): a locked/disabled user must not reset their password through
+ * the public OTP reset endpoint, and a successful reset ends every session.
  */
 class PasswordResetServiceTest {
 
@@ -70,6 +74,11 @@ class PasswordResetServiceTest {
         @Override
         public AppUser findByEmail(String email) {
             return user;
+        }
+
+        @Override
+        public Optional<AppUser> findById(UserId userId) {
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -161,19 +170,23 @@ class PasswordResetServiceTest {
                 .build();
     }
 
+    private static final UserId USER_ID = UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV");
+
+    private static RefreshToken activeSession() {
+        Instant now = AppClock.currentUTC();
+        return RefreshToken.startSession(1L, USER_ID, "hash-of-old-session", now,
+                Duration.ofDays(7), Duration.ofDays(30), "Mozilla/5.0", "203.0.113.7");
+    }
+
     @ParameterizedTest
     @EnumSource(value = UserStatus.class, names = {"LOCK", "TERMINATED", "DELETED"})
-    void verifyOtpAndResetPassword_rejectsBlockedUserWithoutChangingPassword(UserStatus status) {
+    void verifyOtpAndResetPassword_rejectsBlockedUserWithoutChangingAnything(UserStatus status) {
         AppUser user = userWithStatus(status);
         FakeUserDomainRepository userRepository = new FakeUserDomainRepository(user);
         FakePasswordResetTokenDomainRepository tokenRepository = new FakePasswordResetTokenDomainRepository(validToken());
-        JWTProvider jwtProvider = new JWTProvider(username -> {
-            throw new AssertionError("No access token may be generated for a blocked user");
-        });
+        InMemoryRefreshTokenRepository refreshTokens = new InMemoryRefreshTokenRepository();
         PasswordResetService service = new PasswordResetService(tokenRepository, userRepository, PASSWORD_ENCODER,
-                NO_EMAIL, jwtProvider, (userId, fingerprint) -> {
-                    throw new AssertionError("No refresh token may be generated for a blocked user");
-                });
+                NO_EMAIL, refreshTokens);
 
         AuthenticationFailedException exception = assertThrows(AuthenticationFailedException.class,
                 () -> service.verifyOtpAndResetPassword(request()));
@@ -182,24 +195,36 @@ class PasswordResetServiceTest {
         assertEquals(ORIGINAL_PASSWORD_HASH, user.getPassword().getHashedValue());
         assertEquals(0, userRepository.saveCount);
         assertFalse(tokenRepository.markedAsUsed);
+        assertTrue(refreshTokens.revocations.isEmpty());
     }
 
+    /** Whoever knew the old password may hold a session: a reset must end them all. */
     @Test
-    void verifyOtpAndResetPassword_lockedUserGetsNoTokens() {
-        AppUser user = userWithStatus(UserStatus.LOCK);
-        boolean[] refreshTokenIssued = {false};
+    void verifyOtpAndResetPassword_revokesEverySessionOfTheUser() {
+        AppUser user = userWithStatus(UserStatus.ACTIVE);
+        InMemoryRefreshTokenRepository refreshTokens = new InMemoryRefreshTokenRepository();
+        refreshTokens.save(activeSession());
+        List<String> confirmations = new ArrayList<>();
+        EmailServicePort email = new EmailServicePort() {
+            @Override
+            public void sendPasswordResetEmail(String address, String otpCode, String resetToken) {
+                fail("No reset email expected");
+            }
+
+            @Override
+            public void sendPasswordResetConfirmationEmail(String address) {
+                confirmations.add(address);
+            }
+        };
         PasswordResetService service = new PasswordResetService(
                 new FakePasswordResetTokenDomainRepository(validToken()),
-                new FakeUserDomainRepository(user), PASSWORD_ENCODER, NO_EMAIL,
-                new JWTProvider(username -> {
-                    throw new AssertionError("No access token may be generated for a locked user");
-                }),
-                (userId, fingerprint) -> {
-                    refreshTokenIssued[0] = true;
-                    return "refresh";
-                });
+                new FakeUserDomainRepository(user), PASSWORD_ENCODER, email, refreshTokens);
 
-        assertThrows(AuthenticationFailedException.class, () -> service.verifyOtpAndResetPassword(request()));
-        assertFalse(refreshTokenIssued[0]);
+        service.verifyOtpAndResetPassword(request());
+
+        assertEquals("hashed:N3wP@ssw0rd!", user.getPassword().getHashedValue());
+        assertEquals(List.of("user:" + USER_ID.getValue() + ":PASSWORD_RESET"), refreshTokens.revocations);
+        assertTrue(refreshTokens.get(1L).isRevoked());
+        assertEquals(List.of(EMAIL), confirmations);
     }
 }

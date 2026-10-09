@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
+import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapper;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
@@ -14,6 +15,7 @@ import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserRoleJ
 import vn.sunvibe.auth.core.shared.constant.UserMessage;
 import vn.sunvibe.common.crypto.CryptoService;
 
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -63,6 +65,11 @@ public class UserRepositoryAdapter implements UserDomainRepository {
     public AppUser findByEmail(String email) {
         UserEntity userEntity = userJpaRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException(String.format(UserMessage.USER_NOT_FOUND_WITH_EMAIL, email)));
         return userMapper.toDomain(userEntity);
+    }
+
+    @Override
+    public Optional<AppUser> findById(UserId userId) {
+        return userJpaRepository.findActiveById(userId.getValue()).map(userMapper::toDomain);
     }
 
     /** The only place the ID card number's blind index (lookup hash) is derived. */

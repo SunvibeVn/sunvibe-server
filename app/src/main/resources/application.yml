@@ -58,10 +58,18 @@ app:
   jwt:
     secret: v9yBEHMbQeThWmZq4t7wzCFJaNdRfUjXn2r5u8xADGKbPeShVkYCFJaNdRfUjXn2r5u8xADGKbPeShVkYp
     expiration:
-      minutes: 180
+      # Short-lived on purpose: clients renew it silently via POST /api/auth/refresh-token
+      minutes: 15
     jwtCookieName: cookie-jwt
     jwtRefreshCookieName: cookie-jwt-rf
+    # Refresh token idle lifetime (7 days): unused this long, the session ends. Each refresh restarts it.
     jwtRefreshExpirationMs: 604800000
+    # Absolute session lifetime (30 days) after login, however active the user is
+    refreshAbsoluteExpirationMs: 2592000000
+    # A rotated refresh token presented again within this window is a benign race (two tabs), not theft
+    refreshReuseGraceSeconds: 30
+    # Daily deletion of expired refresh tokens
+    refreshCleanupCron: "0 30 3 * * *"
   crypto:
     # No defaults on purpose: startup fails unless both are set. Each must be a
     # base64-encoded 32-byte key, and the two must differ. Dev/test values live

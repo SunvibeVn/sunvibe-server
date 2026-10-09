@@ -63,6 +63,8 @@ class UserGetInfoServiceTest {
             public AppUser findByUsername(String username) { return appUser; }
             @Override
             public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
+            @Override
+            public java.util.Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
         };
 
         SecurityContextHolder.getContext().setAuthentication(

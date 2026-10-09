@@ -30,4 +30,8 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
             "WHERE u.username = :username AND u.deletedAt IS NULL")
     Optional<UserEntity> findByUsername(@Param("username") String username);
 
+    @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.userRoles " +
+            "WHERE u.id = :id AND u.deletedAt IS NULL")
+    Optional<UserEntity> findActiveById(@Param("id") String id);
+
 }

@@ -9,6 +9,7 @@ import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
+import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.common.generator.id.IdGenerator;
@@ -16,6 +17,7 @@ import vn.sunvibe.common.generator.id.IdGenerator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -71,6 +73,11 @@ class UserRegisterServiceTest {
         public AppUser findByEmail(String email) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public Optional<AppUser> findById(UserId userId) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private FakeUserDomainRepository repository;
@@ -106,7 +113,7 @@ class UserRegisterServiceTest {
 
     @Test
     void execute_registersWithOnlyFullNameUsernameAndPassword() {
-        service.execute(command("0912345678", null, null), "fingerprint");
+        service.execute(command("0912345678", null, null));
 
         AppUser saved = repository.findByUsername("0912345678");
         assertNotNull(saved);
@@ -117,14 +124,14 @@ class UserRegisterServiceTest {
 
     @Test
     void execute_alwaysAssignsTenantRole() {
-        service.execute(command("0912345678", null, null), "fingerprint");
+        service.execute(command("0912345678", null, null));
 
         assertEquals(Set.of(RoleName.TENANT.name()), repository.findByUsername("0912345678").getUserRoles());
     }
 
     @Test
     void execute_treatsBlankEmailAndIdCardNumberAsAbsent() {
-        service.execute(command("0912345678", "  ", ""), "fingerprint");
+        service.execute(command("0912345678", "  ", ""));
 
         AppUser saved = repository.findByUsername("0912345678");
         assertNull(saved.getEmail());
@@ -133,15 +140,15 @@ class UserRegisterServiceTest {
 
     @Test
     void execute_allowsSeveralUsersWithoutIdCardNumber() {
-        service.execute(command("0912345678", null, null), "fingerprint");
-        service.execute(command("0987654321", null, null), "fingerprint");
+        service.execute(command("0912345678", null, null));
+        service.execute(command("0987654321", null, null));
 
         assertNotNull(repository.findByUsername("0987654321"));
     }
 
     @Test
     void execute_storesOptionalEmailAndIdCardNumberWhenProvided() {
-        service.execute(command("0912345678", "A@Example.com", "123456789012"), "fingerprint");
+        service.execute(command("0912345678", "A@Example.com", "123456789012"));
 
         AppUser saved = repository.findByUsername("0912345678");
         assertEquals("a@example.com", saved.getEmail().getValue());
@@ -150,33 +157,33 @@ class UserRegisterServiceTest {
 
     @Test
     void execute_rejectsDuplicateEmail() {
-        service.execute(command("0912345678", "a@example.com", null), "fingerprint");
+        service.execute(command("0912345678", "a@example.com", null));
 
         AuthValidationException exception = assertThrows(AuthValidationException.class,
-                () -> service.execute(command("0987654321", "a@example.com", null), "fingerprint"));
+                () -> service.execute(command("0987654321", "a@example.com", null)));
         assertEquals(AuthFieldName.EMAIL, exception.getField());
     }
 
     @Test
     void execute_rejectsInvalidEmailFormat() {
         AuthValidationException exception = assertThrows(AuthValidationException.class,
-                () -> service.execute(command("0912345678", "not-an-email", null), "fingerprint"));
+                () -> service.execute(command("0912345678", "not-an-email", null)));
         assertEquals(AuthFieldName.EMAIL, exception.getField());
     }
 
     @Test
     void execute_rejectsDuplicateIdCardNumber() {
-        service.execute(command("0912345678", null, "123456789012"), "fingerprint");
+        service.execute(command("0912345678", null, "123456789012"));
 
         AuthValidationException exception = assertThrows(AuthValidationException.class,
-                () -> service.execute(command("0987654321", null, "123456789012"), "fingerprint"));
+                () -> service.execute(command("0987654321", null, "123456789012")));
         assertEquals(AuthFieldName.ID_CARD_NUMBER, exception.getField());
     }
 
     @Test
     void execute_rejectsInvalidIdCardNumberFormat() {
         AuthValidationException exception = assertThrows(AuthValidationException.class,
-                () -> service.execute(command("0912345678", null, "not-a-number"), "fingerprint"));
+                () -> service.execute(command("0912345678", null, "not-a-number")));
         assertEquals(AuthFieldName.ID_CARD_NUMBER, exception.getField());
     }
 }

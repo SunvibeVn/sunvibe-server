@@ -42,7 +42,7 @@ public class JWTRequestFilter extends OncePerRequestFilter {
     // Cache to avoid re-check
     private final Map<String, Boolean> pathCache = new ConcurrentHashMap<>();
 
-    public static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/logout", "/api/users/command/register", "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**");
+    public static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/logout", "/api/auth/refresh-token", "/api/users/command/register", "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**");
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -134,12 +134,17 @@ public class JWTRequestFilter extends OncePerRequestFilter {
         return Optional.of(new UsernamePasswordAuthenticationToken(user.getUsername(), null, user.getAuthorities()));
     }
 
-    private Optional<String> getJwtFromRequest(HttpServletRequest request) {
+    /**
+     * The access token from {@code Authorization: Bearer ...} (SPA/mobile), or
+     * else from the HttpOnly access-token cookie set at login/refresh (browser).
+     */
+    Optional<String> getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(JWTProvider.TOKEN_PREFIX)) {
-            return Optional.of(bearerToken.substring(7));
+            return Optional.of(bearerToken.substring(JWTProvider.TOKEN_PREFIX.length()));
         }
-        return Optional.empty();
+        String cookieToken = jwtProvider.getJwtFromCookies(request);
+        return StringUtils.hasText(cookieToken) ? Optional.of(cookieToken) : Optional.empty();
     }
 
     private boolean isPublicPath(String path) {
