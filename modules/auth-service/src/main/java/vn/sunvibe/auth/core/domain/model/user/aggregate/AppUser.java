@@ -152,6 +152,16 @@ public class AppUser {
         this.lastLogin = when != null ? when : AppClock.currentUTC();
     }
 
+    /**
+     * Whether this account may sign in or be issued credentials.
+     * A locked, terminated or deleted account may not; any other status may.
+     */
+    public boolean canAuthenticate() {
+        return userStatus != UserStatus.LOCK
+                && userStatus != UserStatus.TERMINATED
+                && userStatus != UserStatus.DELETED;
+    }
+
     public void deactivate() {
         this.userStatus = UserStatus.DELETED;
         this.deletedAt = AppClock.currentUTC();

@@ -1,6 +1,8 @@
 package vn.sunvibe.auth.core.domain.model.user.aggregate;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
@@ -49,5 +51,18 @@ class AppUserTest {
         user.deactivate();
         assertEquals(UserStatus.DELETED, user.getUserStatus());
         assertNotNull(user.getDeletedAt());
+    }
+
+    @ParameterizedTest
+    @EnumSource(UserStatus.class)
+    void canAuthenticate_onlyBlockedStatusesAreRejected(UserStatus status) {
+        AppUser user = newUser();
+        user.setUserStatus(status);
+
+        boolean expected = switch (status) {
+            case ACTIVE, PENDING -> true;
+            case LOCK, TERMINATED, DELETED -> false;
+        };
+        assertEquals(expected, user.canAuthenticate());
     }
 }
