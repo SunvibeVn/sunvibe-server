@@ -9,3 +9,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+
+app:
+  crypto:
+    # Test-only keys (public, committed); never use for real data.
+    id-card-key: bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=
+    id-card-index-key: HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=
