@@ -13,10 +13,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  */
 @Configuration
 @EntityScan(basePackages = {
-    "vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity"
+    "vn.sunvibe.auth.core.infrastructure.persistence.entity"
 })
 @EnableJpaRepositories(basePackages = {
-    "vn.sunvibe.auth.core.infrastructure.persistence.jpa.repository"
+    "vn.sunvibe.auth.core.infrastructure.persistence.repository"
 })
 public class AuthJpaConfig {
 }
