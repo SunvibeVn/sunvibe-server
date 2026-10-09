@@ -7,7 +7,6 @@ import java.time.Instant;
 @Builder
 public record PasswordForgotResponse(
         String message,
-        String resetToken,
         Instant expiresAt,
         long otpExpirationMinutes
 ) {

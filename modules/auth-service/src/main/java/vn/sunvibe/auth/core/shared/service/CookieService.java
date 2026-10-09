@@ -10,7 +10,7 @@ import java.time.Duration;
 public class CookieService {
 
     @Value("${app.jwt.expiration.minutes}")
-    private long accessTokenExpirationMs;
+    private long accessTokenExpirationMinutes;
 
     @Value("${app.jwt.jwtRefreshExpirationMs}")
     private long refreshTokenExpirationMs;
@@ -27,7 +27,7 @@ public class CookieService {
                 .secure(true)            // Chỉ gửi qua HTTPS
                 .sameSite("Strict")      // Chống CSRF
                 .path("/")
-                .maxAge(Duration.ofMillis(accessTokenExpirationMs))
+                .maxAge(Duration.ofMinutes(accessTokenExpirationMinutes))
                 .build();
     }
 

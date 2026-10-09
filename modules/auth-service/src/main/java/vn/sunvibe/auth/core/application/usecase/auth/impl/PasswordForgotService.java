@@ -41,8 +41,6 @@ public class PasswordForgotService implements PasswordForgotUseCase {
         // Generate OTP
         OtpCode otpCode = OtpCode.create();
 
-        log.error(otpCode.getCode());
-
         // Generate reset token
         PasswordResetToken passwordResetToken = PasswordResetToken.create(snowflakeIdGenerator.generateId(), user.getId().getValue(), command.email(), otpCode.getCode());
 
@@ -50,12 +48,7 @@ public class PasswordForgotService implements PasswordForgotUseCase {
         passwordResetTokenDomainRepository.save(passwordResetToken);
 
         // Send email with OTP
-//        try {
-//            emailService.sendPasswordResetEmail(command.email(), otpCode.getCode(), passwordResetToken.getToken());
-//        } catch (Exception e) {
-//            log.error("Failed to send reset email: {}", e.getMessage());
-//            throw new SendingMailFailedException("Failed to send reset email");
-//        }
+        emailService.sendPasswordResetEmail(command.email(), otpCode.getCode(), passwordResetToken.getToken());
 
         // Publish event
         ForgotPasswordInitiatedEvent event = ForgotPasswordInitiatedEvent.builder().userId(user.getId().getValue()).email(command.email()).otpCode(otpCode.getCode()).resetToken(passwordResetToken.getToken()).initiatedAt(LocalDateTime.now()).build();
@@ -63,6 +56,6 @@ public class PasswordForgotService implements PasswordForgotUseCase {
 
         log.info("Password reset email sent to: {}", command.email());
 
-        return PasswordForgotResponse.builder().message(String.format("Password reset email sent to %s.", command.email())).resetToken(passwordResetToken.getToken()).expiresAt(passwordResetToken.getExpiresAt()).otpExpirationMinutes(15).build();
+        return PasswordForgotResponse.builder().message(String.format("Password reset email sent to %s.", command.email())).expiresAt(passwordResetToken.getExpiresAt()).otpExpirationMinutes(15).build();
     }
 }

@@ -3,7 +3,7 @@ package vn.sunvibe.auth.core.infrastructure.persistence.converter.auto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Named;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.user.UserRoleEntity;
+import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
 
 import java.util.Set;
 import java.util.stream.Collectors;

@@ -4,23 +4,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.auth.RefreshTokenEntity;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.repository.auth.JpaRefreshTokenRepository;
+import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.RefreshTokenEntity;
+import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.RefreshTokenJpaRepository;
 
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenRepositoryAdapter implements RefreshTokenDomainRepository {
 
-    private final JpaRefreshTokenRepository jpaRefreshTokenRepository;
+    private final RefreshTokenJpaRepository refreshTokenJpaRepository;
 
     @Override
     public void saveRefreshToken(RefreshToken refreshToken) {
-        jpaRefreshTokenRepository.save(RefreshTokenEntity.toEntity(refreshToken));
+        refreshTokenJpaRepository.save(RefreshTokenEntity.toEntity(refreshToken));
     }
 
     @Override
     public RefreshToken findRefreshTokenByTokenHash(byte[] hash) {
-        return RefreshTokenEntity.toDomain(jpaRefreshTokenRepository.findByTokenHash(hash).orElseThrow());
+        return RefreshTokenEntity.toDomain(refreshTokenJpaRepository.findByTokenHash(hash).orElseThrow());
     }
 
 }

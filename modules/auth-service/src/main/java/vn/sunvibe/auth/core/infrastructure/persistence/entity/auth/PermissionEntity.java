@@ -1,11 +1,11 @@
-package vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.auth;
+package vn.sunvibe.auth.core.infrastructure.persistence.entity.auth;
 
 
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.UuidGenerator;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.user.UserRoleEntity;
+import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
 
 import java.util.HashSet;
 import java.util.Set;

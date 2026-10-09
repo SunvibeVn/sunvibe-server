@@ -6,10 +6,10 @@ import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapper;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.user.UserEntity;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.user.UserRoleEntity;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.repository.user.UserJpaRepository;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.repository.user.UserRoleJpaRepository;
+import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
+import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
+import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository;
+import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserRoleJpaRepository;
 import vn.sunvibe.auth.core.shared.constant.UserMessage;
 
 import java.util.Set;

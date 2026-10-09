@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.auth;
+package vn.sunvibe.auth.core.infrastructure.persistence.entity.auth;
 
 import jakarta.persistence.*;
 import lombok.*;

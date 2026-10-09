@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.user.UserRoleEntity;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.repository.user.UserRoleJpaRepository;
+import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
+import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserRoleJpaRepository;
 
 import java.util.Arrays;
 import java.util.List;

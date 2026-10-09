@@ -3,7 +3,7 @@ package vn.sunvibe.auth.core.infrastructure.persistence.converter.auto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.user.UserEntity;
+import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 
 @Mapper(
         componentModel = "spring",

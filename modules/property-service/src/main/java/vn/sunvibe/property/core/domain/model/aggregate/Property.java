@@ -381,14 +381,14 @@ public class Property {
      * Check whether the property is available.
      */
     public boolean isAvailable() {
-        return "AVAILABLE".equals(status) && availability != null && availability.isAvailable();
+        return status == PropertyStatus.AVAILABLE && availability != null && availability.isAvailable();
     }
 
     /**
      * Check availability for a time period.
      */
     public boolean isAvailableForPeriod(java.time.LocalDate checkIn, java.time.LocalDate checkOut) {
-        return "AVAILABLE".equals(status) &&
+        return status == PropertyStatus.AVAILABLE &&
                 availability != null &&
                 availability.isAvailableForPeriod(checkIn, checkOut);
     }
@@ -396,7 +396,15 @@ public class Property {
     // ==================== Helper Methods ====================
 
     private boolean isValidStatus(String status) {
-        return status != null && status.matches("(AVAILABLE|RENTED|MAINTENANCE|INACTIVE)");
+        if (status == null) {
+            return false;
+        }
+        try {
+            PropertyStatus.valueOf(status);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
 

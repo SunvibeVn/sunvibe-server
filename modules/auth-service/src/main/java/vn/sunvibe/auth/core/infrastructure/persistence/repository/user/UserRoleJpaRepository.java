@@ -1,8 +1,8 @@
-package vn.sunvibe.auth.core.infrastructure.persistence.jpa.repository.user;
+package vn.sunvibe.auth.core.infrastructure.persistence.repository.user;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.user.UserRoleEntity;
+import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
 
 import java.util.*;
 

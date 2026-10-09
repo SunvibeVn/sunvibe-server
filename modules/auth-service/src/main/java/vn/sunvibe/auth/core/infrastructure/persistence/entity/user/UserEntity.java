@@ -1,16 +1,14 @@
-package vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity.user;
+package vn.sunvibe.auth.core.infrastructure.persistence.entity.user;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.UuidGenerator;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 
 import java.time.Instant;
 import java.util.Set;
-import java.util.UUID;
 
 @Getter
 @Setter

@@ -7,8 +7,8 @@ import vn.sunvibe.auth.core.domain.exception.auth.OtpAlreadyUsedException;
 import vn.sunvibe.auth.core.infrastructure.time.Clock;
 import vn.sunvibe.common.time.AppClock;
 
+import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Random;
 
 @Builder
 @Getter
@@ -39,9 +39,10 @@ public class OtpCode {
         return new OtpCode(code, createdAt, expiresAt, false);
     }
 
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private static String generateRandomOtp() {
-        Random random = new Random();
-        int otp = 100000 + random.nextInt(900000);
+        int otp = 100000 + SECURE_RANDOM.nextInt(900000);
         return String.valueOf(otp);
     }
 

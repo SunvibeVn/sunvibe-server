@@ -7,6 +7,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordResetUseCase;
+import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
+import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.OtpCode;
@@ -28,8 +30,7 @@ public class PasswordResetService implements PasswordResetUseCase {
     private final PasswordResetTokenDomainRepository passwordResetTokenDomainRepository;
     private final UserDomainRepository userDomainRepository;
     private final PasswordEncoder passwordEncoder;
-    //    private final OtpValidator otpValidator;
-//    private final EmailServicePort emailService;
+    private final EmailServicePort emailService;
     private final JWTProvider jwtTokenProvider;
     private final RefreshTokenGenerateUseCase refreshTokenGenerateUseCase;
 
@@ -55,9 +56,9 @@ public class PasswordResetService implements PasswordResetUseCase {
                 false
         );
 
-//        if (!otpValidator.validateOtp(request.getOtpCode(), otpCode)) {
-//            throw new InvalidOtpException("Invalid OTP code");
-//        }
+        if (!otpCode.matches(request.getOtpCode())) {
+            throw new InvalidOtpException("Invalid OTP code");
+        }
 
         // Find user
         AppUser user = userDomainRepository.findByEmail(passwordResetToken.getEmail());
@@ -76,8 +77,8 @@ public class PasswordResetService implements PasswordResetUseCase {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getUsername().getValue());
         String refreshToken = refreshTokenGenerateUseCase.generateRefreshToken(user.getId().getValue(), "");
 
-//        // Send confirmation email
-//        emailService.sendPasswordResetConfirmationEmail(user.getEmail().getValue());
+        // Send confirmation email
+        emailService.sendPasswordResetConfirmationEmail(user.getEmail().getValue());
 
         log.info("Password reset successfully for user: {}", user.getId().getValue());
 

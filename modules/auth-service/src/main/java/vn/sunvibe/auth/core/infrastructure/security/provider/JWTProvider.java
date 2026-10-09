@@ -117,9 +117,9 @@ public class JWTProvider {
 
     public Optional<Jws<Claims>> validateTokenAndGetJws(String token) {
 
-        validateToken(token);
-
         try {
+            validateToken(token);
+
             SecretKey secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecretKey));
 
             Jws<Claims> jws = Jwts.parser()
@@ -138,6 +138,8 @@ public class JWTProvider {
             log.error("Request to parse invalid JWT: {} failed : {}", token, exception.getMessage());
         } catch (IllegalArgumentException exception) {
             log.error("Request to parse empty or null JWT : {} failed : {}", token, exception.getMessage());
+        } catch (TokenExpiredException exception) {
+            log.error("Request to parse expired JWT : {} failed : {}", token, exception.getMessage());
         }
 
         return Optional.empty();

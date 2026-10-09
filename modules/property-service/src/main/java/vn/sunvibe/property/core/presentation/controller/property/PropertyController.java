@@ -45,7 +45,7 @@ public class PropertyController {
      * @return PropertyCreateResponse record with status 201 CREATED
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('OWNER')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('LANDLORD')")
     public ResponseEntity<PropertyCreateResponse> createProperty(
             @Valid @RequestBody PropertyCreateRequest request) {
 

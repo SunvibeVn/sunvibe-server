@@ -1,6 +1,7 @@
 package vn.sunvibe.auth.core.application.usecase.auth.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase;
@@ -26,6 +27,9 @@ public class RefreshTokenGenerateService implements RefreshTokenGenerateUseCase 
     private final RefreshTokenDomainRepository refreshTokenDomainRepository;
     private final IdGenerator<Long> snowflakeIdGenerator;
 
+    @Value("${app.jwt.jwtRefreshExpirationMs}")
+    private long refreshTokenExpirationMs;
+
     @Override
     public String generateRefreshToken(String userId, String rawFingerprint) {
 
@@ -33,8 +37,8 @@ public class RefreshTokenGenerateService implements RefreshTokenGenerateUseCase 
             Instant now = AppClock.currentUTC();
             // new family for new login
             UUID familyId = UUID.randomUUID();
-            // Refresh token will expire in 30 days
-            Instant expiresAt = now.plus(Duration.ofDays(30));
+            // Must match the refresh-token cookie's maxAge (app.jwt.jwtRefreshExpirationMs)
+            Instant expiresAt = now.plus(Duration.ofMillis(refreshTokenExpirationMs));
             String fingerprint = Base64.getEncoder().encodeToString(
                     MessageDigest.getInstance("SHA-256")
                             .digest(rawFingerprint.getBytes(StandardCharsets.UTF_8)));

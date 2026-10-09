@@ -10,10 +10,14 @@ import vn.sunvibe.auth.core.application.usecase.user.UserRegisterUseCase;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.common.generator.id.IdGenerator;
 import vn.sunvibe.common.time.AppClock;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Log4j2
 @Service
@@ -44,8 +48,16 @@ public class UserRegisterService implements UserRegisterUseCase {
         Password passwordVO = Password.create(passwordEncoder.encode(userRegisterCommand.password())); // Encode password
         ProfileImage profileImageVO = ProfileImage.create(null);
 
-        // Create Aggregate
-        AppUser appUser = AppUser.create(userId, userRegisterCommand.fullName(), usernameVO, emailVO, passwordVO, profileImageVO, userRegisterCommand.roles(), AppClock.currentUTC());
+        // Create Aggregate with no roles, then assign requested roles through the
+        // domain guard that rejects privileged roles (ADMIN / SUPER_ADMIN)
+        AppUser appUser = AppUser.create(userId, userRegisterCommand.fullName(), usernameVO, emailVO, passwordVO, profileImageVO, new HashSet<>(), AppClock.currentUTC());
+
+        Set<String> requestedRoles = userRegisterCommand.roles();
+        if (requestedRoles == null || requestedRoles.isEmpty()) {
+            appUser.assignRole(RoleName.USER.name());
+        } else {
+            requestedRoles.forEach(appUser::assignRole);
+        }
 
         // Save in database
         appUser = userRepository.save(appUser);
