@@ -45,16 +45,40 @@ class UserRepositoryAdapterEncryptionTest {
     private EntityManager entityManager;
 
     private static AppUser newUser() {
+        return newUser("01ARZ3NDEKTSV4RRFFQ69G5FAV", "0912345678", Email.create("a@example.com"), IdCardNumber.create(ID_CARD_NUMBER));
+    }
+
+    private static AppUser newUser(String id, String username, Email email, IdCardNumber idCardNumber) {
         return AppUser.create(
-                UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+                UserId.create(id),
                 "Nguyen Van A",
-                Username.create("0912345678"),
-                Email.create("a@example.com"),
+                Username.create(username),
+                email,
                 Password.create("hashed-password"),
                 ProfileImage.create(null),
-                IdCardNumber.create(ID_CARD_NUMBER),
+                idCardNumber,
                 new HashSet<>(),
                 Instant.now());
+    }
+
+    @Test
+    void save_userWithoutEmailOrIdCardNumber_storesNullsAndReloads() {
+        userRepositoryAdapter.save(newUser("01ARZ3NDEKTSV4RRFFQ69G5FAW", "0911111111", null, null));
+        userRepositoryAdapter.save(newUser("01ARZ3NDEKTSV4RRFFQ69G5FAX", "0922222222", null, null));
+        entityManager.flush();
+        entityManager.clear();
+
+        Object[] row = (Object[]) entityManager.createNativeQuery(
+                        "SELECT email, id_card_number, id_card_number_hash FROM users WHERE id = :id")
+                .setParameter("id", "01ARZ3NDEKTSV4RRFFQ69G5FAW")
+                .getSingleResult();
+        assertNull(row[0]);
+        assertNull(row[1]);
+        assertNull(row[2]);
+
+        AppUser reloaded = userRepositoryAdapter.findByUsername("0922222222");
+        assertNull(reloaded.getEmail());
+        assertNull(reloaded.getIdCardNumber());
     }
 
     @Test

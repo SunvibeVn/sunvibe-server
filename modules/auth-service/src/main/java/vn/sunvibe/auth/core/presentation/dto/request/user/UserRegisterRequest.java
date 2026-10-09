@@ -7,8 +7,6 @@ import lombok.Builder;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.ConfirmPasswordMatch;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
 
-import java.util.Set;
-
 @Builder
 @ConfirmPasswordMatch(
         password = "password",
@@ -28,12 +26,13 @@ public record UserRegisterRequest(
         )
         String username,
 
-        @Size(min = 11, max = 100, message = "From 11 to 100 characters in length.")
+        // Optional: empty means "not provided"; format is validated by the Email domain VO.
+        @Size(max = 100, message = "At most 100 characters in length.")
         String email,
 
-        @NotNull(message = "ID card number is mandatory.")
+        // Optional: empty means "not provided".
         @Pattern(
-                regexp = "^(\\d{9}|\\d{12})$",
+                regexp = "^(|\\d{9}|\\d{12})$",
                 message = "ID card number must be a 9-digit CMND or 12-digit CCCD."
         )
         String idCardNumber,
@@ -43,9 +42,7 @@ public record UserRegisterRequest(
         String password,
 
         @NotNull(message = "Confirm password is mandatory.")
-        String confirmPassword,
-
-        Set<String> roles
+        String confirmPassword
 
 ) {
 }

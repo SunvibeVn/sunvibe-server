@@ -17,7 +17,6 @@ import vn.sunvibe.common.generator.id.IdGenerator;
 import vn.sunvibe.common.time.AppClock;
 
 import java.util.HashSet;
-import java.util.Set;
 
 @Log4j2
 @Service
@@ -36,33 +35,27 @@ public class UserRegisterService implements UserRegisterUseCase {
         if (userRepository.existsByUsername(userRegisterCommand.username())) {
             throw new AuthValidationException(AuthFieldName.USER_NAME, "Phone number is already in use.");
         }
-        // Check email exists
-        if (userRepository.existsByEmail(userRegisterCommand.email())) {
+
+        // Optional fields: validated (format) and checked for duplicates only when provided
+        Email emailVO = isProvided(userRegisterCommand.email()) ? Email.create(userRegisterCommand.email().trim()) : null;
+        if (emailVO != null && userRepository.existsByEmail(emailVO.getValue())) {
             throw new AuthValidationException(AuthFieldName.EMAIL, "Email is already in use.");
         }
-        // Validate the ID card number (format + null) before looking it up, then check it exists
-        IdCardNumber idCardNumberVO = IdCardNumber.create(userRegisterCommand.idCardNumber());
-        if (userRepository.existsByIdCardNumber(idCardNumberVO)) {
+        IdCardNumber idCardNumberVO = isProvided(userRegisterCommand.idCardNumber()) ? IdCardNumber.create(userRegisterCommand.idCardNumber().trim()) : null;
+        if (idCardNumberVO != null && userRepository.existsByIdCardNumber(idCardNumberVO)) {
             throw new AuthValidationException(AuthFieldName.ID_CARD_NUMBER, "ID card number is already in use.");
         }
 
         // Build Value-Object
         UserId userId = UserId.create(ulidGenerator.generateId());
         Username usernameVO = Username.create(userRegisterCommand.username());
-        Email emailVO = Email.create(userRegisterCommand.email());
         Password passwordVO = Password.create(passwordEncoder.encode(userRegisterCommand.password())); // Encode password
         ProfileImage profileImageVO = ProfileImage.create(null);
 
-        // Create Aggregate with no roles, then assign requested roles through the
-        // domain guard that rejects privileged roles (ADMIN / SUPER_ADMIN)
         AppUser appUser = AppUser.create(userId, userRegisterCommand.fullName(), usernameVO, emailVO, passwordVO, profileImageVO, idCardNumberVO, new HashSet<>(), AppClock.currentUTC());
 
-        Set<String> requestedRoles = userRegisterCommand.roles();
-        if (requestedRoles == null || requestedRoles.isEmpty()) {
-            appUser.assignRole(RoleName.USER.name());
-        } else {
-            requestedRoles.forEach(appUser::assignRole);
-        }
+        // Self-registered accounts are always tenants; other roles are granted through separate flows
+        appUser.assignRole(RoleName.TENANT.name());
 
         // Save in database
         appUser = userRepository.save(appUser);
@@ -72,6 +65,10 @@ public class UserRegisterService implements UserRegisterUseCase {
         // Publish event
 //        eventPublisher.publish(new UserRegisteredEvent(user.getId(), user.getUsername().getValue(), user.getEmail().getValue(), LocalDateTime.now()), "Create user");
 
+    }
+
+    private static boolean isProvided(String value) {
+        return value != null && !value.isBlank();
     }
 }
 

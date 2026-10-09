@@ -43,6 +43,25 @@ class JWTProviderTest {
     }
 
     @Test
+    void generateAccessToken_userWithoutEmail_omitsEmailClaim() {
+        CustomUserDetails details = new CustomUserDetails();
+        details.setUserId("id");
+        details.setUsername("0912345678");
+        details.setPassword("hashed");
+        details.setEmail(null);
+        details.setAuthorities(Set.of());
+        details.setUserStatus(UserStatus.ACTIVE);
+        JWTProvider provider = new JWTProvider(username -> details);
+        ReflectionTestUtils.setField(provider, "jwtSecretKey", "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=");
+        ReflectionTestUtils.setField(provider, "jwtExpirationMinutes", 60L);
+
+        String token = provider.generateAccessToken("0912345678");
+
+        assertNull(provider.extractAllClaims(token).get("email"));
+        assertEquals("id", provider.extractAllClaims(token).get("uid", String.class));
+    }
+
+    @Test
     void generateAccessToken_carriesUserIdClaim() {
         JWTProvider provider = providerFor(UserStatus.ACTIVE);
         ReflectionTestUtils.setField(provider, "jwtSecretKey", "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=");

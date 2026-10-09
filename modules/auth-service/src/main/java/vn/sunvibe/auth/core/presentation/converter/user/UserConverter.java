@@ -14,7 +14,6 @@ public class UserConverter {
                 .email(userRegisterRequest.email())
                 .password(userRegisterRequest.password())
                 .idCardNumber(userRegisterRequest.idCardNumber())
-                .roles(userRegisterRequest.roles())
                 .build();
     }
 

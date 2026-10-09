@@ -53,8 +53,8 @@ CREATE TABLE users (
     email VARCHAR(100),
     password VARCHAR(255) NOT NULL,
     profile_image VARCHAR(500),
-    id_card_number TEXT NOT NULL,
-    id_card_number_hash VARCHAR(64) NOT NULL,
+    id_card_number TEXT, -- optional: can be added to the profile after registration
+    id_card_number_hash VARCHAR(64),
     id_card_front_url TEXT,
     id_card_back_url TEXT,
     kyc_status VARCHAR(20) NOT NULL DEFAULT 'UNVERIFIED',

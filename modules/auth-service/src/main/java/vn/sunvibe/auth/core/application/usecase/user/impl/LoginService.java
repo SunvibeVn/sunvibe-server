@@ -80,7 +80,7 @@ public class LoginService implements LoginUseCase {
         LoginResponse loginResponse = LoginResponse.builder()
                 .tokenType(JWTProvider.TOKEN_TYPE)
                 .username(appUser.getUsername().getValue())
-                .userEmail(appUser.getEmail().getValue())
+                .userEmail(appUser.getEmail() != null ? appUser.getEmail().getValue() : null)
                 .roles(appUser.getUserRoles())
                 .message(AuthMessage.LOGIN_SUCCESS)
                 .build();

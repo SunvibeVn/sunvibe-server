@@ -34,6 +34,11 @@ These were confirmed with the project owner before writing this spec:
    `idCardFrontUrl`, `idCardBackUrl`, and `kycStatus` exist in the schema/domain model for
    completeness but are not collected or validated at registration time — there is no file-upload
    flow or KYC review workflow in scope. `kycStatus` defaults to `UNVERIFIED`.
+   **Superseded 2026-10-09 by the project owner:** registration now requires only `fullName`,
+   `username` (phone number) and `password` (+ `confirmPassword`); `email` and `idCardNumber` are
+   optional (validated and duplicate-checked only when provided), the role is always `TENANT`
+   (the request no longer accepts `roles`), and the columns became nullable via migration
+   `V202610091300__make_user_id_card_optional.sql`. Adding email / ID card later is a separate task.
 2. **Encryption:** `idCardNumber` is encrypted at rest (the schema doc's comment explicitly says
    "Được mã hóa" / "encrypted"). No crypto utility exists anywhere in the codebase today, so one is
    built as part of this change.

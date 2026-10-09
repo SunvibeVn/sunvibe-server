@@ -39,7 +39,7 @@ public interface UserVOMapper {
 
     @Named("mapIdCardNumber")
     default String mapIdCardNumber(IdCardNumber idCardNumber) {
-        return idCardNumber.getValue();
+        return idCardNumber != null ? idCardNumber.getValue() : null;
     }
 
     @Named("mapStringsToUserRoles")
@@ -78,7 +78,7 @@ public interface UserVOMapper {
 
     @Named("toIdCardNumber")
     default IdCardNumber toIdCardNumber(String value) {
-        return IdCardNumber.from(value);
+        return value != null ? IdCardNumber.from(value) : null;
     }
 
     @Named("mapUserRolesToStrings")

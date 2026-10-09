@@ -65,7 +65,7 @@ public class UserEntity {
     /**
      * ID card number (CMND/CCCD), encrypted at rest.
      */
-    @Column(name = "id_card_number", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "id_card_number", columnDefinition = "TEXT")
     @Convert(converter = EncryptedStringAttributeConverter.class)
     private String idCardNumber;
 
@@ -74,7 +74,7 @@ public class UserEntity {
      * for the duplicate-registration lookup — never decrypted/compared
      * to plaintext directly.
      */
-    @Column(name = "id_card_number_hash", nullable = false, length = 64)
+    @Column(name = "id_card_number_hash", length = 64)
     private String idCardNumberHash;
 
     @Column(name = "id_card_front_url", columnDefinition = "TEXT")

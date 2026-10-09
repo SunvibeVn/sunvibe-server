@@ -4,8 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
-import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
+import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
+import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
+
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -49,6 +54,31 @@ class CustomUserDetailsServiceTest {
         public AppUser findByEmail(String email) {
             throw new UnsupportedOperationException();
         }
+    }
+
+    @Test
+    void loadUserByUsername_userWithoutEmail_hasNullEmail() {
+        AppUser userWithoutEmail = AppUser.create(
+                UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
+                "Nguyen Van A",
+                Username.create("0912345678"),
+                null,
+                Password.create("hashed-password"),
+                ProfileImage.create(null),
+                null,
+                new HashSet<>(Set.of("TENANT")),
+                Instant.now());
+        NoUsersRepository repository = new NoUsersRepository() {
+            @Override
+            public AppUser findByUsername(String username) {
+                return userWithoutEmail;
+            }
+        };
+
+        CustomUserDetails details = (CustomUserDetails) new CustomUserDetailsService(repository).loadUserByUsername("0912345678");
+
+        assertNull(details.getEmail());
+        assertEquals("0912345678", details.getUsername());
     }
 
     @Test

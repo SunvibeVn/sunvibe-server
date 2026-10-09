@@ -43,7 +43,8 @@ public class UserRepositoryAdapter implements UserDomainRepository {
     @Override
     public AppUser save(AppUser appUser) {
         UserEntity userEntity = userMapper.toEntity(appUser);
-        userEntity.setIdCardNumberHash(idCardNumberHash(appUser.getIdCardNumber()));
+        IdCardNumber idCardNumber = appUser.getIdCardNumber();
+        userEntity.setIdCardNumberHash(idCardNumber != null ? idCardNumberHash(idCardNumber) : null);
 
         // Get role from DB by input
         Set<UserRoleEntity> userRoleEntities = userRoleJpaRepository.findByNameIn(appUser.getUserRoles());

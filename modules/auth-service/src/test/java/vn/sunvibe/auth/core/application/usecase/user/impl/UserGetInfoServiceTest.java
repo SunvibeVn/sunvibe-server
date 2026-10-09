@@ -25,14 +25,28 @@ class UserGetInfoServiceTest {
 
     @Test
     void execute_includesKycStatus() {
+        UserProfileInfo profile = profileOf(Email.create("a@example.com"));
+
+        assertEquals(KycStatus.UNVERIFIED.name(), profile.kycStatus());
+    }
+
+    @Test
+    void execute_userWithoutEmail_returnsNullEmail() {
+        UserProfileInfo profile = profileOf(null);
+
+        assertNull(profile.email());
+        assertEquals("0912345678", profile.username());
+    }
+
+    private UserProfileInfo profileOf(Email email) {
         AppUser appUser = AppUser.create(
                 UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
                 "Nguyen Van A",
                 Username.create("0912345678"),
-                Email.create("a@example.com"),
+                email,
                 Password.create("hashed-password"),
                 ProfileImage.create(null),
-                IdCardNumber.create("123456789012"),
+                null,
                 new HashSet<>(),
                 Instant.now());
 
@@ -54,9 +68,6 @@ class UserGetInfoServiceTest {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("0912345678", null, List.of()));
 
-        UserGetInfoService service = new UserGetInfoService(repository);
-        UserProfileInfo profile = service.execute();
-
-        assertEquals(KycStatus.UNVERIFIED.name(), profile.kycStatus());
+        return new UserGetInfoService(repository).execute();
     }
 }
