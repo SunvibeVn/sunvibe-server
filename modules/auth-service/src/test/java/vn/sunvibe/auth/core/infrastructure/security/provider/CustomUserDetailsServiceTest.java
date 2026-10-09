@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -30,7 +31,7 @@ class CustomUserDetailsServiceTest {
         }
 
         @Override
-        public boolean existsByIdCardNumberHash(String idCardNumberHash) {
+        public boolean existsByIdCardNumber(IdCardNumber idCardNumber) {
             throw new UnsupportedOperationException();
         }
 

@@ -2,6 +2,7 @@ package vn.sunvibe.auth.core.domain.repository.user;
 
 
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 
 public interface UserDomainRepository {
 
@@ -9,7 +10,7 @@ public interface UserDomainRepository {
 
     boolean existsByEmail(String email);
 
-    boolean existsByIdCardNumberHash(String idCardNumberHash);
+    boolean existsByIdCardNumber(IdCardNumber idCardNumber);
 
     AppUser save(AppUser user);
 

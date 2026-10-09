@@ -44,9 +44,8 @@ class UserRepositoryAdapterEncryptionTest {
     @Autowired
     private EntityManager entityManager;
 
-    @Test
-    void save_storesIdCardNumberEncryptedWithBlindIndex() {
-        AppUser user = AppUser.create(
+    private static AppUser newUser() {
+        return AppUser.create(
                 UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
                 "Nguyen Van A",
                 Username.create("0912345678"),
@@ -56,6 +55,21 @@ class UserRepositoryAdapterEncryptionTest {
                 IdCardNumber.create(ID_CARD_NUMBER),
                 new HashSet<>(),
                 Instant.now());
+    }
+
+    @Test
+    void existsByIdCardNumber_matchesTheBlindIndexWrittenBySave() {
+        userRepositoryAdapter.save(newUser());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertTrue(userRepositoryAdapter.existsByIdCardNumber(IdCardNumber.create(ID_CARD_NUMBER)));
+        assertFalse(userRepositoryAdapter.existsByIdCardNumber(IdCardNumber.create("987654321098")));
+    }
+
+    @Test
+    void save_storesIdCardNumberEncryptedWithBlindIndex() {
+        AppUser user = newUser();
 
         userRepositoryAdapter.save(user);
         entityManager.flush();

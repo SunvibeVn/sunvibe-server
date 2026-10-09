@@ -42,7 +42,7 @@ class UserGetInfoServiceTest {
             @Override
             public boolean existsByEmail(String email) { return false; }
             @Override
-            public boolean existsByIdCardNumberHash(String idCardNumberHash) { return false; }
+            public boolean existsByIdCardNumber(IdCardNumber idCardNumber) { return false; }
             @Override
             public AppUser save(AppUser user) { return user; }
             @Override

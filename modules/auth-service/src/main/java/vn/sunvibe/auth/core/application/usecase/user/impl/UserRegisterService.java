@@ -13,7 +13,6 @@ import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.common.crypto.CryptoService;
 import vn.sunvibe.common.generator.id.IdGenerator;
 import vn.sunvibe.common.time.AppClock;
 
@@ -28,7 +27,6 @@ public class UserRegisterService implements UserRegisterUseCase {
     private final UserDomainRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final IdGenerator<String> ulidGenerator;
-    private final CryptoService cryptoService;
 
     @Transactional
     @Override
@@ -42,9 +40,9 @@ public class UserRegisterService implements UserRegisterUseCase {
         if (userRepository.existsByEmail(userRegisterCommand.email())) {
             throw new AuthValidationException(AuthFieldName.EMAIL, "Email is already in use.");
         }
-        // Check ID card number exists
-        String idCardNumberHash = cryptoService.blindIndex(userRegisterCommand.idCardNumber());
-        if (userRepository.existsByIdCardNumberHash(idCardNumberHash)) {
+        // Validate the ID card number (format + null) before looking it up, then check it exists
+        IdCardNumber idCardNumberVO = IdCardNumber.create(userRegisterCommand.idCardNumber());
+        if (userRepository.existsByIdCardNumber(idCardNumberVO)) {
             throw new AuthValidationException(AuthFieldName.ID_CARD_NUMBER, "ID card number is already in use.");
         }
 
@@ -54,7 +52,6 @@ public class UserRegisterService implements UserRegisterUseCase {
         Email emailVO = Email.create(userRegisterCommand.email());
         Password passwordVO = Password.create(passwordEncoder.encode(userRegisterCommand.password())); // Encode password
         ProfileImage profileImageVO = ProfileImage.create(null);
-        IdCardNumber idCardNumberVO = IdCardNumber.create(userRegisterCommand.idCardNumber());
 
         // Create Aggregate with no roles, then assign requested roles through the
         // domain guard that rejects privileged roles (ADMIN / SUPER_ADMIN)

@@ -52,7 +52,7 @@ class PasswordResetServiceTest {
         }
 
         @Override
-        public boolean existsByIdCardNumberHash(String idCardNumberHash) {
+        public boolean existsByIdCardNumber(IdCardNumber idCardNumber) {
             throw new UnsupportedOperationException();
         }
 
