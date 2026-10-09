@@ -5,7 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
@@ -24,7 +26,14 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String username) {
 //        log.info("CustomUserDetailsService.loadUserByUsername--001");
         System.out.println("CustomUserDetailsService.loadUserByUsername");
-        AppUser appUser = userDomainRepository.findByUsername(username);
+        AppUser appUser;
+        try {
+            appUser = userDomainRepository.findByUsername(username);
+        } catch (UserNotFoundException e) {
+            // Spring's contract: unknown user -> UsernameNotFoundException, which
+            // DaoAuthenticationProvider turns into a plain bad-credentials failure.
+            throw new UsernameNotFoundException(e.getMessage(), e);
+        }
         Set<SimpleGrantedAuthority> authorities = appUser.getUserRoles()
                 .stream()
                 .map(role -> new SimpleGrantedAuthority("ROLE_" + role)).collect(Collectors.toSet());
