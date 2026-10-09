@@ -45,31 +45,40 @@ CREATE EXTENSION IF NOT EXISTS "postgis";
 -- PHÂN HỆ 1: NGƯỜI DÙNG, PHÂN QUYỀN & NHÂN VIÊN (IDENTITY & RBAC)
 -- ============================================================================
 
+-- Source of truth: Flyway migrations in modules/auth-service/src/main/resources/db/migration/; id_card_number holds AES-256-GCM ciphertext (blind index in id_card_number_hash).
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email VARCHAR(255) NOT NULL UNIQUE,
-    phone_number VARCHAR(20) NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
-    full_name VARCHAR(150) NOT NULL,
-    avatar_url TEXT,
-    id_card_number VARCHAR(30) UNIQUE, -- Số CCCD / Hộ chiếu (Được mã hóa)
+    id VARCHAR(26) NOT NULL PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    username VARCHAR(32) NOT NULL,
+    email VARCHAR(100),
+    password VARCHAR(255) NOT NULL,
+    profile_image VARCHAR(500),
+    id_card_number TEXT NOT NULL,
+    id_card_number_hash VARCHAR(64) NOT NULL,
     id_card_front_url TEXT,
     id_card_back_url TEXT,
-    kyc_status VARCHAR(30) NOT NULL DEFAULT 'UNVERIFIED', -- UNVERIFIED, PENDING, VERIFIED, REJECTED
-    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, LOCKED, INACTIVE
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    kyc_status VARCHAR(20) NOT NULL DEFAULT 'UNVERIFIED',
+    user_status VARCHAR(20) NOT NULL,
+    created_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_update TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_login TIMESTAMP WITH TIME ZONE,
     deleted_at TIMESTAMP WITH TIME ZONE
 );
 
+CREATE UNIQUE INDEX idx_users_username ON users (username) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_users_email ON users (email) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_users_id_card_number_hash ON users (id_card_number_hash) WHERE deleted_at IS NULL;
+
 CREATE TABLE roles (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE -- ROLE_ADMIN, ROLE_AGENT, ROLE_CLIENT, ROLE_CUSTOMER
+    id UUID NOT NULL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    description VARCHAR(500),
+    CONSTRAINT uk_roles_name UNIQUE (name)
 );
 
 CREATE TABLE user_roles (
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role_id INT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    user_id VARCHAR(26) NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES roles (id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, role_id)
 );
 

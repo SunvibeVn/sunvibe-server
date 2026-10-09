@@ -205,17 +205,25 @@ lengths, uniqueness, foreign keys) so that `ddl-auto: update` — left untouched
 table in the system — finds nothing to change on these three tables once Flyway has created them.
 `roles.id` is `UUID` (matching `UserRoleEntity`, not the doc's `SERIAL`). `users.id` is
 `VARCHAR` (ULID, matching `UserEntity`/`AppUser`, not the doc's DB-generated `UUID`).
+One deliberate exception to "mirrors the entity": uniqueness of `users.username`, `users.email`
+and `users.id_card_number_hash` is enforced only by partial unique indexes in the migration
+(`CREATE UNIQUE INDEX ... WHERE deleted_at IS NULL`), so a soft-deleted user's username, email and
+ID card can be reused (decision 3). `UserEntity` therefore declares no uniqueness on those columns —
+`ddl-auto` would otherwise turn it into a full, all-rows constraint.
 
 **Not migrated by Flyway:** role seed data stays in the existing `RoleDataInitializer`
 `CommandLineRunner` (idempotent, checks `count() == 0`) — Flyway owns schema only, not seed rows,
 to keep this change minimal.
 
-**Operational note (not something this change can resolve by itself):** if a dev Postgres database
-already has `users`/`roles`/`user_roles` tables (created previously by `ddl-auto`), Flyway's
-`CREATE TABLE` migrations will fail on next boot because the tables already exist. This repo is two
-commits in with no indication of real persisted data, so the assumption is that dropping those
-three tables (or the whole dev DB) once, before the first Flyway run, is acceptable. This is a
-manual/infra step for whoever runs the migration, not something scripted as part of this change.
+**Operational note (not something this change can resolve by itself):** Flyway refuses to migrate
+a non-empty schema that has no `flyway_schema_history` table, so any dev Postgres database previously
+populated by `ddl-auto` will fail on next boot. Dropping just `users`/`roles`/`user_roles` is not
+enough — other `ddl-auto` tables exist in the same schema (and `role_permission` references
+`roles`). Reset by dropping and recreating the whole dev schema (e.g. `DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;`) once, before the first boot with these migrations. This repo has no
+indication of real persisted data, so that is acceptable; it is a manual/infra step for whoever
+runs the migration, not something scripted as part of this change. The same note is repeated as a
+comment header in `V202610091200__create_roles_table.sql`.
 
 ## 7. Presentation layer changes
 
