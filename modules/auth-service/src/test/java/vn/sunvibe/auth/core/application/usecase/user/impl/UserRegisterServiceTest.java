@@ -4,6 +4,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
+import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
+import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
+import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
@@ -15,8 +19,10 @@ import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.common.generator.id.IdGenerator;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -84,6 +90,7 @@ class UserRegisterServiceTest {
     private FakeUserDomainRepository repository;
     private UserRegisterService service;
     private RecordingAuditLog audit;
+    private List<VerificationChannel> codesSent;
 
     @BeforeEach
     void setUp() {
@@ -101,7 +108,24 @@ class UserRegisterServiceTest {
         };
         IdGenerator<String> ulidGenerator = () -> "01ARZ3NDEKTSV4RRFFQ69G5FAV";
         audit = new RecordingAuditLog();
-        service = new UserRegisterService(repository, passwordEncoder, ulidGenerator, audit);
+        codesSent = new ArrayList<>();
+        ContactVerificationUseCase contactVerification = new ContactVerificationUseCase() {
+            @Override
+            public VerificationSendResult sendCode(VerificationChannel channel) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void confirm(VerificationChannel channel, String code) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void sendCodeAfterRegistration(AppUser user, VerificationChannel channel) {
+                codesSent.add(channel);
+            }
+        };
+        service = new UserRegisterService(repository, passwordEncoder, ulidGenerator, audit, contactVerification);
     }
 
     private UserRegisterCommand command(String username, String email, String idCardNumber) {
@@ -123,6 +147,25 @@ class UserRegisterServiceTest {
         assertNull(saved.getEmail());
         assertNull(saved.getIdCardNumber());
         assertEquals(KycStatus.UNVERIFIED, saved.getKycStatus());
+    }
+
+    /** "Register first, verify later": the account is PENDING and an SMS code goes out at once. */
+    @Test
+    void execute_newAccountIsPendingAndGetsAPhoneCode() {
+        service.execute(command("0912345678", null, null));
+
+        AppUser saved = repository.findByUsername("0912345678");
+        assertEquals(UserStatus.PENDING, saved.getUserStatus());
+        assertFalse(saved.isPhoneVerified());
+        assertEquals(List.of(VerificationChannel.PHONE), codesSent);
+    }
+
+    @Test
+    void execute_withEmailAlsoSendsAnEmailCode() {
+        service.execute(command("0912345678", "a@example.com", null));
+
+        assertEquals(List.of(VerificationChannel.PHONE, VerificationChannel.EMAIL), codesSent);
+        assertFalse(repository.findByUsername("0912345678").isEmailVerified());
     }
 
     @Test

@@ -28,13 +28,19 @@ public class PasswordResetTokenRepositoryAdapter implements PasswordResetTokenDo
     }
 
     @Override
-    public Optional<PasswordResetToken> findLatestByEmail(String email) {
-        return passwordResetTokenJpaRepository.findFirstByEmailOrderByCreatedAtDesc(email).map(PasswordResetTokenEntity::toDomain);
+    public Optional<PasswordResetToken> findLatestByDestination(String destination) {
+        return passwordResetTokenJpaRepository.findFirstByDestinationOrderByCreatedAtDesc(destination)
+                .map(PasswordResetTokenEntity::toDomain);
     }
 
     @Override
-    public void invalidateActiveTokens(String email, Instant now) {
-        passwordResetTokenJpaRepository.invalidateActiveTokens(email, now);
+    public void invalidateActiveTokens(String destination, Instant now) {
+        passwordResetTokenJpaRepository.invalidateActiveTokens(destination, now);
+    }
+
+    @Override
+    public long countIssuedSince(String destination, Instant since) {
+        return passwordResetTokenJpaRepository.countByDestinationAndCreatedAtAfter(destination, since);
     }
 
     @Override

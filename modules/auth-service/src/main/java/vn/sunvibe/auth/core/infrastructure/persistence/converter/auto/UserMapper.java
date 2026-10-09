@@ -29,6 +29,8 @@ public interface UserMapper {
     @Mapping(target = "deletedAt", source = "deletedAt")
     @Mapping(target = "failedLoginAttempts", source = "failedLoginAttempts")
     @Mapping(target = "lockedUntil", source = "lockedUntil")
+    @Mapping(target = "phoneVerifiedAt", source = "phoneVerifiedAt")
+    @Mapping(target = "emailVerifiedAt", source = "emailVerifiedAt")
     AppUser toDomain(UserEntity userEntity);
 
     /*────────────── DOMAIN → ENTITY ──────────────*/
@@ -49,6 +51,8 @@ public interface UserMapper {
     @Mapping(target = "deletedAt", source = "deletedAt")
     @Mapping(target = "failedLoginAttempts", source = "failedLoginAttempts")
     @Mapping(target = "lockedUntil", source = "lockedUntil")
+    @Mapping(target = "phoneVerifiedAt", source = "phoneVerifiedAt")
+    @Mapping(target = "emailVerifiedAt", source = "emailVerifiedAt")
     @Mapping(target = "idCardNumberHash", ignore = true)
     UserEntity toEntity(AppUser appUser);
 

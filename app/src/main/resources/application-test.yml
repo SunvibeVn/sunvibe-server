@@ -11,6 +11,9 @@ spring:
       ddl-auto: create-drop
 
 app:
+  sms:
+    # Writes SMS (with OTPs) to the log instead of sending them; dev/test only
+    provider: ${SMS_PROVIDER:log}
   crypto:
     # Test-only keys (public, committed); never use for real data.
     id-card-key: bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=

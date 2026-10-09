@@ -2,6 +2,7 @@ package vn.sunvibe.auth.core.domain.model.user.vo;
 
 import lombok.Getter;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.common.time.AppClock;
 
 import java.nio.charset.StandardCharsets;
@@ -11,7 +12,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One password-reset request: a random token plus the OTP e-mailed with it.
+ * One password-reset request: a random token plus the OTP sent with it by
+ * e-mail or SMS ({@link #channel}) to {@link #destination}.
  * <p>
  * The OTP has only 6 digits, so each token tolerates a few wrong codes and is
  * then burned ({@link #registerFailedAttempt}); the user must request a new code.
@@ -24,7 +26,9 @@ public class PasswordResetToken {
     private final Long id;
     private final String token;
     private final String userId;
-    private final String email;
+    private final VerificationChannel channel;
+    /** E-mail address or phone number the OTP was sent to. */
+    private final String destination;
     private final Instant createdAt;
     private final Instant expiresAt;
     private final String otpCode;
@@ -33,12 +37,14 @@ public class PasswordResetToken {
     /** Wrong OTP codes entered for this token so far. */
     private int failedAttempts;
 
-    private PasswordResetToken(Long id, String token, String userId, String email, Instant createdAt, Instant expiresAt,
-                               String otpCode, boolean used, Instant usedAt, int failedAttempts) {
+    private PasswordResetToken(Long id, String token, String userId, VerificationChannel channel, String destination,
+                               Instant createdAt, Instant expiresAt, String otpCode, boolean used, Instant usedAt,
+                               int failedAttempts) {
         this.id = id;
         this.token = token;
         this.userId = userId;
-        this.email = email;
+        this.channel = channel;
+        this.destination = destination;
         this.createdAt = createdAt;
         this.expiresAt = expiresAt;
         this.otpCode = otpCode;
@@ -48,23 +54,25 @@ public class PasswordResetToken {
     }
 
     // Factory method - generate new token
-    public static PasswordResetToken create(Long id, String userId, String email, String otpCode) {
+    public static PasswordResetToken create(Long id, String userId, VerificationChannel channel, String destination,
+                                            String otpCode) {
         Instant createdAt = AppClock.currentUTC();
-        return new PasswordResetToken(id, UUID.randomUUID().toString(), userId, email, createdAt,
+        return new PasswordResetToken(id, UUID.randomUUID().toString(), userId, channel, destination, createdAt,
                 createdAt.plus(LIFETIME), otpCode, false, null, 0);
     }
 
     // Factory method - restore from DB
-    public static PasswordResetToken restore(Long id, String token, String userId, String email, Instant createdAt,
-                                             Instant expiresAt, boolean used, Instant usedAt, int failedAttempts,
-                                             String otpCode) {
-        return new PasswordResetToken(id, token, userId, email, createdAt, expiresAt, otpCode, used, usedAt, failedAttempts);
+    public static PasswordResetToken restore(Long id, String token, String userId, VerificationChannel channel,
+                                             String destination, Instant createdAt, Instant expiresAt, boolean used,
+                                             Instant usedAt, int failedAttempts, String otpCode) {
+        return new PasswordResetToken(id, token, userId, channel, destination, createdAt, expiresAt, otpCode, used,
+                usedAt, failedAttempts);
     }
 
-    // Factory method - restore from DB, no failed attempts recorded
+    // Factory method - restore an e-mail token with no failed attempts recorded
     public static PasswordResetToken restore(Long id, String token, String userId, String email, Instant createdAt,
                                              Instant expiresAt, boolean used, String otpCode) {
-        return restore(id, token, userId, email, createdAt, expiresAt, used, null, 0, otpCode);
+        return restore(id, token, userId, VerificationChannel.EMAIL, email, createdAt, expiresAt, used, null, 0, otpCode);
     }
 
     // Business logic

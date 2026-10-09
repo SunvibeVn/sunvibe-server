@@ -9,9 +9,11 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.shared.constant.AuthAuthorities;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -25,7 +27,6 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) {
 //        log.info("CustomUserDetailsService.loadUserByUsername--001");
-        System.out.println("CustomUserDetailsService.loadUserByUsername");
         AppUser appUser;
         try {
             appUser = userDomainRepository.findByUsername(username);
@@ -36,7 +37,15 @@ public class CustomUserDetailsService implements UserDetailsService {
         }
         Set<SimpleGrantedAuthority> authorities = appUser.getUserRoles()
                 .stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role)).collect(Collectors.toSet());
+                .map(role -> new SimpleGrantedAuthority("ROLE_" + role)).collect(Collectors.toCollection(HashSet::new));
+        // Verified contacts as authorities, so any module can require them:
+        // @PreAuthorize("hasAuthority('PHONE_VERIFIED')")
+        if (appUser.isPhoneVerified()) {
+            authorities.add(new SimpleGrantedAuthority(AuthAuthorities.PHONE_VERIFIED));
+        }
+        if (appUser.isEmailVerified()) {
+            authorities.add(new SimpleGrantedAuthority(AuthAuthorities.EMAIL_VERIFIED));
+        }
 
 //        log.info("CustomUserDetailsService.loadUserByUsername--002");
         return mapUserToCustomUserDetails(appUser, authorities);

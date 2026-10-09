@@ -8,10 +8,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
-import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
@@ -19,12 +19,13 @@ import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.auth.core.testsupport.InMemoryPasswordResetTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
+import vn.sunvibe.auth.core.testsupport.RecordingEmailService;
+import vn.sunvibe.auth.core.testsupport.RecordingSmsSender;
 import vn.sunvibe.common.time.AppClock;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
@@ -60,7 +61,8 @@ class PasswordResetServiceTest {
     private InMemoryUserRepository users;
     private InMemoryPasswordResetTokenRepository resetTokens;
     private InMemoryRefreshTokenRepository refreshTokens;
-    private List<String> confirmations;
+    private RecordingEmailService email;
+    private RecordingSmsSender sms;
     private PasswordResetService service;
     private RecordingAuditLog audit;
 
@@ -75,21 +77,11 @@ class PasswordResetServiceTest {
         resetTokens.save(PasswordResetToken.restore(1L, RESET_TOKEN, USER_ID.getValue(), EMAIL,
                 now, now.plusSeconds(900), false, OTP));
         refreshTokens = new InMemoryRefreshTokenRepository();
-        confirmations = new ArrayList<>();
         audit = new RecordingAuditLog();
-        EmailServicePort email = new EmailServicePort() {
-            @Override
-            public void sendPasswordResetEmail(String address, String otpCode, String resetToken) {
-                fail("No reset email expected");
-            }
-
-            @Override
-            public void sendPasswordResetConfirmationEmail(String address) {
-                confirmations.add(address);
-            }
-        };
+        email = new RecordingEmailService();
+        sms = new RecordingSmsSender();
         service = new PasswordResetService(resetTokens, users, PASSWORD_ENCODER, email, refreshTokens,
-                new PasswordResetPolicy(5, Duration.ofSeconds(60)), audit);
+                new PasswordResetPolicy(5, Duration.ofSeconds(60)), audit, sms);
     }
 
     private static PasswordResetRequest request(String otp) {
@@ -114,7 +106,7 @@ class PasswordResetServiceTest {
         assertEquals(0, users.saveCount);
         assertFalse(resetTokens.get(1L).isUsed());
         assertTrue(refreshTokens.revocations.isEmpty());
-        assertTrue(confirmations.isEmpty());
+        assertTrue(email.sent.isEmpty());
     }
 
     /** Whoever knew the old password may hold a session: a reset must end them all. */
@@ -129,7 +121,7 @@ class PasswordResetServiceTest {
         assertEquals(List.of("user:" + USER_ID.getValue() + ":PASSWORD_RESET"), refreshTokens.revocations);
         assertTrue(refreshTokens.get(1L).isRevoked());
         assertTrue(resetTokens.get(1L).isUsed());
-        assertEquals(List.of(EMAIL), confirmations);
+        assertEquals(List.of(new RecordingEmailService.Mail("RESET_CONFIRMATION", EMAIL, null)), email.sent);
         assertEquals(List.of(AuditEventType.PASSWORD_RESET_COMPLETED), audit.types());
         assertEquals(USER_ID.getValue(), audit.last().userId());
     }
@@ -171,6 +163,34 @@ class PasswordResetServiceTest {
                 () -> service.verifyOtpAndResetPassword(request(OTP)));
         assertEquals(PasswordResetService.INVALID_RESET_CODE, rightCodeTooLate.getMessage());
         assertEquals(ORIGINAL_PASSWORD_HASH, user.getPassword().getHashedValue());
+    }
+
+    /**
+     * An SMS code reached the phone, so its owner is proven: the number becomes
+     * verified and a PENDING account (possibly registered by someone else) is theirs.
+     */
+    @Test
+    void verifyOtpAndResetPassword_bySmsVerifiesThePhone() {
+        Instant now = AppClock.currentUTC();
+        resetTokens.save(PasswordResetToken.restore(2L, "sms-token", USER_ID.getValue(), VerificationChannel.PHONE,
+                "0912345678", now, now.plusSeconds(900), false, null, 0, OTP));
+        assertEquals(UserStatus.PENDING, user.getUserStatus());
+
+        service.verifyOtpAndResetPassword(PasswordResetRequest.builder().resetToken("sms-token").otpCode(OTP)
+                .newPassword("N3wP@ssw0rd!").confirmPassword("N3wP@ssw0rd!").build());
+
+        assertTrue(user.isPhoneVerified());
+        assertEquals(UserStatus.ACTIVE, user.getUserStatus());
+        assertEquals(1, sms.sent.size(), "the owner is told by SMS");
+        assertTrue(email.sent.isEmpty());
+        assertTrue(audit.types().contains(AuditEventType.PHONE_VERIFIED));
+    }
+
+    @Test
+    void verifyOtpAndResetPassword_byEmailDoesNotVerifyThePhone() {
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        assertFalse(user.isPhoneVerified());
     }
 
     @Test

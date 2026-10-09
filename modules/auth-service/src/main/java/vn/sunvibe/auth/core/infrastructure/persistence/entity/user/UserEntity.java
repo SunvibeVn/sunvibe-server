@@ -109,6 +109,13 @@ public class UserEntity {
     @Column(name = "locked_until")
     private Instant lockedUntil;
 
+    /*─────────────── CONTACT VERIFICATION ───────────────*/
+    @Column(name = "phone_verified_at")
+    private Instant phoneVerifiedAt;
+
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
     /*─────────────── COLLECTION & ENUM ───────────────*/
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)

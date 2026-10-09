@@ -63,4 +63,23 @@ public class EmailService implements EmailServicePort {
             log.error("Failed to send confirmation email: {}", e.getMessage());
         }
     }
+
+    @Override
+    public void sendVerificationCodeEmail(String email, String code) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(email);
+            message.setSubject("Verify your email address");
+            message.setText("Your Sunvibe verification code is " + code + ". It expires in 10 minutes. "
+                    + "If you did not add this email to a Sunvibe account, ignore this message.");
+
+            mailSender.send(message);
+
+            log.info("Verification code email sent");
+        } catch (Exception e) {
+            log.error("Failed to send verification email: {}", e.getMessage());
+            throw new SendingMailFailedException("Failed to send verification email");
+        }
+    }
 }

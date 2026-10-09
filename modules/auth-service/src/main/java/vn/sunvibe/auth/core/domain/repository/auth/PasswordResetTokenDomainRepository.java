@@ -15,11 +15,14 @@ public interface PasswordResetTokenDomainRepository {
      */
     Optional<PasswordResetToken> findByTokenForUpdate(String token);
 
-    /** The most recently issued token for this e-mail, used or not. */
-    Optional<PasswordResetToken> findLatestByEmail(String email);
+    /** The most recently issued token for this e-mail or phone number, used or not. */
+    Optional<PasswordResetToken> findLatestByDestination(String destination);
 
-    /** Burns every still-usable token of this e-mail, so only the newest code works. */
-    void invalidateActiveTokens(String email, Instant now);
+    /** Burns every still-usable token of this destination, so only the newest code works. */
+    void invalidateActiveTokens(String destination, Instant now);
+
+    /** Tokens issued to this destination since {@code since} (daily cap). */
+    long countIssuedSince(String destination, Instant since);
 
     void cleanupExpiredTokens();
 

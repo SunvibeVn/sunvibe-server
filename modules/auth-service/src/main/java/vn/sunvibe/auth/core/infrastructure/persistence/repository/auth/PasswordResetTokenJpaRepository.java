@@ -19,12 +19,14 @@ public interface PasswordResetTokenJpaRepository extends JpaRepository<PasswordR
     @Query("SELECT t FROM PasswordResetTokenEntity t WHERE t.token = :token")
     Optional<PasswordResetTokenEntity> findByTokenForUpdate(@Param("token") String token);
 
-    Optional<PasswordResetTokenEntity> findFirstByEmailOrderByCreatedAtDesc(String email);
+    Optional<PasswordResetTokenEntity> findFirstByDestinationOrderByCreatedAtDesc(String destination);
+
+    long countByDestinationAndCreatedAtAfter(String destination, Instant since);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE PasswordResetTokenEntity t SET t.isUsed = true, t.usedAt = :now " +
-            "WHERE t.email = :email AND t.isUsed = false")
-    int invalidateActiveTokens(@Param("email") String email, @Param("now") Instant now);
+            "WHERE t.destination = :destination AND t.isUsed = false")
+    int invalidateActiveTokens(@Param("destination") String destination, @Param("now") Instant now);
 
     @Modifying
     void deleteByExpiresAtBefore(Instant time);

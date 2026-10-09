@@ -64,7 +64,9 @@ CREATE TABLE users (
     last_login TIMESTAMP WITH TIME ZONE,
     deleted_at TIMESTAMP WITH TIME ZONE,
     failed_login_attempts INTEGER NOT NULL DEFAULT 0, -- số lần sai mật khẩu liên tiếp (khóa tạm lũy tiến)
-    locked_until TIMESTAMP WITH TIME ZONE              -- từ chối đăng nhập bằng mật khẩu tới thời điểm này
+    locked_until TIMESTAMP WITH TIME ZONE,             -- từ chối đăng nhập bằng mật khẩu tới thời điểm này
+    phone_verified_at TIMESTAMP WITH TIME ZONE,        -- NULL = SĐT chưa xác minh (tài khoản mới ở PENDING)
+    email_verified_at TIMESTAMP WITH TIME ZONE         -- NULL = email chưa xác minh (không dùng được để reset mật khẩu)
 );
 
 CREATE UNIQUE INDEX idx_users_username ON users (username) WHERE deleted_at IS NULL;
@@ -106,13 +108,14 @@ CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens (family_id);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens (user_id);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens (expires_at);
 
--- Yêu cầu đặt lại mật khẩu qua email: reset token + OTP 6 số, sống 15 phút.
+-- Yêu cầu đặt lại mật khẩu qua email hoặc SMS: reset token + OTP 6 số, sống 15 phút.
 -- Token bị hủy (is_used = true) khi dùng xong, khi nhập sai OTP 5 lần, hoặc khi cấp mã mới.
 CREATE TABLE password_reset_token (
     id BIGINT NOT NULL PRIMARY KEY,
     token VARCHAR(255) NOT NULL,
     user_id VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
+    channel VARCHAR(10) NOT NULL DEFAULT 'EMAIL', -- EMAIL | PHONE
+    destination VARCHAR(255) NOT NULL,            -- email hoặc số điện thoại nhận OTP
     otp_code VARCHAR(255) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -121,8 +124,22 @@ CREATE TABLE password_reset_token (
     failed_attempts INTEGER NOT NULL DEFAULT 0 -- số lần nhập sai OTP
 );
 CREATE UNIQUE INDEX idx_password_reset_token_token ON password_reset_token (token);
-CREATE INDEX idx_password_reset_token_email ON password_reset_token (email);
+CREATE INDEX idx_password_reset_token_destination ON password_reset_token (destination);
 CREATE INDEX idx_password_reset_token_user_id ON password_reset_token (user_id);
+
+-- Mã xác minh SĐT (SMS) / email. Chỉ lưu SHA-256 có salt của mã. Xem dev_docs/auth/05_AUTH_CONTACT_VERIFICATION.md
+CREATE TABLE verification_codes (
+    id BIGINT NOT NULL PRIMARY KEY,
+    user_id VARCHAR(26) NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    channel VARCHAR(10) NOT NULL,       -- PHONE | EMAIL
+    destination VARCHAR(100) NOT NULL,  -- SĐT / email đã nhận mã
+    code_hash VARCHAR(64) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    failed_attempts INTEGER NOT NULL DEFAULT 0,
+    consumed_at TIMESTAMP WITH TIME ZONE -- đã dùng hoặc bị hủy
+);
+CREATE INDEX idx_verification_codes_user_channel ON verification_codes (user_id, channel, created_at);
 
 -- Nhật ký bảo mật của auth-service (append-only, giữ 180 ngày). Xem dev_docs/auth/04_AUTH_AUDIT_LOG.md
 CREATE TABLE auth_audit_events (
@@ -183,9 +200,7 @@ CREATE TABLE properties (
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING_APPROVAL', -- DRAFT, PENDING_APPROVAL, AVAILABLE, RENTED, MAINTENANCE, INACTIVE
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE,
-    failed_login_attempts INTEGER NOT NULL DEFAULT 0, -- số lần sai mật khẩu liên tiếp (khóa tạm lũy tiến)
-    locked_until TIMESTAMP WITH TIME ZONE              -- từ chối đăng nhập bằng mật khẩu tới thời điểm này
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE INDEX idx_properties_location ON properties USING GIST (location);

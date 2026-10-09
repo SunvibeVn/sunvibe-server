@@ -2,6 +2,7 @@ package vn.sunvibe.auth.core.domain.model.user.vo;
 
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 
 import java.time.Instant;
 
@@ -10,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PasswordResetTokenTest {
 
     private static PasswordResetToken token() {
-        return PasswordResetToken.create(1L, "user-1", "a@example.com", "123456");
+        return PasswordResetToken.create(1L, "user-1", VerificationChannel.EMAIL, "a@example.com", "123456");
     }
 
     @Test

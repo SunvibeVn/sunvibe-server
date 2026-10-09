@@ -59,6 +59,8 @@ Set-Cookie: cookie-jwt-rf=<refresh token>; Path=/api/auth; Max-Age=604800; Secur
     "username": "0912345678",
     "userEmail": null,
     "roles": ["TENANT"],
+    "phoneVerified": true,
+    "emailVerified": false,
     "message": "User logged in successfully."
   }
 }
@@ -112,7 +114,7 @@ sequenceDiagram
    | `user_status` | Đăng nhập |
    |---|---|
    | `ACTIVE` | Được |
-   | `PENDING` | Được (hiện chưa chặn) |
+   | `PENDING` | Được, để vào app nhập OTP xác minh SĐT; chưa có quyền `PHONE_VERIFIED` (05 §2) |
    | `LOCK` | Bị từ chối (`LockedException`) |
    | `TERMINATED`, `DELETED` | Bị từ chối (`DisabledException`) |
 
@@ -251,11 +253,12 @@ Kết quả: thiết bị đang đổi mật khẩu vẫn dùng tiếp, mọi th
 
 ### 6.2. Quên / đặt lại mật khẩu
 
-**Bước 1 — `POST /api/auth/forgot-password`** gửi OTP 6 số (sống 15 phút) kèm reset token qua email.
+**Bước 1 — `POST /api/auth/forgot-password`** gửi OTP 6 số (sống 15 phút) kèm reset token qua email. **Chỉ gửi cho email đã xác minh.** Kênh SMS (`POST /api/auth/forgot-password/sms`) xem [05_AUTH_CONTACT_VERIFICATION.md](05_AUTH_CONTACT_VERIFICATION.md) §5.
 - **Luôn trả cùng một câu trả lời** `200`: *"If an account exists for this email, a password reset code has been sent."*, dù email có tồn tại hay không. Nhờ vậy không dò được email nào đã đăng ký.
 - Email được chuẩn hóa (bỏ khoảng trắng, chữ thường).
 - Không gửi cho tài khoản bị khóa/vô hiệu.
 - **Cooldown 60 giây**: yêu cầu lại trong 60 giây thì không gửi thêm email (chống spam hộp thư).
+- **Tối đa 5 mã mỗi ngày** cho mỗi email/SĐT.
 - Cấp mã mới thì **mã cũ bị hủy**; chỉ mã mới nhất dùng được.
 
 **Bước 2 — `POST /api/auth/reset-password`** xác minh OTP rồi đặt mật khẩu mới.
@@ -345,4 +348,4 @@ Test:
 3. **Rate limit chỉ trong bộ nhớ một instance** (§3.6).
 4. **Chênh lệch thời gian phản hồi** ở quên mật khẩu: email tồn tại thì phải gửi mail nên phản hồi chậm hơn. Gửi mail bất đồng bộ sẽ xóa được dấu hiệu này.
 5. Sau khi bị thu hồi phiên (đổi mật khẩu, đăng xuất), access token đã phát vẫn dùng được tới khi hết hạn (≤ 15 phút). Riêng khóa tài khoản (`LOCK`) thì có hiệu lực ngay (§4).
-6. Trạng thái `PENDING` hiện vẫn đăng nhập được.
+6. Tài khoản `PENDING` đăng nhập được (theo thiết kế, để xác minh SĐT). Hành động nào cần SĐT đã xác minh phải được chặn bằng authority `PHONE_VERIFIED` ở module tương ứng.

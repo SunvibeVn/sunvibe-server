@@ -43,6 +43,7 @@ public class SecurityConfig {
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             "/api/users/command/register",
             "/api/auth/forgot-password",
+            "/api/auth/forgot-password/sms",
             "/api/auth/reset-password",
             "/api/auth/login",
             // Called when the access token has expired, so it cannot require one

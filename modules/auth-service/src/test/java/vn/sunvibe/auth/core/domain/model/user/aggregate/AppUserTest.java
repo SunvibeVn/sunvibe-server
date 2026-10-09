@@ -65,4 +65,47 @@ class AppUserTest {
         };
         assertEquals(expected, user.canAuthenticate());
     }
+
+    @Test
+    void create_startsPendingWithNothingVerified() {
+        AppUser user = newUser();
+
+        assertEquals(UserStatus.PENDING, user.getUserStatus());
+        assertFalse(user.isPhoneVerified());
+        assertFalse(user.isEmailVerified());
+        assertTrue(user.canAuthenticate(), "a PENDING user can sign in to verify the phone");
+    }
+
+    @Test
+    void verifyPhone_activatesAPendingAccount() {
+        AppUser user = newUser();
+        Instant now = Instant.parse("2026-01-02T00:00:00Z");
+
+        user.verifyPhone(now);
+
+        assertTrue(user.isPhoneVerified());
+        assertEquals(now, user.getPhoneVerifiedAt());
+        assertEquals(UserStatus.ACTIVE, user.getUserStatus());
+    }
+
+    @Test
+    void verifyPhone_doesNotUnlockALockedAccount() {
+        AppUser user = newUser();
+        user.setUserStatus(UserStatus.LOCK);
+
+        user.verifyPhone(Instant.now());
+
+        assertEquals(UserStatus.LOCK, user.getUserStatus());
+    }
+
+    @Test
+    void changeEmail_needsVerificationAgain() {
+        AppUser user = newUser();
+        user.verifyEmail(Instant.now());
+        assertTrue(user.isEmailVerified());
+
+        user.changeEmail(Email.create("new@example.com"));
+
+        assertFalse(user.isEmailVerified());
+    }
 }

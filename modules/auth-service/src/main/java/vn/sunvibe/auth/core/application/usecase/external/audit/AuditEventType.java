@@ -32,6 +32,16 @@ public enum AuditEventType {
     /** Password reset through the e-mailed OTP; every session revoked. */
     PASSWORD_RESET_COMPLETED,
     /** Password reset refused (wrong OTP, unknown/expired/burned token). */
-    PASSWORD_RESET_FAILED
+    PASSWORD_RESET_FAILED,
+    /** A verification code was sent by SMS to the account's phone number. */
+    PHONE_VERIFICATION_SENT,
+    /** A verification code was sent to the account's e-mail. */
+    EMAIL_VERIFICATION_SENT,
+    /** The user proved control of the phone number (by code, or by an SMS password reset). */
+    PHONE_VERIFIED,
+    /** The user proved control of the e-mail. */
+    EMAIL_VERIFIED,
+    /** A verification code was rejected (wrong, expired, burned). */
+    VERIFICATION_FAILED
 
 }

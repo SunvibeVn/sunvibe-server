@@ -9,6 +9,9 @@ public record UserProfileInfo(
         String username,
         String email,
         String profileImageUrl,
-        String kycStatus
+        String kycStatus,
+        String accountStatus,
+        boolean phoneVerified,
+        boolean emailVerified
 ) {
 }

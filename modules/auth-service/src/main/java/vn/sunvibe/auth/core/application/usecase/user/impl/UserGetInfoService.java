@@ -35,6 +35,9 @@ public class UserGetInfoService implements UserGetInfoUseCase {
                 .email(appUser.getEmail() != null ? appUser.getEmail().getValue() : null)
                 .profileImageUrl(appUser.getProfileImage().getUrl())
                 .kycStatus(appUser.getKycStatus().name())
+                .accountStatus(appUser.getUserStatus().name())
+                .phoneVerified(appUser.isPhoneVerified())
+                .emailVerified(appUser.isEmailVerified())
                 .build();
     }
 

@@ -58,6 +58,12 @@ public class AppUser {
     /** Password login is refused until this instant; null when not temporarily locked. */
     private Instant lockedUntil;
 
+    /** When the user proved control of the phone number (username); null until then. */
+    private Instant phoneVerifiedAt;
+
+    /** When the user proved control of the current e-mail; null until then or after it changes. */
+    private Instant emailVerifiedAt;
+
     public AppUser(String fullName, Username username, Email email, Password password, ProfileImage profileImage, Instant createdDate, Instant lastUpdate, Set<String> userRoles, UserStatus status) {
 
         this.fullName = fullName;
@@ -113,7 +119,8 @@ public class AppUser {
     public static AppUser create(UserId id, String fullName, Username username, Email email, Password hashedPassword,
                                   ProfileImage profileImage, IdCardNumber idCardNumber, Set<String> userRoles, Instant nowUtc) {
         Instant now = nowUtc != null ? nowUtc : AppClock.currentUTC();
-        AppUser appUser = new AppUser(id, fullName, username, email, hashedPassword, profileImage, now, now, userRoles, UserStatus.ACTIVE);
+        // PENDING until the phone number is verified (see verifyPhone)
+        AppUser appUser = new AppUser(id, fullName, username, email, hashedPassword, profileImage, now, now, userRoles, UserStatus.PENDING);
         appUser.idCardNumber = idCardNumber;
         appUser.kycStatus = KycStatus.UNVERIFIED;
         return appUser;
@@ -121,9 +128,42 @@ public class AppUser {
 
     /*────────── BUSINESS BEHAVIOURS ──────────*/
 
+    /** A new e-mail is unverified until the user confirms the code sent to it. */
     public void changeEmail(Email newEmail) {
         this.email = Objects.requireNonNull(newEmail);
+        this.emailVerifiedAt = null;
         touch();
+    }
+
+    /**
+     * The user proved control of the phone number. A PENDING account becomes
+     * ACTIVE; other statuses (e.g. LOCK) are left alone.
+     */
+    public void verifyPhone(Instant now) {
+        if (phoneVerifiedAt == null) {
+            phoneVerifiedAt = now;
+        }
+        if (userStatus == UserStatus.PENDING) {
+            userStatus = UserStatus.ACTIVE;
+        }
+        touch();
+    }
+
+    /** The user proved control of the current e-mail. */
+    public void verifyEmail(Instant now) {
+        if (email == null) {
+            throw new IllegalStateException("No e-mail to verify.");
+        }
+        emailVerifiedAt = now;
+        touch();
+    }
+
+    public boolean isPhoneVerified() {
+        return phoneVerifiedAt != null;
+    }
+
+    public boolean isEmailVerified() {
+        return email != null && emailVerifiedAt != null;
     }
 
     public void changePassword(String newHashedPassword) {

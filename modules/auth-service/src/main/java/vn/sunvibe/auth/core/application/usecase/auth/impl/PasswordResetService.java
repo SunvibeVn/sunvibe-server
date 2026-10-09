@@ -12,11 +12,14 @@ import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordResetUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
+import vn.sunvibe.auth.core.application.usecase.external.sms.SmsSenderPort;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
+import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
@@ -27,9 +30,10 @@ import vn.sunvibe.common.time.AppClock;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
- * Step 2 of the e-mail password reset: checks the OTP and sets the new password.
+ * Step 2 of the password reset (e-mail or SMS): checks the OTP and sets the new password.
  * <p>
  * Each reset token tolerates {@link PasswordResetPolicy#getMaxOtpAttempts()}
  * wrong codes and is then burned. The failed-attempt count is committed even
@@ -50,6 +54,7 @@ public class PasswordResetService implements PasswordResetUseCase {
     private final RefreshTokenDomainRepository refreshTokenRepository;
     private final PasswordResetPolicy passwordResetPolicy;
     private final AuditLogPort auditLog;
+    private final SmsSenderPort smsSender;
 
     @Override
     @Transactional(noRollbackFor = {InvalidOtpException.class, PasswordResetTokenException.class})
@@ -84,8 +89,13 @@ public class PasswordResetService implements PasswordResetUseCase {
             throw new InvalidOtpException("Invalid OTP code");
         }
 
-        // Find user
-        AppUser user = userDomainRepository.findByEmail(passwordResetToken.getEmail());
+        // Find user (the token, not the destination, identifies the account)
+        Optional<AppUser> owner = userDomainRepository.findById(UserId.from(passwordResetToken.getUserId()));
+        if (owner.isEmpty()) {
+            audit(AuditEventType.PASSWORD_RESET_FAILED, passwordResetToken, "ACCOUNT_GONE");
+            throw new PasswordResetTokenException(INVALID_RESET_CODE);
+        }
+        AppUser user = owner.get();
 
         // A locked/disabled account must not regain access through the reset flow
         if (!user.canAuthenticate()) {
@@ -93,10 +103,15 @@ public class PasswordResetService implements PasswordResetUseCase {
             throw new AuthenticationFailedException("Account is locked or disabled.");
         }
 
-        // Change password; proving control of the e-mail also lifts a login lockout
+        // Change password; proving control of the e-mail/phone also lifts a login lockout
         String encryptedPassword = passwordEncoder.encode(request.getNewPassword());
         user.setPassword(Password.create(encryptedPassword));
         user.clearLoginLockout();
+        // An SMS code reached this phone: its owner is verified (and takes back a number someone else registered)
+        boolean phoneNewlyVerified = passwordResetToken.getChannel() == VerificationChannel.PHONE && !user.isPhoneVerified();
+        if (passwordResetToken.getChannel() == VerificationChannel.PHONE) {
+            user.verifyPhone(now);
+        }
 
         // Save user
         userDomainRepository.save(user);
@@ -109,8 +124,15 @@ public class PasswordResetService implements PasswordResetUseCase {
         // No new session is started here; the user signs in with the new password.
         refreshTokenRepository.revokeAllForUser(user.getId(), RevokeReason.PASSWORD_RESET, now);
 
-        // Send confirmation email
-        emailService.sendPasswordResetConfirmationEmail(user.getEmail().getValue());
+        // Tell the owner on the channel that was used
+        if (passwordResetToken.getChannel() == VerificationChannel.PHONE) {
+            notifyBySms(user.getUsername().getValue());
+        } else {
+            emailService.sendPasswordResetConfirmationEmail(passwordResetToken.getDestination());
+        }
+        if (phoneNewlyVerified) {
+            audit(AuditEventType.PHONE_VERIFIED, passwordResetToken, "BY_SMS_PASSWORD_RESET");
+        }
 
         log.info("Password reset successfully for user: {}", user.getId().getValue());
         audit(AuditEventType.PASSWORD_RESET_COMPLETED, passwordResetToken, null);
@@ -122,6 +144,15 @@ public class PasswordResetService implements PasswordResetUseCase {
     }
 
     private void audit(AuditEventType type, PasswordResetToken token, String details) {
-        auditLog.record(AuthAuditEvent.of(type, token.getUserId(), token.getEmail(), details));
+        auditLog.record(AuthAuditEvent.of(type, token.getUserId(), token.getDestination(), details));
+    }
+
+    private void notifyBySms(String phone) {
+        try {
+            smsSender.send(phone, "Mat khau tai khoan Sunvibe cua ban vua duoc dat lai. "
+                    + "Neu khong phai ban, hay lien he ho tro ngay.");
+        } catch (RuntimeException e) {
+            log.warn("Could not send password-changed SMS: {}", e.getMessage());
+        }
     }
 }

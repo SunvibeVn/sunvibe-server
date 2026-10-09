@@ -29,9 +29,12 @@ Log ứng dụng (stdout) vẫn giữ nguyên. Audit log là bản ghi có cấu
 | `REFRESH_REJECTED_ACCOUNT_INACTIVE` | Refresh khi tài khoản đã bị khóa/xóa → thu hồi phiên | ✔ | — | `session=<family_id>` |
 | `PASSWORD_CHANGED` | Đổi mật khẩu thành công | ✔ | Số điện thoại | — |
 | `PASSWORD_CHANGE_FAILED` | Nhập sai mật khẩu hiện tại | ✔ | Số điện thoại | `WRONG_CURRENT_PASSWORD` |
-| `PASSWORD_RESET_REQUESTED` | Gọi quên mật khẩu | ✔ nếu có tài khoản | Email | `SENT` / `COOLDOWN_NOT_SENT` / `NO_ELIGIBLE_ACCOUNT` |
+| `PASSWORD_RESET_REQUESTED` | Gọi quên mật khẩu (email hoặc SMS) | ✔ nếu có tài khoản | Email / SĐT | `EMAIL` hoặc `PHONE` + `SENT` / `COOLDOWN_NOT_SENT` / `DAILY_LIMIT` / `NO_ELIGIBLE_ACCOUNT` |
 | `PASSWORD_RESET_COMPLETED` | Đặt lại mật khẩu thành công | ✔ | Email | — |
-| `PASSWORD_RESET_FAILED` | Đặt lại mật khẩu bị từ chối | ✔ nếu biết token | Email | `UNKNOWN_TOKEN` / `TOKEN_EXPIRED_OR_USED` / `WRONG_OTP attempt=N` / `TOKEN_BURNED_AFTER_WRONG_OTP` / `ACCOUNT_DISABLED` |
+| `PASSWORD_RESET_FAILED` | Đặt lại mật khẩu bị từ chối | ✔ nếu biết token | Email / SĐT | `UNKNOWN_TOKEN` / `TOKEN_EXPIRED_OR_USED` / `WRONG_OTP attempt=N` / `TOKEN_BURNED_AFTER_WRONG_OTP` / `ACCOUNT_DISABLED` / `ACCOUNT_GONE` |
+| `PHONE_VERIFICATION_SENT` / `EMAIL_VERIFICATION_SENT` | Gửi mã xác minh | ✔ | SĐT / Email | — |
+| `PHONE_VERIFIED` / `EMAIL_VERIFIED` | Xác minh thành công | ✔ | SĐT / Email | `BY_SMS_PASSWORD_RESET` khi xác minh qua reset SMS |
+| `VERIFICATION_FAILED` | Sai mã / mã hết hạn / đã hủy | ✔ | SĐT / Email | `PHONE WRONG_CODE attempt=N` / `... BURNED` / `... NO_USABLE_CODE` |
 
 Mọi dòng đều có thêm `ip_address`, `user_agent` (lấy tự động từ request) và `occurred_at`.
 
@@ -139,7 +142,7 @@ GROUP BY ip_address ORDER BY 2 DESC;
 | Application (port) | `AuditLogPort`, `AuthAuditEvent`, `AuditEventType` |
 | Infrastructure | `AuthAuditLogAdapter`, `AuthAuditEventEntity`, `AuthAuditEventJpaRepository` |
 | Presentation | `AuditLogCleanupScheduler` |
-| Nơi ghi sự kiện | `LoginService`, `UserRegisterService`, `LogoutService`, `TokenRefreshService`, `PasswordChangeService`, `PasswordForgotService`, `PasswordResetService` |
+| Nơi ghi sự kiện | `LoginService`, `UserRegisterService`, `LogoutService`, `TokenRefreshService`, `PasswordChangeService`, `PasswordForgotService`, `PasswordResetService`, `ContactVerificationService` |
 
 Test:
 - `AuthAuditLogAdapterTest`: vẫn còn sau rollback, lấy IP/UA, cắt độ dài, không ném lỗi, dọn dữ liệu.

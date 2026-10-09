@@ -1,4 +1,7 @@
 app:
+  sms:
+    # Writes SMS (with OTPs) to the log instead of sending them; dev/test only
+    provider: ${SMS_PROVIDER:log}
   crypto:
     # Local-development keys only. They are committed to git, so they are public:
     # never use them for real data. Env vars still win if set.

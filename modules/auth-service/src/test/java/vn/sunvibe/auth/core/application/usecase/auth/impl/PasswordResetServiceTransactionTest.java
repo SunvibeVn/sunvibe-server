@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
+import vn.sunvibe.auth.core.application.usecase.external.sms.SmsSenderPort;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
@@ -24,6 +25,8 @@ import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.PasswordR
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
+import vn.sunvibe.auth.core.testsupport.RecordingEmailService;
+import vn.sunvibe.auth.core.testsupport.RecordingSmsSender;
 import vn.sunvibe.common.crypto.AesGcmCryptoService;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
@@ -73,17 +76,12 @@ class PasswordResetServiceTransactionTest {
 
         @Bean
         EmailServicePort emailServicePort() {
-            return new EmailServicePort() {
-                @Override
-                public void sendPasswordResetEmail(String email, String otpCode, String resetToken) {
-                    throw new AssertionError();
-                }
+            return new RecordingEmailService();
+        }
 
-                @Override
-                public void sendPasswordResetConfirmationEmail(String email) {
-                    throw new AssertionError();
-                }
-            };
+        @Bean
+        SmsSenderPort smsSenderPort() {
+            return new RecordingSmsSender();
         }
 
         @Bean

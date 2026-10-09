@@ -1,12 +1,14 @@
 package vn.sunvibe.auth.core.infrastructure.security.provider;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
+import vn.sunvibe.auth.core.shared.constant.AuthAuthorities;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -94,5 +96,31 @@ class CustomUserDetailsServiceTest {
                 () -> service.loadUserByUsername("0912345678"));
 
         assertEquals(MESSAGE, exception.getMessage());
+    }
+
+    @Test
+    void loadUserByUsername_addsAuthoritiesForVerifiedContacts() {
+        AppUser user = AppUser.create(UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"), "Nguyen Van A",
+                Username.create("0912345678"), Email.create("a@example.com"), Password.create("hashed"),
+                ProfileImage.create(null), null, new HashSet<>(Set.of("TENANT")), Instant.now());
+        NoUsersRepository repository = new NoUsersRepository() {
+            @Override
+            public AppUser findByUsername(String username) {
+                return user;
+            }
+        };
+        CustomUserDetailsService service = new CustomUserDetailsService(repository);
+
+        assertEquals(Set.of("ROLE_TENANT"), authorities(service));
+
+        user.verifyPhone(Instant.now());
+        user.verifyEmail(Instant.now());
+
+        assertEquals(Set.of("ROLE_TENANT", AuthAuthorities.PHONE_VERIFIED, AuthAuthorities.EMAIL_VERIFIED), authorities(service));
+    }
+
+    private static Set<String> authorities(CustomUserDetailsService service) {
+        return service.loadUserByUsername("0912345678").getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority).collect(java.util.stream.Collectors.toSet());
     }
 }

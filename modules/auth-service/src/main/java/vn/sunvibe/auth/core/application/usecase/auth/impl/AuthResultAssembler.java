@@ -26,6 +26,8 @@ public class AuthResultAssembler {
                 .username(appUser.getUsername().getValue())
                 .userEmail(appUser.getEmail() != null ? appUser.getEmail().getValue() : null)
                 .roles(appUser.getUserRoles())
+                .phoneVerified(appUser.isPhoneVerified())
+                .emailVerified(appUser.isEmailVerified())
                 .message(message)
                 .build();
 

@@ -12,9 +12,9 @@ Cho phép người dùng tự tạo tài khoản bằng **số điện thoại +
 | Thông tin bắt buộc | `fullName`, `username` (số điện thoại), `password`, `confirmPassword` |
 | Thông tin tùy chọn | `email`, `idCardNumber` (CMND/CCCD). Có thể bổ sung sau qua chức năng cập nhật hồ sơ (chưa triển khai) |
 | Vai trò (role) | Luôn là `TENANT`. Client không chọn được role; các role khác do luồng riêng cấp |
-| Kết quả | Tài khoản `ACTIVE`, KYC `UNVERIFIED`, kèm phiên đăng nhập mới (access token + refresh token) |
+| Kết quả | Tài khoản **`PENDING`** (chờ xác minh SĐT), KYC `UNVERIFIED`, kèm phiên đăng nhập mới (access token + refresh token); OTP SMS được gửi ngay |
 
-Ngoài phạm vi: xác minh số điện thoại bằng OTP, xác minh email, eKYC.
+Xác minh số điện thoại / email: xem [05_AUTH_CONTACT_VERIFICATION.md](05_AUTH_CONTACT_VERIFICATION.md). Ngoài phạm vi: eKYC.
 
 ---
 
@@ -69,6 +69,8 @@ Set-Cookie: cookie-jwt-rf=<refresh token>; Path=/api/auth; Max-Age=604800; Secur
     "username": "0912345678",
     "userEmail": "an.nguyen@example.com",
     "roles": ["TENANT"],
+    "phoneVerified": false,
+    "emailVerified": false,
     "message": "User logged in successfully."
   }
 }
@@ -147,7 +149,7 @@ Mọi phép kiểm tra trùng **bỏ qua tài khoản đã xóa mềm** (`delete
 | `id` | ULID 26 ký tự (`IdGenerator<String>`) |
 | `password` | BCrypt, cost 10. Không bao giờ lưu mật khẩu gốc |
 | `profile_image` | Ảnh mặc định (`ProfileImage.create(null)`) |
-| `user_status` | `ACTIVE` |
+| `user_status` | `PENDING` (thành `ACTIVE` khi xác minh SĐT) |
 | `kyc_status` | `UNVERIFIED` |
 | Role | `TENANT` (`appUser.assignRole(RoleName.TENANT)`) |
 | `created_date`, `last_update` | Thời điểm hiện tại (UTC) |
@@ -155,6 +157,8 @@ Mọi phép kiểm tra trùng **bỏ qua tài khoản đã xóa mềm** (`delete
 ### 3.4. Đăng nhập tự động
 
 Sau khi transaction đăng ký commit, controller gọi `LoginService.execute()` với chính số điện thoại và mật khẩu vừa nhập. Toàn bộ phần này giống hệt luồng đăng nhập ([02_AUTH_LOGIN_FLOW.md](02_AUTH_LOGIN_FLOW.md)): xác thực, cấp access token, **mở phiên mới** (refresh token family) gắn với User-Agent/IP của thiết bị, và cập nhật `last_login`.
+
+Sau khi lưu tài khoản, auth-service gửi ngay **OTP SMS** xác minh số điện thoại; nếu có email thì gửi thêm **mã xác minh email**. Gửi mã thất bại không làm hỏng đăng ký (05 §4).
 
 Đăng ký và đăng nhập là **hai transaction riêng**. Nếu bước đăng nhập lỗi, tài khoản vẫn đã được tạo và người dùng chỉ cần đăng nhập lại.
 
@@ -228,7 +232,7 @@ Test: `UserRegisterServiceTest`, `IdCardNumberTest`, `UserRepositoryAdapterEncry
 ## 7. HẠN CHẾ ĐÃ BIẾT
 
 1. **Đăng ký đồng thời trùng số điện thoại**: hai request cùng lúc có thể cùng vượt qua bước kiểm tra trùng. Unique index chặn được bản ghi thứ hai, nhưng lỗi trả về là **500** thay vì 409.
-2. **Chưa xác minh số điện thoại**: chưa có OTP SMS, nên ai cũng có thể đăng ký bằng số của người khác.
+2. **Đăng ký trước, xác minh sau**: vẫn đăng ký được bằng số của người khác (tài khoản ở `PENDING`). Chủ thật của số lấy lại tài khoản qua quên mật khẩu bằng SMS; xem 05 §1.
 3. **Mã HTTP**: thành công trả HTTP `200`, còn trong body là `code: 201`.
-4. **Quên mật khẩu** hiện chỉ đi qua email. Tài khoản đăng ký không có email sẽ chưa dùng được chức năng này.
+4. Chưa có nhà cung cấp SMS thật: production cần gắn trước khi chạy (05 §6).
 5. Message của `fullName` ghi "From 6 to 32 characters" trong khi ràng buộc thực tế là 6–100 ký tự.

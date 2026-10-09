@@ -30,15 +30,21 @@ public class InMemoryPasswordResetTokenRepository implements PasswordResetTokenD
     }
 
     @Override
-    public Optional<PasswordResetToken> findLatestByEmail(String email) {
-        return tokens.values().stream().filter(t -> t.getEmail().equals(email))
+    public Optional<PasswordResetToken> findLatestByDestination(String destination) {
+        return tokens.values().stream().filter(t -> t.getDestination().equals(destination))
                 .max(Comparator.comparing(PasswordResetToken::getCreatedAt))
                 .map(t -> copy(t, t.isUsed(), t.getUsedAt()));
     }
 
     @Override
-    public void invalidateActiveTokens(String email, Instant now) {
-        tokens.replaceAll((id, t) -> t.getEmail().equals(email) && !t.isUsed() ? copy(t, true, now) : t);
+    public void invalidateActiveTokens(String destination, Instant now) {
+        tokens.replaceAll((id, t) -> t.getDestination().equals(destination) && !t.isUsed() ? copy(t, true, now) : t);
+    }
+
+    @Override
+    public long countIssuedSince(String destination, Instant since) {
+        return tokens.values().stream()
+                .filter(t -> t.getDestination().equals(destination) && t.getCreatedAt().isAfter(since)).count();
     }
 
     @Override
@@ -54,8 +60,16 @@ public class InMemoryPasswordResetTokenRepository implements PasswordResetTokenD
         return List.copyOf(tokens.values());
     }
 
+    /** Moves a token back in time (cooldown / daily window tests). */
+    public void age(Long id, java.time.Duration by) {
+        PasswordResetToken t = tokens.get(id);
+        tokens.put(id, PasswordResetToken.restore(t.getId(), t.getToken(), t.getUserId(), t.getChannel(),
+                t.getDestination(), t.getCreatedAt().minus(by), t.getExpiresAt(), t.isUsed(), t.getUsedAt(),
+                t.getFailedAttempts(), t.getOtpCode()));
+    }
+
     private static PasswordResetToken copy(PasswordResetToken t, boolean used, Instant usedAt) {
-        return PasswordResetToken.restore(t.getId(), t.getToken(), t.getUserId(), t.getEmail(), t.getCreatedAt(),
-                t.getExpiresAt(), used, usedAt, t.getFailedAttempts(), t.getOtpCode());
+        return PasswordResetToken.restore(t.getId(), t.getToken(), t.getUserId(), t.getChannel(), t.getDestination(),
+                t.getCreatedAt(), t.getExpiresAt(), used, usedAt, t.getFailedAttempts(), t.getOtpCode());
     }
 }

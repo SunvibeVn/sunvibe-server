@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import vn.sunvibe.auth.core.application.exception.auth.AccountTemporarilyLockedException;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenException;
+import vn.sunvibe.auth.core.application.exception.auth.VerificationException;
+import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledException;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.shared.service.CookieService;
@@ -59,6 +61,20 @@ public class AuthExceptionHandler {
     @ExceptionHandler({InvalidOtpException.class, PasswordResetTokenException.class})
     public ResponseEntity<BaseErrorModel> handlePasswordResetRejected(RuntimeException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(HttpStatus.BAD_REQUEST, e.getMessage()));
+    }
+
+    /** Wrong/expired verification code, or nothing to verify. */
+    @ExceptionHandler(VerificationException.class)
+    public ResponseEntity<BaseErrorModel> handleVerification(VerificationException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error(HttpStatus.BAD_REQUEST, e.getMessage()));
+    }
+
+    /** A new code asked for too soon or too often: 429 with the seconds to wait. */
+    @ExceptionHandler(VerificationThrottledException.class)
+    public ResponseEntity<BaseErrorModel> handleVerificationThrottled(VerificationThrottledException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(Math.max(1, e.getRetryAfter().toSeconds())))
+                .body(error(HttpStatus.TOO_MANY_REQUESTS, e.getMessage()));
     }
 
     private static BaseErrorModel error(HttpStatus status, String message) {

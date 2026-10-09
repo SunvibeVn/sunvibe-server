@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
 import vn.sunvibe.common.crypto.AesGcmCryptoService;
 
@@ -29,8 +30,8 @@ class PasswordResetTokenRepositoryAdapterTest {
     private PasswordResetTokenRepositoryAdapter adapter;
 
     private static PasswordResetToken token(long id, String value, Instant createdAt) {
-        return PasswordResetToken.restore(id, value, "user-1", EMAIL, createdAt, createdAt.plusSeconds(900),
-                false, null, 0, "123456");
+        return PasswordResetToken.restore(id, value, "user-1", VerificationChannel.EMAIL, EMAIL, createdAt,
+                createdAt.plusSeconds(900), false, null, 0, "123456");
     }
 
     /** Regression: expiresAt used to be dropped on save, so issuing any reset code failed. */
@@ -46,6 +47,8 @@ class PasswordResetTokenRepositoryAdapterTest {
         assertEquals(now.plusSeconds(900), found.getExpiresAt());
         assertEquals(now, found.getCreatedAt());
         assertEquals(1, found.getFailedAttempts());
+        assertEquals(VerificationChannel.EMAIL, found.getChannel());
+        assertEquals(EMAIL, found.getDestination());
         assertEquals("123456", found.getOtpCode());
         assertTrue(found.isValid());
     }
@@ -56,16 +59,18 @@ class PasswordResetTokenRepositoryAdapterTest {
         adapter.save(token(1L, "older", now.minusSeconds(300)));
         adapter.save(token(2L, "newer", now));
 
-        assertEquals("newer", adapter.findLatestByEmail(EMAIL).orElseThrow().getToken());
-        assertTrue(adapter.findLatestByEmail("other@example.com").isEmpty());
+        assertEquals("newer", adapter.findLatestByDestination(EMAIL).orElseThrow().getToken());
+        assertTrue(adapter.findLatestByDestination("other@example.com").isEmpty());
+        assertEquals(2, adapter.countIssuedSince(EMAIL, now.minusSeconds(3600)));
+        assertEquals(1, adapter.countIssuedSince(EMAIL, now.minusSeconds(60)));
     }
 
     @Test
     void invalidateActiveTokens_burnsOnlyThatEmailsUnusedTokens() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         adapter.save(token(1L, "mine", now));
-        adapter.save(PasswordResetToken.restore(2L, "theirs", "user-2", "b@example.com", now, now.plusSeconds(900),
-                false, null, 0, "654321"));
+        adapter.save(PasswordResetToken.restore(2L, "theirs", "user-2", VerificationChannel.PHONE, "0987654321", now,
+                now.plusSeconds(900), false, null, 0, "654321"));
 
         adapter.invalidateActiveTokens(EMAIL, now);
 

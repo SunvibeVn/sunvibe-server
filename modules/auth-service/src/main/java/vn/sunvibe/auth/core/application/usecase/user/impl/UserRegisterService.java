@@ -9,7 +9,9 @@ import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
+import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
 import vn.sunvibe.auth.core.application.usecase.user.UserRegisterUseCase;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
@@ -30,6 +32,7 @@ public class UserRegisterService implements UserRegisterUseCase {
     private final PasswordEncoder passwordEncoder;
     private final IdGenerator<String> ulidGenerator;
     private final AuditLogPort auditLog;
+    private final ContactVerificationUseCase contactVerification;
 
     @Transactional
     @Override
@@ -67,6 +70,12 @@ public class UserRegisterService implements UserRegisterUseCase {
         log.info("Register user successful: {}", appUser.getUsername().getValue());
         auditLog.record(AuthAuditEvent.of(AuditEventType.USER_REGISTERED, appUser.getId().getValue(),
                 appUser.getUsername().getValue()));
+
+        // The account stays PENDING until the phone is verified; send the first codes right away
+        contactVerification.sendCodeAfterRegistration(appUser, VerificationChannel.PHONE);
+        if (appUser.getEmail() != null) {
+            contactVerification.sendCodeAfterRegistration(appUser, VerificationChannel.EMAIL);
+        }
 
         // Publish event
 //        eventPublisher.publish(new UserRegisteredEvent(user.getId(), user.getUsername().getValue(), user.getEmail().getValue(), LocalDateTime.now()), "Create user");

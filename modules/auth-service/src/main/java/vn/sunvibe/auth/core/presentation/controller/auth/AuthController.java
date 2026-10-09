@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.auth.core.application.command.auth.LoginCommand;
 import vn.sunvibe.auth.core.application.command.auth.PasswordChangeCommand;
 import vn.sunvibe.auth.core.application.command.auth.PasswordForgotCommand;
+import vn.sunvibe.auth.core.application.command.auth.PasswordForgotSmsCommand;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.usecase.auth.LogoutUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordForgotUseCase;
@@ -26,6 +27,7 @@ import vn.sunvibe.auth.core.presentation.converter.auth.AuthConverter;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.LoginRequest;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordChangeRequest;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordForgotRequest;
+import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordForgotSmsRequest;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.LoginResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordChangeResponse;
@@ -113,6 +115,19 @@ public class AuthController {
         PasswordForgotCommand passwordForgotCommand = authConverter.toPasswordForgotCommand(passwordForgotRequest);
         // Send OTP via email, return password reset token
         PasswordForgotResponse response = passwordForgotUseCase.execute(passwordForgotCommand);
+
+        return ResponseEntity.ok(ApiResponse.<PasswordForgotResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message(response.message())
+                .result(response).build());
+    }
+
+    // Step 1 (SMS): text a reset code to the phone number; the response carries the reset token
+    @PostMapping("/forgot-password/sms")
+    public ResponseEntity<ApiResponse<PasswordForgotResponse>> forgotPasswordBySms(@Valid @RequestBody PasswordForgotSmsRequest request) {
+
+        log.info("Forgot password by SMS request received");
+        PasswordForgotResponse response = passwordForgotUseCase.executeBySms(new PasswordForgotSmsCommand(request.phoneNumber()));
 
         return ResponseEntity.ok(ApiResponse.<PasswordForgotResponse>builder()
                 .code(HttpStatus.OK.value())
