@@ -6,9 +6,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 
 import java.util.Collection;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -21,6 +21,7 @@ public class CustomUserDetails implements UserDetails {
     private String password;
     private String email;
     private Collection<? extends GrantedAuthority> authorities;
+    private UserStatus userStatus;
 
     @Override
     public boolean isAccountNonExpired() {
@@ -29,7 +30,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return UserDetails.super.isAccountNonLocked();
+        return userStatus != UserStatus.LOCK;
     }
 
     @Override
@@ -39,7 +40,7 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return UserDetails.super.isEnabled();
+        return userStatus != UserStatus.DELETED && userStatus != UserStatus.TERMINATED;
     }
 
 }

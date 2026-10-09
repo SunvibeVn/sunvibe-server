@@ -40,6 +40,7 @@ public class CustomUserDetailsService implements UserDetailsService {
         customUserDetails.setEmail(user.getEmail().getValue());
         customUserDetails.setPassword(user.getPassword().getHashedValue());
         customUserDetails.setAuthorities(authorities);
+        customUserDetails.setUserStatus(user.getUserStatus());
 
 //        log.info("CustomUserDetailsService.mapUserToCustomUserDetails");
         return customUserDetails;
