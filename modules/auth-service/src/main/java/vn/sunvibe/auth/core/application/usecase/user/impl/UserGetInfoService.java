@@ -34,6 +34,7 @@ public class UserGetInfoService implements UserGetInfoUseCase {
                 .username(appUser.getUsername().getValue())
                 .email(appUser.getEmail().getValue())
                 .profileImageUrl(appUser.getProfileImage().getUrl())
+                .kycStatus(appUser.getKycStatus().name())
                 .build();
     }
 

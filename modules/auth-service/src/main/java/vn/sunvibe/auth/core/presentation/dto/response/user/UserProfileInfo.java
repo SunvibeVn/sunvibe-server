@@ -8,6 +8,7 @@ public record UserProfileInfo(
         String fullName,
         String username,
         String email,
-        String profileImageUrl
+        String profileImageUrl,
+        String kycStatus
 ) {
 }
