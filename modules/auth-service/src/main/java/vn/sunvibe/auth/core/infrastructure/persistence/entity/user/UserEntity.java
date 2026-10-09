@@ -100,6 +100,15 @@ public class UserEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    /*─────────────── LOGIN LOCKOUT ───────────────*/
+    /** Consecutive wrong passwords since the last successful login or password reset. */
+    @Column(name = "failed_login_attempts", nullable = false)
+    private int failedLoginAttempts;
+
+    /** Password login is refused until this instant (temporary lockout); null when not locked. */
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
     /*─────────────── COLLECTION & ENUM ───────────────*/
 
     @ManyToMany(fetch = FetchType.LAZY, cascade = CascadeType.ALL)

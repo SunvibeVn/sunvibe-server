@@ -1,11 +1,13 @@
 package vn.sunvibe.auth.core.infrastructure.persistence.repository.user;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 
+import java.time.Instant;
 import java.util.Optional;
 
 @Repository
@@ -33,5 +35,16 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
     @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.userRoles " +
             "WHERE u.id = :id AND u.deletedAt IS NULL")
     Optional<UserEntity> findActiveById(@Param("id") String id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE UserEntity u SET u.failedLoginAttempts = u.failedLoginAttempts + 1 WHERE u.id = :id")
+    int incrementFailedLoginAttempts(@Param("id") String id);
+
+    @Query("SELECT u.failedLoginAttempts FROM UserEntity u WHERE u.id = :id")
+    int findFailedLoginAttempts(@Param("id") String id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE UserEntity u SET u.lockedUntil = :until WHERE u.id = :id")
+    int lockLoginUntil(@Param("id") String id, @Param("until") Instant until);
 
 }

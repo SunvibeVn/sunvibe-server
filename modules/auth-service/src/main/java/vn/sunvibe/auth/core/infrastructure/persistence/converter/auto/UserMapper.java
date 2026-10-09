@@ -27,6 +27,8 @@ public interface UserMapper {
     @Mapping(target = "idCardBackUrl", source = "idCardBackUrl")
     @Mapping(target = "kycStatus", source = "kycStatus")
     @Mapping(target = "deletedAt", source = "deletedAt")
+    @Mapping(target = "failedLoginAttempts", source = "failedLoginAttempts")
+    @Mapping(target = "lockedUntil", source = "lockedUntil")
     AppUser toDomain(UserEntity userEntity);
 
     /*────────────── DOMAIN → ENTITY ──────────────*/
@@ -45,6 +47,8 @@ public interface UserMapper {
     @Mapping(target = "idCardBackUrl", source = "idCardBackUrl")
     @Mapping(target = "kycStatus", source = "kycStatus")
     @Mapping(target = "deletedAt", source = "deletedAt")
+    @Mapping(target = "failedLoginAttempts", source = "failedLoginAttempts")
+    @Mapping(target = "lockedUntil", source = "lockedUntil")
     @Mapping(target = "idCardNumberHash", ignore = true)
     UserEntity toEntity(AppUser appUser);
 

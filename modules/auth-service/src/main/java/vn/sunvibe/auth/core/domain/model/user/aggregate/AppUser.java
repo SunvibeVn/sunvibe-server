@@ -52,6 +52,12 @@ public class AppUser {
 
     private UserStatus userStatus;
 
+    /** Consecutive wrong passwords since the last successful login or password reset. */
+    private int failedLoginAttempts;
+
+    /** Password login is refused until this instant; null when not temporarily locked. */
+    private Instant lockedUntil;
+
     public AppUser(String fullName, Username username, Email email, Password password, ProfileImage profileImage, Instant createdDate, Instant lastUpdate, Set<String> userRoles, UserStatus status) {
 
         this.fullName = fullName;
@@ -148,8 +154,25 @@ public class AppUser {
         this.userRoles.add(role);
     }
 
+    /** A successful password login: records it and forgets earlier failed attempts. */
     public void recordLoginSuccess(Instant when) {
         this.lastLogin = when != null ? when : AppClock.currentUTC();
+        clearLoginLockout();
+    }
+
+    /**
+     * True while password login is refused after too many wrong passwords.
+     * Unlike {@link UserStatus#LOCK} (set by an administrator), this lock lifts
+     * by itself and does not end sessions that are already signed in.
+     */
+    public boolean isLoginTemporarilyLocked(Instant now) {
+        return lockedUntil != null && now.isBefore(lockedUntil);
+    }
+
+    /** Forgets failed attempts and lifts a temporary lock, e.g. after the owner reset the password. */
+    public void clearLoginLockout() {
+        this.failedLoginAttempts = 0;
+        this.lockedUntil = null;
     }
 
     /**

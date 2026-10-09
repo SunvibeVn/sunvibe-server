@@ -1,18 +1,18 @@
 package vn.sunvibe.auth.core.application.usecase.auth.impl;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
+import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordResetUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
-import vn.sunvibe.auth.core.domain.model.user.vo.OtpCode;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
@@ -22,42 +22,54 @@ import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordResetResponse;
 import vn.sunvibe.common.time.AppClock;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
+/**
+ * Step 2 of the e-mail password reset: checks the OTP and sets the new password.
+ * <p>
+ * Each reset token tolerates {@link PasswordResetPolicy#getMaxOtpAttempts()}
+ * wrong codes and is then burned. The failed-attempt count is committed even
+ * though the request fails ({@code noRollbackFor}), otherwise guesses would be free.
+ */
 @Service
 @RequiredArgsConstructor
 @Log4j2
 public class PasswordResetService implements PasswordResetUseCase {
+
+    static final String INVALID_RESET_CODE = "The reset code is invalid or has expired. Please request a new one.";
+    static final String TOO_MANY_ATTEMPTS = "Too many incorrect codes. Please request a new one.";
 
     private final PasswordResetTokenDomainRepository passwordResetTokenDomainRepository;
     private final UserDomainRepository userDomainRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailServicePort emailService;
     private final RefreshTokenDomainRepository refreshTokenRepository;
+    private final PasswordResetPolicy passwordResetPolicy;
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = {InvalidOtpException.class, PasswordResetTokenException.class})
     public PasswordResetResponse verifyOtpAndResetPassword(PasswordResetRequest request) {
-        log.info("Verifying OTP for reset token: {}", request.getResetToken());
+        Instant now = AppClock.currentUTC();
 
-        // Find reset token
-        PasswordResetToken passwordResetToken = passwordResetTokenDomainRepository.findByToken(request.getResetToken())
-                .orElseThrow(() -> new PasswordResetTokenException("Invalid reset token"));
+        // Find reset token (locked: concurrent guesses are counted one at a time)
+        PasswordResetToken passwordResetToken = passwordResetTokenDomainRepository.findByTokenForUpdate(request.getResetToken())
+                .orElseThrow(() -> new PasswordResetTokenException(INVALID_RESET_CODE));
 
         // Check token validity
         if (!passwordResetToken.isValid()) {
-            throw new PasswordResetTokenException("Reset token has expired or already used");
+            throw new PasswordResetTokenException(INVALID_RESET_CODE);
         }
 
-        // Validate OTP
-        OtpCode otpCode = OtpCode.restore(
-                passwordResetToken.getOtpCode(),
-                passwordResetToken.getCreatedAt(),
-                passwordResetToken.getExpiresAt(),
-                false
-        );
-
-        if (!otpCode.matches(request.getOtpCode())) {
+        // Validate OTP; a wrong code counts against this token
+        if (!passwordResetToken.matchesOtp(request.getOtpCode())) {
+            boolean burned = passwordResetToken.registerFailedAttempt(passwordResetPolicy.getMaxOtpAttempts(), now);
+            passwordResetTokenDomainRepository.save(passwordResetToken);
+            if (burned) {
+                log.warn("Password reset token for user {} burned after {} wrong OTP codes",
+                        passwordResetToken.getUserId(), passwordResetToken.getFailedAttempts());
+                throw new PasswordResetTokenException(TOO_MANY_ATTEMPTS);
+            }
             throw new InvalidOtpException("Invalid OTP code");
         }
 
@@ -69,19 +81,21 @@ public class PasswordResetService implements PasswordResetUseCase {
             throw new AuthenticationFailedException("Account is locked or disabled.");
         }
 
-        // Change password
+        // Change password; proving control of the e-mail also lifts a login lockout
         String encryptedPassword = passwordEncoder.encode(request.getNewPassword());
         user.setPassword(Password.create(encryptedPassword));
+        user.clearLoginLockout();
 
         // Save user
         userDomainRepository.save(user);
 
         // Mark reset token as used
-        passwordResetTokenDomainRepository.markAsUsed(request.getResetToken());
+        passwordResetToken.markAsUsed(now);
+        passwordResetTokenDomainRepository.save(passwordResetToken);
 
         // Whoever knew the old password may hold a session: end all of them.
         // No new session is started here; the user signs in with the new password.
-        refreshTokenRepository.revokeAllForUser(user.getId(), RevokeReason.PASSWORD_RESET, AppClock.currentUTC());
+        refreshTokenRepository.revokeAllForUser(user.getId(), RevokeReason.PASSWORD_RESET, now);
 
         // Send confirmation email
         emailService.sendPasswordResetConfirmationEmail(user.getEmail().getValue());

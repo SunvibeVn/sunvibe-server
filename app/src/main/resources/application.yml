@@ -70,6 +70,28 @@ app:
     refreshReuseGraceSeconds: 30
     # Daily deletion of expired refresh tokens
     refreshCleanupCron: "0 30 3 * * *"
+  security:
+    login:
+      # Every 5th consecutive wrong password locks password login: 15 min, then 30, 60... up to 24 h
+      max-failed-attempts: 5
+      lock-duration: 15m
+      max-lock-duration: 24h
+    password-reset:
+      # Wrong OTP codes a reset token tolerates before it is burned
+      max-otp-attempts: 5
+      # Minimum time between two reset e-mails to the same address
+      resend-cooldown: 60s
+    rate-limit:
+      # Per client IP (in-memory: per application instance). Behind a reverse proxy,
+      # set server.forward-headers-strategy so the real client IP is used.
+      enabled: true
+      rules:
+        - { method: POST, path: /api/auth/login, limit: 10, window: 1m }
+        - { method: POST, path: /api/users/command/register, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/forgot-password, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/reset-password, limit: 10, window: 15m }
+        - { method: POST, path: /api/auth/refresh-token, limit: 30, window: 1m }
+        - { method: POST, path: /api/auth/change-password, limit: 10, window: 15m }
   crypto:
     # No defaults on purpose: startup fails unless both are set. Each must be a
     # base64-encoded 32-byte key, and the two must differ. Dev/test values live

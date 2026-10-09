@@ -1,132 +1,119 @@
 package vn.sunvibe.auth.core.application.usecase.user.impl;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.User;
 import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.command.auth.LoginCommand;
+import vn.sunvibe.auth.core.application.exception.auth.AccountTemporarilyLockedException;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.shared.LoginLockoutPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.impl.AuthResultAssembler;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
-import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
+import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
 import vn.sunvibe.auth.core.testsupport.TestCookies;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * A locked/disabled account must surface as {@link AuthenticationFailedException}
- * with a reason, not escape as a raw Spring Security exception.
- */
 class LoginServiceTest {
 
-    private LoginService serviceFailingWith(AuthenticationException failure) {
-        return new LoginService(
-                authentication -> {
-                    throw failure;
-                },
-                username -> fail("No access token expected"),
-                (userId, clientInfo) -> fail("No refresh token expected"),
-                null,
-                null);
+    private static final String USERNAME = "0912345678";
+    private static final String PASSWORD = "Str0ng@Pass";
+
+    private AppUser user;
+    private InMemoryUserRepository users;
+    private int authenticateCalls;
+    private String refreshTokenIssued;
+
+    /** Accepts {@link #PASSWORD} for a known user, like DaoAuthenticationProvider. */
+    private final AuthenticationManager passwordChecker = authentication -> {
+        authenticateCalls++;
+        if (!users.existsByUsername(authentication.getName()) || !PASSWORD.equals(authentication.getCredentials())) {
+            throw new BadCredentialsException("Bad credentials");
+        }
+        return new UsernamePasswordAuthenticationToken(
+                User.withUsername(authentication.getName()).password("hashed").build(), null, List.of());
+    };
+
+    @BeforeEach
+    void setUp() {
+        user = AppUser.create(UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"), "Nguyen Van A", Username.create(USERNAME),
+                null, Password.create("hashed-password"), ProfileImage.create(null), null,
+                new HashSet<>(Set.of("TENANT")), Instant.now());
+        users = new InMemoryUserRepository().with(user);
+        authenticateCalls = 0;
+        refreshTokenIssued = null;
     }
 
-    private LoginCommand command() {
-        return new LoginCommand("0912345678", "P@ssw0rd!");
+    private LoginService service(AuthenticationManager authenticationManager) {
+        return new LoginService(
+                authenticationManager,
+                username -> "access-token",
+                (userId, clientInfo) -> refreshTokenIssued = "refresh-secret",
+                users,
+                new AuthResultAssembler(TestCookies.cookieService()),
+                users,
+                new LoginLockoutPolicy(5, Duration.ofMinutes(15), Duration.ofHours(24)));
+    }
+
+    private LoginService service() {
+        return service(passwordChecker);
+    }
+
+    private AuthResult login(String password) {
+        return service().execute(new LoginCommand(USERNAME, password), ClientInfo.unknown());
+    }
+
+    private LoginService serviceFailingWith(AuthenticationException failure) {
+        return service(authentication -> {
+            throw failure;
+        });
     }
 
     @Test
     void execute_lockedAccount_throwsAuthenticationFailedWithReason() {
         AuthenticationFailedException exception = assertThrows(AuthenticationFailedException.class,
-                () -> serviceFailingWith(new LockedException("locked")).execute(command(), ClientInfo.unknown()));
+                () -> serviceFailingWith(new LockedException("locked")).execute(new LoginCommand(USERNAME, PASSWORD), ClientInfo.unknown()));
+
+        assertEquals("Account is locked or disabled.", exception.getMessage());
+    }
+
+    @Test
+    void execute_disabledAccount_throwsAuthenticationFailedWithReason() {
+        AuthenticationFailedException exception = assertThrows(AuthenticationFailedException.class,
+                () -> serviceFailingWith(new DisabledException("disabled")).execute(new LoginCommand(USERNAME, PASSWORD), ClientInfo.unknown()));
 
         assertEquals("Account is locked or disabled.", exception.getMessage());
     }
 
     @Test
     void loginInternal_userWithoutEmail_returnsNullUserEmail() {
-        AppUser userWithoutEmail = AppUser.create(
-                UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
-                "Nguyen Van A",
-                Username.create("0912345678"),
-                null,
-                Password.create("hashed-password"),
-                ProfileImage.create(null),
-                null,
-                new HashSet<>(Set.of("TENANT")),
-                Instant.now());
-        UserDomainRepository repository = new UserDomainRepository() {
-            @Override
-            public boolean existsByUsername(String userName) { throw new UnsupportedOperationException(); }
-            @Override
-            public boolean existsByEmail(String email) { throw new UnsupportedOperationException(); }
-            @Override
-            public boolean existsByIdCardNumber(IdCardNumber idCardNumber) { throw new UnsupportedOperationException(); }
-            @Override
-            public AppUser save(AppUser user) { return user; }
-            @Override
-            public AppUser findByUsername(String username) { throw new UnsupportedOperationException(); }
-            @Override
-            public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
-            @Override
-            public java.util.Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
-        };
-        LoginService service = new LoginService(
-                authentication -> fail("Not used"),
-                username -> "access-token",
-                (userId, clientInfo) -> "refresh-token",
-                repository,
-                new AuthResultAssembler(TestCookies.cookieService()));
-
-        AuthResult result = service.loginInternal(userWithoutEmail, ClientInfo.unknown());
+        AuthResult result = service().loginInternal(user, ClientInfo.unknown());
 
         assertNull(result.loginResponse().userEmail());
-        assertEquals("0912345678", result.loginResponse().username());
+        assertEquals(USERNAME, result.loginResponse().username());
     }
 
     @Test
     void loginInternal_returnsAccessTokenInBodyAndRefreshTokenOnlyInScopedCookie() {
-        AppUser user = AppUser.create(UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"), "Nguyen Van A",
-                Username.create("0912345678"), null, Password.create("hashed-password"), ProfileImage.create(null),
-                null, new HashSet<>(Set.of("TENANT")), Instant.now());
-        ClientInfo device = new ClientInfo("Mozilla/5.0", "203.0.113.7");
-        ClientInfo[] sessionDevice = new ClientInfo[1];
-        LoginService service = new LoginService(
-                authentication -> fail("Not used"),
-                username -> "access-token",
-                (userId, clientInfo) -> {
-                    sessionDevice[0] = clientInfo;
-                    return "refresh-secret";
-                },
-                new UserDomainRepository() {
-                    @Override
-                    public boolean existsByUsername(String userName) { throw new UnsupportedOperationException(); }
-                    @Override
-                    public boolean existsByEmail(String email) { throw new UnsupportedOperationException(); }
-                    @Override
-                    public boolean existsByIdCardNumber(IdCardNumber idCardNumber) { throw new UnsupportedOperationException(); }
-                    @Override
-                    public AppUser save(AppUser appUser) { return appUser; }
-                    @Override
-                    public AppUser findByUsername(String username) { throw new UnsupportedOperationException(); }
-                    @Override
-                    public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
-                    @Override
-                    public java.util.Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
-                },
-                new AuthResultAssembler(TestCookies.cookieService()));
-
-        AuthResult result = service.loginInternal(user, device);
+        AuthResult result = service().loginInternal(user, new ClientInfo("Mozilla/5.0", "203.0.113.7"));
 
         assertEquals("access-token", result.loginResponse().accessToken());
         assertEquals(15 * 60, result.loginResponse().expiresIn());
-        assertSame(device, sessionDevice[0]);
         String refreshCookie = result.refreshCookie().toString();
         assertTrue(refreshCookie.startsWith(TestCookies.REFRESH_COOKIE + "=refresh-secret"));
         assertTrue(refreshCookie.contains("Path=/api/auth"));
@@ -135,10 +122,68 @@ class LoginServiceTest {
     }
 
     @Test
-    void execute_disabledAccount_throwsAuthenticationFailedWithReason() {
-        AuthenticationFailedException exception = assertThrows(AuthenticationFailedException.class,
-                () -> serviceFailingWith(new DisabledException("disabled")).execute(command(), ClientInfo.unknown()));
+    void execute_wrongPassword_countsTheFailure() {
+        AuthenticationFailedException exception = assertThrows(AuthenticationFailedException.class, () -> login("wrong"));
 
-        assertEquals("Account is locked or disabled.", exception.getMessage());
+        assertEquals("Incorrect username or password.", exception.getMessage());
+        assertEquals(1, user.getFailedLoginAttempts());
+        assertNull(user.getLockedUntil());
+    }
+
+    @Test
+    void execute_fifthWrongPasswordLocksTheAccount() {
+        for (int i = 0; i < 4; i++) {
+            assertThrows(AuthenticationFailedException.class, () -> login("wrong"));
+        }
+
+        AccountTemporarilyLockedException locked = assertThrows(AccountTemporarilyLockedException.class, () -> login("wrong"));
+
+        assertEquals(Duration.ofMinutes(15), locked.getRetryAfter());
+        assertTrue(user.isLoginTemporarilyLocked(Instant.now()));
+    }
+
+    /** During the lock even the right password is refused, without being checked. */
+    @Test
+    void execute_lockedAccountIsRefusedBeforeThePasswordIsChecked() {
+        user.setLockedUntil(Instant.now().plus(Duration.ofMinutes(10)));
+
+        AccountTemporarilyLockedException locked = assertThrows(AccountTemporarilyLockedException.class, () -> login(PASSWORD));
+
+        assertEquals(0, authenticateCalls);
+        assertNull(refreshTokenIssued);
+        assertTrue(locked.getRetryAfter().compareTo(Duration.ofMinutes(9)) > 0);
+        assertTrue(locked.getMessage().contains("10 minute"));
+    }
+
+    @Test
+    void execute_expiredLockAllowsLoginAndResetsTheCounter() {
+        user.setFailedLoginAttempts(5);
+        user.setLockedUntil(Instant.now().minusSeconds(1));
+
+        AuthResult result = login(PASSWORD);
+
+        assertEquals("access-token", result.loginResponse().accessToken());
+        assertEquals(0, user.getFailedLoginAttempts());
+        assertNull(user.getLockedUntil());
+        assertNotNull(user.getLastLogin());
+    }
+
+    @Test
+    void execute_successResetsEarlierFailures() {
+        assertThrows(AuthenticationFailedException.class, () -> login("wrong"));
+        assertThrows(AuthenticationFailedException.class, () -> login("wrong"));
+
+        login(PASSWORD);
+
+        assertEquals(0, user.getFailedLoginAttempts());
+    }
+
+    @Test
+    void execute_unknownUsernameIsNotCountedAndLooksLikeAWrongPassword() {
+        AuthenticationFailedException exception = assertThrows(AuthenticationFailedException.class,
+                () -> service().execute(new LoginCommand("0999999999", PASSWORD), ClientInfo.unknown()));
+
+        assertEquals("Incorrect username or password.", exception.getMessage());
+        assertEquals(0, user.getFailedLoginAttempts());
     }
 }

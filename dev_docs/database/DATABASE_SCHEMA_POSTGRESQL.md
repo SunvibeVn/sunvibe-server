@@ -62,7 +62,9 @@ CREATE TABLE users (
     created_date TIMESTAMP WITH TIME ZONE NOT NULL,
     last_update TIMESTAMP WITH TIME ZONE NOT NULL,
     last_login TIMESTAMP WITH TIME ZONE,
-    deleted_at TIMESTAMP WITH TIME ZONE
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0, -- số lần sai mật khẩu liên tiếp (khóa tạm lũy tiến)
+    locked_until TIMESTAMP WITH TIME ZONE              -- từ chối đăng nhập bằng mật khẩu tới thời điểm này
 );
 
 CREATE UNIQUE INDEX idx_users_username ON users (username) WHERE deleted_at IS NULL;
@@ -103,6 +105,24 @@ CREATE TABLE refresh_tokens (
 CREATE INDEX idx_refresh_tokens_family_id ON refresh_tokens (family_id);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens (user_id);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens (expires_at);
+
+-- Yêu cầu đặt lại mật khẩu qua email: reset token + OTP 6 số, sống 15 phút.
+-- Token bị hủy (is_used = true) khi dùng xong, khi nhập sai OTP 5 lần, hoặc khi cấp mã mới.
+CREATE TABLE password_reset_token (
+    id BIGINT NOT NULL PRIMARY KEY,
+    token VARCHAR(255) NOT NULL,
+    user_id VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    otp_code VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_used BOOLEAN NOT NULL,
+    used_at TIMESTAMP WITH TIME ZONE,
+    failed_attempts INTEGER NOT NULL DEFAULT 0 -- số lần nhập sai OTP
+);
+CREATE UNIQUE INDEX idx_password_reset_token_token ON password_reset_token (token);
+CREATE INDEX idx_password_reset_token_email ON password_reset_token (email);
+CREATE INDEX idx_password_reset_token_user_id ON password_reset_token (user_id);
 
 CREATE TABLE agent_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -147,7 +167,9 @@ CREATE TABLE properties (
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING_APPROVAL', -- DRAFT, PENDING_APPROVAL, AVAILABLE, RENTED, MAINTENANCE, INACTIVE
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0, -- số lần sai mật khẩu liên tiếp (khóa tạm lũy tiến)
+    locked_until TIMESTAMP WITH TIME ZONE              -- từ chối đăng nhập bằng mật khẩu tới thời điểm này
 );
 
 CREATE INDEX idx_properties_location ON properties USING GIST (location);

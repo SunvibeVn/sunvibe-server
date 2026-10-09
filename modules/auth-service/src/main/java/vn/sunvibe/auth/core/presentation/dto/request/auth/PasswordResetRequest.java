@@ -3,11 +3,17 @@ package vn.sunvibe.auth.core.presentation.dto.request.auth;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
 
+// No-args constructor: Jackson needs it to read the request body (without it every call failed with a 500)
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class PasswordResetRequest {
 
     @NotBlank(message = "Reset token is required")
@@ -18,6 +24,7 @@ public class PasswordResetRequest {
     private String otpCode;
 
     @NotBlank(message = "New password is required")
+    @StrongPassword
     private String newPassword;
 
     @NotBlank(message = "Confirm password is required")

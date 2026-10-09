@@ -207,6 +207,7 @@ Số CCCD là dữ liệu cá nhân nhạy cảm nên không bao giờ lưu dạ
 | Email sai định dạng | 409 | `email` | Invalid email format. |
 | Email đã dùng | 409 | `email` | Email is already in use. |
 | CCCD đã dùng | 409 | `idCardNumber` | ID card number is already in use. |
+| Quá 5 lần đăng ký / giờ từ cùng IP | 429 + `Retry-After` | — | Too many requests. Please try again later. |
 
 ---
 

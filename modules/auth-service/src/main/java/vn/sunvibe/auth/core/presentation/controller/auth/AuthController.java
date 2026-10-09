@@ -108,7 +108,7 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<PasswordForgotResponse>> forgotPassword(@Valid @RequestBody PasswordForgotRequest passwordForgotRequest) {
 
-        log.info("Forgot password request from: {}", passwordForgotRequest.email());
+        log.info("Forgot password request received");
         // Create command
         PasswordForgotCommand passwordForgotCommand = authConverter.toPasswordForgotCommand(passwordForgotRequest);
         // Send OTP via email, return password reset token
@@ -116,7 +116,7 @@ public class AuthController {
 
         return ResponseEntity.ok(ApiResponse.<PasswordForgotResponse>builder()
                 .code(HttpStatus.OK.value())
-                .message("Password reset email sent.")
+                .message(response.message())
                 .result(response).build());
     }
 
