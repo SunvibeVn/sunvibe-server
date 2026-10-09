@@ -42,6 +42,8 @@ public enum AuditEventType {
     /** The user proved control of the e-mail. */
     EMAIL_VERIFIED,
     /** A verification code was rejected (wrong, expired, burned). */
-    VERIFICATION_FAILED
+    VERIFICATION_FAILED,
+    /** An account never verified its phone within the allowed time and was deactivated. */
+    PENDING_ACCOUNT_EXPIRED
 
 }

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 /**
- * Limits of phone/e-mail verification codes, from {@code app.security.verification.*}.
+ * Limits of phone/e-mail verification, from {@code app.security.verification.*}.
  */
 @Getter
 @Component
@@ -21,20 +21,29 @@ public class VerificationPolicy {
     private final Duration resendCooldown;
     /** Codes per account and channel per 24 hours (SMS costs money and annoys people). */
     private final int maxCodesPerDay;
+    /** A PENDING account whose phone is still unverified this long after registration is deactivated. */
+    private final Duration pendingAccountTtl;
 
     @Autowired
     public VerificationPolicy(@Value("${app.security.verification.code-lifetime:10m}") Duration codeLifetime,
                               @Value("${app.security.verification.max-attempts:5}") int maxAttempts,
                               @Value("${app.security.verification.resend-cooldown:60s}") Duration resendCooldown,
-                              @Value("${app.security.verification.max-codes-per-day:5}") int maxCodesPerDay) {
+                              @Value("${app.security.verification.max-codes-per-day:5}") int maxCodesPerDay,
+                              @Value("${app.security.verification.pending-account-ttl:7d}") Duration pendingAccountTtl) {
         if (codeLifetime.isNegative() || codeLifetime.isZero() || maxAttempts < 1 || resendCooldown.isNegative()
-                || maxCodesPerDay < 1) {
+                || maxCodesPerDay < 1 || pendingAccountTtl.isNegative() || pendingAccountTtl.isZero()) {
             throw new IllegalArgumentException("Invalid verification policy: lifetime=" + codeLifetime
-                    + ", maxAttempts=" + maxAttempts + ", cooldown=" + resendCooldown + ", perDay=" + maxCodesPerDay);
+                    + ", maxAttempts=" + maxAttempts + ", cooldown=" + resendCooldown + ", perDay=" + maxCodesPerDay
+                    + ", pendingAccountTtl=" + pendingAccountTtl);
         }
         this.codeLifetime = codeLifetime;
         this.maxAttempts = maxAttempts;
         this.resendCooldown = resendCooldown;
         this.maxCodesPerDay = maxCodesPerDay;
+        this.pendingAccountTtl = pendingAccountTtl;
+    }
+
+    public VerificationPolicy(Duration codeLifetime, int maxAttempts, Duration resendCooldown, int maxCodesPerDay) {
+        this(codeLifetime, maxAttempts, resendCooldown, maxCodesPerDay, Duration.ofDays(7));
     }
 }

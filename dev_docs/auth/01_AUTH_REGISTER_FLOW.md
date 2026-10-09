@@ -232,7 +232,7 @@ Test: `UserRegisterServiceTest`, `IdCardNumberTest`, `UserRepositoryAdapterEncry
 ## 7. HẠN CHẾ ĐÃ BIẾT
 
 1. **Đăng ký đồng thời trùng số điện thoại**: hai request cùng lúc có thể cùng vượt qua bước kiểm tra trùng. Unique index chặn được bản ghi thứ hai, nhưng lỗi trả về là **500** thay vì 409.
-2. **Đăng ký trước, xác minh sau**: vẫn đăng ký được bằng số của người khác (tài khoản ở `PENDING`). Chủ thật của số lấy lại tài khoản qua quên mật khẩu bằng SMS; xem 05 §1.
+2. **Đăng ký trước, xác minh sau**: vẫn đăng ký được bằng số của người khác (tài khoản ở `PENDING`). Chủ thật của số lấy lại tài khoản qua quên mật khẩu bằng SMS (05 §1); tài khoản không xác minh trong 7 ngày cũng tự bị vô hiệu hóa và số được giải phóng (05 §2).
 3. **Mã HTTP**: thành công trả HTTP `200`, còn trong body là `code: 201`.
 4. Chưa có nhà cung cấp SMS thật: production cần gắn trước khi chạy (05 §6).
 5. Message của `fullName` ghi "From 6 to 32 characters" trong khi ràng buộc thực tế là 6–100 ký tự.

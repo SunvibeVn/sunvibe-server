@@ -4,11 +4,15 @@ import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
+import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
+import vn.sunvibe.auth.core.domain.repository.user.PendingAccountRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserLoginAttemptRepository;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -16,7 +20,7 @@ import java.util.Optional;
  * Hand-written fake of the user ports, keyed by username. Lookups throw
  * {@link UserNotFoundException} like the real adapter.
  */
-public class InMemoryUserRepository implements UserDomainRepository, UserLoginAttemptRepository {
+public class InMemoryUserRepository implements UserDomainRepository, UserLoginAttemptRepository, PendingAccountRepository {
 
     private final Map<String, AppUser> users = new LinkedHashMap<>();
     public int saveCount;
@@ -80,5 +84,16 @@ public class InMemoryUserRepository implements UserDomainRepository, UserLoginAt
     @Override
     public void lockLoginUntil(UserId userId, Instant until) {
         findById(userId).orElseThrow().setLockedUntil(until);
+    }
+
+    @Override
+    public List<UserId> findUnverifiedPendingCreatedBefore(Instant cutoff, int limit) {
+        return users.values().stream()
+                .filter(u -> u.getUserStatus() == UserStatus.PENDING && !u.isPhoneVerified() && u.getDeletedAt() == null
+                        && u.getCreatedDate().isBefore(cutoff))
+                .sorted(Comparator.comparing(AppUser::getCreatedDate))
+                .limit(limit)
+                .map(AppUser::getId)
+                .toList();
     }
 }

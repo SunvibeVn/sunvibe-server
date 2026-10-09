@@ -35,6 +35,7 @@ Log ứng dụng (stdout) vẫn giữ nguyên. Audit log là bản ghi có cấu
 | `PHONE_VERIFICATION_SENT` / `EMAIL_VERIFICATION_SENT` | Gửi mã xác minh | ✔ | SĐT / Email | — |
 | `PHONE_VERIFIED` / `EMAIL_VERIFIED` | Xác minh thành công | ✔ | SĐT / Email | `BY_SMS_PASSWORD_RESET` khi xác minh qua reset SMS |
 | `VERIFICATION_FAILED` | Sai mã / mã hết hạn / đã hủy | ✔ | SĐT / Email | `PHONE WRONG_CODE attempt=N` / `... BURNED` / `... NO_USABLE_CODE` |
+| `PENDING_ACCOUNT_EXPIRED` | Job vô hiệu hóa tài khoản không xác minh SĐT trong 7 ngày | ✔ | SĐT | `unverified for PT168H` |
 
 Mọi dòng đều có thêm `ip_address`, `user_agent` (lấy tự động từ request) và `occurred_at`.
 

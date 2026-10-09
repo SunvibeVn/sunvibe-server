@@ -24,7 +24,15 @@ stateDiagram-v2
     PENDING --> ACTIVE: Nhập đúng OTP SMS\nhoặc reset mật khẩu qua SMS
     ACTIVE --> LOCK: Quản trị viên khóa
     PENDING --> LOCK: Quản trị viên khóa
+    PENDING --> DELETED: Không xác minh trong 7 ngày\n(job hằng ngày, xóa mềm)
 ```
+
+**Tài khoản không xác minh sau 7 ngày bị vô hiệu hóa** (`PendingAccountCleanupScheduler`, hằng ngày lúc 03:15):
+- Áp dụng cho tài khoản `PENDING`, chưa xác minh SĐT, chưa bị xóa, đăng ký đã hơn `app.security.verification.pending-account-ttl` (7 ngày).
+- **Xóa mềm** (`user_status = DELETED`, `deleted_at`), không xóa cứng. Dữ liệu và audit vẫn còn, còn số điện thoại / email được **giải phóng** để chủ thật đăng ký lại.
+- Thu hồi mọi phiên đăng nhập của tài khoản (`ACCOUNT_INACTIVE`) và ghi audit `PENDING_ACCOUNT_EXPIRED`.
+- Mỗi lần chạy xử lý tối đa 500 tài khoản; phần còn lại để lần chạy sau.
+- Tài khoản tạo trước khi có tính năng này đang ở `ACTIVE` nên **không** bị ảnh hưởng, dù chưa xác minh SĐT.
 
 | Trạng thái | Đăng nhập | Quyền `PHONE_VERIFIED` |
 |---|---|---|
@@ -187,6 +195,7 @@ Gắn nhà cung cấp thật (eSMS, SpeedSMS, Twilio, ...):
 | `PHONE_VERIFICATION_SENT` / `EMAIL_VERIFICATION_SENT` | Gửi mã |
 | `PHONE_VERIFIED` / `EMAIL_VERIFIED` | Xác minh thành công (với SĐT: kể cả qua reset SMS, `details = BY_SMS_PASSWORD_RESET`) |
 | `VERIFICATION_FAILED` | Sai mã, mã hết hạn/đã hủy (`details` = kênh + lý do) |
+| `PENDING_ACCOUNT_EXPIRED` | Tài khoản không xác minh SĐT trong 7 ngày bị vô hiệu hóa |
 | `PASSWORD_RESET_REQUESTED` | `details` = `EMAIL ...` / `PHONE ...` + `SENT` / `COOLDOWN_NOT_SENT` / `DAILY_LIMIT` / `NO_ELIGIBLE_ACCOUNT` |
 
 ---
@@ -205,13 +214,14 @@ Migration: `V202610091700__add_contact_verification.sql`.
 
 | Tầng | Lớp |
 |---|---|
-| Presentation | `ContactVerificationController`, `AuthController` (`/forgot-password/sms`), `VerificationConfirmRequest`, `PasswordForgotSmsRequest`, `VerificationSendResponse`, `AuthExceptionHandler` |
-| Application | `ContactVerificationUseCase` / `ContactVerificationService`, `VerificationPolicy`, `ContactMasker`, `PasswordForgotService`, `PasswordResetService`, `SmsSenderPort`, `VerificationException`, `VerificationThrottledException` |
+| Presentation | `PendingAccountCleanupScheduler`, `ContactVerificationController`, `AuthController` (`/forgot-password/sms`), `VerificationConfirmRequest`, `PasswordForgotSmsRequest`, `VerificationSendResponse`, `AuthExceptionHandler` |
+| Application | `PendingAccountCleanupUseCase` / `PendingAccountCleanupService`, `ContactVerificationUseCase` / `ContactVerificationService`, `VerificationPolicy`, `ContactMasker`, `PasswordForgotService`, `PasswordResetService`, `SmsSenderPort`, `VerificationException`, `VerificationThrottledException` |
 | Domain | `VerificationCode`, `VerificationChannel`, `VerificationCodeRepository`, `AppUser` (`verifyPhone`, `verifyEmail`, `changeEmail`), `PasswordResetToken` (`channel`, `destination`) |
-| Infrastructure | `VerificationCodeRepositoryAdapter`, `VerificationCodeEntity`, `VerificationCodeJpaRepository`, `LoggingSmsSender`, `EmailService.sendVerificationCodeEmail`, `CustomUserDetailsService` (authority) |
+| Infrastructure | `PendingAccountRepositoryAdapter`, `VerificationCodeRepositoryAdapter`, `VerificationCodeEntity`, `VerificationCodeJpaRepository`, `LoggingSmsSender`, `EmailService.sendVerificationCodeEmail`, `CustomUserDetailsService` (authority) |
 | Hằng số | `AuthAuthorities` (`PHONE_VERIFIED`, `EMAIL_VERIFIED`) |
 
 Test:
+- `PendingAccountCleanupServiceTest`, `PendingAccountRepositoryAdapterTest`.
 - `VerificationCodeTest`, `ContactVerificationServiceTest`, `ContactVerificationServiceTransactionTest`, `VerificationCodeRepositoryAdapterTest`, `ContactMaskerTest`.
 - `AppUserTest`, `CustomUserDetailsServiceTest`, `UserRegisterServiceTest`, `PasswordForgotServiceTest`, `PasswordResetServiceTest`.
 
@@ -220,7 +230,7 @@ Test:
 ## 10. HẠN CHẾ & VIỆC CÒN LẠI
 
 1. **Chưa có nhà cung cấp SMS thật**: production chưa chạy được cho tới khi gắn (§6).
-2. **Tài khoản PENDING không bao giờ hết hạn**: số bị chiếm vẫn lấy lại được qua reset SMS, nhưng nên có job dọn tài khoản PENDING quá N ngày (cần quyết định nghiệp vụ).
+2. Job dọn tài khoản `PENDING` chưa gửi nhắc nhở trước khi vô hiệu hóa (ví dụ SMS ở ngày thứ 5); sẽ làm khi có nhà cung cấp SMS.
 3. **Chưa có API cập nhật hồ sơ** (thêm/đổi email sau đăng ký). Logic xác minh đã sẵn: `changeEmail` xóa trạng thái xác minh, rồi gọi `/verification/email/send`.
 4. Gửi SMS/email **đồng bộ** trong request: nhà cung cấp chậm thì request chậm theo.
 5. Chưa áp `@PreAuthorize("hasAuthority('PHONE_VERIFIED')")` ở module nào; cần quyết định những hành động nào bắt buộc xác minh.

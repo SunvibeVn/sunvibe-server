@@ -89,6 +89,10 @@ app:
       max-attempts: 5
       resend-cooldown: 60s
       max-codes-per-day: 5
+      # PENDING accounts whose phone is still unverified this long after registration are
+      # deactivated (soft-deleted, freeing the number) by a daily job
+      pending-account-ttl: 7d
+      pending-cleanup-cron: "0 15 3 * * *"
     audit:
       # Security audit log (auth_audit_events): kept this long, purged daily at cleanup-cron
       retention: 180d
