@@ -62,3 +62,8 @@ app:
     jwtCookieName: cookie-jwt
     jwtRefreshCookieName: cookie-jwt-rf
     jwtRefreshExpirationMs: 604800000
+  crypto:
+    # DEV-ONLY defaults. Production MUST override both via environment
+    # variables — never rely on these committed values outside local dev.
+    id-card-key: ${ID_CARD_CRYPTO_KEY:bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=}
+    id-card-index-key: ${ID_CARD_CRYPTO_INDEX_KEY:HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=}
