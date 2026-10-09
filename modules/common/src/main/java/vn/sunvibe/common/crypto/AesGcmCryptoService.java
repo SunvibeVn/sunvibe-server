@@ -10,6 +10,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.SecureRandom;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HexFormat;
 
@@ -25,6 +26,7 @@ public class AesGcmCryptoService implements CryptoService {
 
     private static final int GCM_IV_LENGTH_BYTES = 12;
     private static final int GCM_TAG_LENGTH_BITS = 128;
+    private static final int KEY_LENGTH_BYTES = 32;
 
     private final SecretKeySpec encryptionKey;
     private final SecretKeySpec indexKey;
@@ -33,8 +35,28 @@ public class AesGcmCryptoService implements CryptoService {
     public AesGcmCryptoService(
             @Value("${app.crypto.id-card-key}") String base64EncryptionKey,
             @Value("${app.crypto.id-card-index-key}") String base64IndexKey) {
-        this.encryptionKey = new SecretKeySpec(Base64.getDecoder().decode(base64EncryptionKey), "AES");
-        this.indexKey = new SecretKeySpec(Base64.getDecoder().decode(base64IndexKey), "HmacSHA256");
+        byte[] encryptionKeyBytes = decodeKey(base64EncryptionKey, "app.crypto.id-card-key");
+        byte[] indexKeyBytes = decodeKey(base64IndexKey, "app.crypto.id-card-index-key");
+        if (Arrays.equals(encryptionKeyBytes, indexKeyBytes)) {
+            throw new IllegalArgumentException(
+                    "app.crypto.id-card-key and app.crypto.id-card-index-key must be different keys");
+        }
+        this.encryptionKey = new SecretKeySpec(encryptionKeyBytes, "AES");
+        this.indexKey = new SecretKeySpec(indexKeyBytes, "HmacSHA256");
+    }
+
+    private static byte[] decodeKey(String base64Key, String propertyName) {
+        byte[] decoded;
+        try {
+            decoded = Base64.getDecoder().decode(base64Key);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(propertyName + " must be valid base64", e);
+        }
+        if (decoded.length != KEY_LENGTH_BYTES) {
+            throw new IllegalArgumentException(
+                    propertyName + " must decode to exactly " + KEY_LENGTH_BYTES + " bytes");
+        }
+        return decoded;
     }
 
     @Override

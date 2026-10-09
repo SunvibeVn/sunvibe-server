@@ -47,4 +47,25 @@ class AesGcmCryptoServiceTest {
         // HMAC-SHA256 output is 32 bytes -> 64 hex characters
         assertEquals(64, cryptoService.blindIndex("123456789012").length());
     }
+
+    @Test
+    void constructor_rejectsEncryptionKeyNotExactly32Bytes() {
+        String shortKey = Base64.getEncoder().encodeToString(new byte[16]);
+        assertThrows(IllegalArgumentException.class,
+                () -> new AesGcmCryptoService(shortKey, randomBase64Key()));
+    }
+
+    @Test
+    void constructor_rejectsIndexKeyNotExactly32Bytes() {
+        String shortKey = Base64.getEncoder().encodeToString(new byte[16]);
+        assertThrows(IllegalArgumentException.class,
+                () -> new AesGcmCryptoService(randomBase64Key(), shortKey));
+    }
+
+    @Test
+    void constructor_rejectsIdenticalEncryptionAndIndexKeys() {
+        String key = randomBase64Key();
+        assertThrows(IllegalArgumentException.class,
+                () -> new AesGcmCryptoService(key, key));
+    }
 }
