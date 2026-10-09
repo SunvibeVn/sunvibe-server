@@ -43,6 +43,17 @@ class RateLimitFilterTest {
         assertTrue(limited.getContentAsString().contains(RateLimitFilter.MESSAGE));
     }
 
+    /** Spring MVC decodes and normalises the path before routing, so the limit must too. */
+    @Test
+    void encodedOrDenormalisedPathsShareTheLimit() throws Exception {
+        RateLimitFilter filter = filter(true);
+        send(filter, "POST", "/api/auth/log%69n", "203.0.113.7");
+        send(filter, "POST", "/api/auth/login;jsessionid=x", "203.0.113.7");
+        send(filter, "POST", "/api//auth/login", "203.0.113.7");
+
+        assertEquals(429, send(filter, "POST", "/api/auth/%6C%6F%67%69%6E", "203.0.113.7").getStatus());
+    }
+
     @Test
     void otherClientsAreNotAffected() throws Exception {
         RateLimitFilter filter = filter(true);

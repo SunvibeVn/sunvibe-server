@@ -5,8 +5,12 @@ import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
 import java.time.Instant;
 import java.util.Optional;
 
+/**
+ * Persistence of password-reset tokens.
+ */
 public interface PasswordResetTokenDomainRepository {
 
+    /** Inserts a new token or updates an existing one. */
     void save(PasswordResetToken passwordResetToken);
 
     /**
@@ -23,7 +27,5 @@ public interface PasswordResetTokenDomainRepository {
 
     /** Tokens issued to this destination since {@code since} (daily cap). */
     long countIssuedSince(String destination, Instant since);
-
-    void cleanupExpiredTokens();
 
 }

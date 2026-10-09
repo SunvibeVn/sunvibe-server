@@ -4,6 +4,9 @@ import vn.sunvibe.common.exception.ApplicationException;
 
 import java.io.Serial;
 
+/**
+ * An e-mail could not be handed to the mail server.
+ */
 public class SendingMailFailedException extends ApplicationException {
 
     @Serial

@@ -11,6 +11,10 @@ import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 
+/**
+ * {@link EmailServicePort} over SMTP ({@code spring.mail.*}); the sender is
+ * {@code spring.mail.username}.
+ */
 @Service
 @RequiredArgsConstructor
 @Log4j2
@@ -24,13 +28,6 @@ public class EmailService implements EmailServicePort {
     @Override
     public void sendPasswordResetEmail(String email, String otpCode, String resetToken) {
         try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
-            message.setTo(email);
-            message.setSubject("Password Reset Request");
-            message.setText("Your OTP: " + otpCode);
-
-            // Optional: Send HTML email
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true);
             helper.setFrom(fromEmail);

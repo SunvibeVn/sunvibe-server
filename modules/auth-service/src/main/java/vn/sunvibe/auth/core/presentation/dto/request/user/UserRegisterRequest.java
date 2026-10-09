@@ -7,6 +7,9 @@ import lombok.Builder;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.ConfirmPasswordMatch;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
 
+/**
+ * Body of {@code POST /api/users/command/register}.
+ */
 @Builder
 @ConfirmPasswordMatch(
         password = "password",
@@ -16,7 +19,7 @@ import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPasswo
 public record UserRegisterRequest(
 
         @NotNull(message = "Full name is mandatory.")
-        @Size(min = 6, max = 100, message = "From 6 to 32 characters in length.")
+        @Size(min = 6, max = 100, message = "From 6 to 100 characters in length.")
         String fullName,
 
         @NotNull(message = "Phone numbers is mandatory.")

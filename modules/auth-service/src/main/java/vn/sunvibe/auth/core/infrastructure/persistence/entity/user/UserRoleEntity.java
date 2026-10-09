@@ -9,6 +9,10 @@ import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.PermissionEnt
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Table {@code ROLES}: one row per {@code RoleName}, seeded at start-up by
+ * {@code RoleDataInitializer}.
+ */
 @Getter
 @Setter
 @Builder

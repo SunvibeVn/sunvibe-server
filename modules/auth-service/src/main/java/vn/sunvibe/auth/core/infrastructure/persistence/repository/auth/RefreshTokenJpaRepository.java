@@ -14,6 +14,10 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Spring Data access to {@link RefreshTokenEntity}. Bulk updates clear the
+ * persistence context so later reads see the new state.
+ */
 public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEntity, Long> {
 
     /** {@code SELECT ... FOR UPDATE}: concurrent refreshes of one token run one after another. */

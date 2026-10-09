@@ -1,5 +1,8 @@
 package vn.sunvibe.auth.core.application.usecase.auth;
 
+/**
+ * Housekeeping of the refresh-token table, which grows by one row per refresh.
+ */
 public interface ExpiredRefreshTokenPurgeUseCase {
 
     /**

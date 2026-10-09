@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 import vn.sunvibe.common.time.AppClock;
 
 import java.io.IOException;
@@ -66,8 +67,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 .formatted(HttpStatus.TOO_MANY_REQUESTS.value(), MESSAGE, AppClock.currentUTC()));
     }
 
+    /**
+     * Matches on the decoded, normalised path (percent-escapes resolved, {@code ;...}
+     * parameters and duplicate slashes removed), the way Spring MVC routes it.
+     * Matching the raw URI would let {@code /api/auth/log%69n} skip the limit.
+     */
     private Optional<RateLimitProperties.Rule> matchingRule(HttpServletRequest request) {
-        String path = request.getRequestURI().substring(request.getContextPath().length());
+        String path = UrlPathHelper.defaultInstance.getPathWithinApplication(request);
         return properties.rules().stream()
                 .filter(rule -> rule.method().equalsIgnoreCase(request.getMethod()) && rule.path().equals(path))
                 .findFirst();

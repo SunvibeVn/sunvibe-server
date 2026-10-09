@@ -46,11 +46,13 @@ public class VerificationCode {
         this.consumedAt = consumedAt;
     }
 
+    /** A new code sent to {@code destination}; only its salted hash is kept. */
     public static VerificationCode issue(Long id, String userId, VerificationChannel channel, String destination,
                                          String code, Instant now, Duration lifetime) {
         return new VerificationCode(id, userId, channel, destination, hash(id, code), now, now.plus(lifetime), 0, null);
     }
 
+    /** Rebuilds a code from storage. */
     public static VerificationCode load(Long id, String userId, VerificationChannel channel, String destination,
                                         String codeHash, Instant createdAt, Instant expiresAt, int failedAttempts,
                                         Instant consumedAt) {
@@ -81,6 +83,11 @@ public class VerificationCode {
         return consumedAt != null;
     }
 
+    /**
+     * Uses the code up after a successful verification.
+     *
+     * @throws IllegalStateException if it was already used or burned
+     */
     public void consume(Instant now) {
         if (consumedAt != null) {
             throw new IllegalStateException("Verification code already used.");

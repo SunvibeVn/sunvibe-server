@@ -13,6 +13,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Spring Data access to {@link UserEntity}. Every lookup skips soft-deleted
+ * rows ({@code deletedAt IS NULL}).
+ */
 @Repository
 public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
 

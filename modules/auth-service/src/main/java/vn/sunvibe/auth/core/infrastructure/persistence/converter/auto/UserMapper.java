@@ -5,6 +5,11 @@ import org.mapstruct.Mapping;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 
+/**
+ * Maps {@link AppUser} to and from {@link UserEntity} (MapStruct). Roles and
+ * value objects are converted by {@link UserVOMapper}; the ID card blind index
+ * is set by the repository adapter.
+ */
 @Mapper(
         componentModel = "spring",
         uses = UserVOMapper.class

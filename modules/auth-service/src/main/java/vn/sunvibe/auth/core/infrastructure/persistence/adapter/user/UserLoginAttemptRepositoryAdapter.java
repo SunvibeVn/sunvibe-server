@@ -8,6 +8,9 @@ import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRe
 
 import java.time.Instant;
 
+/**
+ * JPA implementation of {@link UserLoginAttemptRepository}, using atomic updates.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserLoginAttemptRepositoryAdapter implements UserLoginAttemptRepository {

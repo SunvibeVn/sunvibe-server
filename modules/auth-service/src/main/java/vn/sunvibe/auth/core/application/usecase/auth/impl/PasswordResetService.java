@@ -5,6 +5,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.sunvibe.auth.core.application.command.auth.PasswordResetCommand;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
@@ -18,18 +19,14 @@ import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
-import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
-import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordResetResponse;
 import vn.sunvibe.common.time.AppClock;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
@@ -58,11 +55,11 @@ public class PasswordResetService implements PasswordResetUseCase {
 
     @Override
     @Transactional(noRollbackFor = {InvalidOtpException.class, PasswordResetTokenException.class})
-    public PasswordResetResponse verifyOtpAndResetPassword(PasswordResetRequest request) {
+    public Instant verifyOtpAndResetPassword(PasswordResetCommand command) {
         Instant now = AppClock.currentUTC();
 
         // Find reset token (locked: concurrent guesses are counted one at a time)
-        PasswordResetToken passwordResetToken = passwordResetTokenDomainRepository.findByTokenForUpdate(request.getResetToken())
+        PasswordResetToken passwordResetToken = passwordResetTokenDomainRepository.findByTokenForUpdate(command.resetToken())
                 .orElseThrow(() -> {
                     auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_RESET_FAILED, null, null, "UNKNOWN_TOKEN"));
                     return new PasswordResetTokenException(INVALID_RESET_CODE);
@@ -75,7 +72,7 @@ public class PasswordResetService implements PasswordResetUseCase {
         }
 
         // Validate OTP; a wrong code counts against this token
-        if (!passwordResetToken.matchesOtp(request.getOtpCode())) {
+        if (!passwordResetToken.matchesOtp(command.otpCode())) {
             boolean burned = passwordResetToken.registerFailedAttempt(passwordResetPolicy.getMaxOtpAttempts(), now);
             passwordResetTokenDomainRepository.save(passwordResetToken);
             if (burned) {
@@ -104,8 +101,7 @@ public class PasswordResetService implements PasswordResetUseCase {
         }
 
         // Change password; proving control of the e-mail/phone also lifts a login lockout
-        String encryptedPassword = passwordEncoder.encode(request.getNewPassword());
-        user.setPassword(Password.create(encryptedPassword));
+        user.changePassword(passwordEncoder.encode(command.newPassword()));
         user.clearLoginLockout();
         // An SMS code reached this phone: its owner is verified (and takes back a number someone else registered)
         boolean phoneNewlyVerified = passwordResetToken.getChannel() == VerificationChannel.PHONE && !user.isPhoneVerified();
@@ -137,10 +133,7 @@ public class PasswordResetService implements PasswordResetUseCase {
         log.info("Password reset successfully for user: {}", user.getId().getValue());
         audit(AuditEventType.PASSWORD_RESET_COMPLETED, passwordResetToken, null);
 
-        return PasswordResetResponse.builder()
-                .message("Password reset successfully")
-                .passwordChangedAt(LocalDateTime.now())
-                .build();
+        return now;
     }
 
     private void audit(AuditEventType type, PasswordResetToken token, String details) {

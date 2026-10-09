@@ -4,6 +4,10 @@ import vn.sunvibe.common.exception.ApplicationException;
 
 import java.io.Serial;
 
+/**
+ * Sign-in or credential check refused: wrong credentials, or an account that
+ * may not sign in. Answered with 401.
+ */
 public class AuthenticationFailedException extends ApplicationException {
 
     @Serial

@@ -5,7 +5,9 @@ package vn.sunvibe.auth.core.domain.model.auth.enums;
  */
 public enum VerificationChannel {
 
+    /** SMS to the account's phone number (its username). */
     PHONE,
+    /** E-mail to the account's e-mail address. */
     EMAIL
 
 }

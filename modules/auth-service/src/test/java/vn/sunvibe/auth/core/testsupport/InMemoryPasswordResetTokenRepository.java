@@ -47,11 +47,6 @@ public class InMemoryPasswordResetTokenRepository implements PasswordResetTokenD
                 .filter(t -> t.getDestination().equals(destination) && t.getCreatedAt().isAfter(since)).count();
     }
 
-    @Override
-    public void cleanupExpiredTokens() {
-        throw new UnsupportedOperationException();
-    }
-
     public PasswordResetToken get(Long id) {
         return tokens.get(id);
     }

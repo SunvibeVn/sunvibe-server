@@ -18,9 +18,8 @@ import vn.sunvibe.auth.core.application.command.auth.LoginCommand;
 import vn.sunvibe.auth.core.application.exception.auth.AccountTemporarilyLockedException;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.shared.LoginLockoutPolicy;
-import vn.sunvibe.auth.core.application.usecase.auth.AccessTokenGenerateUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase;
-import vn.sunvibe.auth.core.application.usecase.auth.impl.AuthResultAssembler;
+import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.infrastructure.persistence.adapter.user.UserLoginAttemptRepositoryAdapter;
@@ -29,7 +28,6 @@ import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapper
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserVOMapperImpl;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository;
-import vn.sunvibe.auth.core.testsupport.TestCookies;
 import vn.sunvibe.common.crypto.AesGcmCryptoService;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
@@ -68,8 +66,8 @@ class LoginServiceTransactionTest {
         }
 
         @Bean
-        AccessTokenGenerateUseCase accessTokenGenerateUseCase() {
-            return username -> {
+        AccessTokenIssuerPort accessTokenIssuer() {
+            return user -> {
                 throw new AssertionError("No token for a failed login");
             };
         }
@@ -79,11 +77,6 @@ class LoginServiceTransactionTest {
             return (userId, clientInfo) -> {
                 throw new AssertionError("No session for a failed login");
             };
-        }
-
-        @Bean
-        AuthResultAssembler authResultAssembler() {
-            return new AuthResultAssembler(TestCookies.cookieService());
         }
 
         @Bean

@@ -17,8 +17,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.test.util.ReflectionTestUtils;
+import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
+import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
 
@@ -27,6 +28,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,10 +66,7 @@ class JWTRequestFilterTest {
 
     @BeforeEach
     void setUp() {
-        jwtProvider = new JWTProvider(userDetailsService);
-        ReflectionTestUtils.setField(jwtProvider, "jwtSecretKey", SECRET);
-        ReflectionTestUtils.setField(jwtProvider, "jwtExpirationMinutes", 60L);
-        ReflectionTestUtils.setField(jwtProvider, "jwtCookie", ACCESS_COOKIE);
+        jwtProvider = new JWTProvider(SECRET, 60, ACCESS_COOKIE);
         filter = new JWTRequestFilter(jwtProvider, userDetailsService);
         SecurityContextHolder.clearContext();
     }
@@ -91,7 +90,11 @@ class JWTRequestFilterTest {
     /** Mint a real access token while the account is ACTIVE with ROLE_USER. */
     private String issueTokenForActiveUser() {
         users.put(USERNAME, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
-        return jwtProvider.generateAccessToken(USERNAME);
+        AppUser active = AppUser.create(UserId.create(USER_ID), "Nguyen Van A", Username.create(USERNAME),
+                Email.create("a@example.com"), Password.create("hashed"), ProfileImage.create(null), null,
+                new HashSet<>(Set.of("USER")), Instant.now());
+        active.setUserStatus(UserStatus.ACTIVE);
+        return jwtProvider.issue(active);
     }
 
     /** Runs the filter and returns the resulting authentication (or null); asserts the chain continued. */

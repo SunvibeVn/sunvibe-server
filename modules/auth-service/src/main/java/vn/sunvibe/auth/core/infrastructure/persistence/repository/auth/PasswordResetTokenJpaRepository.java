@@ -12,6 +12,9 @@ import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.PasswordReset
 import java.time.Instant;
 import java.util.Optional;
 
+/**
+ * Spring Data access to {@link PasswordResetTokenEntity}.
+ */
 @Repository
 public interface PasswordResetTokenJpaRepository extends JpaRepository<PasswordResetTokenEntity, Long> {
 
@@ -27,8 +30,5 @@ public interface PasswordResetTokenJpaRepository extends JpaRepository<PasswordR
     @Query("UPDATE PasswordResetTokenEntity t SET t.isUsed = true, t.usedAt = :now " +
             "WHERE t.destination = :destination AND t.isUsed = false")
     int invalidateActiveTokens(@Param("destination") String destination, @Param("now") Instant now);
-
-    @Modifying
-    void deleteByExpiresAtBefore(Instant time);
 
 }

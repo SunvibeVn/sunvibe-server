@@ -1,12 +1,13 @@
 package vn.sunvibe.auth.core.domain.exception.user;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import vn.sunvibe.common.exception.ResourceNotFoundException;
 
 import java.io.Serial;
 
-@ResponseStatus(HttpStatus.NOT_FOUND)
+/**
+ * No (non-deleted) account matches the lookup. Answered with 404 by the
+ * presentation layer.
+ */
 public class UserNotFoundException extends ResourceNotFoundException {
 
     @Serial

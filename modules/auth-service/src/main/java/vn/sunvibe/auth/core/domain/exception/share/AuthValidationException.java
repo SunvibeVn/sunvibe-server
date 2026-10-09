@@ -6,6 +6,11 @@ import vn.sunvibe.common.exception.ValidationException;
 
 import java.io.Serial;
 
+/**
+ * An input value breaks a business rule (bad format, already in use, wrong
+ * current password, ...). Carries the offending field so the error response
+ * can point at it.
+ */
 @Getter
 public class AuthValidationException extends ValidationException {
 
@@ -19,6 +24,7 @@ public class AuthValidationException extends ValidationException {
         this.field = field;
     }
 
+    /** Human-readable name of the offending field. */
     public String getDisplayName() {
         return field.getDisplayName();
     }

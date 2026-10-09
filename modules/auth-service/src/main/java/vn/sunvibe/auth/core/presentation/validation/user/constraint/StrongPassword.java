@@ -7,6 +7,9 @@ import vn.sunvibe.auth.core.presentation.validation.user.validator.StrongPasswor
 
 import java.lang.annotation.*;
 
+/**
+ * The annotated string must be a strong password; see {@code StrongPasswordValidator}.
+ */
 @Documented
 @Constraint(validatedBy = StrongPasswordValidator.class)
 @Target({ElementType.METHOD, ElementType.FIELD})

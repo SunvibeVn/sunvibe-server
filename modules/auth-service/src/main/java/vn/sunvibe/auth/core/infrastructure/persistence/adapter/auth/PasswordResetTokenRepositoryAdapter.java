@@ -6,11 +6,13 @@ import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.PasswordResetTokenEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.PasswordResetTokenJpaRepository;
-import vn.sunvibe.common.time.AppClock;
 
 import java.time.Instant;
 import java.util.Optional;
 
+/**
+ * JPA implementation of {@link PasswordResetTokenDomainRepository}.
+ */
 @Repository
 @RequiredArgsConstructor
 public class PasswordResetTokenRepositoryAdapter implements PasswordResetTokenDomainRepository {
@@ -41,11 +43,6 @@ public class PasswordResetTokenRepositoryAdapter implements PasswordResetTokenDo
     @Override
     public long countIssuedSince(String destination, Instant since) {
         return passwordResetTokenJpaRepository.countByDestinationAndCreatedAtAfter(destination, since);
-    }
-
-    @Override
-    public void cleanupExpiredTokens() {
-        passwordResetTokenJpaRepository.deleteByExpiresAtBefore(AppClock.currentUTC());
     }
 
 }

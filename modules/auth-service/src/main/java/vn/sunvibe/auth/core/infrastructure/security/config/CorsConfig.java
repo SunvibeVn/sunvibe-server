@@ -9,6 +9,10 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
+/**
+ * CORS for browser clients: only {@code app.cors.allowed-origins} may call the
+ * API, with credentials (the token cookies).
+ */
 @Configuration
 public class CorsConfig {
 

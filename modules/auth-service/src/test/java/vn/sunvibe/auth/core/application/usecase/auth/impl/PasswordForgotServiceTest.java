@@ -4,13 +4,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.auth.core.application.command.auth.PasswordForgotCommand;
 import vn.sunvibe.auth.core.application.command.auth.PasswordForgotSmsCommand;
+import vn.sunvibe.auth.core.application.query.auth.PasswordForgotResult;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
-import vn.sunvibe.auth.core.domain.event.ForgotPasswordInitiatedEvent;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
-import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordForgotResponse;
 import vn.sunvibe.auth.core.testsupport.InMemoryPasswordResetTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
@@ -19,7 +18,6 @@ import vn.sunvibe.auth.core.testsupport.RecordingSmsSender;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -35,7 +33,6 @@ class PasswordForgotServiceTest {
     private InMemoryPasswordResetTokenRepository resetTokens;
     private final RecordingEmailService email = new RecordingEmailService();
     private final RecordingSmsSender sms = new RecordingSmsSender();
-    private final List<Object> events = new ArrayList<>();
     private final RecordingAuditLog audit = new RecordingAuditLog();
     private PasswordForgotService service;
 
@@ -46,15 +43,15 @@ class PasswordForgotServiceTest {
         user.verifyEmail(Instant.now());
         resetTokens = new InMemoryPasswordResetTokenRepository();
         AtomicLong ids = new AtomicLong();
-        service = new PasswordForgotService(new InMemoryUserRepository().with(user), resetTokens, email, events::add,
+        service = new PasswordForgotService(new InMemoryUserRepository().with(user), resetTokens, email,
                 ids::incrementAndGet, new PasswordResetPolicy(5, Duration.ofSeconds(60), 3), audit, sms);
     }
 
-    private PasswordForgotResponse forgot(String address) {
+    private PasswordForgotResult forgot(String address) {
         return service.execute(new PasswordForgotCommand(address));
     }
 
-    private PasswordForgotResponse forgotBySms(String phone) {
+    private PasswordForgotResult forgotBySms(String phone) {
         return service.executeBySms(new PasswordForgotSmsCommand(phone));
     }
 
@@ -66,7 +63,7 @@ class PasswordForgotServiceTest {
 
     @Test
     void execute_verifiedEmailGetsACode() {
-        PasswordForgotResponse response = forgot(EMAIL);
+        PasswordForgotResult response = forgot(EMAIL);
 
         assertEquals(PasswordForgotService.GENERIC_MESSAGE, response.message());
         assertNull(response.resetToken(), "the e-mail flow never returns the token");
@@ -81,7 +78,7 @@ class PasswordForgotServiceTest {
     void execute_unverifiedEmailGetsNothing() {
         user.changeEmail(Email.create(EMAIL));
 
-        PasswordForgotResponse response = forgot(EMAIL);
+        PasswordForgotResult response = forgot(EMAIL);
 
         assertEquals(PasswordForgotService.GENERIC_MESSAGE, response.message());
         assertTrue(resetMails().isEmpty());
@@ -91,11 +88,11 @@ class PasswordForgotServiceTest {
     /** The answer must not tell an attacker which e-mails are registered. */
     @Test
     void execute_unknownEmailAnswersExactlyTheSameWithoutSendingAnything() {
-        PasswordForgotResponse known = forgot(EMAIL);
-        PasswordForgotResponse unknown = forgot("nobody@example.com");
+        PasswordForgotResult known = forgot(EMAIL);
+        PasswordForgotResult unknown = forgot("nobody@example.com");
 
         assertEquals(known.message(), unknown.message());
-        assertEquals(known.otpExpirationMinutes(), unknown.otpExpirationMinutes());
+        assertEquals(known.codeLifetime(), unknown.codeLifetime());
         assertNotNull(unknown.expiresAt());
         assertEquals(1, resetMails().size(), "only the known address gets an e-mail");
         assertEquals("EMAIL SENT", audit.events.get(0).details());
@@ -157,21 +154,11 @@ class PasswordForgotServiceTest {
         assertEquals("EMAIL DAILY_LIMIT", audit.last().details());
     }
 
-    @Test
-    void execute_eventCarriesNoSecrets() {
-        forgot(EMAIL);
-
-        ForgotPasswordInitiatedEvent event = (ForgotPasswordInitiatedEvent) events.getFirst();
-        assertEquals(EMAIL, event.getEmail());
-        assertFalse(event.toString().contains(resetMails().getFirst().code()));
-        assertFalse(event.toString().contains(resetTokens.all().getFirst().getToken()));
-    }
-
     // ---------- SMS ----------
 
     @Test
     void executeBySms_textsACodeAndReturnsTheToken() {
-        PasswordForgotResponse response = forgotBySms(PHONE);
+        PasswordForgotResult response = forgotBySms(PHONE);
 
         assertEquals(PasswordForgotService.GENERIC_SMS_MESSAGE, response.message());
         assertEquals(1, sms.sent.size());
@@ -195,7 +182,7 @@ class PasswordForgotServiceTest {
 
     @Test
     void executeBySms_unknownPhoneLooksTheSameButSendsNothing() {
-        PasswordForgotResponse unknown = forgotBySms("0999999999");
+        PasswordForgotResult unknown = forgotBySms("0999999999");
 
         assertEquals(PasswordForgotService.GENERIC_SMS_MESSAGE, unknown.message());
         assertNotNull(unknown.resetToken(), "a decoy token keeps the answer indistinguishable");
@@ -204,11 +191,40 @@ class PasswordForgotServiceTest {
     }
 
     @Test
-    void executeBySms_withinCooldownReturnsTheSameTokenWithoutTexting() {
-        PasswordForgotResponse first = forgotBySms(PHONE);
-        PasswordForgotResponse second = forgotBySms(PHONE);
+    void executeBySms_withinCooldownSendsNothingAndKeepsTheFirstTokenValid() {
+        PasswordForgotResult first = forgotBySms(PHONE);
+        forgotBySms(PHONE);
 
-        assertEquals(first.resetToken(), second.resetToken());
         assertEquals(1, sms.sent.size());
+        assertEquals(1, resetTokens.all().size());
+        assertTrue(resetTokens.all().getFirst().isValid());
+        assertEquals(first.resetToken(), resetTokens.all().getFirst().getToken());
+        assertEquals("PHONE COOLDOWN_NOT_SENT", audit.last().details());
+    }
+
+    /**
+     * A repeated request must look exactly like one for an unknown number:
+     * handing out the same token again would reveal that the number is registered.
+     */
+    @Test
+    void executeBySms_repeatWithinCooldownIsIndistinguishableFromAnUnknownNumber() {
+        PasswordForgotResult first = forgotBySms(PHONE);
+        PasswordForgotResult repeated = forgotBySms(PHONE);
+        PasswordForgotResult unknownFirst = forgotBySms("0999999999");
+        PasswordForgotResult unknownRepeated = forgotBySms("0999999999");
+
+        assertNotEquals(first.resetToken(), repeated.resetToken());
+        assertNotEquals(unknownFirst.resetToken(), unknownRepeated.resetToken());
+        assertEquals(first.message(), unknownRepeated.message());
+    }
+
+    @Test
+    void execute_repeatWithinCooldownGetsAFreshExpiryLikeAnUnknownAddress() throws InterruptedException {
+        PasswordForgotResult first = forgot(EMAIL);
+        Thread.sleep(5);
+        PasswordForgotResult repeated = forgot(EMAIL);
+
+        assertTrue(repeated.expiresAt().isAfter(first.expiresAt()),
+                "the expiry of the code already sent must not be echoed back");
     }
 }

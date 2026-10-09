@@ -16,18 +16,16 @@ import vn.sunvibe.auth.core.application.exception.auth.AccountTemporarilyLockedE
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.shared.LoginLockoutPolicy;
-import vn.sunvibe.auth.core.application.usecase.auth.AccessTokenGenerateUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase;
-import vn.sunvibe.auth.core.application.usecase.auth.impl.AuthResultAssembler;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
+import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.application.usecase.user.LoginUseCase;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserLoginAttemptRepository;
-import vn.sunvibe.auth.core.shared.constant.AuthMessage;
 import vn.sunvibe.common.time.AppClock;
 
 import java.time.Duration;
@@ -48,10 +46,9 @@ import java.util.Optional;
 public class LoginService implements LoginUseCase {
 
     private final AuthenticationManager authenticationManager;
-    private final AccessTokenGenerateUseCase accessTokenGenerateUseCase;
+    private final AccessTokenIssuerPort accessTokenIssuer;
     private final RefreshTokenGenerateUseCase refreshTokenGenerateUseCase;
     private final UserDomainRepository userRepository;
-    private final AuthResultAssembler authResultAssembler;
     private final UserLoginAttemptRepository loginAttemptRepository;
     private final LoginLockoutPolicy lockoutPolicy;
     private final AuditLogPort auditLog;
@@ -96,7 +93,7 @@ public class LoginService implements LoginUseCase {
     @Override
     public AuthResult loginInternal(AppUser appUser, ClientInfo clientInfo) {
         // Create access token
-        String accessToken = accessTokenGenerateUseCase.generateAccessToken(appUser.getUsername().getValue());
+        String accessToken = accessTokenIssuer.issue(appUser);
         // Start a new sign-in session (refresh token family) for this device
         String refreshToken = refreshTokenGenerateUseCase.generateRefreshToken(appUser.getId(), clientInfo);
 
@@ -104,7 +101,7 @@ public class LoginService implements LoginUseCase {
         appUser.recordLoginSuccess(AppClock.currentUTC());
         userRepository.save(appUser);
 
-        return authResultAssembler.assemble(appUser, accessToken, refreshToken, AuthMessage.LOGIN_SUCCESS);
+        return AuthResult.of(appUser, accessToken, refreshToken);
     }
 
     private void recordFailedAttempt(AppUser user, Instant now) {

@@ -3,6 +3,9 @@ package vn.sunvibe.auth.core.presentation.dto.request.auth;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
+/**
+ * Body of {@code POST /api/auth/login}; the username is the phone number.
+ */
 public record LoginRequest(
 
         @NotNull(message = "Phone numbers is mandatory.")

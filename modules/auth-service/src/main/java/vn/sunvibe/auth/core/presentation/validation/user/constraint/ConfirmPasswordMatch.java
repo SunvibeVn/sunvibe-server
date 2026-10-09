@@ -7,6 +7,10 @@ import vn.sunvibe.auth.core.presentation.validation.user.validator.PasswordMatch
 
 import java.lang.annotation.*;
 
+/**
+ * Class-level check that two properties (password and its confirmation) are equal.
+ * The violation is reported on the confirmation property.
+ */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Constraint(validatedBy = PasswordMatchValidator.class)
@@ -19,9 +23,9 @@ public @interface ConfirmPasswordMatch {
 
     Class<? extends Payload>[] payload() default {};
 
-    // password field name
+    /** Name of the password property. */
     String password() default "password";
 
-    // confirm password field name
+    /** Name of the confirmation property. */
     String confirmPassword() default "confirmPassword";
 }

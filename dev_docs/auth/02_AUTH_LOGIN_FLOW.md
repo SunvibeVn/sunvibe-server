@@ -99,7 +99,7 @@ sequenceDiagram
     alt Sai thông tin / tài khoản bị khóa
         LS-->>C: Lỗi xác thực (xem §5)
     end
-    LS->>JWT: generateAccessToken(username)
+    LS->>JWT: issue(appUser)
     LS->>RT: generateRefreshToken(userId, ClientInfo)
     RT->>DB: INSERT refresh_tokens (phiên mới, chỉ lưu hash)
     LS->>DB: UPDATE users.last_login
@@ -120,7 +120,7 @@ sequenceDiagram
 
 3. So khớp mật khẩu với hash BCrypt.
 
-### 3.2. Cấp access token (`JWTProvider.generateAccessToken`)
+### 3.2. Cấp access token (`JWTProvider.issue`)
 
 - `JWTProvider` là **điểm chặn duy nhất**: kiểm tra lại trạng thái tài khoản và không bao giờ cấp token cho tài khoản bị khóa/vô hiệu, bất kể đi từ luồng nào.
 - Ký HS256 bằng `app.jwt.secret`, thời hạn `app.jwt.expiration.minutes` (15 phút).
@@ -247,7 +247,7 @@ Các lỗi xác thực do `AuthExceptionHandler` của auth-service trả về (
 1. Kiểm tra mật khẩu hiện tại đúng, và mật khẩu mới khác mật khẩu hiện tại.
 2. Lưu mật khẩu mới (BCrypt).
 3. **Thu hồi mọi phiên** của tài khoản trên mọi thiết bị (`PASSWORD_CHANGED`).
-4. Đăng nhập lại thiết bị hiện tại bằng mật khẩu mới: phiên mới, response giống §2.2 với message `Change password successfully.`
+4. Mở phiên mới cho thiết bị hiện tại ngay trong cùng transaction (`LoginService.loginInternal`), **không** qua đăng nhập bằng mật khẩu. Vì vậy khóa đăng nhập tạm thời (§3.5) do người khác đoán mật khẩu không làm người dùng thật bị đăng xuất khỏi mọi thiết bị. Response giống §2.2 với message `Change password successfully.`
 
 Kết quả: thiết bị đang đổi mật khẩu vẫn dùng tiếp, mọi thiết bị khác bị đăng xuất khi access token của chúng hết hạn (≤ 15 phút).
 
@@ -257,7 +257,7 @@ Kết quả: thiết bị đang đổi mật khẩu vẫn dùng tiếp, mọi th
 - **Luôn trả cùng một câu trả lời** `200`: *"If an account exists for this email, a password reset code has been sent."*, dù email có tồn tại hay không. Nhờ vậy không dò được email nào đã đăng ký.
 - Email được chuẩn hóa (bỏ khoảng trắng, chữ thường).
 - Không gửi cho tài khoản bị khóa/vô hiệu.
-- **Cooldown 60 giây**: yêu cầu lại trong 60 giây thì không gửi thêm email (chống spam hộp thư).
+- **Cooldown 60 giây**: yêu cầu lại trong 60 giây thì không gửi thêm email (chống spam hộp thư). Câu trả lời lúc này giống hệt khi email không tồn tại (`expiresAt` mới), để không lộ email nào đã đăng ký.
 - **Tối đa 5 mã mỗi ngày** cho mỗi email/SĐT.
 - Cấp mã mới thì **mã cũ bị hủy**; chỉ mã mới nhất dùng được.
 
@@ -327,7 +327,7 @@ Kết quả: thiết bị đang đổi mật khẩu vẫn dùng tiếp, mọi th
 |---|---|
 | Presentation | `AuthController`, `LoginRequest`, `LoginResponse`, `AuthConverter` |
 | Presentation (lỗi) | `AuthExceptionHandler` (401 / 423 / 400) |
-| Application | `LoginUseCase` / `LoginService`, `AccessTokenGenerateService`, `RefreshTokenGenerateService`, `AuthResultAssembler`, `ClientInfo`, `LoginLockoutPolicy`, `PasswordForgotService`, `PasswordResetService`, `PasswordResetPolicy`, `AccountTemporarilyLockedException` |
+| Application | `LoginUseCase` / `LoginService`, `RefreshTokenGenerateService`, `AccessTokenIssuerPort` (cài đặt: `JWTProvider`), `AuthResult`, `ClientInfo`, `LoginLockoutPolicy`, `PasswordForgotService`, `PasswordResetService`, `PasswordResetPolicy`, `AccountTemporarilyLockedException` |
 | Domain | `AppUser` (`isLoginTemporarilyLocked`, `clearLoginLockout`), `PasswordResetToken` (`matchesOtp`, `registerFailedAttempt`), `UserLoginAttemptRepository` |
 | Infrastructure | `JWTProvider`, `JWTRequestFilter`, `CustomUserDetailsService`, `CustomUserDetails`, `UserLoginAttemptRepositoryAdapter`, `RateLimitFilter`, `TokenBucketRateLimiter`, `RateLimitProperties` |
 | Cấu hình | `SecurityConfig` (module `app`), `CookieService` |

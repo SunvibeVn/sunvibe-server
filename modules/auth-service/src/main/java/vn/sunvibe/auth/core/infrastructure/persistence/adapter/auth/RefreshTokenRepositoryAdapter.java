@@ -14,6 +14,9 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * JPA implementation of {@link RefreshTokenDomainRepository}.
+ */
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenRepositoryAdapter implements RefreshTokenDomainRepository {

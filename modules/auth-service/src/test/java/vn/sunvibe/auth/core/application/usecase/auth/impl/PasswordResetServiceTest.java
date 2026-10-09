@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import vn.sunvibe.auth.core.application.command.auth.PasswordResetCommand;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
@@ -15,7 +16,6 @@ import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
-import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.auth.core.testsupport.InMemoryPasswordResetTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
@@ -84,13 +84,8 @@ class PasswordResetServiceTest {
                 new PasswordResetPolicy(5, Duration.ofSeconds(60)), audit, sms);
     }
 
-    private static PasswordResetRequest request(String otp) {
-        return PasswordResetRequest.builder()
-                .resetToken(RESET_TOKEN)
-                .otpCode(otp)
-                .newPassword("N3wP@ssw0rd!")
-                .confirmPassword("N3wP@ssw0rd!")
-                .build();
+    private static PasswordResetCommand request(String otp) {
+        return new PasswordResetCommand(RESET_TOKEN, otp, "N3wP@ssw0rd!");
     }
 
     @ParameterizedTest
@@ -124,6 +119,15 @@ class PasswordResetServiceTest {
         assertEquals(List.of(new RecordingEmailService.Mail("RESET_CONFIRMATION", EMAIL, null)), email.sent);
         assertEquals(List.of(AuditEventType.PASSWORD_RESET_COMPLETED), audit.types());
         assertEquals(USER_ID.getValue(), audit.last().userId());
+    }
+
+    @Test
+    void verifyOtpAndResetPassword_updatesTheLastUpdateTimestamp() {
+        user.setLastUpdate(Instant.now().minus(Duration.ofDays(30)));
+
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        assertTrue(user.getLastUpdate().isAfter(Instant.now().minus(Duration.ofMinutes(1))));
     }
 
     @Test
@@ -176,8 +180,7 @@ class PasswordResetServiceTest {
                 "0912345678", now, now.plusSeconds(900), false, null, 0, OTP));
         assertEquals(UserStatus.PENDING, user.getUserStatus());
 
-        service.verifyOtpAndResetPassword(PasswordResetRequest.builder().resetToken("sms-token").otpCode(OTP)
-                .newPassword("N3wP@ssw0rd!").confirmPassword("N3wP@ssw0rd!").build());
+        service.verifyOtpAndResetPassword(new PasswordResetCommand("sms-token", OTP, "N3wP@ssw0rd!"));
 
         assertTrue(user.isPhoneVerified());
         assertEquals(UserStatus.ACTIVE, user.getUserStatus());
@@ -195,8 +198,7 @@ class PasswordResetServiceTest {
 
     @Test
     void verifyOtpAndResetPassword_unknownTokenIsRejected() {
-        PasswordResetRequest unknown = PasswordResetRequest.builder().resetToken("forged").otpCode(OTP)
-                .newPassword("N3wP@ssw0rd!").confirmPassword("N3wP@ssw0rd!").build();
+        PasswordResetCommand unknown = new PasswordResetCommand("forged", OTP, "N3wP@ssw0rd!");
 
         assertThrows(PasswordResetTokenException.class, () -> service.verifyOtpAndResetPassword(unknown));
     }

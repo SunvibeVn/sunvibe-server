@@ -9,6 +9,10 @@ import org.springframework.web.util.WebUtils;
 
 import java.time.Duration;
 
+/**
+ * Builds, clears and reads the token cookies. Both are HttpOnly (not readable
+ * by scripts), Secure (HTTPS only) and SameSite=Strict (not sent cross-site).
+ */
 @Service
 public class CookieService {
 
@@ -31,16 +35,18 @@ public class CookieService {
     @Value("${app.jwt.jwtRefreshCookieName}")
     private String refreshTokenCookieName;
 
+    /** The access-token cookie, sent with every request to the API. */
     public ResponseCookie buildAccessTokenCookie(String token) {
         return ResponseCookie.from(jwtCookieName, token)
-                .httpOnly(true)          // JS không đọc được → chống XSS
-                .secure(true)            // Chỉ gửi qua HTTPS
-                .sameSite("Strict")      // Chống CSRF
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
                 .path(ACCESS_TOKEN_COOKIE_PATH)
                 .maxAge(accessTokenTtl())
                 .build();
     }
 
+    /** The refresh-token cookie, only sent to {@link #REFRESH_TOKEN_COOKIE_PATH}. */
     public ResponseCookie buildRefreshTokenCookie(String token) {
         return ResponseCookie.from(refreshTokenCookieName, token)
                 .httpOnly(true)
@@ -51,7 +57,7 @@ public class CookieService {
                 .build();
     }
 
-    // Cookie rỗng để clear khi logout
+    /** An expired, empty access-token cookie: makes the browser drop it. */
     public ResponseCookie clearAccessTokenCookie() {
         return ResponseCookie.from(jwtCookieName, "")
                 .httpOnly(true)
@@ -62,6 +68,7 @@ public class CookieService {
                 .build();
     }
 
+    /** An expired, empty refresh-token cookie: makes the browser drop it. */
     public ResponseCookie clearRefreshTokenCookie() {
         return ResponseCookie.from(refreshTokenCookieName, "")
                 .httpOnly(true)

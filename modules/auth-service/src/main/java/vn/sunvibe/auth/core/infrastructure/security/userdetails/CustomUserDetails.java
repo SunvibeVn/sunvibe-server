@@ -10,6 +10,11 @@ import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 
 import java.util.Collection;
 
+/**
+ * Spring Security view of an account. Locked ({@link UserStatus#LOCK}) and
+ * disabled (terminated or deleted) accounts are refused by the authentication
+ * provider and by the JWT filter.
+ */
 @Getter
 @Setter
 @NoArgsConstructor

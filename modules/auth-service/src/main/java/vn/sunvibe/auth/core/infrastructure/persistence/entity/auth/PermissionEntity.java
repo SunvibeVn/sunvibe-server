@@ -11,6 +11,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Table {@code PERMISSION}: fine-grained permissions grantable to roles
+ * (not used for authorization yet).
+ */
 @Getter
 @Setter
 @Entity

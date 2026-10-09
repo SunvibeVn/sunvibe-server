@@ -15,7 +15,7 @@ import vn.sunvibe.auth.core.application.command.auth.TokenRefreshCommand;
 import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenException;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenPolicy;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
-import vn.sunvibe.auth.core.application.usecase.auth.AccessTokenGenerateUseCase;
+import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.auth.enums.TokenStatus;
@@ -28,7 +28,6 @@ import vn.sunvibe.auth.core.infrastructure.persistence.adapter.auth.RefreshToken
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.manual.RefreshTokenEntityMapper;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.RefreshTokenEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.RefreshTokenJpaRepository;
-import vn.sunvibe.auth.core.testsupport.TestCookies;
 import vn.sunvibe.common.crypto.AesGcmCryptoService;
 import vn.sunvibe.common.generator.id.IdGenerator;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
@@ -66,11 +65,6 @@ class TokenRefreshServiceTransactionTest {
     @TestConfiguration
     static class Fakes {
         @Bean
-        AuthResultAssembler authResultAssembler() {
-            return new AuthResultAssembler(TestCookies.cookieService());
-        }
-
-        @Bean
         RecordingAuditLog auditLog() {
             return new RecordingAuditLog();
         }
@@ -87,8 +81,8 @@ class TokenRefreshServiceTransactionTest {
         }
 
         @Bean
-        AccessTokenGenerateUseCase accessTokenGenerateUseCase() {
-            return username -> {
+        AccessTokenIssuerPort accessTokenIssuer() {
+            return user -> {
                 throw new AssertionError("No access token may be issued for a reused refresh token");
             };
         }

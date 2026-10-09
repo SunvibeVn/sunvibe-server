@@ -151,7 +151,7 @@ sequenceDiagram
 
 - **Luôn trả cùng một dạng** và luôn có `resetToken`. Số không tồn tại thì token là ngẫu nhiên vô dụng, nên không dò được số nào đã đăng ký.
 - OTP chỉ đi qua SMS, **không bao giờ** nằm trong response.
-- Gọi lại trong 60 giây thì trả lại **cùng token**, không gửi SMS mới.
+- Gọi lại trong 60 giây thì **không** gửi SMS mới và trả về một token ngẫu nhiên vô dụng, giống hệt khi số không tồn tại (trả lại cùng token sẽ lộ số đã đăng ký). Client giữ `resetToken` của lần gọi đầu tiên.
 - Tối đa 5 mã mỗi số mỗi ngày.
 
 **Bước 2 — `POST /api/auth/reset-password`**: giống luồng email, gồm `resetToken` + `otpCode` (từ SMS) + mật khẩu mới. Thành công thì:

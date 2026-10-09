@@ -53,7 +53,7 @@ public class PasswordResetToken {
         this.failedAttempts = failedAttempts;
     }
 
-    // Factory method - generate new token
+    /** A new token for a freshly sent OTP, valid for {@link #LIFETIME}. */
     public static PasswordResetToken create(Long id, String userId, VerificationChannel channel, String destination,
                                             String otpCode) {
         Instant createdAt = AppClock.currentUTC();
@@ -61,7 +61,7 @@ public class PasswordResetToken {
                 createdAt.plus(LIFETIME), otpCode, false, null, 0);
     }
 
-    // Factory method - restore from DB
+    /** Rebuilds a token from storage. */
     public static PasswordResetToken restore(Long id, String token, String userId, VerificationChannel channel,
                                              String destination, Instant createdAt, Instant expiresAt, boolean used,
                                              Instant usedAt, int failedAttempts, String otpCode) {
@@ -69,17 +69,18 @@ public class PasswordResetToken {
                 usedAt, failedAttempts);
     }
 
-    // Factory method - restore an e-mail token with no failed attempts recorded
+    /** Rebuilds an unused-so-far e-mail token with no failed attempts recorded. */
     public static PasswordResetToken restore(Long id, String token, String userId, String email, Instant createdAt,
                                              Instant expiresAt, boolean used, String otpCode) {
         return restore(id, token, userId, VerificationChannel.EMAIL, email, createdAt, expiresAt, used, null, 0, otpCode);
     }
 
-    // Business logic
+    /** True once {@link #expiresAt} has passed. */
     public boolean isExpired() {
         return AppClock.currentUTC().isAfter(expiresAt);
     }
 
+    /** Not expired, not used and not burned. */
     public boolean isValid() {
         return !isExpired() && !used;
     }
@@ -104,6 +105,11 @@ public class PasswordResetToken {
         return used;
     }
 
+    /**
+     * Consumes the token after a successful reset.
+     *
+     * @throws PasswordResetTokenException if it was already used or burned
+     */
     public void markAsUsed(Instant now) {
         if (this.used) {
             throw new PasswordResetTokenException("This reset token has already been used");

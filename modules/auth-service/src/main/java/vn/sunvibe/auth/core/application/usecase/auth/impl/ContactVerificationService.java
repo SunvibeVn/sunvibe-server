@@ -2,14 +2,13 @@ package vn.sunvibe.auth.core.application.usecase.auth.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.security.authentication.InsufficientAuthenticationException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationException;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledException;
 import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
 import vn.sunvibe.auth.core.application.shared.ContactMasker;
+import vn.sunvibe.auth.core.application.shared.CurrentUser;
 import vn.sunvibe.auth.core.application.shared.VerificationPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
@@ -175,10 +174,6 @@ public class ContactVerificationService implements ContactVerificationUseCase {
     }
 
     private AppUser currentUser() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new InsufficientAuthenticationException("User not authenticated");
-        }
-        return userRepository.findByUsername(authentication.getPrincipal().toString());
+        return userRepository.findByUsername(CurrentUser.username());
     }
 }

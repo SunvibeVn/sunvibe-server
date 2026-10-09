@@ -21,7 +21,6 @@ import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.shared.constant.AuthMessage;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
-import vn.sunvibe.auth.core.testsupport.TestCookies;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
@@ -64,8 +63,8 @@ class TokenRefreshServiceTest {
                 new HashSet<>(Set.of("TENANT")), Instant.now());
         storedUser = Optional.of(user);
         AtomicLong ids = new AtomicLong(100);
-        service = new TokenRefreshService(refreshTokens, new UserLookup(), username -> "access-for-" + username,
-                new AuthResultAssembler(TestCookies.cookieService()), ids::incrementAndGet,
+        service = new TokenRefreshService(refreshTokens, new UserLookup(),
+                appUser -> "access-for-" + appUser.getUsername().getValue(), ids::incrementAndGet,
                 new RefreshTokenPolicy(IDLE, ABSOLUTE, GRACE), audit);
     }
 
@@ -113,7 +112,7 @@ class TokenRefreshServiceTest {
     }
 
     private static String cookieValue(AuthResult result) {
-        return result.refreshCookie().getValue();
+        return result.refreshToken();
     }
 
     @Test
@@ -134,11 +133,9 @@ class TokenRefreshServiceTest {
         assertEquals(presented.getSessionExpiresAt(), next.getSessionExpiresAt());
         assertEquals("Mozilla/5.0", next.getUserAgent());
 
-        assertEquals("access-for-" + USERNAME, result.loginResponse().accessToken());
-        assertEquals("access-for-" + USERNAME, result.accessCookie().getValue());
-        assertEquals(USERNAME, result.loginResponse().username());
-        assertEquals(Set.of("TENANT"), result.loginResponse().roles());
-        assertEquals(AuthMessage.TOKEN_REFRESH_SUCCESS, result.loginResponse().message());
+        assertEquals("access-for-" + USERNAME, result.accessToken());
+        assertEquals(USERNAME, result.username());
+        assertEquals(Set.of("TENANT"), result.roles());
         assertTrue(refreshTokens.revocations.isEmpty());
     }
 

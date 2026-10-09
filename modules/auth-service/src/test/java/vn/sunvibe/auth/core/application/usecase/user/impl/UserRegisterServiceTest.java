@@ -3,9 +3,13 @@ package vn.sunvibe.auth.core.application.usecase.user.impl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
+import vn.sunvibe.auth.core.application.command.auth.LoginCommand;
 import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
+import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
 import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
+import vn.sunvibe.auth.core.application.usecase.user.LoginUseCase;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
@@ -91,6 +95,7 @@ class UserRegisterServiceTest {
     private UserRegisterService service;
     private RecordingAuditLog audit;
     private List<VerificationChannel> codesSent;
+    private List<ClientInfo> sessionsStarted;
 
     @BeforeEach
     void setUp() {
@@ -125,7 +130,20 @@ class UserRegisterServiceTest {
                 codesSent.add(channel);
             }
         };
-        service = new UserRegisterService(repository, passwordEncoder, ulidGenerator, audit, contactVerification);
+        sessionsStarted = new ArrayList<>();
+        LoginUseCase sessions = new LoginUseCase() {
+            @Override
+            public AuthResult execute(LoginCommand loginCommand, ClientInfo clientInfo) {
+                throw new AssertionError("The first session must not go through the password login");
+            }
+
+            @Override
+            public AuthResult loginInternal(AppUser appUser, ClientInfo clientInfo) {
+                sessionsStarted.add(clientInfo);
+                return AuthResult.of(appUser, "access-token", "refresh-token");
+            }
+        };
+        service = new UserRegisterService(repository, passwordEncoder, ulidGenerator, audit, contactVerification, sessions);
     }
 
     private UserRegisterCommand command(String username, String email, String idCardNumber) {
@@ -166,6 +184,27 @@ class UserRegisterServiceTest {
 
         assertEquals(List.of(VerificationChannel.PHONE, VerificationChannel.EMAIL), codesSent);
         assertFalse(repository.findByUsername("0912345678").isEmailVerified());
+    }
+
+    @Test
+    void execute_signsTheNewUserInOnTheRegisteringDevice() {
+        ClientInfo device = new ClientInfo("Mozilla/5.0", "203.0.113.7");
+
+        AuthResult result = service.execute(UserRegisterCommand.builder().fullName("Nguyen Van A")
+                .username("0912345678").password("P@ssw0rd!").clientInfo(device).build());
+
+        assertEquals(List.of(device), sessionsStarted);
+        assertEquals("0912345678", result.username());
+        assertEquals("refresh-token", result.refreshToken());
+    }
+
+    @Test
+    void execute_rejectedRegistrationStartsNoSession() {
+        service.execute(command("0912345678", null, null));
+        sessionsStarted.clear();
+
+        assertThrows(AuthValidationException.class, () -> service.execute(command("0912345678", null, null)));
+        assertTrue(sessionsStarted.isEmpty());
     }
 
     @Test

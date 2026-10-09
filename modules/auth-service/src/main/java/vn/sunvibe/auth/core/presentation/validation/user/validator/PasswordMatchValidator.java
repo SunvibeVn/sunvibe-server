@@ -5,6 +5,9 @@ import jakarta.validation.ConstraintValidatorContext;
 import org.springframework.beans.BeanWrapperImpl;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.ConfirmPasswordMatch;
 
+/**
+ * Checks {@link ConfirmPasswordMatch}.
+ */
 public class PasswordMatchValidator implements ConstraintValidator<ConfirmPasswordMatch, Object> {
 
     private String passwordFieldName;
