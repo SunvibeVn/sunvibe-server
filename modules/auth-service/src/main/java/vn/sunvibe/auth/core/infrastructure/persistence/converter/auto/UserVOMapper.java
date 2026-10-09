@@ -37,6 +37,11 @@ public interface UserVOMapper {
         return profileImg != null ? profileImg.getUrl() : null;
     }
 
+    @Named("mapIdCardNumber")
+    default String mapIdCardNumber(IdCardNumber idCardNumber) {
+        return idCardNumber.getValue();
+    }
+
     @Named("mapStringsToUserRoles")
     default Set<UserRoleEntity> mapStringsToUserRoles(Set<String> roles) {
         if (roles == null) return null;
@@ -69,6 +74,11 @@ public interface UserVOMapper {
     @Named("toProfileImage")
     default ProfileImage toProfileImage(String url) {
         return url != null ? new ProfileImage(url) : null;
+    }
+
+    @Named("toIdCardNumber")
+    default IdCardNumber toIdCardNumber(String value) {
+        return IdCardNumber.from(value);
     }
 
     @Named("mapUserRolesToStrings")

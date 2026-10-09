@@ -22,6 +22,11 @@ public interface UserMapper {
     @Mapping(target = "lastLogin", source = "lastLogin")
     @Mapping(target = "userStatus", source = "userStatus")
     @Mapping(target = "userRoles", source = "userRoles", qualifiedByName = "mapUserRolesToStrings")
+    @Mapping(target = "idCardNumber", source = "idCardNumber", qualifiedByName = "toIdCardNumber")
+    @Mapping(target = "idCardFrontUrl", source = "idCardFrontUrl")
+    @Mapping(target = "idCardBackUrl", source = "idCardBackUrl")
+    @Mapping(target = "kycStatus", source = "kycStatus")
+    @Mapping(target = "deletedAt", source = "deletedAt")
     AppUser toDomain(UserEntity userEntity);
 
     /*────────────── DOMAIN → ENTITY ──────────────*/
@@ -35,6 +40,12 @@ public interface UserMapper {
     @Mapping(target = "lastLogin", source = "lastLogin")
     @Mapping(target = "userStatus", source = "userStatus")
     @Mapping(target = "userRoles", source = "userRoles", qualifiedByName = "mapStringsToUserRoles")
+    @Mapping(target = "idCardNumber", source = "idCardNumber", qualifiedByName = "mapIdCardNumber")
+    @Mapping(target = "idCardFrontUrl", source = "idCardFrontUrl")
+    @Mapping(target = "idCardBackUrl", source = "idCardBackUrl")
+    @Mapping(target = "kycStatus", source = "kycStatus")
+    @Mapping(target = "deletedAt", source = "deletedAt")
+    @Mapping(target = "idCardNumberHash", ignore = true)
     UserEntity toEntity(AppUser appUser);
 
 }
