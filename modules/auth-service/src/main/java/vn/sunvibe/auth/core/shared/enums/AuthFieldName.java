@@ -17,7 +17,8 @@ public enum AuthFieldName {
     CURRENT_PASSWORD("currentPassword", "Current Password"),
     CONFIRM_PASSWORD("confirmPassword", "Confirm Password"),
     FULL_NAME("fullName", "Full Name"),
-    COUNTRY_CODE("countryCode", "Country Code");
+    COUNTRY_CODE("countryCode", "Country Code"),
+    ID_CARD_NUMBER("idCardNumber", "ID Card Number");
 
 
     // Getters
