@@ -10,6 +10,7 @@ public record UserRegisterCommand(
         String username,
         String email,
         String password,
+        String idCardNumber,
         Set<String> roles
 ) {
 }

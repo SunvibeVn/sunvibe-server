@@ -47,10 +47,11 @@ public class UserRegisterService implements UserRegisterUseCase {
         Email emailVO = Email.create(userRegisterCommand.email());
         Password passwordVO = Password.create(passwordEncoder.encode(userRegisterCommand.password())); // Encode password
         ProfileImage profileImageVO = ProfileImage.create(null);
+        IdCardNumber idCardNumberVO = IdCardNumber.create(userRegisterCommand.idCardNumber());
 
         // Create Aggregate with no roles, then assign requested roles through the
         // domain guard that rejects privileged roles (ADMIN / SUPER_ADMIN)
-        AppUser appUser = AppUser.create(userId, userRegisterCommand.fullName(), usernameVO, emailVO, passwordVO, profileImageVO, new HashSet<>(), AppClock.currentUTC());
+        AppUser appUser = AppUser.create(userId, userRegisterCommand.fullName(), usernameVO, emailVO, passwordVO, profileImageVO, idCardNumberVO, new HashSet<>(), AppClock.currentUTC());
 
         Set<String> requestedRoles = userRegisterCommand.roles();
         if (requestedRoles == null || requestedRoles.isEmpty()) {

@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
@@ -31,11 +32,21 @@ public class AppUser {
 
     private ProfileImage profileImage;
 
+    private IdCardNumber idCardNumber;
+
+    private String idCardFrontUrl;
+
+    private String idCardBackUrl;
+
+    private KycStatus kycStatus;
+
     private Instant createdDate;
 
     private Instant lastUpdate;
 
     private Instant lastLogin;
+
+    private Instant deletedAt;
 
     private Set<String> userRoles;
 
@@ -93,14 +104,13 @@ public class AppUser {
     /*────────── FACTORY ──────────*/
 
     // Build from new data
-    public static AppUser create(UserId id, String fullName, Username username, Email email, Password hashedPassword, ProfileImage profileImage, Set<String> userRoles, Instant nowUtc) {
-        return new AppUser(id, fullName, username, email, hashedPassword, profileImage, nowUtc != null ? nowUtc : AppClock.currentUTC(), nowUtc != null ? nowUtc : AppClock.currentUTC(), userRoles, UserStatus.ACTIVE);
-    }
-
-    // Build from database
-    public static AppUser from(UserId id, String fullName, Username username, Email email, Password hashedPassword, ProfileImage profileImage, Set<String> userRoles, Instant nowUtc) {
-
-        return new AppUser(id, fullName, username, email, hashedPassword, profileImage, nowUtc != null ? nowUtc : AppClock.currentUTC(), nowUtc != null ? nowUtc : AppClock.currentUTC(), userRoles, UserStatus.ACTIVE);
+    public static AppUser create(UserId id, String fullName, Username username, Email email, Password hashedPassword,
+                                  ProfileImage profileImage, IdCardNumber idCardNumber, Set<String> userRoles, Instant nowUtc) {
+        Instant now = nowUtc != null ? nowUtc : AppClock.currentUTC();
+        AppUser appUser = new AppUser(id, fullName, username, email, hashedPassword, profileImage, now, now, userRoles, UserStatus.ACTIVE);
+        appUser.idCardNumber = idCardNumber;
+        appUser.kycStatus = KycStatus.UNVERIFIED;
+        return appUser;
     }
 
     /*────────── BUSINESS BEHAVIOURS ──────────*/
@@ -144,6 +154,7 @@ public class AppUser {
 
     public void deactivate() {
         this.userStatus = UserStatus.DELETED;
+        this.deletedAt = AppClock.currentUTC();
         touch();
     }
 
