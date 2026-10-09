@@ -7,6 +7,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.command.auth.PasswordChangeCommand;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.user.PasswordChangeUseCase;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
@@ -24,6 +27,7 @@ public class PasswordChangeService implements PasswordChangeUseCase {
     private final UserDomainRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenDomainRepository refreshTokenRepository;
+    private final AuditLogPort auditLog;
 
     @Override
     @Transactional
@@ -40,6 +44,8 @@ public class PasswordChangeService implements PasswordChangeUseCase {
         String newHashedPassword = passwordEncoder.encode(passwordChangeCommand.newPassword());
 
         if (!passwordEncoder.matches(passwordChangeCommand.currentPassword(), appUser.getPassword().getHashedValue())) {
+            auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_CHANGE_FAILED, appUser.getId().getValue(),
+                    username, "WRONG_CURRENT_PASSWORD"));
             throw new AuthValidationException(AuthFieldName.CURRENT_PASSWORD, "Current password is incorrect.");
         }
         if (passwordEncoder.matches(passwordChangeCommand.currentPassword(), newHashedPassword)) {
@@ -52,6 +58,8 @@ public class PasswordChangeService implements PasswordChangeUseCase {
 
         // Sign out every device; the caller starts a fresh session for this one
         refreshTokenRepository.revokeAllForUser(appUser.getId(), RevokeReason.PASSWORD_CHANGED, AppClock.currentUTC());
+
+        auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_CHANGED, appUser.getId().getValue(), username));
 
         return PasswordChangeResponse.builder().username(username).build();
     }

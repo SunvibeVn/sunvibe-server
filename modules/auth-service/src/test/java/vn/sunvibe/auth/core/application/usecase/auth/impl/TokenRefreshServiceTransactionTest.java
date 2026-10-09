@@ -31,6 +31,7 @@ import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.RefreshTo
 import vn.sunvibe.auth.core.testsupport.TestCookies;
 import vn.sunvibe.common.crypto.AesGcmCryptoService;
 import vn.sunvibe.common.generator.id.IdGenerator;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -67,6 +68,11 @@ class TokenRefreshServiceTransactionTest {
         @Bean
         AuthResultAssembler authResultAssembler() {
             return new AuthResultAssembler(TestCookies.cookieService());
+        }
+
+        @Bean
+        RecordingAuditLog auditLog() {
+            return new RecordingAuditLog();
         }
 
         @Bean

@@ -25,6 +25,7 @@ import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
 import vn.sunvibe.common.crypto.AesGcmCryptoService;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -88,6 +89,11 @@ class PasswordResetServiceTransactionTest {
         @Bean
         RefreshTokenDomainRepository refreshTokenDomainRepository() {
             return new InMemoryRefreshTokenRepository();
+        }
+
+        @Bean
+        RecordingAuditLog auditLog() {
+            return new RecordingAuditLog();
         }
 
         @Bean

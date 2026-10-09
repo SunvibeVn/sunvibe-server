@@ -7,6 +7,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
@@ -19,6 +20,7 @@ import vn.sunvibe.auth.core.testsupport.InMemoryPasswordResetTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
 import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -60,6 +62,7 @@ class PasswordResetServiceTest {
     private InMemoryRefreshTokenRepository refreshTokens;
     private List<String> confirmations;
     private PasswordResetService service;
+    private RecordingAuditLog audit;
 
     @BeforeEach
     void setUp() {
@@ -73,6 +76,7 @@ class PasswordResetServiceTest {
                 now, now.plusSeconds(900), false, OTP));
         refreshTokens = new InMemoryRefreshTokenRepository();
         confirmations = new ArrayList<>();
+        audit = new RecordingAuditLog();
         EmailServicePort email = new EmailServicePort() {
             @Override
             public void sendPasswordResetEmail(String address, String otpCode, String resetToken) {
@@ -85,7 +89,7 @@ class PasswordResetServiceTest {
             }
         };
         service = new PasswordResetService(resetTokens, users, PASSWORD_ENCODER, email, refreshTokens,
-                new PasswordResetPolicy(5, Duration.ofSeconds(60)));
+                new PasswordResetPolicy(5, Duration.ofSeconds(60)), audit);
     }
 
     private static PasswordResetRequest request(String otp) {
@@ -126,6 +130,8 @@ class PasswordResetServiceTest {
         assertTrue(refreshTokens.get(1L).isRevoked());
         assertTrue(resetTokens.get(1L).isUsed());
         assertEquals(List.of(EMAIL), confirmations);
+        assertEquals(List.of(AuditEventType.PASSWORD_RESET_COMPLETED), audit.types());
+        assertEquals(USER_ID.getValue(), audit.last().userId());
     }
 
     @Test
@@ -158,6 +164,8 @@ class PasswordResetServiceTest {
         PasswordResetTokenException burned = assertThrows(PasswordResetTokenException.class,
                 () -> service.verifyOtpAndResetPassword(request("000000")));
         assertEquals(PasswordResetService.TOO_MANY_ATTEMPTS, burned.getMessage());
+        assertEquals("TOKEN_BURNED_AFTER_WRONG_OTP", audit.last().details());
+        assertEquals(5, audit.events.size());
 
         PasswordResetTokenException rightCodeTooLate = assertThrows(PasswordResetTokenException.class,
                 () -> service.verifyOtpAndResetPassword(request(OTP)));

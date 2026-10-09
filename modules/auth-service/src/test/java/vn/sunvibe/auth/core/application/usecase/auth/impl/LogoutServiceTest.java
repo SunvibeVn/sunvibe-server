@@ -10,12 +10,14 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -33,6 +35,7 @@ class LogoutServiceTest {
 
     private InMemoryRefreshTokenRepository refreshTokens;
     private LogoutService service;
+    private final RecordingAuditLog audit = new RecordingAuditLog();
 
     @BeforeEach
     void setUp() {
@@ -58,7 +61,7 @@ class LogoutServiceTest {
             public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
             @Override
             public Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
-        });
+        }, audit);
     }
 
     @AfterEach
@@ -83,6 +86,8 @@ class LogoutServiceTest {
         assertEquals(List.of("family:" + thisDevice.getFamilyId() + ":LOGOUT"), refreshTokens.revocations);
         assertTrue(refreshTokens.get(1L).isRevoked());
         assertTrue(refreshTokens.get(2L).isActive());
+        assertEquals(List.of(AuditEventType.LOGOUT), audit.types());
+        assertEquals(USER_ID.getValue(), audit.last().userId());
     }
 
     @ParameterizedTest
@@ -115,6 +120,7 @@ class LogoutServiceTest {
 
         assertEquals(List.of("user:" + USER_ID.getValue() + ":" + RevokeReason.LOGOUT_ALL), refreshTokens.revocations);
         assertTrue(refreshTokens.all().stream().allMatch(RefreshToken::isRevoked));
+        assertEquals(List.of(AuditEventType.LOGOUT_ALL_DEVICES), audit.types());
     }
 
     @Test

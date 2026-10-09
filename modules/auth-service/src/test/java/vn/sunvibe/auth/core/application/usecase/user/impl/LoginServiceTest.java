@@ -16,10 +16,12 @@ import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedExcep
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.shared.LoginLockoutPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.impl.AuthResultAssembler;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
 import vn.sunvibe.auth.core.testsupport.TestCookies;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -38,6 +40,7 @@ class LoginServiceTest {
     private InMemoryUserRepository users;
     private int authenticateCalls;
     private String refreshTokenIssued;
+    private RecordingAuditLog audit;
 
     /** Accepts {@link #PASSWORD} for a known user, like DaoAuthenticationProvider. */
     private final AuthenticationManager passwordChecker = authentication -> {
@@ -57,6 +60,7 @@ class LoginServiceTest {
         users = new InMemoryUserRepository().with(user);
         authenticateCalls = 0;
         refreshTokenIssued = null;
+        audit = new RecordingAuditLog();
     }
 
     private LoginService service(AuthenticationManager authenticationManager) {
@@ -67,7 +71,8 @@ class LoginServiceTest {
                 users,
                 new AuthResultAssembler(TestCookies.cookieService()),
                 users,
-                new LoginLockoutPolicy(5, Duration.ofMinutes(15), Duration.ofHours(24)));
+                new LoginLockoutPolicy(5, Duration.ofMinutes(15), Duration.ofHours(24)),
+                audit);
     }
 
     private LoginService service() {
@@ -140,6 +145,8 @@ class LoginServiceTest {
 
         assertEquals(Duration.ofMinutes(15), locked.getRetryAfter());
         assertTrue(user.isLoginTemporarilyLocked(Instant.now()));
+        assertEquals(AuditEventType.ACCOUNT_TEMPORARILY_LOCKED, audit.last().type());
+        assertEquals(5, audit.types().stream().filter(t -> t == AuditEventType.LOGIN_FAILED).count());
     }
 
     /** During the lock even the right password is refused, without being checked. */
@@ -151,6 +158,7 @@ class LoginServiceTest {
 
         assertEquals(0, authenticateCalls);
         assertNull(refreshTokenIssued);
+        assertEquals(List.of(AuditEventType.LOGIN_BLOCKED), audit.types());
         assertTrue(locked.getRetryAfter().compareTo(Duration.ofMinutes(9)) > 0);
         assertTrue(locked.getMessage().contains("10 minute"));
     }
@@ -166,6 +174,8 @@ class LoginServiceTest {
         assertEquals(0, user.getFailedLoginAttempts());
         assertNull(user.getLockedUntil());
         assertNotNull(user.getLastLogin());
+        assertEquals(List.of(AuditEventType.LOGIN_SUCCEEDED), audit.types());
+        assertEquals(user.getId().getValue(), audit.last().userId());
     }
 
     @Test
@@ -185,5 +195,8 @@ class LoginServiceTest {
 
         assertEquals("Incorrect username or password.", exception.getMessage());
         assertEquals(0, user.getFailedLoginAttempts());
+        assertEquals(AuditEventType.LOGIN_FAILED, audit.last().type());
+        assertNull(audit.last().userId(), "no account to attach");
+        assertEquals("0999999999", audit.last().subject());
     }
 }

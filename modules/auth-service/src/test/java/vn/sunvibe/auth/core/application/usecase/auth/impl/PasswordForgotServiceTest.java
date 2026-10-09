@@ -12,6 +12,7 @@ import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordForgotResponse;
 import vn.sunvibe.auth.core.testsupport.InMemoryPasswordResetTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -31,6 +32,7 @@ class PasswordForgotServiceTest {
     private final List<String> sentOtps = new ArrayList<>();
     private final List<Object> events = new ArrayList<>();
     private PasswordForgotService service;
+    private final RecordingAuditLog audit = new RecordingAuditLog();
 
     @BeforeEach
     void setUp() {
@@ -51,7 +53,7 @@ class PasswordForgotServiceTest {
         };
         AtomicLong ids = new AtomicLong();
         service = new PasswordForgotService(new InMemoryUserRepository().with(user), resetTokens, email, events::add,
-                ids::incrementAndGet, new PasswordResetPolicy(5, Duration.ofSeconds(60)));
+                ids::incrementAndGet, new PasswordResetPolicy(5, Duration.ofSeconds(60)), audit);
     }
 
     private PasswordForgotResponse forgot(String email) {
@@ -79,6 +81,10 @@ class PasswordForgotServiceTest {
         assertEquals(known.otpExpirationMinutes(), unknown.otpExpirationMinutes());
         assertNotNull(unknown.expiresAt());
         assertEquals(1, sentOtps.size(), "only the known address gets an e-mail");
+        assertEquals("SENT", audit.events.get(0).details());
+        assertEquals("NO_ELIGIBLE_ACCOUNT", audit.events.get(1).details());
+        assertEquals("nobody@example.com", audit.events.get(1).subject());
+        assertNull(audit.events.get(1).userId());
     }
 
     @Test
@@ -106,6 +112,7 @@ class PasswordForgotServiceTest {
 
         assertEquals(1, sentOtps.size());
         assertEquals(1, resetTokens.all().size());
+        assertEquals("COOLDOWN_NOT_SENT", audit.last().details());
     }
 
     @Test

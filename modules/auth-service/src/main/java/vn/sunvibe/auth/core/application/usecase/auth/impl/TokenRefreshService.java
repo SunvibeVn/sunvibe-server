@@ -11,6 +11,9 @@ import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenPolicy;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
 import vn.sunvibe.auth.core.application.usecase.auth.AccessTokenGenerateUseCase;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.auth.TokenRefreshUseCase;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
@@ -44,6 +47,7 @@ public class TokenRefreshService implements TokenRefreshUseCase {
     private final AuthResultAssembler authResultAssembler;
     private final IdGenerator<Long> snowflakeIdGenerator;
     private final RefreshTokenPolicy refreshTokenPolicy;
+    private final AuditLogPort auditLog;
 
     @Override
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
@@ -67,12 +71,16 @@ public class TokenRefreshService implements TokenRefreshUseCase {
             refreshTokenRepository.revokeFamily(current.getFamilyId(), RevokeReason.REUSE_DETECTED, now);
             log.warn("Refresh token reuse detected for user {}: session {} revoked",
                     current.getUserId().getValue(), current.getFamilyId());
+            auditLog.record(AuthAuditEvent.of(AuditEventType.REFRESH_TOKEN_REUSE_DETECTED, current.getUserId().getValue(),
+                    null, "session=" + current.getFamilyId()));
             throw new InvalidRefreshTokenException(AuthMessage.SESSION_EXPIRED);
         }
 
         Optional<AppUser> owner = userRepository.findById(current.getUserId()).filter(AppUser::canAuthenticate);
         if (owner.isEmpty()) {
             refreshTokenRepository.revokeFamily(current.getFamilyId(), RevokeReason.ACCOUNT_INACTIVE, now);
+            auditLog.record(AuthAuditEvent.of(AuditEventType.REFRESH_REJECTED_ACCOUNT_INACTIVE,
+                    current.getUserId().getValue(), null, "session=" + current.getFamilyId()));
             throw rejected("user " + current.getUserId().getValue() + " is missing, locked or disabled");
         }
         AppUser user = owner.get();

@@ -7,11 +7,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import vn.sunvibe.auth.core.application.command.auth.PasswordChangeCommand;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -40,6 +42,7 @@ class PasswordChangeServiceTest {
 
     private InMemoryRefreshTokenRepository refreshTokens;
     private PasswordChangeService service;
+    private final RecordingAuditLog audit = new RecordingAuditLog();
 
     @BeforeEach
     void setUp() {
@@ -62,7 +65,7 @@ class PasswordChangeServiceTest {
             public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
             @Override
             public Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
-        }, PASSWORD_ENCODER, refreshTokens);
+        }, PASSWORD_ENCODER, refreshTokens, audit);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(USERNAME, null, List.of()));
     }
@@ -77,6 +80,7 @@ class PasswordChangeServiceTest {
         service.execute(new PasswordChangeCommand("Old@Passw0rd", "N3w@Passw0rd"));
 
         assertEquals(List.of("user:" + USER_ID.getValue() + ":PASSWORD_CHANGED"), refreshTokens.revocations);
+        assertEquals(List.of(AuditEventType.PASSWORD_CHANGED), audit.types());
     }
 
     @Test
@@ -85,5 +89,7 @@ class PasswordChangeServiceTest {
                 () -> service.execute(new PasswordChangeCommand("Wrong@Passw0rd", "N3w@Passw0rd")));
 
         assertTrue(refreshTokens.revocations.isEmpty());
+        assertEquals(List.of(AuditEventType.PASSWORD_CHANGE_FAILED), audit.types());
+        assertEquals("WRONG_CURRENT_PASSWORD", audit.last().details());
     }
 }

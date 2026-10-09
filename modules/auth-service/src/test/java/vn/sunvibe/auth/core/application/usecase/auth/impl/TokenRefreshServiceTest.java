@@ -11,6 +11,7 @@ import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenExcept
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenPolicy;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.auth.enums.TokenStatus;
@@ -21,6 +22,7 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.shared.constant.AuthMessage;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.testsupport.TestCookies;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -51,10 +53,12 @@ class TokenRefreshServiceTest {
     private AppUser user;
     private Optional<AppUser> storedUser;
     private TokenRefreshService service;
+    private RecordingAuditLog audit;
 
     @BeforeEach
     void setUp() {
         refreshTokens = new InMemoryRefreshTokenRepository();
+        audit = new RecordingAuditLog();
         user = AppUser.create(USER_ID, "Nguyen Van A", Username.create(USERNAME), null,
                 Password.create("hashed-password"), ProfileImage.create(null), null,
                 new HashSet<>(Set.of("TENANT")), Instant.now());
@@ -62,7 +66,7 @@ class TokenRefreshServiceTest {
         AtomicLong ids = new AtomicLong(100);
         service = new TokenRefreshService(refreshTokens, new UserLookup(), username -> "access-for-" + username,
                 new AuthResultAssembler(TestCookies.cookieService()), ids::incrementAndGet,
-                new RefreshTokenPolicy(IDLE, ABSOLUTE, GRACE));
+                new RefreshTokenPolicy(IDLE, ABSOLUTE, GRACE), audit);
     }
 
     private class UserLookup implements UserDomainRepository {
@@ -220,6 +224,8 @@ class TokenRefreshServiceTest {
         assertEquals(AuthMessage.SESSION_EXPIRED, exception.getMessage());
         assertEquals(List.of("family:" + familyId + ":REUSE_DETECTED"), refreshTokens.revocations);
         assertTrue(refreshTokens.get(2L).isRevoked(), "the attacker's or victim's successor token is dead too");
+        assertEquals(List.of(AuditEventType.REFRESH_TOKEN_REUSE_DETECTED), audit.types());
+        assertEquals("session=" + familyId, audit.last().details());
     }
 
     @Test
@@ -228,6 +234,7 @@ class TokenRefreshServiceTest {
         user.setUserStatus(UserStatus.LOCK);
 
         assertThrows(InvalidRefreshTokenException.class, () -> refresh(SECRET));
+        assertEquals(List.of(AuditEventType.REFRESH_REJECTED_ACCOUNT_INACTIVE), audit.types());
 
         assertEquals(List.of("family:" + token.getFamilyId() + ":ACCOUNT_INACTIVE"), refreshTokens.revocations);
     }

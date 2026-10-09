@@ -6,6 +6,9 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.user.UserRegisterUseCase;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
@@ -26,6 +29,7 @@ public class UserRegisterService implements UserRegisterUseCase {
     private final UserDomainRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final IdGenerator<String> ulidGenerator;
+    private final AuditLogPort auditLog;
 
     @Transactional
     @Override
@@ -61,6 +65,8 @@ public class UserRegisterService implements UserRegisterUseCase {
         appUser = userRepository.save(appUser);
 
         log.info("Register user successful: {}", appUser.getUsername().getValue());
+        auditLog.record(AuthAuditEvent.of(AuditEventType.USER_REGISTERED, appUser.getId().getValue(),
+                appUser.getUsername().getValue()));
 
         // Publish event
 //        eventPublisher.publish(new UserRegisteredEvent(user.getId(), user.getUsername().getValue(), user.getEmail().getValue(), LocalDateTime.now()), "Create user");

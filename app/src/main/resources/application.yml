@@ -81,6 +81,10 @@ app:
       max-otp-attempts: 5
       # Minimum time between two reset e-mails to the same address
       resend-cooldown: 60s
+    audit:
+      # Security audit log (auth_audit_events): kept this long, purged daily at cleanup-cron
+      retention: 180d
+      cleanup-cron: "0 0 4 * * *"
     rate-limit:
       # Per client IP (in-memory: per application instance). Behind a reverse proxy,
       # set server.forward-headers-strategy so the real client IP is used.

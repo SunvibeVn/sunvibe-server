@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordResetUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
@@ -46,6 +49,7 @@ public class PasswordResetService implements PasswordResetUseCase {
     private final EmailServicePort emailService;
     private final RefreshTokenDomainRepository refreshTokenRepository;
     private final PasswordResetPolicy passwordResetPolicy;
+    private final AuditLogPort auditLog;
 
     @Override
     @Transactional(noRollbackFor = {InvalidOtpException.class, PasswordResetTokenException.class})
@@ -54,10 +58,14 @@ public class PasswordResetService implements PasswordResetUseCase {
 
         // Find reset token (locked: concurrent guesses are counted one at a time)
         PasswordResetToken passwordResetToken = passwordResetTokenDomainRepository.findByTokenForUpdate(request.getResetToken())
-                .orElseThrow(() -> new PasswordResetTokenException(INVALID_RESET_CODE));
+                .orElseThrow(() -> {
+                    auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_RESET_FAILED, null, null, "UNKNOWN_TOKEN"));
+                    return new PasswordResetTokenException(INVALID_RESET_CODE);
+                });
 
         // Check token validity
         if (!passwordResetToken.isValid()) {
+            audit(AuditEventType.PASSWORD_RESET_FAILED, passwordResetToken, "TOKEN_EXPIRED_OR_USED");
             throw new PasswordResetTokenException(INVALID_RESET_CODE);
         }
 
@@ -68,8 +76,11 @@ public class PasswordResetService implements PasswordResetUseCase {
             if (burned) {
                 log.warn("Password reset token for user {} burned after {} wrong OTP codes",
                         passwordResetToken.getUserId(), passwordResetToken.getFailedAttempts());
+                audit(AuditEventType.PASSWORD_RESET_FAILED, passwordResetToken, "TOKEN_BURNED_AFTER_WRONG_OTP");
                 throw new PasswordResetTokenException(TOO_MANY_ATTEMPTS);
             }
+            audit(AuditEventType.PASSWORD_RESET_FAILED, passwordResetToken,
+                    "WRONG_OTP attempt=" + passwordResetToken.getFailedAttempts());
             throw new InvalidOtpException("Invalid OTP code");
         }
 
@@ -78,6 +89,7 @@ public class PasswordResetService implements PasswordResetUseCase {
 
         // A locked/disabled account must not regain access through the reset flow
         if (!user.canAuthenticate()) {
+            audit(AuditEventType.PASSWORD_RESET_FAILED, passwordResetToken, "ACCOUNT_DISABLED");
             throw new AuthenticationFailedException("Account is locked or disabled.");
         }
 
@@ -101,10 +113,15 @@ public class PasswordResetService implements PasswordResetUseCase {
         emailService.sendPasswordResetConfirmationEmail(user.getEmail().getValue());
 
         log.info("Password reset successfully for user: {}", user.getId().getValue());
+        audit(AuditEventType.PASSWORD_RESET_COMPLETED, passwordResetToken, null);
 
         return PasswordResetResponse.builder()
                 .message("Password reset successfully")
                 .passwordChangedAt(LocalDateTime.now())
                 .build();
+    }
+
+    private void audit(AuditEventType type, PasswordResetToken token, String details) {
+        auditLog.record(AuthAuditEvent.of(type, token.getUserId(), token.getEmail(), details));
     }
 }

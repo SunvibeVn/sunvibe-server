@@ -19,6 +19,9 @@ import vn.sunvibe.auth.core.application.shared.LoginLockoutPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.AccessTokenGenerateUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.impl.AuthResultAssembler;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.user.LoginUseCase;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
@@ -51,6 +54,7 @@ public class LoginService implements LoginUseCase {
     private final AuthResultAssembler authResultAssembler;
     private final UserLoginAttemptRepository loginAttemptRepository;
     private final LoginLockoutPolicy lockoutPolicy;
+    private final AuditLogPort auditLog;
 
     @Transactional(noRollbackFor = AuthenticationFailedException.class)
     @Override
@@ -60,6 +64,7 @@ public class LoginService implements LoginUseCase {
 
         if (account.isPresent() && account.get().isLoginTemporarilyLocked(now)) {
             log.warn("Login refused for user {}: temporarily locked", account.get().getId().getValue());
+            audit(AuditEventType.LOGIN_BLOCKED, account, loginCommand.username(), "TEMPORARILY_LOCKED");
             throw new AccountTemporarilyLockedException(Duration.between(now, account.get().getLockedUntil()));
         }
 
@@ -71,16 +76,20 @@ public class LoginService implements LoginUseCase {
             SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (BadCredentialsException e) {
             // Unknown usernames leave nothing to count; the per-IP rate limit covers them
+            audit(AuditEventType.LOGIN_FAILED, account, loginCommand.username(), "BAD_CREDENTIALS");
             account.ifPresent(user -> recordFailedAttempt(user, now));
             log.warn("Authenticate failed: bad credentials");
             throw new AuthenticationFailedException("Incorrect username or password.");
         } catch (AccountStatusException e) {
             log.warn("Authenticate failed: account is locked or disabled.");
+            audit(AuditEventType.LOGIN_FAILED, account, loginCommand.username(), "ACCOUNT_DISABLED");
             throw new AuthenticationFailedException("Account is locked or disabled.");
         }
 
         AppUser appUser = account.orElseGet(() -> userRepository.findByUsername(loginCommand.username()));
-        return loginInternal(appUser, clientInfo);
+        AuthResult result = loginInternal(appUser, clientInfo);
+        audit(AuditEventType.LOGIN_SUCCEEDED, Optional.of(appUser), loginCommand.username(), null);
+        return result;
     }
 
     @Transactional
@@ -105,8 +114,14 @@ public class LoginService implements LoginUseCase {
             loginAttemptRepository.lockLoginUntil(user.getId(), now.plus(lock.get()));
             log.warn("User {} locked out for {} after {} failed login attempts",
                     user.getId().getValue(), lock.get(), failedAttempts);
+            auditLog.record(AuthAuditEvent.of(AuditEventType.ACCOUNT_TEMPORARILY_LOCKED, user.getId().getValue(),
+                    user.getUsername().getValue(), "attempts=" + failedAttempts + ", lock=" + lock.get()));
             throw new AccountTemporarilyLockedException(lock.get());
         }
+    }
+
+    private void audit(AuditEventType type, Optional<AppUser> account, String username, String details) {
+        auditLog.record(AuthAuditEvent.of(type, account.map(u -> u.getId().getValue()).orElse(null), username, details));
     }
 
     private Optional<AppUser> findAccount(String username) {

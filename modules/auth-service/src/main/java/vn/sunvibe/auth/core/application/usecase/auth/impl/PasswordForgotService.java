@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.command.auth.PasswordForgotCommand;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordForgotUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 import vn.sunvibe.auth.core.domain.event.ForgotPasswordInitiatedEvent;
@@ -46,6 +49,7 @@ public class PasswordForgotService implements PasswordForgotUseCase {
     private final ApplicationEventPublisher eventPublisher;
     private final IdGenerator<Long> snowflakeIdGenerator;
     private final PasswordResetPolicy passwordResetPolicy;
+    private final AuditLogPort auditLog;
 
     @Override
     @Transactional
@@ -62,6 +66,7 @@ public class PasswordForgotService implements PasswordForgotUseCase {
         Optional<AppUser> account = findAccount(email).filter(AppUser::canAuthenticate);
         if (account.isEmpty()) {
             log.info("Password reset requested for an unknown or blocked account; nothing sent");
+            auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_RESET_REQUESTED, null, email, "NO_ELIGIBLE_ACCOUNT"));
             return response;
         }
         AppUser user = account.get();
@@ -71,6 +76,8 @@ public class PasswordForgotService implements PasswordForgotUseCase {
                 && now.isBefore(latest.get().getCreatedAt().plus(passwordResetPolicy.getResendCooldown()))) {
             log.info("Password reset code for user {} not re-sent: requested again within the cooldown",
                     user.getId().getValue());
+            auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_RESET_REQUESTED, user.getId().getValue(), email,
+                    "COOLDOWN_NOT_SENT"));
             return response;
         }
 
@@ -91,6 +98,7 @@ public class PasswordForgotService implements PasswordForgotUseCase {
                 .build());
 
         log.info("Password reset code sent for user {}", user.getId().getValue());
+        auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_RESET_REQUESTED, user.getId().getValue(), email, "SENT"));
         return response;
     }
 

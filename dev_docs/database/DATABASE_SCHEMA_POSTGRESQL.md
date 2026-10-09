@@ -124,6 +124,22 @@ CREATE UNIQUE INDEX idx_password_reset_token_token ON password_reset_token (toke
 CREATE INDEX idx_password_reset_token_email ON password_reset_token (email);
 CREATE INDEX idx_password_reset_token_user_id ON password_reset_token (user_id);
 
+-- Nhật ký bảo mật của auth-service (append-only, giữ 180 ngày). Xem dev_docs/auth/04_AUTH_AUDIT_LOG.md
+CREATE TABLE auth_audit_events (
+    id BIGINT NOT NULL PRIMARY KEY,
+    event_type VARCHAR(50) NOT NULL, -- LOGIN_SUCCEEDED, LOGIN_FAILED, ACCOUNT_TEMPORARILY_LOCKED, ...
+    user_id VARCHAR(26),             -- NULL khi không xác định được tài khoản
+    subject VARCHAR(100),            -- số điện thoại / email client đã dùng
+    details VARCHAR(255),
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(255),
+    occurred_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+CREATE INDEX idx_auth_audit_events_user_id ON auth_audit_events (user_id, occurred_at);
+CREATE INDEX idx_auth_audit_events_type ON auth_audit_events (event_type, occurred_at);
+CREATE INDEX idx_auth_audit_events_ip ON auth_audit_events (ip_address, occurred_at);
+CREATE INDEX idx_auth_audit_events_occurred_at ON auth_audit_events (occurred_at);
+
 CREATE TABLE agent_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,

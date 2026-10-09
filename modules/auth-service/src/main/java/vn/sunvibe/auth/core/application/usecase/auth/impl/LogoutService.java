@@ -7,8 +7,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.auth.LogoutUseCase;
-import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
@@ -22,6 +24,7 @@ public class LogoutService implements LogoutUseCase {
 
     private final RefreshTokenDomainRepository refreshTokenRepository;
     private final UserDomainRepository userRepository;
+    private final AuditLogPort auditLog;
 
     @Override
     @Transactional
@@ -31,10 +34,11 @@ public class LogoutService implements LogoutUseCase {
         }
         refreshTokenRepository.findByTokenHashForUpdate(RefreshTokenSecrets.hash(refreshToken))
                 .filter(token -> !token.isRevoked())
-                .map(RefreshToken::getFamilyId)
-                .ifPresent(familyId -> {
-                    refreshTokenRepository.revokeFamily(familyId, RevokeReason.LOGOUT, AppClock.currentUTC());
-                    log.info("Session {} ended by logout", familyId);
+                .ifPresent(token -> {
+                    refreshTokenRepository.revokeFamily(token.getFamilyId(), RevokeReason.LOGOUT, AppClock.currentUTC());
+                    log.info("Session {} ended by logout", token.getFamilyId());
+                    auditLog.record(AuthAuditEvent.of(AuditEventType.LOGOUT, token.getUserId().getValue(), null,
+                            "session=" + token.getFamilyId()));
                 });
     }
 
@@ -49,5 +53,7 @@ public class LogoutService implements LogoutUseCase {
         AppUser appUser = userRepository.findByUsername(authentication.getPrincipal().toString());
         refreshTokenRepository.revokeAllForUser(appUser.getId(), RevokeReason.LOGOUT_ALL, AppClock.currentUTC());
         log.info("All sessions of user {} ended by logout-all", appUser.getId().getValue());
+        auditLog.record(AuthAuditEvent.of(AuditEventType.LOGOUT_ALL_DEVICES, appUser.getId().getValue(),
+                appUser.getUsername().getValue()));
     }
 }

@@ -13,6 +13,7 @@ import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.common.generator.id.IdGenerator;
+import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -82,6 +83,7 @@ class UserRegisterServiceTest {
 
     private FakeUserDomainRepository repository;
     private UserRegisterService service;
+    private RecordingAuditLog audit;
 
     @BeforeEach
     void setUp() {
@@ -98,7 +100,8 @@ class UserRegisterServiceTest {
             }
         };
         IdGenerator<String> ulidGenerator = () -> "01ARZ3NDEKTSV4RRFFQ69G5FAV";
-        service = new UserRegisterService(repository, passwordEncoder, ulidGenerator);
+        audit = new RecordingAuditLog();
+        service = new UserRegisterService(repository, passwordEncoder, ulidGenerator, audit);
     }
 
     private UserRegisterCommand command(String username, String email, String idCardNumber) {
