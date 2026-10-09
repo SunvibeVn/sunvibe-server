@@ -31,6 +31,13 @@ public record UserRegisterRequest(
         @Size(min = 11, max = 100, message = "From 11 to 100 characters in length.")
         String email,
 
+        @NotNull(message = "ID card number is mandatory.")
+        @Pattern(
+                regexp = "^(\\d{9}|\\d{12})$",
+                message = "ID card number must be a 9-digit CMND or 12-digit CCCD."
+        )
+        String idCardNumber,
+
         @StrongPassword
         @NotNull(message = "Password is mandatory.")
         String password,
