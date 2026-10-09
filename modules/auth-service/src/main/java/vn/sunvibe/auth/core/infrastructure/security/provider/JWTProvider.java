@@ -10,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
@@ -60,6 +62,15 @@ public class JWTProvider {
     public String generateAccessToken(String username) {
 
         CustomUserDetails userDetails = (CustomUserDetails) userDetailsService.loadUserByUsername(username);
+
+        // Single choke point: no token for a locked/disabled account, whatever
+        // the route (login, register auto-login, password reset, refresh).
+        if (!userDetails.isAccountNonLocked()) {
+            throw new LockedException("Account is locked.");
+        }
+        if (!userDetails.isEnabled()) {
+            throw new DisabledException("Account is disabled.");
+        }
 
         List<String> roles = userDetails.getAuthorities()
                 .stream()

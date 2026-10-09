@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.authentication.AccountStatusException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -54,6 +55,9 @@ public class LoginService implements LoginUseCase {
         } catch (BadCredentialsException e) {
             log.error("Authenticate failed.");
             throw new AuthenticationFailedException("Incorrect username or password.");
+        } catch (AccountStatusException e) {
+            log.error("Authenticate failed: account is locked or disabled.");
+            throw new AuthenticationFailedException("Account is locked or disabled.");
         }
     }
 

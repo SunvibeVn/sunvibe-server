@@ -5,12 +5,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordResetUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.OtpCode;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
@@ -62,6 +64,12 @@ public class PasswordResetService implements PasswordResetUseCase {
 
         // Find user
         AppUser user = userDomainRepository.findByEmail(passwordResetToken.getEmail());
+
+        // A locked/disabled account must not regain access through the reset flow
+        UserStatus status = user.getUserStatus();
+        if (status == UserStatus.LOCK || status == UserStatus.TERMINATED || status == UserStatus.DELETED) {
+            throw new AuthenticationFailedException("Account is locked or disabled.");
+        }
 
         // Change password
         String encryptedPassword = passwordEncoder.encode(request.getNewPassword());
