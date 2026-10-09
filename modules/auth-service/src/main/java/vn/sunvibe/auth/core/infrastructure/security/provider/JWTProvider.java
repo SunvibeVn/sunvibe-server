@@ -56,6 +56,8 @@ public class JWTProvider {
     public static final String TOKEN_TYPE = "JWT";
     public static final String TOKEN_ISSUER = "Nestify";
     public static final String TOKEN_PREFIX = "Bearer ";
+    /** Claim holding the account's immutable id; the request filter checks it against the reloaded user. */
+    public static final String USER_ID_CLAIM = "uid";
 
     private final UserDetailsService userDetailsService;
 
@@ -85,24 +87,13 @@ public class JWTProvider {
                 .header().add("typ", TOKEN_TYPE)
                 .and()
                 .subject(userDetails.getUsername())
+                .claim(USER_ID_CLAIM, userDetails.getUserId())
                 .claim("email", userDetails.getEmail())
                 .claim("rol", roles)
                 .issuer(TOKEN_ISSUER)
                 .issuedAt(Date.from(now.atZone(ZoneId.systemDefault()).toInstant()))
                 .expiration(Date.from(expiration.atZone(ZoneId.systemDefault()).toInstant()))
                 .audience().and()
-                .signWith(getSignInKey())
-                .compact();
-    }
-
-    // Create Access Token from username (use when refresh)
-    public String generateAccessTokenFromUsername(String username) {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime expiration = now.plusMinutes(jwtExpirationMinutes);
-        return Jwts.builder()
-                .subject(username)
-                .issuedAt(Date.from(now.atZone(ZoneId.systemDefault()).toInstant()))
-                .expiration(Date.from(expiration.atZone(ZoneId.systemDefault()).toInstant()))
                 .signWith(getSignInKey())
                 .compact();
     }

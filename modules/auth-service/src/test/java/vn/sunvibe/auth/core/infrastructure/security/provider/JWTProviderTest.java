@@ -3,6 +3,7 @@ package vn.sunvibe.auth.core.infrastructure.security.provider;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
+import org.springframework.test.util.ReflectionTestUtils;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
 
@@ -39,5 +40,16 @@ class JWTProviderTest {
     void generateAccessToken_rejectsDeletedUser() {
         assertThrows(DisabledException.class,
                 () -> providerFor(UserStatus.DELETED).generateAccessToken("0912345678"));
+    }
+
+    @Test
+    void generateAccessToken_carriesUserIdClaim() {
+        JWTProvider provider = providerFor(UserStatus.ACTIVE);
+        ReflectionTestUtils.setField(provider, "jwtSecretKey", "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=");
+        ReflectionTestUtils.setField(provider, "jwtExpirationMinutes", 60L);
+
+        String token = provider.generateAccessToken("0912345678");
+
+        assertEquals("id", provider.extractAllClaims(token).get("uid", String.class));
     }
 }
