@@ -71,7 +71,7 @@ Set-Cookie: cookie-jwt-rf=<refresh token>; Path=/api/auth; Max-Age=604800; Secur
     "roles": ["TENANT"],
     "phoneVerified": false,
     "emailVerified": false,
-    "message": "User logged in successfully."
+    "message": "User registered successfully."
   }
 }
 ```

@@ -35,7 +35,7 @@ Content-Type: application/json
 | Trường | Bắt buộc | Ràng buộc |
 |---|---|---|
 | `username` | Có | Số điện thoại, `^[0-9]{10,12}$` |
-| `password` | Có | Không rỗng (không kiểm tra độ mạnh khi đăng nhập) |
+| `password` | Có | Khác `null` (không kiểm tra độ mạnh khi đăng nhập). Chuỗi rỗng vẫn được đưa vào bước xác thực và bị tính là một lần sai mật khẩu |
 
 Endpoint **public**, không cần access token.
 
@@ -219,6 +219,7 @@ Endpoint public (không cần access token):
 | POST | `/api/auth/refresh-token` |
 | POST | `/api/auth/logout` |
 | POST | `/api/auth/forgot-password` |
+| POST | `/api/auth/forgot-password/sms` |
 | POST | `/api/auth/reset-password` |
 | GET | `/actuator/health`, `/v3/api-docs/**`, `/swagger-ui/**` |
 
