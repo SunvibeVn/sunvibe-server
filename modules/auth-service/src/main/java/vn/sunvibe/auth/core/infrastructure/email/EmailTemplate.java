@@ -1,6 +1,14 @@
 package vn.sunvibe.auth.core.infrastructure.email;
 
-public class EmailTemplate {
+/**
+ * HTML bodies of the auth module's e-mails.
+ */
+public final class EmailTemplate {
+
+    private EmailTemplate() {
+    }
+
+    /** Password-reset e-mail with the OTP and a link carrying the reset token. */
 
     public static String getPasswordResetTemplate(String otpCode, String resetToken) {
         return String.format("""
@@ -31,7 +39,7 @@ public class EmailTemplate {
                         <p><a href="https://yourapp.com/reset-password?token=%s">Reset Password</a></p>
                         <hr>
                         <p class="footer">If you didn't request this, please ignore this email.</p>
-                        <p class="footer">© 2026 Your App. All rights reserved.</p>
+                        <p class="footer">© Sunvibe. All rights reserved.</p>
                     </div>
                 </div>
             </body>

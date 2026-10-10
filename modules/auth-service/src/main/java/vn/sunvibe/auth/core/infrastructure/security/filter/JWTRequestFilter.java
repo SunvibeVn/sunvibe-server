@@ -23,11 +23,15 @@ import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Authenticates a request from its access token ({@code Authorization: Bearer}
+ * header or HttpOnly cookie). A missing or invalid token simply leaves the
+ * request anonymous; Spring Security then decides whether the endpoint allows it.
+ * Public paths ({@link #PUBLIC_PATHS}) are skipped.
+ */
 @RequiredArgsConstructor
 @Slf4j
 @Component
@@ -36,43 +40,21 @@ public class JWTRequestFilter extends OncePerRequestFilter {
     private final JWTProvider jwtProvider;
     private final UserDetailsService userDetailsService;
 
-    // Use AntPathMatcher to support wildcard pattern
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
-    // Cache to avoid re-check
-    private final Map<String, Boolean> pathCache = new ConcurrentHashMap<>();
-
+    /** Paths the filter skips: they never need an access token. */
     public static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/logout", "/api/auth/refresh-token", "/api/users/command/register", "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**");
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        // No cache: matching a handful of patterns is cheap, and a cache keyed by
+        // client-chosen paths would grow without bound
         String requestPath = request.getServletPath();
-
-        // Cache hit - return
-        if (pathCache.containsKey(requestPath)) {
-            return pathCache.get(requestPath);
-        }
-
-        // Cache miss - check one time
-        boolean isPublic = isPublicPath(requestPath);
-
-        // Save to cache
-        pathCache.put(requestPath, isPublic);
-
-        log.info("Path: {} | shouldNotFilter: {}", requestPath, isPublic);
-
-        if (isPublic) {
-            log.debug("Public path detected (cached): {}", requestPath);
-        }
-
-        return isPublic;
+        return PUBLIC_PATHS.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, requestPath));
     }
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
-        log.info("ServletPath={}, RequestURI={}", request.getServletPath(), request.getRequestURI());
-
         // Skip this step if the SecurityContext already has authentication
         if (SecurityContextHolder.getContext().getAuthentication() != null) {
             filterChain.doFilter(request, response);
@@ -80,7 +62,6 @@ public class JWTRequestFilter extends OncePerRequestFilter {
         }
 
         try {
-            log.info("JWTRequestFilter.doFilterInternal");
             getJwtFromRequest(request)
                     .flatMap(jwtProvider::validateTokenAndGetJws)
                     .flatMap(jws -> resolveAuthentication(jws.getPayload()))
@@ -94,7 +75,6 @@ public class JWTRequestFilter extends OncePerRequestFilter {
             log.error("Cannot set user authentication", e);
         }
 
-        log.info("JWTRequestFilter.doFilterInternal -- 2");
         filterChain.doFilter(request, response);
     }
 
@@ -145,10 +125,6 @@ public class JWTRequestFilter extends OncePerRequestFilter {
         }
         String cookieToken = jwtProvider.getJwtFromCookies(request);
         return StringUtils.hasText(cookieToken) ? Optional.of(cookieToken) : Optional.empty();
-    }
-
-    private boolean isPublicPath(String path) {
-        return PUBLIC_PATHS.stream().anyMatch(pattern -> PATH_MATCHER.match(pattern, path));
     }
 
 }

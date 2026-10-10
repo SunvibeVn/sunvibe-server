@@ -3,6 +3,9 @@ package vn.sunvibe.auth.core.application.usecase.auth;
 import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 
+/**
+ * Starts sign-in sessions (refresh-token families).
+ */
 public interface RefreshTokenGenerateUseCase {
 
     /**

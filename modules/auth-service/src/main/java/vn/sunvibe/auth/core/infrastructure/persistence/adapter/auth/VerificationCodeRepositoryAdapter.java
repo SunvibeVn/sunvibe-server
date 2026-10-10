@@ -12,6 +12,9 @@ import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.Verificat
 import java.time.Instant;
 import java.util.Optional;
 
+/**
+ * JPA implementation of {@link VerificationCodeRepository}.
+ */
 @Service
 @RequiredArgsConstructor
 public class VerificationCodeRepositoryAdapter implements VerificationCodeRepository {

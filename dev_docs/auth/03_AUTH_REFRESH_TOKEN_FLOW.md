@@ -333,7 +333,7 @@ User-Agent và IP **không** được dùng để chặn: IP mạng di động �
 | Tầng | Lớp |
 |---|---|
 | Presentation | `AuthController` (`/refresh-token`, `/logout`, `/logout-all`), `AuthExceptionHandler` (401 + xóa cookie), `RefreshTokenCleanupScheduler` |
-| Application | `TokenRefreshUseCase` / `TokenRefreshService`, `LogoutUseCase` / `LogoutService`, `RefreshTokenGenerateService`, `ExpiredRefreshTokenPurgeService`, `AuthResultAssembler`, `RefreshTokenPolicy`, `RefreshTokenSecrets`, `InvalidRefreshTokenException` |
+| Application | `TokenRefreshUseCase` / `TokenRefreshService`, `LogoutUseCase` / `LogoutService`, `RefreshTokenGenerateService`, `ExpiredRefreshTokenPurgeService`, `AuthResult`, `RefreshTokenPolicy`, `RefreshTokenSecrets`, `InvalidRefreshTokenException` |
 | Domain | `RefreshToken` (`startSession`, `rotate`, `isExpired`, `isWithinReuseGrace`), `TokenStatus`, `RevokeReason`, `RefreshTokenDomainRepository` |
 | Infrastructure | `RefreshTokenRepositoryAdapter`, `RefreshTokenJpaRepository`, `RefreshTokenEntity`, `RefreshTokenEntityMapper`, `CookieService`, `AuthSchedulingConfig` |
 

@@ -4,15 +4,16 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Set;
+import java.util.UUID;
 
+/**
+ * Spring Data access to {@link UserRoleEntity}.
+ */
 @Repository
 public interface UserRoleJpaRepository extends JpaRepository<UserRoleEntity, UUID> {
 
-    Optional<UserRoleEntity> findByName(String name);
-
     Set<UserRoleEntity> findByNameIn(Collection<String> names);
-
-//    List<UserRoleEntity> findAllByUsername(Collection<String> names);
 
 }

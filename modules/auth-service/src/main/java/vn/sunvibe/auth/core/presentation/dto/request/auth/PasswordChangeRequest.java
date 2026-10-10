@@ -5,6 +5,9 @@ import lombok.Builder;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.ConfirmPasswordMatch;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
 
+/**
+ * Body of {@code POST /api/auth/change-password}.
+ */
 @Builder
 @ConfirmPasswordMatch(
         password = "newPassword",

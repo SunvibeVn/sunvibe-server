@@ -12,11 +12,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import vn.sunvibe.auth.core.application.command.auth.LoginCommand;
-import vn.sunvibe.auth.core.application.command.auth.PasswordChangeCommand;
-import vn.sunvibe.auth.core.application.command.auth.PasswordForgotCommand;
 import vn.sunvibe.auth.core.application.command.auth.PasswordForgotSmsCommand;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.query.auth.PasswordForgotResult;
 import vn.sunvibe.auth.core.application.usecase.auth.LogoutUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordForgotUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordResetUseCase;
@@ -30,13 +28,23 @@ import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordForgotRequest;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordForgotSmsRequest;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.PasswordResetRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.LoginResponse;
-import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordChangeResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordForgotResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordResetResponse;
 import vn.sunvibe.auth.core.shared.constant.AuthMessage;
 import vn.sunvibe.auth.core.shared.service.CookieService;
 import vn.sunvibe.common.response.ApiResponse;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
+/**
+ * Sign-in sessions and passwords: login, token refresh, logout, password
+ * change and the two-step password reset (e-mail or SMS).
+ * <p>
+ * Every endpoint that starts or refreshes a session sets the access-token and
+ * refresh-token HttpOnly cookies and returns the access token in the body too.
+ */
 @Log4j2
 @RequiredArgsConstructor
 @RestController
@@ -52,12 +60,10 @@ public class AuthController {
     private final AuthConverter authConverter;
     private final CookieService cookieService;
 
+    /** Password login; starts a new session for this device. */
     @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest httpRequest) {
-        // Create command
-        LoginCommand loginCommand = authConverter.toLoginCommand(loginRequest);
-        // Login user, starting a new session for this device
-        AuthResult result = loginUseCase.execute(loginCommand, authConverter.toClientInfo(httpRequest));
+        AuthResult result = loginUseCase.execute(authConverter.toLoginCommand(loginRequest), authConverter.toClientInfo(httpRequest));
 
         return withTokens(result, AuthMessage.LOGIN_SUCCESS);
     }
@@ -91,69 +97,63 @@ public class AuthController {
         return withClearedTokens(AuthMessage.LOGOUT_ALL_SUCCESS);
     }
 
+    /** Changes the password, signs out every device and starts a fresh session for this one. */
     @PostMapping(value = "/change-password", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ApiResponse<LoginResponse>> changePassword(@Valid @RequestBody PasswordChangeRequest passwordChangeRequest, HttpServletRequest httpRequest) {
-
-        // Change user password (this also signs out every device)
-        PasswordChangeCommand passwordChangeCommand = authConverter.toPasswordChangeCommand(passwordChangeRequest);
-        PasswordChangeResponse passwordChangeResponse = passwordChangeUseCase.execute(passwordChangeCommand);
-
-        // Sign this device back in with a fresh session
-        LoginCommand loginCommand = LoginCommand.builder()
-                .username(passwordChangeResponse.username()).password(passwordChangeRequest.newPassword()).build();
-        AuthResult result = loginUseCase.execute(loginCommand, authConverter.toClientInfo(httpRequest));
+        AuthResult result = passwordChangeUseCase.execute(authConverter.toPasswordChangeCommand(passwordChangeRequest, httpRequest));
 
         return withTokens(result, AuthMessage.CHANGE_PASSWORD_SUCCESS);
     }
 
-    // Step 1: Request password reset
+    /** Step 1 (e-mail): e-mails a reset code and a link carrying the reset token. */
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<PasswordForgotResponse>> forgotPassword(@Valid @RequestBody PasswordForgotRequest passwordForgotRequest) {
-
         log.info("Forgot password request received");
-        // Create command
-        PasswordForgotCommand passwordForgotCommand = authConverter.toPasswordForgotCommand(passwordForgotRequest);
-        // Send OTP via email, return password reset token
-        PasswordForgotResponse response = passwordForgotUseCase.execute(passwordForgotCommand);
+        PasswordForgotResult result = passwordForgotUseCase.execute(authConverter.toPasswordForgotCommand(passwordForgotRequest));
 
-        return ResponseEntity.ok(ApiResponse.<PasswordForgotResponse>builder()
-                .code(HttpStatus.OK.value())
-                .message(response.message())
-                .result(response).build());
+        return forgotPasswordResponse(result);
     }
 
-    // Step 1 (SMS): text a reset code to the phone number; the response carries the reset token
+    /** Step 1 (SMS): texts a reset code to the phone number; the response carries the reset token. */
     @PostMapping("/forgot-password/sms")
     public ResponseEntity<ApiResponse<PasswordForgotResponse>> forgotPasswordBySms(@Valid @RequestBody PasswordForgotSmsRequest request) {
-
         log.info("Forgot password by SMS request received");
-        PasswordForgotResponse response = passwordForgotUseCase.executeBySms(new PasswordForgotSmsCommand(request.phoneNumber()));
+        PasswordForgotResult result = passwordForgotUseCase.executeBySms(new PasswordForgotSmsCommand(request.phoneNumber()));
 
-        return ResponseEntity.ok(ApiResponse.<PasswordForgotResponse>builder()
-                .code(HttpStatus.OK.value())
-                .message(response.message())
-                .result(response).build());
+        return forgotPasswordResponse(result);
     }
 
-    // Step 2: Verify OTP + Reset password (signs out every device; the user then logs in again)
+    /** Step 2: checks the code and sets the new password. Signs out every device; the user then logs in again. */
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<PasswordResetResponse>> resetPassword(@Valid @RequestBody PasswordResetRequest passwordResetRequest) {
-
         log.info("Reset password request received");
+        Instant changedAt = passwordResetUseCase.verifyOtpAndResetPassword(authConverter.toPasswordResetCommand(passwordResetRequest));
 
-        PasswordResetResponse response = passwordResetUseCase.verifyOtpAndResetPassword(passwordResetRequest);
-
+        PasswordResetResponse response = PasswordResetResponse.builder()
+                .message(AuthMessage.PASSWORD_RESET_SUCCESS)
+                .passwordChangedAt(LocalDateTime.ofInstant(changedAt, ZoneId.systemDefault()))
+                .build();
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookieService.clearAccessTokenCookie().toString())
                 .header(HttpHeaders.SET_COOKIE, cookieService.clearRefreshTokenCookie().toString())
-                .body(ApiResponse.<PasswordResetResponse>builder().code(200).message("Password reset successfully").result(response).build());
+                .body(ApiResponse.<PasswordResetResponse>builder().code(HttpStatus.OK.value())
+                        .message(AuthMessage.PASSWORD_RESET_SUCCESS).result(response).build());
+    }
+
+    private ResponseEntity<ApiResponse<PasswordForgotResponse>> forgotPasswordResponse(PasswordForgotResult result) {
+        return ResponseEntity.ok(ApiResponse.<PasswordForgotResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message(result.message())
+                .result(authConverter.toPasswordForgotResponse(result))
+                .build());
     }
 
     private ResponseEntity<ApiResponse<LoginResponse>> withTokens(AuthResult result, String message) {
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, result.accessCookie().toString())
-                .header(HttpHeaders.SET_COOKIE, result.refreshCookie().toString())
-                .body(ApiResponse.<LoginResponse>builder().code(HttpStatus.OK.value()).message(message).result(result.loginResponse()).build());
+                .header(HttpHeaders.SET_COOKIE, cookieService.buildAccessTokenCookie(result.accessToken()).toString())
+                .header(HttpHeaders.SET_COOKIE, cookieService.buildRefreshTokenCookie(result.refreshToken()).toString())
+                .body(ApiResponse.<LoginResponse>builder().code(HttpStatus.OK.value()).message(message)
+                        .result(authConverter.toLoginResponse(result, message)).build());
     }
 
     private ResponseEntity<ApiResponse<Void>> withClearedTokens(String message) {

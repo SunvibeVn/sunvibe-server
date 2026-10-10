@@ -10,10 +10,10 @@ import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenExcept
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenPolicy;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
-import vn.sunvibe.auth.core.application.usecase.auth.AccessTokenGenerateUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
+import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.application.usecase.auth.TokenRefreshUseCase;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
@@ -43,8 +43,7 @@ public class TokenRefreshService implements TokenRefreshUseCase {
 
     private final RefreshTokenDomainRepository refreshTokenRepository;
     private final UserDomainRepository userRepository;
-    private final AccessTokenGenerateUseCase accessTokenGenerateUseCase;
-    private final AuthResultAssembler authResultAssembler;
+    private final AccessTokenIssuerPort accessTokenIssuer;
     private final IdGenerator<Long> snowflakeIdGenerator;
     private final RefreshTokenPolicy refreshTokenPolicy;
     private final AuditLogPort auditLog;
@@ -92,8 +91,7 @@ public class TokenRefreshService implements TokenRefreshUseCase {
         refreshTokenRepository.save(current);
         refreshTokenRepository.save(next);
 
-        String accessToken = accessTokenGenerateUseCase.generateAccessToken(user.getUsername().getValue());
-        return authResultAssembler.assemble(user, accessToken, nextSecret, AuthMessage.TOKEN_REFRESH_SUCCESS);
+        return AuthResult.of(user, accessTokenIssuer.issue(user), nextSecret);
     }
 
     /** Every failure looks the same to the client; the reason is only logged. */

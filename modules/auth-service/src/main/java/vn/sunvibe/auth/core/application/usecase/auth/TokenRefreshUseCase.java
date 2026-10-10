@@ -4,6 +4,9 @@ import vn.sunvibe.auth.core.application.command.auth.TokenRefreshCommand;
 import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenException;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 
+/**
+ * Exchanges a refresh token for a new token pair.
+ */
 public interface TokenRefreshUseCase {
 
     /**

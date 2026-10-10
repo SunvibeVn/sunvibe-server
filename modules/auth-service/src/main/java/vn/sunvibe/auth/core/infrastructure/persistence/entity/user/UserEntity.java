@@ -12,7 +12,9 @@ import vn.sunvibe.auth.core.infrastructure.persistence.converter.manual.Encrypte
 import java.time.Instant;
 import java.util.Set;
 
-/*
+/**
+ * Table {@code USERS}.
+ * <p>
  * Uniqueness of username, email and id_card_number_hash is enforced by
  * partial unique indexes in the Flyway migration, scoped to non-deleted
  * rows (WHERE deleted_at IS NULL) so a soft-deleted user's identifiers can

@@ -1,5 +1,10 @@
 package vn.sunvibe.auth.core.domain.model.user.enums;
 
+/**
+ * Roles a user can hold; granted to Spring Security as {@code ROLE_<name>}.
+ * Self-registration always grants {@link #TENANT}; ADMIN and SUPER_ADMIN can
+ * never be self-assigned.
+ */
 public enum RoleName {
 
     SUPER_ADMIN,
@@ -8,7 +13,9 @@ public enum RoleName {
     LANDLORD,
     TENANT,
     LEADER,
-    EMPLOYEE, // common role for all employee
-    USER // common user
+    /** Common role for every employee. */
+    EMPLOYEE,
+    /** Common role for every user. */
+    USER
 
 }

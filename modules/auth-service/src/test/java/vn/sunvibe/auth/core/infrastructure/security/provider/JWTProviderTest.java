@@ -1,74 +1,78 @@
 package vn.sunvibe.auth.core.infrastructure.security.provider;
 
+import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
-import org.springframework.test.util.ReflectionTestUtils;
+import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
-import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
+import vn.sunvibe.auth.core.domain.model.user.vo.*;
 
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class JWTProviderTest {
 
-    private JWTProvider providerFor(UserStatus status) {
-        CustomUserDetails details = new CustomUserDetails();
-        details.setUserId("id");
-        details.setUsername("0912345678");
-        details.setPassword("hashed");
-        details.setEmail("a@example.com");
-        details.setAuthorities(Set.of());
-        details.setUserStatus(status);
-        return new JWTProvider(username -> details);
+    private static final String SECRET = "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=";
+
+    private final JWTProvider provider = new JWTProvider(SECRET, 60, "cookie-jwt");
+
+    private static AppUser user(UserStatus status, Email email) {
+        AppUser user = AppUser.create(UserId.create("id"), "Nguyen Van A", Username.create("0912345678"), email,
+                Password.create("hashed"), ProfileImage.create(null), null, new HashSet<>(Set.of("TENANT")),
+                Instant.now());
+        user.setUserStatus(status);
+        return user;
+    }
+
+    private Claims claimsOf(String token) {
+        return provider.validateTokenAndGetJws(token).orElseThrow().getPayload();
     }
 
     @Test
-    void generateAccessToken_rejectsLockedUser() {
-        assertThrows(LockedException.class,
-                () -> providerFor(UserStatus.LOCK).generateAccessToken("0912345678"));
+    void issue_rejectsLockedUser() {
+        assertThrows(LockedException.class, () -> provider.issue(user(UserStatus.LOCK, null)));
     }
 
     @Test
-    void generateAccessToken_rejectsTerminatedUser() {
-        assertThrows(DisabledException.class,
-                () -> providerFor(UserStatus.TERMINATED).generateAccessToken("0912345678"));
+    void issue_rejectsTerminatedUser() {
+        assertThrows(DisabledException.class, () -> provider.issue(user(UserStatus.TERMINATED, null)));
     }
 
     @Test
-    void generateAccessToken_rejectsDeletedUser() {
-        assertThrows(DisabledException.class,
-                () -> providerFor(UserStatus.DELETED).generateAccessToken("0912345678"));
+    void issue_rejectsDeletedUser() {
+        assertThrows(DisabledException.class, () -> provider.issue(user(UserStatus.DELETED, null)));
     }
 
     @Test
-    void generateAccessToken_userWithoutEmail_omitsEmailClaim() {
-        CustomUserDetails details = new CustomUserDetails();
-        details.setUserId("id");
-        details.setUsername("0912345678");
-        details.setPassword("hashed");
-        details.setEmail(null);
-        details.setAuthorities(Set.of());
-        details.setUserStatus(UserStatus.ACTIVE);
-        JWTProvider provider = new JWTProvider(username -> details);
-        ReflectionTestUtils.setField(provider, "jwtSecretKey", "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=");
-        ReflectionTestUtils.setField(provider, "jwtExpirationMinutes", 60L);
+    void issue_userWithoutEmail_omitsEmailClaim() {
+        String token = provider.issue(user(UserStatus.ACTIVE, null));
 
-        String token = provider.generateAccessToken("0912345678");
-
-        assertNull(provider.extractAllClaims(token).get("email"));
-        assertEquals("id", provider.extractAllClaims(token).get("uid", String.class));
+        assertNull(claimsOf(token).get("email"));
+        assertEquals("id", claimsOf(token).get("uid", String.class));
     }
 
     @Test
-    void generateAccessToken_carriesUserIdClaim() {
-        JWTProvider provider = providerFor(UserStatus.ACTIVE);
-        ReflectionTestUtils.setField(provider, "jwtSecretKey", "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=");
-        ReflectionTestUtils.setField(provider, "jwtExpirationMinutes", 60L);
+    void issue_carriesUserIdUsernameAndRoles() {
+        AppUser user = user(UserStatus.ACTIVE, Email.create("a@example.com"));
+        user.verifyPhone(Instant.now());
 
-        String token = provider.generateAccessToken("0912345678");
+        Claims claims = claimsOf(provider.issue(user));
 
-        assertEquals("id", provider.extractAllClaims(token).get("uid", String.class));
+        assertEquals("id", claims.get("uid", String.class));
+        assertEquals("0912345678", claims.getSubject());
+        assertEquals("a@example.com", claims.get("email", String.class));
+        assertEquals(Set.of("ROLE_TENANT", "PHONE_VERIFIED"), Set.copyOf(claims.get("rol", List.class)));
+    }
+
+    @Test
+    void validateTokenAndGetJws_rejectsTokenSignedWithAnotherKey() {
+        JWTProvider other = new JWTProvider("HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=", 60, "cookie-jwt");
+
+        assertTrue(provider.validateTokenAndGetJws(other.issue(user(UserStatus.ACTIVE, null))).isEmpty());
     }
 }

@@ -1,18 +1,26 @@
 package vn.sunvibe.auth.core.domain.model.user.vo;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
-import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.auth.core.domain.model.shared.ValueObject;
+import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 
-@RequiredArgsConstructor
+/**
+ * Immutable identifier of a user account (a 26-character ULID).
+ */
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
-public class UserId extends ValueObject<UserId> {
+public final class UserId extends ValueObject<UserId> {
 
     private final String value;
 
-    // Build from new data
+    /**
+     * Wraps a newly generated id.
+     *
+     * @throws AuthValidationException if the id is blank
+     */
     public static UserId create(String value) {
         if (value == null || value.isBlank()) {
             throw new AuthValidationException(AuthFieldName.USER_ID, "User id is required.");
@@ -20,7 +28,7 @@ public class UserId extends ValueObject<UserId> {
         return new UserId(value);
     }
 
-    // Build from database
+    /** Rebuilds from persisted data. */
     public static UserId from(String value) {
         return new UserId(value);
     }
@@ -30,9 +38,8 @@ public class UserId extends ValueObject<UserId> {
         return this.value.equals(other.value);
     }
 
-
     @Override
     protected int hashCodeCore() {
-        return 0;
+        return value.hashCode();
     }
 }

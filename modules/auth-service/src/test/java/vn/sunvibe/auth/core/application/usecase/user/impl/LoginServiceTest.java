@@ -15,12 +15,10 @@ import vn.sunvibe.auth.core.application.exception.auth.AccountTemporarilyLockedE
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.shared.LoginLockoutPolicy;
-import vn.sunvibe.auth.core.application.usecase.auth.impl.AuthResultAssembler;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
-import vn.sunvibe.auth.core.testsupport.TestCookies;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
@@ -66,10 +64,9 @@ class LoginServiceTest {
     private LoginService service(AuthenticationManager authenticationManager) {
         return new LoginService(
                 authenticationManager,
-                username -> "access-token",
+                appUser -> "access-token",
                 (userId, clientInfo) -> refreshTokenIssued = "refresh-secret",
                 users,
-                new AuthResultAssembler(TestCookies.cookieService()),
                 users,
                 new LoginLockoutPolicy(5, Duration.ofMinutes(15), Duration.ofHours(24)),
                 audit);
@@ -109,21 +106,19 @@ class LoginServiceTest {
     void loginInternal_userWithoutEmail_returnsNullUserEmail() {
         AuthResult result = service().loginInternal(user, ClientInfo.unknown());
 
-        assertNull(result.loginResponse().userEmail());
-        assertEquals(USERNAME, result.loginResponse().username());
+        assertNull(result.email());
+        assertEquals(USERNAME, result.username());
     }
 
     @Test
-    void loginInternal_returnsAccessTokenInBodyAndRefreshTokenOnlyInScopedCookie() {
+    void loginInternal_returnsTheNewTokenPairAndAccountSummary() {
         AuthResult result = service().loginInternal(user, new ClientInfo("Mozilla/5.0", "203.0.113.7"));
 
-        assertEquals("access-token", result.loginResponse().accessToken());
-        assertEquals(15 * 60, result.loginResponse().expiresIn());
-        String refreshCookie = result.refreshCookie().toString();
-        assertTrue(refreshCookie.startsWith(TestCookies.REFRESH_COOKIE + "=refresh-secret"));
-        assertTrue(refreshCookie.contains("Path=/api/auth"));
-        assertTrue(refreshCookie.contains("HttpOnly"));
-        assertTrue(refreshCookie.contains("Secure"));
+        assertEquals("access-token", result.accessToken());
+        assertEquals("refresh-secret", result.refreshToken());
+        assertEquals(Set.of("TENANT"), result.roles());
+        assertFalse(result.phoneVerified());
+        assertNotNull(user.getLastLogin());
     }
 
     @Test
@@ -170,7 +165,7 @@ class LoginServiceTest {
 
         AuthResult result = login(PASSWORD);
 
-        assertEquals("access-token", result.loginResponse().accessToken());
+        assertEquals("access-token", result.accessToken());
         assertEquals(0, user.getFailedLoginAttempts());
         assertNull(user.getLockedUntil());
         assertNotNull(user.getLastLogin());

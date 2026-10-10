@@ -4,11 +4,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import vn.sunvibe.auth.core.application.query.user.UserProfileResult;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.auth.core.presentation.dto.response.user.UserProfileInfo;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -25,20 +25,20 @@ class UserGetInfoServiceTest {
 
     @Test
     void execute_includesKycStatus() {
-        UserProfileInfo profile = profileOf(Email.create("a@example.com"));
+        UserProfileResult profile = profileOf(Email.create("a@example.com"));
 
         assertEquals(KycStatus.UNVERIFIED.name(), profile.kycStatus());
     }
 
     @Test
     void execute_userWithoutEmail_returnsNullEmail() {
-        UserProfileInfo profile = profileOf(null);
+        UserProfileResult profile = profileOf(null);
 
         assertNull(profile.email());
         assertEquals("0912345678", profile.username());
     }
 
-    private UserProfileInfo profileOf(Email email) {
+    private UserProfileResult profileOf(Email email) {
         AppUser appUser = AppUser.create(
                 UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
                 "Nguyen Van A",

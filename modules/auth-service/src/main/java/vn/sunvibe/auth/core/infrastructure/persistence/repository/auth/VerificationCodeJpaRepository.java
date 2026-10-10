@@ -13,6 +13,9 @@ import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.VerificationC
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * Spring Data access to {@link VerificationCodeEntity}.
+ */
 public interface VerificationCodeJpaRepository extends JpaRepository<VerificationCodeEntity, Long> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -1,5 +1,8 @@
 package vn.sunvibe.auth.core.application.usecase.user;
 
+/**
+ * Housekeeping of accounts that were registered but never verified.
+ */
 public interface PendingAccountCleanupUseCase {
 
     /**

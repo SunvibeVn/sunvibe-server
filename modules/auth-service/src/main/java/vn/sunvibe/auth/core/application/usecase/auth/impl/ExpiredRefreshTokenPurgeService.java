@@ -9,6 +9,9 @@ import vn.sunvibe.common.time.AppClock;
 
 import java.time.Duration;
 
+/**
+ * Deletes refresh tokens a day after they expired.
+ */
 @Service
 @RequiredArgsConstructor
 public class ExpiredRefreshTokenPurgeService implements ExpiredRefreshTokenPurgeUseCase {

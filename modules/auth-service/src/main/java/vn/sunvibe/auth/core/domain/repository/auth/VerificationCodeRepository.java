@@ -6,8 +6,12 @@ import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import java.time.Instant;
 import java.util.Optional;
 
+/**
+ * Persistence of phone/e-mail verification codes.
+ */
 public interface VerificationCodeRepository {
 
+    /** Inserts a new code or updates an existing one. */
     void save(VerificationCode code);
 
     /**

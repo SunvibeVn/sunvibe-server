@@ -12,6 +12,10 @@ import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
 import vn.sunvibe.common.generator.id.IdGenerator;
 import vn.sunvibe.common.time.AppClock;
 
+/**
+ * Starts a sign-in session: a new token family whose absolute lifetime is
+ * fixed now. Runs in the caller's transaction.
+ */
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenGenerateService implements RefreshTokenGenerateUseCase {

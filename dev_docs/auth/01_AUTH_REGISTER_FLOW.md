@@ -42,7 +42,7 @@ Content-Type: application/json
 |---|---|---|---|
 | `fullName` | Có | 6–100 ký tự | |
 | `username` | Có | `^[0-9]{10,12}$` | Số điện thoại, dùng làm tên đăng nhập |
-| `password` | Có | ≥ 8 ký tự, có chữ hoa, chữ thường, chữ số và ký tự đặc biệt trong `@$!%*?&`; chỉ gồm chữ, số và các ký tự đặc biệt đó | `@StrongPassword` |
+| `password` | Có | 8–72 ký tự (BCrypt chỉ băm tối đa 72 byte), có chữ hoa, chữ thường, chữ số và ký tự đặc biệt trong `@$!%*?&`; chỉ gồm chữ, số và các ký tự đặc biệt đó | `@StrongPassword` |
 | `confirmPassword` | Có | Phải trùng `password` | `@ConfirmPasswordMatch` |
 | `email` | Không | ≤ 100 ký tự, đúng định dạng email | Bỏ trống, `null` hoặc chỉ có khoảng trắng đều coi là *không cung cấp* |
 | `idCardNumber` | Không | 9 số (CMND) hoặc 12 số (CCCD) | Chuỗi rỗng coi là *không cung cấp* |
@@ -71,7 +71,7 @@ Set-Cookie: cookie-jwt-rf=<refresh token>; Path=/api/auth; Max-Age=604800; Secur
     "roles": ["TENANT"],
     "phoneVerified": false,
     "emailVerified": false,
-    "message": "User logged in successfully."
+    "message": "User registered successfully."
   }
 }
 ```
@@ -106,9 +106,9 @@ sequenceDiagram
     RS->>RS: Tạo VO, BCrypt password, AppUser.create(), gán TENANT
     RS->>UR: save(appUser)
     UR->>DB: INSERT users (CCCD đã mã hóa + blind index), INSERT user_roles
-    Note over RS,DB: Transaction đăng ký commit tại đây
-    UC->>LS: execute(LoginCommand, ClientInfo)
-    LS->>DB: Xác thực, tạo phiên (refresh_tokens), cập nhật last_login
+    RS->>LS: loginInternal(appUser, ClientInfo)
+    LS->>DB: Tạo phiên (refresh_tokens), cập nhật last_login
+    Note over RS,DB: Đăng ký + phiên đầu tiên commit cùng một transaction
     UC-->>C: 200 (code 201) + cookies + LoginResponse
 ```
 
@@ -156,11 +156,11 @@ Mọi phép kiểm tra trùng **bỏ qua tài khoản đã xóa mềm** (`delete
 
 ### 3.4. Đăng nhập tự động
 
-Sau khi transaction đăng ký commit, controller gọi `LoginService.execute()` với chính số điện thoại và mật khẩu vừa nhập. Toàn bộ phần này giống hệt luồng đăng nhập ([02_AUTH_LOGIN_FLOW.md](02_AUTH_LOGIN_FLOW.md)): xác thực, cấp access token, **mở phiên mới** (refresh token family) gắn với User-Agent/IP của thiết bị, và cập nhật `last_login`.
+Cuối `UserRegisterService`, service gọi `LoginService.loginInternal()` với tài khoản vừa tạo: cấp access token, **mở phiên mới** (refresh token family) gắn với User-Agent/IP của thiết bị và cập nhật `last_login`, giống luồng đăng nhập ([02_AUTH_LOGIN_FLOW.md](02_AUTH_LOGIN_FLOW.md)). Mật khẩu vừa được đặt nên **không** kiểm tra lại (không tốn thêm một lần BCrypt).
 
 Sau khi lưu tài khoản, auth-service gửi ngay **OTP SMS** xác minh số điện thoại; nếu có email thì gửi thêm **mã xác minh email**. Gửi mã thất bại không làm hỏng đăng ký (05 §4).
 
-Đăng ký và đăng nhập là **hai transaction riêng**. Nếu bước đăng nhập lỗi, tài khoản vẫn đã được tạo và người dùng chỉ cần đăng nhập lại.
+Đăng ký và mở phiên đầu tiên nằm trong **cùng một transaction**: không có trường hợp tài khoản đã tạo mà không có phiên.
 
 ---
 
@@ -235,4 +235,3 @@ Test: `UserRegisterServiceTest`, `IdCardNumberTest`, `UserRepositoryAdapterEncry
 2. **Đăng ký trước, xác minh sau**: vẫn đăng ký được bằng số của người khác (tài khoản ở `PENDING`). Chủ thật của số lấy lại tài khoản qua quên mật khẩu bằng SMS (05 §1); tài khoản không xác minh trong 7 ngày cũng tự bị vô hiệu hóa và số được giải phóng (05 §2).
 3. **Mã HTTP**: thành công trả HTTP `200`, còn trong body là `code: 201`.
 4. Chưa có nhà cung cấp SMS thật: production cần gắn trước khi chạy (05 §6).
-5. Message của `fullName` ghi "From 6 to 32 characters" trong khi ràng buộc thực tế là 6–100 ký tự.

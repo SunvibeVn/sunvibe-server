@@ -1,28 +1,36 @@
 package vn.sunvibe.auth.core.application.usecase.user.impl;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
+import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
-import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
+import vn.sunvibe.auth.core.application.usecase.user.LoginUseCase;
 import vn.sunvibe.auth.core.application.usecase.user.UserRegisterUseCase;
-import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
-import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
+import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.common.generator.id.IdGenerator;
 import vn.sunvibe.common.time.AppClock;
 
 import java.util.HashSet;
 
+/**
+ * Self-registration: creates a PENDING tenant account ("register first, verify
+ * later"), sends the first verification codes and signs the new user in on the
+ * registering device, all in one transaction.
+ */
 @Log4j2
 @Service
 @RequiredArgsConstructor
@@ -33,10 +41,11 @@ public class UserRegisterService implements UserRegisterUseCase {
     private final IdGenerator<String> ulidGenerator;
     private final AuditLogPort auditLog;
     private final ContactVerificationUseCase contactVerification;
+    private final LoginUseCase loginUseCase;
 
     @Transactional
     @Override
-    public void execute(UserRegisterCommand userRegisterCommand) {
+    public AuthResult execute(UserRegisterCommand userRegisterCommand) {
 
         // Check username exists
         if (userRepository.existsByUsername(userRegisterCommand.username())) {
@@ -56,7 +65,7 @@ public class UserRegisterService implements UserRegisterUseCase {
         // Build Value-Object
         UserId userId = UserId.create(ulidGenerator.generateId());
         Username usernameVO = Username.create(userRegisterCommand.username());
-        Password passwordVO = Password.create(passwordEncoder.encode(userRegisterCommand.password())); // Encode password
+        Password passwordVO = Password.create(passwordEncoder.encode(userRegisterCommand.password()));
         ProfileImage profileImageVO = ProfileImage.create(null);
 
         AppUser appUser = AppUser.create(userId, userRegisterCommand.fullName(), usernameVO, emailVO, passwordVO, profileImageVO, idCardNumberVO, new HashSet<>(), AppClock.currentUTC());
@@ -77,13 +86,12 @@ public class UserRegisterService implements UserRegisterUseCase {
             contactVerification.sendCodeAfterRegistration(appUser, VerificationChannel.EMAIL);
         }
 
-        // Publish event
-//        eventPublisher.publish(new UserRegisteredEvent(user.getId(), user.getUsername().getValue(), user.getEmail().getValue(), LocalDateTime.now()), "Create user");
-
+        // The password was just set: no need to check it again to start the first session
+        ClientInfo clientInfo = userRegisterCommand.clientInfo() != null ? userRegisterCommand.clientInfo() : ClientInfo.unknown();
+        return loginUseCase.loginInternal(appUser, clientInfo);
     }
 
     private static boolean isProvided(String value) {
         return value != null && !value.isBlank();
     }
 }
-

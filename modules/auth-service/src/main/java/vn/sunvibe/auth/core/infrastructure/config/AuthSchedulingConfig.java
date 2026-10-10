@@ -4,7 +4,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * Enables {@code @Scheduled} jobs of the auth module (refresh-token clean-up).
+ * Enables {@code @Scheduled} jobs of the auth module (clean-up of refresh
+ * tokens, audit events and never-verified accounts; rate-limiter eviction).
  */
 @Configuration
 @EnableScheduling

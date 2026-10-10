@@ -1,5 +1,8 @@
 package vn.sunvibe.auth.core.application.usecase.auth;
 
+/**
+ * Ends sign-in sessions on the user's request.
+ */
 public interface LogoutUseCase {
 
     /**

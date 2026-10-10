@@ -11,6 +11,9 @@ import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRe
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * JPA implementation of {@link PendingAccountRepository}.
+ */
 @Service
 @RequiredArgsConstructor
 public class PendingAccountRepositoryAdapter implements PendingAccountRepository {

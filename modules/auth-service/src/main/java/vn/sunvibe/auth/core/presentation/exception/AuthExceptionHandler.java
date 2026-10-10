@@ -15,6 +15,7 @@ import vn.sunvibe.auth.core.application.exception.auth.VerificationException;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledException;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
+import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.shared.service.CookieService;
 import vn.sunvibe.common.dto.response.error.BaseErrorModel;
 import vn.sunvibe.common.time.AppClock;
@@ -75,6 +76,12 @@ public class AuthExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, String.valueOf(Math.max(1, e.getRetryAfter().toSeconds())))
                 .body(error(HttpStatus.TOO_MANY_REQUESTS, e.getMessage()));
+    }
+
+    /** The account behind the request no longer exists (e.g. deleted while signed in). */
+    @ExceptionHandler(UserNotFoundException.class)
+    public ResponseEntity<BaseErrorModel> handleUserNotFound(UserNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(HttpStatus.NOT_FOUND, e.getMessage()));
     }
 
     private static BaseErrorModel error(HttpStatus status, String message) {

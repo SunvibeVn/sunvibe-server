@@ -18,6 +18,11 @@ import vn.sunvibe.common.crypto.CryptoService;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * JPA implementation of {@link UserDomainRepository}. Roles are attached by
+ * name from the {@code ROLES} table; the ID card number is stored encrypted
+ * together with a blind index for duplicate checks.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserRepositoryAdapter implements UserDomainRepository {
