@@ -10,10 +10,13 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-09-auth-user-schema-sync-design.md`
 
+> **Historical record — partly superseded.** This plan is kept as it was executed. Where it says `idCardNumber` is required or its columns are `NOT NULL`, that is no longer true. It was superseded the same day by commit `2a5ab8a` ("Require only full name, phone and password at registration"): `idCardNumber` is **optional** at registration (validated and duplicate-checked only when provided), and migration `V202610091300__make_user_id_card_optional.sql` drops `NOT NULL` from `id_card_number` and `id_card_number_hash`. The current behaviour is described in `dev_docs/auth/01_AUTH_REGISTER_FLOW.md` and the current schema in `dev_docs/database/DATABASE_SCHEMA_POSTGRESQL.md`; the Flyway migrations are the source of truth.
+
 ## Global Constraints
 
 - Scope is registration, login, and authentication only (`users`, `roles`, `user_roles`). No other business domain, no KYC review/admin workflow, no file-upload service.
 - Only `idCardNumber` is a required registration input; `idCardFrontUrl`, `idCardBackUrl`, `kycStatus` exist in the schema/domain but are not collected or validated at registration (`kycStatus` defaults to `UNVERIFIED`).
+  > **Superseded:** `idCardNumber` is now optional at registration; see the note at the top of this plan.
 - `idCardNumber` is encrypted at rest (AES-256-GCM) via a new `CryptoService` in `modules/common` — no such utility exists today.
 - A soft-deleted user's `username`/`email` must become reusable by a new registration — all existence/lookup queries exclude rows where `deletedAt IS NOT NULL`.
 - `CustomUserDetails.isEnabled()`/`isAccountNonLocked()` must reflect `userStatus` (`DELETED`/`TERMINATED` → disabled, `LOCK` → locked) — today they silently return the `UserDetails` defaults regardless of status.
@@ -678,6 +681,8 @@ Make the three existing columns explicitly required, matching how they're actual
 
 Add the five new columns after `profileImage`:
 
+> **Superseded:** the shipped `UserEntity` maps `id_card_number` and `id_card_number_hash` as nullable and declares no uniqueness (`unique = true` would make `ddl-auto` create an all-rows constraint); uniqueness among non-deleted users comes from the partial unique index in the migration.
+
 ```java
     /**
      * ID card number (CMND/CCCD), encrypted at rest.
@@ -725,6 +730,8 @@ CREATE TABLE roles (
 ```
 
 - [ ] **Step 5: Create the `users` migration**
+
+> **Superseded:** the shipped `V202610091201__create_users_table.sql` differs from the block below: its unique indexes are partial (`WHERE deleted_at IS NULL`, so a soft-deleted user's username, e-mail and ID card can be reused) and it has no `uk_users_id_card_number_hash` constraint. Its `NOT NULL` on `id_card_number` / `id_card_number_hash` is then dropped by `V202610091300__make_user_id_card_optional.sql`.
 
 ```sql
 -- V202610091201__create_users_table.sql
@@ -1081,6 +1088,8 @@ git commit -m "Wire idCardNumber/kyc/soft-delete through mappers and repositorie
 ---
 
 ### Task 6: Registration flow — require `idCardNumber`, reject duplicates
+
+> **Superseded:** duplicate rejection still applies, but `idCardNumber` is no longer required: blank or missing means "not provided" and skips the format and duplicate checks.
 
 **Files:**
 - Modify: `modules/auth-service/src/main/java/vn/sunvibe/auth/core/presentation/dto/request/user/UserRegisterRequest.java`
