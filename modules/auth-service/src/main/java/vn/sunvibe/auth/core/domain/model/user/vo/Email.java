@@ -1,33 +1,41 @@
 package vn.sunvibe.auth.core.domain.model.user.vo;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.domain.model.shared.ValueObject;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 
+import java.util.Locale;
 import java.util.regex.Pattern;
 
-@RequiredArgsConstructor
+/**
+ * An e-mail address, always stored lower-case so lookups are case-insensitive.
+ */
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
-@Setter
 public final class Email extends ValueObject<Email> {
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[a-zA-Z0-9._+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+
     private final String value;
 
-    // Build from new data
+    /**
+     * Builds from user input.
+     *
+     * @throws AuthValidationException if the format is invalid
+     */
     public static Email create(String value) {
-        if (!EMAIL_PATTERN.matcher(value).matches()) {
+        if (value == null || !EMAIL_PATTERN.matcher(value).matches()) {
             throw new AuthValidationException(AuthFieldName.EMAIL, "Invalid email format.");
         }
-        return new Email(value.toLowerCase());
+        return new Email(value.toLowerCase(Locale.ROOT));
     }
 
-    // Build from database
+    /** Rebuilds from already-validated, persisted data. */
     public static Email from(String value) {
-        return new Email(value.toLowerCase());
+        return new Email(value.toLowerCase(Locale.ROOT));
     }
 
     @Override
@@ -37,7 +45,7 @@ public final class Email extends ValueObject<Email> {
 
     @Override
     protected int hashCodeCore() {
-        return 0;
+        return value.hashCode();
     }
 
 }

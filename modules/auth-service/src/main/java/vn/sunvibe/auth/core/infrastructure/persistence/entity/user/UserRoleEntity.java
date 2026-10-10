@@ -9,20 +9,24 @@ import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.PermissionEnt
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Table {@code ROLES}: one row per {@code RoleName}, seeded at start-up by
+ * {@code RoleDataInitializer}.
+ */
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "ROLE")
+@Table(name = "ROLES", uniqueConstraints = @UniqueConstraint(name = "uk_roles_name", columnNames = "name"))
 public class UserRoleEntity {
     @Id
     @UuidGenerator
     @Column(name = "id")
     private UUID id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String name; // eg: ADMIN, USER, MODERATOR
 
     @Column(length = 500)

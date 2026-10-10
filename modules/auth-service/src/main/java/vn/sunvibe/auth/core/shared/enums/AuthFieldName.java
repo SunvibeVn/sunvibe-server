@@ -2,6 +2,9 @@ package vn.sunvibe.auth.core.shared.enums;
 
 import lombok.Getter;
 
+/**
+ * Request fields an {@code AuthValidationException} can point at.
+ */
 @Getter
 public enum AuthFieldName {
 
@@ -9,20 +12,17 @@ public enum AuthFieldName {
 
     USER_ID("id", "User ID"),
     USER_NAME("username", "User Name"),
-    PHONE_NUMBER("phoneNumber", "Phone Number"),
     EMAIL("email", "Email"),
-    PROFILE_IMAGE("profileImage", "Email"),
+    PROFILE_IMAGE("profileImage", "Profile Image"),
     PASSWORD("password", "Password"),
     NEW_PASSWORD("newPassword", "New Password"),
     CURRENT_PASSWORD("currentPassword", "Current Password"),
-    CONFIRM_PASSWORD("confirmPassword", "Confirm Password"),
-    FULL_NAME("fullName", "Full Name"),
-    COUNTRY_CODE("countryCode", "Country Code");
+    ID_CARD_NUMBER("idCardNumber", "ID Card Number");
 
-
-    // Getters
-    private final String fieldName;      // Database/JSON field name
-    private final String displayName;    // User-friendly name
+    /** Field name as it appears in the JSON request. */
+    private final String fieldName;
+    /** User-friendly name. */
+    private final String displayName;
 
     AuthFieldName(String fieldName, String displayName) {
         this.fieldName = fieldName;

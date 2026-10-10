@@ -5,6 +5,11 @@ import org.mapstruct.Mapping;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 
+/**
+ * Maps {@link AppUser} to and from {@link UserEntity} (MapStruct). Roles and
+ * value objects are converted by {@link UserVOMapper}; the ID card blind index
+ * is set by the repository adapter.
+ */
 @Mapper(
         componentModel = "spring",
         uses = UserVOMapper.class
@@ -22,6 +27,15 @@ public interface UserMapper {
     @Mapping(target = "lastLogin", source = "lastLogin")
     @Mapping(target = "userStatus", source = "userStatus")
     @Mapping(target = "userRoles", source = "userRoles", qualifiedByName = "mapUserRolesToStrings")
+    @Mapping(target = "idCardNumber", source = "idCardNumber", qualifiedByName = "toIdCardNumber")
+    @Mapping(target = "idCardFrontUrl", source = "idCardFrontUrl")
+    @Mapping(target = "idCardBackUrl", source = "idCardBackUrl")
+    @Mapping(target = "kycStatus", source = "kycStatus")
+    @Mapping(target = "deletedAt", source = "deletedAt")
+    @Mapping(target = "failedLoginAttempts", source = "failedLoginAttempts")
+    @Mapping(target = "lockedUntil", source = "lockedUntil")
+    @Mapping(target = "phoneVerifiedAt", source = "phoneVerifiedAt")
+    @Mapping(target = "emailVerifiedAt", source = "emailVerifiedAt")
     AppUser toDomain(UserEntity userEntity);
 
     /*────────────── DOMAIN → ENTITY ──────────────*/
@@ -35,6 +49,16 @@ public interface UserMapper {
     @Mapping(target = "lastLogin", source = "lastLogin")
     @Mapping(target = "userStatus", source = "userStatus")
     @Mapping(target = "userRoles", source = "userRoles", qualifiedByName = "mapStringsToUserRoles")
+    @Mapping(target = "idCardNumber", source = "idCardNumber", qualifiedByName = "mapIdCardNumber")
+    @Mapping(target = "idCardFrontUrl", source = "idCardFrontUrl")
+    @Mapping(target = "idCardBackUrl", source = "idCardBackUrl")
+    @Mapping(target = "kycStatus", source = "kycStatus")
+    @Mapping(target = "deletedAt", source = "deletedAt")
+    @Mapping(target = "failedLoginAttempts", source = "failedLoginAttempts")
+    @Mapping(target = "lockedUntil", source = "lockedUntil")
+    @Mapping(target = "phoneVerifiedAt", source = "phoneVerifiedAt")
+    @Mapping(target = "emailVerifiedAt", source = "emailVerifiedAt")
+    @Mapping(target = "idCardNumberHash", ignore = true)
     UserEntity toEntity(AppUser appUser);
 
 }

@@ -58,7 +58,68 @@ app:
   jwt:
     secret: v9yBEHMbQeThWmZq4t7wzCFJaNdRfUjXn2r5u8xADGKbPeShVkYCFJaNdRfUjXn2r5u8xADGKbPeShVkYp
     expiration:
-      minutes: 180
+      # Short-lived on purpose: clients renew it silently via POST /api/auth/refresh-token
+      minutes: 15
     jwtCookieName: cookie-jwt
     jwtRefreshCookieName: cookie-jwt-rf
+    # Refresh token idle lifetime (7 days): unused this long, the session ends. Each refresh restarts it.
     jwtRefreshExpirationMs: 604800000
+    # Absolute session lifetime (30 days) after login, however active the user is
+    refreshAbsoluteExpirationMs: 2592000000
+    # A rotated refresh token presented again within this window is a benign race (two tabs), not theft
+    refreshReuseGraceSeconds: 30
+    # Daily deletion of expired refresh tokens
+    refreshCleanupCron: "0 30 3 * * *"
+  security:
+    login:
+      # Every 5th consecutive wrong password locks password login: 15 min, then 30, 60... up to 24 h
+      max-failed-attempts: 5
+      lock-duration: 15m
+      max-lock-duration: 24h
+    password-reset:
+      # Wrong OTP codes a reset token tolerates before it is burned
+      max-otp-attempts: 5
+      # Minimum time between two reset e-mails to the same address
+      resend-cooldown: 60s
+      # Reset codes per e-mail/phone per 24 h (5 codes x 5 guesses = 25 OTP tries a day at most)
+      max-codes-per-day: 5
+    verification:
+      # Phone (SMS) / e-mail verification codes
+      code-lifetime: 10m
+      max-attempts: 5
+      resend-cooldown: 60s
+      max-codes-per-day: 5
+      # PENDING accounts whose phone is still unverified this long after registration are
+      # deactivated (soft-deleted, freeing the number) by a daily job
+      pending-account-ttl: 7d
+      pending-cleanup-cron: "0 15 3 * * *"
+    audit:
+      # Security audit log (auth_audit_events): kept this long, purged daily at cleanup-cron
+      retention: 180d
+      cleanup-cron: "0 0 4 * * *"
+    rate-limit:
+      # Per client IP (in-memory: per application instance). Behind a reverse proxy,
+      # set server.forward-headers-strategy so the real client IP is used.
+      enabled: true
+      rules:
+        - { method: POST, path: /api/auth/login, limit: 10, window: 1m }
+        - { method: POST, path: /api/users/command/register, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/forgot-password, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/forgot-password/sms, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/verification/phone/send, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/verification/email/send, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/verification/phone/confirm, limit: 10, window: 15m }
+        - { method: POST, path: /api/auth/verification/email/confirm, limit: 10, window: 15m }
+        - { method: POST, path: /api/auth/reset-password, limit: 10, window: 15m }
+        - { method: POST, path: /api/auth/refresh-token, limit: 30, window: 1m }
+        - { method: POST, path: /api/auth/change-password, limit: 10, window: 15m }
+  sms:
+    # SMS provider for OTPs. No default on purpose: without one the app does not start.
+    # Only "log" exists so far (dev/test profiles; prints OTPs to the log, never use in prod).
+    provider: ${SMS_PROVIDER:}
+  crypto:
+    # No defaults on purpose: startup fails unless both are set. Each must be a
+    # base64-encoded 32-byte key, and the two must differ. Dev/test values live
+    # in application-dev.yml / application-test.yml and must never be used in prod.
+    id-card-key: ${ID_CARD_CRYPTO_KEY}
+    id-card-index-key: ${ID_CARD_CRYPTO_INDEX_KEY}

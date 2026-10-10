@@ -4,6 +4,10 @@ import vn.sunvibe.common.exception.BusinessRuleViolationException;
 
 import java.io.Serial;
 
+/**
+ * A password-reset token cannot be used: unknown, expired, already used, or
+ * burned after too many wrong codes. Answered with 400.
+ */
 public class PasswordResetTokenException extends BusinessRuleViolationException {
 
     @Serial

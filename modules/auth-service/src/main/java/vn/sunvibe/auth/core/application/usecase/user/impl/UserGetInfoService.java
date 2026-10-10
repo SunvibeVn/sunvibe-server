@@ -1,17 +1,16 @@
 package vn.sunvibe.auth.core.application.usecase.user.impl;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
-import org.springframework.security.authentication.InsufficientAuthenticationException;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import vn.sunvibe.auth.core.application.query.user.UserProfileResult;
+import vn.sunvibe.auth.core.application.shared.CurrentUser;
 import vn.sunvibe.auth.core.application.usecase.user.UserGetInfoUseCase;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.auth.core.presentation.dto.response.user.UserProfileInfo;
 
-@Log4j2
+/**
+ * Reads the signed-in user's own profile.
+ */
 @Service
 @RequiredArgsConstructor
 public class UserGetInfoService implements UserGetInfoUseCase {
@@ -19,21 +18,18 @@ public class UserGetInfoService implements UserGetInfoUseCase {
     private final UserDomainRepository userRepository;
 
     @Override
-    public UserProfileInfo execute() {
-        var authentication = SecurityContextHolder.getContext().getAuthentication();
+    public UserProfileResult execute() {
+        AppUser appUser = userRepository.findByUsername(CurrentUser.username());
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new InsufficientAuthenticationException("User not authenticated");
-        }
-
-        String username = authentication.getPrincipal().toString();
-        AppUser appUser = userRepository.findByUsername(username);
-
-        return UserProfileInfo.builder()
+        return UserProfileResult.builder()
                 .fullName(appUser.getFullName())
                 .username(appUser.getUsername().getValue())
-                .email(appUser.getEmail().getValue())
-                .profileImageUrl(appUser.getProfileImage().getUrl())
+                .email(appUser.getEmail() != null ? appUser.getEmail().getValue() : null)
+                .profileImageUrl(appUser.getProfileImage() != null ? appUser.getProfileImage().getUrl() : null)
+                .kycStatus(appUser.getKycStatus().name())
+                .accountStatus(appUser.getUserStatus().name())
+                .phoneVerified(appUser.isPhoneVerified())
+                .emailVerified(appUser.isEmailVerified())
                 .build();
     }
 

@@ -20,7 +20,6 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.infrastructure.security.filter.JWTRequestFilter;
-import vn.sunvibe.auth.core.infrastructure.security.handler.CustomLogoutSuccessHandler;
 
 /**
  * Centralized Security Configuration for the entire application.
@@ -44,8 +43,13 @@ public class SecurityConfig {
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             "/api/users/command/register",
             "/api/auth/forgot-password",
+            "/api/auth/forgot-password/sms",
             "/api/auth/reset-password",
             "/api/auth/login",
+            // Called when the access token has expired, so it cannot require one
+            "/api/auth/refresh-token",
+            // Identifies the session by its refresh-token cookie; must work with an expired access token
+            "/api/auth/logout",
     };
 
     private static final String[] PUBLIC_GET_ENDPOINTS = {
@@ -54,7 +58,6 @@ public class SecurityConfig {
             "/swagger-ui/**"
     };
 
-    private static final String LOG_OUT_PATH = "/api/auth/logout";
     private static final String ADMIN_FEATURE_PATH = "/features/admin/**";
 
     // ── Beans ────────────────────────────────────────────────
@@ -125,12 +128,8 @@ public class SecurityConfig {
 
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
 
-                .logout(logout -> logout
-                        .logoutUrl(LOG_OUT_PATH)
-                        .logoutSuccessHandler(new CustomLogoutSuccessHandler())
-                        .clearAuthentication(true)
-                        .invalidateHttpSession(true)
-                );
+                // Logout is a regular endpoint (AuthController) that revokes the session's refresh tokens
+                .logout(AbstractHttpConfigurer::disable);
 
         return http.build();
     }

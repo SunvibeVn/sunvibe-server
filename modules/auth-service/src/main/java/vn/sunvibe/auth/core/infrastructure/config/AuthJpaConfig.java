@@ -5,18 +5,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**
- * JPA Configuration for Property Service
- * <p>
- * Configures entity scanning and JPA repository base packages for the property service.
- * This configuration isolates JPA settings to the property-service module, following
- * the principle of module independence.
+ * JPA configuration of the auth module: scans only this module's entities and
+ * Spring Data repositories, keeping the module independent of the others.
  */
 @Configuration
 @EntityScan(basePackages = {
-    "vn.sunvibe.auth.core.infrastructure.persistence.jpa.entity"
+    "vn.sunvibe.auth.core.infrastructure.persistence.entity"
 })
 @EnableJpaRepositories(basePackages = {
-    "vn.sunvibe.auth.core.infrastructure.persistence.jpa.repository"
+    "vn.sunvibe.auth.core.infrastructure.persistence.repository"
 })
 public class AuthJpaConfig {
 }

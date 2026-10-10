@@ -8,6 +8,10 @@ import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntit
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Value-object conversions used by {@link UserMapper}. The domain side is
+ * rebuilt with the VOs' {@code from()} factories (no re-validation of stored data).
+ */
 @Mapper(componentModel = "spring")
 public interface UserVOMapper {
 
@@ -37,6 +41,11 @@ public interface UserVOMapper {
         return profileImg != null ? profileImg.getUrl() : null;
     }
 
+    @Named("mapIdCardNumber")
+    default String mapIdCardNumber(IdCardNumber idCardNumber) {
+        return idCardNumber != null ? idCardNumber.getValue() : null;
+    }
+
     @Named("mapStringsToUserRoles")
     default Set<UserRoleEntity> mapStringsToUserRoles(Set<String> roles) {
         if (roles == null) return null;
@@ -49,32 +58,38 @@ public interface UserVOMapper {
 
     /* ===== ENTITY → DOMAIN (String → VO) ===== */
     @Named("toUserId")
-    default UserId toUserId(String id) {return new UserId(id);}
+    default UserId toUserId(String id) {
+        return UserId.from(id);
+    }
 
     @Named("toUserName")
     default Username toUserName(String username) {
-        return new Username(username);
+        return Username.from(username);
     }
 
     @Named("toEmail")
     default Email toEmail(String email) {
-        return email != null ? new Email(email) : null;
+        return email != null ? Email.from(email) : null;
     }
 
     @Named("toPassword")
     default Password toPassword(String passwordHash) {
-        return new Password(passwordHash);
+        return Password.from(passwordHash);
     }
 
     @Named("toProfileImage")
     default ProfileImage toProfileImage(String url) {
-        return url != null ? new ProfileImage(url) : null;
+        return url != null ? ProfileImage.from(url) : null;
+    }
+
+    @Named("toIdCardNumber")
+    default IdCardNumber toIdCardNumber(String value) {
+        return value != null ? IdCardNumber.from(value) : null;
     }
 
     @Named("mapUserRolesToStrings")
     default Set<String> mapUserRolesToStrings(Set<UserRoleEntity> roles) {
         if (roles == null) return null;
-        return roles.stream().map(UserRoleEntity::getName) // sửa đúng field của bạn
-                .collect(Collectors.toSet());
+        return roles.stream().map(UserRoleEntity::getName).collect(Collectors.toSet());
     }
 }

@@ -1,16 +1,17 @@
 package vn.sunvibe.auth.core.presentation.dto.response.auth;
 
 import lombok.Builder;
-import lombok.Data;
 
 import java.time.LocalDateTime;
 
+/**
+ * Result of a successful password reset.
+ *
+ * @param passwordChangedAt server-local time of the change
+ */
 @Builder
 public record PasswordResetResponse(
         String message,
-        String accessToken,
-        String refreshToken,
         LocalDateTime passwordChangedAt
 ) {
-
 }

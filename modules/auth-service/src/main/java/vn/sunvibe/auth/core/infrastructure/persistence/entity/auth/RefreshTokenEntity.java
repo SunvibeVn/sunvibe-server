@@ -1,38 +1,49 @@
 package vn.sunvibe.auth.core.infrastructure.persistence.entity.auth;
 
 import jakarta.persistence.*;
-import lombok.*;
-import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.auth.enums.TokenStatus;
 
 import java.time.Instant;
 import java.util.UUID;
 
-@AllArgsConstructor
-@NoArgsConstructor
+/**
+ * Table {@code refresh_tokens}, created by Flyway migration
+ * {@code V202610091400__create_refresh_tokens_table.sql}; keep both in sync.
+ */
 @Getter
 @Setter
-@Builder
+@NoArgsConstructor
 @Entity
-@Table(name = "REFRESH_TOKEN", uniqueConstraints = {@UniqueConstraint(name = "uk_token_hash", columnNames = "token_hash")})
+@Table(name = "refresh_tokens",
+        uniqueConstraints = @UniqueConstraint(name = "uk_refresh_tokens_token_hash", columnNames = "token_hash"),
+        indexes = {
+                @Index(name = "idx_refresh_tokens_family_id", columnList = "family_id"),
+                @Index(name = "idx_refresh_tokens_user_id", columnList = "user_id"),
+                @Index(name = "idx_refresh_tokens_expires_at", columnList = "expires_at")
+        })
 public class RefreshTokenEntity {
 
     @Id
     @Column(name = "id")
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
+    @Column(name = "user_id", nullable = false, length = 26)
     private String userId;
 
     @Column(name = "family_id", nullable = false)
     private UUID familyId;
 
-    @Lob
-    @Column(name = "token_hash", nullable = false)
-    private byte[] tokenHash;
+    /** Hex SHA-256 of the secret; the secret itself is never stored. */
+    @Column(name = "token_hash", nullable = false, length = 64)
+    private String tokenHash;
 
-    @Column(length = 200)
-    private String fingerprint;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private TokenStatus status;
 
     @Column(name = "issued_at", nullable = false)
     private Instant issuedAt;
@@ -40,44 +51,23 @@ public class RefreshTokenEntity {
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
-    @Column(name = "use_at")
+    @Column(name = "session_expires_at", nullable = false)
+    private Instant sessionExpiresAt;
+
+    @Column(name = "used_at")
     private Instant usedAt;
 
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
-    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private TokenStatus status;
+    @Column(name = "revoke_reason", length = 30)
+    private RevokeReason revokeReason;
 
-    public static RefreshTokenEntity toEntity(RefreshToken domain) {
-        RefreshTokenEntity entity = new RefreshTokenEntity();
-        entity.setId(domain.getId());
-        entity.setUserId(domain.getUserId());
-        entity.setFamilyId(domain.getFamilyId());
-        entity.setTokenHash(domain.getTokenHash());
-        entity.setFingerprint(domain.getFingerprint());
-        entity.setIssuedAt(domain.getIssuedAt());
-        entity.setExpiresAt(domain.getExpiresAt());
-        entity.setUsedAt(domain.getUsedAt());
-        entity.setRevokedAt(domain.getRevokedAt());
-        entity.setStatus(domain.getStatus());
-        return entity;
-    }
+    @Column(name = "user_agent", length = 255)
+    private String userAgent;
 
-    public static RefreshToken toDomain(RefreshTokenEntity entity) {
-        RefreshToken domain = new RefreshToken();
-        domain.setId(entity.getId());
-        domain.setUserId(entity.getUserId());
-        domain.setFamilyId(entity.getFamilyId());
-        domain.setTokenHash(entity.getTokenHash());
-        domain.setFingerprint(entity.getFingerprint());
-        domain.setIssuedAt(entity.getIssuedAt());
-        domain.setExpiresAt(entity.getExpiresAt());
-        domain.setUsedAt(entity.getUsedAt());
-        domain.setRevokedAt(entity.getRevokedAt());
-        domain.setStatus(entity.getStatus());
-        return domain;
-    }
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
 
 }
