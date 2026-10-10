@@ -53,6 +53,8 @@ CREATE TABLE users (
     email VARCHAR(100),
     password VARCHAR(255) NOT NULL,
     profile_image VARCHAR(500),
+    -- Optional (CMND/CCCD). Created NOT NULL by V202610091201__create_users_table.sql, made nullable by
+    -- V202610091300__make_user_id_card_optional.sql: registration only requires full name, phone, password.
     id_card_number TEXT, -- optional: can be added to the profile after registration
     id_card_number_hash VARCHAR(64),
     id_card_front_url TEXT,

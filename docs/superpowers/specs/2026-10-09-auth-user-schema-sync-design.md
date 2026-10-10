@@ -1,7 +1,7 @@
 # Auth user/role schema sync — design spec
 
 Date: 2026-10-09
-Status: Approved for planning
+Status: Approved for planning; implemented. `idCardNumber` was later made optional (see decision 1)
 Scope module: `modules/auth-service` (plus a small shared addition to `modules/common`)
 
 ## 1. Context and intent
@@ -71,7 +71,7 @@ These were confirmed with the project owner before writing this spec:
 
 ### `AppUser` aggregate changes
 
-New fields: `idCardNumber` (`IdCardNumber`, required), `idCardFrontUrl` / `idCardBackUrl`
+New fields: `idCardNumber` (`IdCardNumber`, required — **superseded: optional, may be null**), `idCardFrontUrl` / `idCardBackUrl`
 (`String`, nullable, unvalidated — just storage), `kycStatus` (`KycStatus`), `deletedAt`
 (`Instant`, nullable).
 
@@ -155,6 +155,7 @@ The hash column is **not** a JPA converter — it's a plain `String` field
 New columns/fields:
 - `idCardNumber` → `id_card_number` (`TEXT`, not null, `@Convert` as above).
 - `idCardNumberHash` → `id_card_number_hash` (`VARCHAR(64)`, not null, unique).
+  > **Superseded:** both columns are nullable since `V202610091300__make_user_id_card_optional.sql`, and uniqueness is a partial unique index over non-deleted users, not a column constraint (see decision 1).
 - `idCardFrontUrl` → `id_card_front_url` (`TEXT`, nullable).
 - `idCardBackUrl` → `id_card_back_url` (`TEXT`, nullable).
 - `kycStatus` → `kyc_status` (`VARCHAR(20)`, not null, `@Enumerated(STRING)`).
