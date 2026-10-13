@@ -37,6 +37,8 @@ subprojects {
 		implementation("org.springframework.boot:spring-boot-starter-mail")
 		implementation("org.mapstruct:mapstruct:1.6.3")
 		annotationProcessor("org.mapstruct:mapstruct-processor:1.6.3")
+		// OpenAPI annotations (@Operation, @ApiResponse) for controllers; same version as springdoc 3.1.1 uses
+		implementation("io.swagger.core.v3:swagger-annotations-jakarta:2.2.55")
 
 		implementation("org.slf4j:slf4j-api")
 	}
