@@ -42,7 +42,9 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 ## Before saying "done"
 1. ./gradlew test passes
 2. api/openapi.json regenerated if the API changed
-3. Feature doc updated (run /update-docs from the hub)
+3. Run /update-docs <feature> in this session when the feature or fix is finished (it edits ../docs;
+   the hub is loaded via --add-dir). A Stop hook reminds you once per session on feature/* and fix/* branches.
+   Then remind the owner to commit the hub docs.
 
 ## Context
 - Feature docs: ../docs/features/INDEX.md (read only the feature you work on)
