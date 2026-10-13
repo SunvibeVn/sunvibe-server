@@ -99,7 +99,8 @@ modules/{module-name}/src/main/java/vn/sunvibe/{module}/core/
 | Domain ↔ entity mappers | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/converter/{auto,manual}/` (auto = MapStruct) |
 | Security | — | `infrastructure/security/{config,filter,provider,ratelimit,userdetails}` |
 
-TODO(owner): pick one layout as the standard for new modules.
+**Decision (owner, 2026-10-13): new modules follow the property-service layout (the reference above).**
+auth-service keeps its existing variant; do not restructure it unless a plan says so.
 
 ## Dependency rules
 

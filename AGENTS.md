@@ -24,7 +24,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - Domain is pure Java: no Spring/JPA annotations. Aggregates use create()/load() factories; never reflection.
 - Commands and DTOs are Java records. Request DTO -> Command via presentation converters.
 - DTOs at the API edge; never return JPA entities or domain objects.
-- auth-service and property-service use slightly different folder variants; follow the module you are in.
+- New modules follow the property-service layout. Inside auth-service keep its existing variant (usecase/<area>/impl, persistence/converter).
 - Full guide: docs/architecture/backend-architecture.md (overview, package tree, dependency rules)
   and docs/architecture/layer-guide.md (per-layer rules with examples). Cross-repo: ../docs/architecture.md
 

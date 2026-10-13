@@ -8,6 +8,6 @@ paths:
 - Use cases (application/usecase): one interface per operation with a single execute(...) method.
 - Implementations: @Service + @Transactional, implement the use case, orchestrate domain objects
   through domain repository interfaces. Location follows the module:
-  property-service -> application/service/, auth-service -> application/usecase/<area>/impl/.
+  new modules and property-service -> application/service/; existing auth-service -> application/usecase/<area>/impl/.
 - External systems (email, SMS, audit, token) are ports (interfaces) here; adapters live in infrastructure.
 - Never import infrastructure.* or presentation.*.

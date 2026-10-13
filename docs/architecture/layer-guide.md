@@ -5,7 +5,7 @@ How to write each layer of a sunvibe-server module. Moved verbatim from the form
 
 > The examples follow `property-service`. `auth-service` uses a variant layout (services in
 > `application/usecase/<area>/impl/`, persistence mappers in `infrastructure/persistence/converter/{auto,manual}/`);
-> see "Variants in use" in backend-architecture.md.
+> see "Variants in use" in backend-architecture.md. New modules follow the property-service layout.
 
 ---
 
