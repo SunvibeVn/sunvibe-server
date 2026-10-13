@@ -1,4 +1,6 @@
 @AGENTS.md
+Hub workflow and cross-repo rules below; their paths (docs/...) are relative to the hub, i.e. ../docs/... from here.
+@../AGENTS.md
 
 ## Claude Code only
 - Start sessions with `claude --add-dir ..` so hub skills, subagents and docs are available.
