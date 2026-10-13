@@ -1,0 +1,11 @@
+app:
+  cors:
+    # Browser origins allowed to call the API (ADR-001). Comma-separated.
+    allowed-origins: https://www.sunvibe.vn
+
+# Do not publish the API contract or Swagger UI in production.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

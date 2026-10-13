@@ -1,0 +1,1018 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "servers" : [ {
+    "url" : "http://localhost:8082",
+    "description" : "Generated server url"
+  } ],
+  "paths" : {
+    "/api/auth/change-password" : {
+      "post" : {
+        "operationId" : "changePassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/forgot-password" : {
+      "post" : {
+        "operationId" : "forgotPassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordForgotRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePasswordForgotResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/forgot-password/sms" : {
+      "post" : {
+        "operationId" : "forgotPasswordBySms",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordForgotSmsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePasswordForgotResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/login" : {
+      "post" : {
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/logout" : {
+      "post" : {
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/logout-all" : {
+      "post" : {
+        "operationId" : "logoutAll",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/refresh-token" : {
+      "post" : {
+        "operationId" : "refreshToken",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/registration/phone/send" : {
+      "post" : {
+        "operationId" : "send",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegistrationPhoneSendRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVerificationSendResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "registration-verification-controller" ]
+      }
+    },
+    "/api/auth/registration/phone/verify" : {
+      "post" : {
+        "operationId" : "verify",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegistrationPhoneVerifyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRegistrationTokenResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "registration-verification-controller" ]
+      }
+    },
+    "/api/auth/reset-password" : {
+      "post" : {
+        "operationId" : "resetPassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePasswordResetResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "auth-controller" ]
+      }
+    },
+    "/api/auth/verification/email/confirm" : {
+      "post" : {
+        "operationId" : "confirmEmail",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VerificationConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "contact-verification-controller" ]
+      }
+    },
+    "/api/auth/verification/email/send" : {
+      "post" : {
+        "operationId" : "sendEmailCode",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVerificationSendResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "contact-verification-controller" ]
+      }
+    },
+    "/api/auth/verification/phone/confirm" : {
+      "post" : {
+        "operationId" : "confirmPhone",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VerificationConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "contact-verification-controller" ]
+      }
+    },
+    "/api/auth/verification/phone/send" : {
+      "post" : {
+        "operationId" : "sendPhoneCode",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVerificationSendResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "contact-verification-controller" ]
+      }
+    },
+    "/api/user/query/my-info" : {
+      "get" : {
+        "operationId" : "showMe",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseUserProfileInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "user-query-controller" ]
+      }
+    },
+    "/api/users/command/register" : {
+      "post" : {
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UserRegisterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseLoginResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "user-command-controller" ]
+      }
+    },
+    "/api/v1/properties" : {
+      "post" : {
+        "operationId" : "createProperty",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PropertyCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PropertyCreateResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "property-controller" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "ApiResponseLoginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "result" : {
+            "$ref" : "#/components/schemas/LoginResponse"
+          }
+        }
+      },
+      "ApiResponsePasswordForgotResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "result" : {
+            "$ref" : "#/components/schemas/PasswordForgotResponse"
+          }
+        }
+      },
+      "ApiResponsePasswordResetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "result" : {
+            "$ref" : "#/components/schemas/PasswordResetResponse"
+          }
+        }
+      },
+      "ApiResponseRegistrationTokenResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "result" : {
+            "$ref" : "#/components/schemas/RegistrationTokenResponse"
+          }
+        }
+      },
+      "ApiResponseUserProfileInfo" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "result" : {
+            "$ref" : "#/components/schemas/UserProfileInfo"
+          }
+        }
+      },
+      "ApiResponseVerificationSendResponse" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "result" : {
+            "$ref" : "#/components/schemas/VerificationSendResponse"
+          }
+        }
+      },
+      "ApiResponseVoid" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "result" : { }
+        }
+      },
+      "LoginRequest" : {
+        "type" : "object",
+        "properties" : {
+          "password" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string",
+            "pattern" : "^[0-9]{10,12}$"
+          }
+        },
+        "required" : [ "password", "username" ]
+      },
+      "LoginResponse" : {
+        "type" : "object",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string"
+          },
+          "emailVerified" : {
+            "type" : "boolean"
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "phoneVerified" : {
+            "type" : "boolean"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            },
+            "uniqueItems" : true
+          },
+          "tokenType" : {
+            "type" : "string"
+          },
+          "userEmail" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PasswordChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirmPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "currentPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "newPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "confirmPassword", "currentPassword", "newPassword" ]
+      },
+      "PasswordForgotRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "email" ]
+      },
+      "PasswordForgotResponse" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "otpExpirationMinutes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "resetToken" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PasswordForgotSmsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phoneNumber" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[0-9]{10,12}$"
+          }
+        },
+        "required" : [ "phoneNumber" ]
+      },
+      "PasswordResetRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirmPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "newPassword" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "otpCode" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[0-9]{6}$"
+          },
+          "resetToken" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "confirmPassword", "newPassword", "otpCode", "resetToken" ]
+      },
+      "PasswordResetResponse" : {
+        "type" : "object",
+        "properties" : {
+          "message" : {
+            "type" : "string"
+          },
+          "passwordChangedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "PropertyCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "amenityTypes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "bathrooms" : {
+            "type" : "integer",
+            "format" : "int32",
+            "exclusiveMinimum" : 0
+          },
+          "bedrooms" : {
+            "type" : "integer",
+            "format" : "int32",
+            "exclusiveMinimum" : 0
+          },
+          "city" : {
+            "type" : "string"
+          },
+          "depositPrice" : {
+            "type" : "number",
+            "minimum" : 0.01
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "images" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PropertyImageRequest"
+            }
+          },
+          "latitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "minRentMonths" : {
+            "type" : "integer",
+            "format" : "int32",
+            "minimum" : 1
+          },
+          "monthlyPrice" : {
+            "type" : "number",
+            "minimum" : 0.01
+          },
+          "ownerId" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "postalCode" : {
+            "type" : "string"
+          },
+          "propertyCode" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "propertyType" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "ruleCategories" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "squareMeters" : {
+            "type" : "number",
+            "format" : "double",
+            "exclusiveMinimum" : 0
+          },
+          "street" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "title" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "ward" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "bathrooms", "bedrooms", "depositPrice", "district", "minRentMonths", "monthlyPrice", "ownerId", "propertyCode", "propertyType", "squareMeters", "street", "title", "ward" ]
+      },
+      "PropertyCreateResponse" : {
+        "type" : "object",
+        "properties" : {
+          "amenityCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bathrooms" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bedrooms" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "city" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdBy" : {
+            "type" : "string"
+          },
+          "depositPrice" : {
+            "type" : "number"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "district" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "imageCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "minRentMonths" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "monthlyPrice" : {
+            "type" : "number"
+          },
+          "ownerId" : {
+            "type" : "string"
+          },
+          "postalCode" : {
+            "type" : "string"
+          },
+          "propertyCode" : {
+            "type" : "string"
+          },
+          "propertyType" : {
+            "type" : "string"
+          },
+          "ruleCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "squareMeters" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "street" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "ward" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PropertyImageRequest" : {
+        "type" : "object",
+        "properties" : {
+          "caption" : {
+            "type" : "string"
+          },
+          "displayOrder" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "imageKey" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string",
+            "minLength" : 1
+          },
+          "isPrimary" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "imageUrl" ]
+      },
+      "RegistrationPhoneSendRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phoneNumber" : {
+            "type" : "string",
+            "pattern" : "^[0-9]{10,12}$"
+          }
+        },
+        "required" : [ "phoneNumber" ]
+      },
+      "RegistrationPhoneVerifyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[0-9]{6}$"
+          },
+          "phoneNumber" : {
+            "type" : "string",
+            "pattern" : "^[0-9]{10,12}$"
+          }
+        },
+        "required" : [ "code", "phoneNumber" ]
+      },
+      "RegistrationTokenResponse" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "registrationToken" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UserProfileInfo" : {
+        "type" : "object",
+        "properties" : {
+          "accountStatus" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "emailVerified" : {
+            "type" : "boolean"
+          },
+          "fullName" : {
+            "type" : "string"
+          },
+          "kycStatus" : {
+            "type" : "string"
+          },
+          "phoneVerified" : {
+            "type" : "boolean"
+          },
+          "profileImageUrl" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UserRegisterRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirmPassword" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "fullName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 6
+          },
+          "idCardNumber" : {
+            "type" : "string",
+            "pattern" : "^(|\\d{9}|\\d{12})$"
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "registrationToken" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "username" : {
+            "type" : "string",
+            "pattern" : "^[0-9]{10,12}$"
+          }
+        },
+        "required" : [ "confirmPassword", "fullName", "password", "username" ]
+      },
+      "VerificationConfirmRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[0-9]{6}$"
+          }
+        },
+        "required" : [ "code" ]
+      },
+      "VerificationSendResponse" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "resendAvailableAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sentTo" : {
+            "type" : "string"
+          }
+        }
+      }
+    }
+  }
+}

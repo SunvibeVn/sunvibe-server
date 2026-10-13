@@ -8,7 +8,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - Run local: start a local PostgreSQL, set the env vars from .env.example in your shell or IDE run config
   (Spring does not read .env files), then ./gradlew :app:bootRun --args='--spring.profiles.active=dev'
   Default port 8082 (SERVER_PORT).
-- Export API contract: TODO(owner): added in setup Phase 7 -> api/openapi.json (commit it)
+- Export API contract: ./gradlew exportOpenApi -> api/openapi.json (commit it). Swagger UI (local): http://localhost:8082/swagger-ui/index.html
 
 ## Modules
 - app: Spring Boot entry point (vn.sunvibe.SunvibeServerApplication) and the single SecurityFilterChain (app/.../config/SecurityConfig.java).
@@ -31,7 +31,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 ## Hard rules
 - NEVER edit a committed Flyway migration. Add a new one (see .claude/rules/flyway.md).
 - NEVER read or print .env, secrets, or JWT signing keys.
-- Every new endpoint: OpenAPI annotations (once springdoc is added) + explicit authorization rule + test.
+- Every new endpoint: OpenAPI annotations (springdoc, io.swagger.v3.oas.annotations) + explicit authorization rule + test.
 - Errors use the shared format: vn.sunvibe.common.dto.response.error.ErrorResponse(message, errors),
   produced by common/exception/GlobalServerExceptionHandler or a module *ExceptionHandler. Never leak stack traces.
 - New endpoints go under /api/v1/<resource>. Existing auth paths (/api/auth, /api/users/command, /api/user/query) are legacy.
