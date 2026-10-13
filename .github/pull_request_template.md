@@ -1,6 +1,6 @@
 ## What and why
 Feature / fix:
-Plan: sunvibe-hub/docs/plans/...
+Brief / spec / plan: sunvibe-hub/docs/features/<feature>/ (brief/, impl/specs/, impl/plans/)
 Related PR (other repo):
 
 ## Checklist
