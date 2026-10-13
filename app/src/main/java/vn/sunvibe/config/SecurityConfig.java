@@ -42,6 +42,9 @@ public class SecurityConfig {
     // ── Public Endpoints ────────────────────────────────────────────
     private static final String[] PUBLIC_POST_ENDPOINTS = {
             "/api/users/command/register",
+            // Phone verification before registration: the person has no account (and no token) yet
+            "/api/auth/registration/phone/send",
+            "/api/auth/registration/phone/verify",
             "/api/auth/forgot-password",
             "/api/auth/forgot-password/sms",
             "/api/auth/reset-password",

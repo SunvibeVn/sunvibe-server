@@ -45,7 +45,11 @@ public record UserRegisterRequest(
         String password,
 
         @NotNull(message = "Confirm password is mandatory.")
-        String confirmPassword
+        String confirmPassword,
+
+        // Issued by POST /api/auth/registration/phone/verify; proves the phone number belongs to the registrant.
+        @Size(max = 100, message = "At most 100 characters in length.")
+        String registrationToken
 
 ) {
 }

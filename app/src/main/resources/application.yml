@@ -6,7 +6,7 @@ spring:
     name: sunvibe-server
   jpa:
       hibernate:
-        ddl-auto: validate
+        ddl-auto: update
   mail:
     host: smtp.gmail.com
     port: 587
@@ -93,6 +93,14 @@ app:
       # deactivated (soft-deleted, freeing the number) by a daily job
       pending-account-ttl: 7d
       pending-cleanup-cron: "0 15 3 * * *"
+      # Single-use token handed out once a registering phone number is verified; registration must present it
+      registration-token-lifetime: 15m
+      # Expired pre-registration phone challenges are deleted daily at this time
+      registration-cleanup-cron: "0 45 3 * * *"
+    registration:
+      # "Verify first, register later": registration needs a token proving the phone number. Set to false
+      # (REGISTRATION_REQUIRE_PHONE_VERIFICATION=false) while clients still use the old register-then-verify flow.
+      require-phone-verification: ${REGISTRATION_REQUIRE_PHONE_VERIFICATION:true}
     audit:
       # Security audit log (auth_audit_events): kept this long, purged daily at cleanup-cron
       retention: 180d
@@ -106,6 +114,8 @@ app:
         - { method: POST, path: /api/users/command/register, limit: 5, window: 1h }
         - { method: POST, path: /api/auth/forgot-password, limit: 5, window: 1h }
         - { method: POST, path: /api/auth/forgot-password/sms, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/registration/phone/send, limit: 5, window: 1h }
+        - { method: POST, path: /api/auth/registration/phone/verify, limit: 10, window: 15m }
         - { method: POST, path: /api/auth/verification/phone/send, limit: 5, window: 1h }
         - { method: POST, path: /api/auth/verification/email/send, limit: 5, window: 1h }
         - { method: POST, path: /api/auth/verification/phone/confirm, limit: 10, window: 15m }

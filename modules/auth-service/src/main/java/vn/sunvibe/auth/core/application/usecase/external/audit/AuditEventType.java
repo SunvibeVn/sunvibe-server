@@ -44,6 +44,12 @@ public enum AuditEventType {
     /** A verification code was rejected (wrong, expired, burned). */
     VERIFICATION_FAILED,
     /** An account never verified its phone within the allowed time and was deactivated. */
-    PENDING_ACCOUNT_EXPIRED
+    PENDING_ACCOUNT_EXPIRED,
+    /** A code was sent by SMS to a phone number that is registering (no account yet). */
+    REGISTRATION_PHONE_CODE_SENT,
+    /** A registering phone number was proven; a registration token was issued. */
+    REGISTRATION_PHONE_VERIFIED,
+    /** A registration code or token was rejected (wrong, expired, burned, used or for another phone). */
+    REGISTRATION_VERIFICATION_FAILED
 
 }
