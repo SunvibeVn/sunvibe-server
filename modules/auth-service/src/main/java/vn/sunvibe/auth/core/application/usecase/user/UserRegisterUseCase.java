@@ -10,10 +10,13 @@ import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 public interface UserRegisterUseCase {
 
     /**
-     * Creates a PENDING account, sends the first verification codes and signs
-     * the user in on the registering device.
+     * Creates the account and signs the user in on the registering device. With a
+     * registration token (phone verified first) the account is ACTIVE; without one it
+     * is PENDING and gets its first SMS code.
      *
      * @throws AuthValidationException invalid or already used phone number, e-mail or ID card number
+     * @throws vn.sunvibe.auth.core.application.exception.auth.VerificationException the registration token is
+     *                                 missing (when required), unknown, expired, used or for another phone number
      */
     AuthResult execute(UserRegisterCommand userRegisterCommand);
 

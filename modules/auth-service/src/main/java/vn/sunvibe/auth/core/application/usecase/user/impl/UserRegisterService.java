@@ -8,7 +8,9 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.shared.RegistrationPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
+import vn.sunvibe.auth.core.application.usecase.auth.RegistrationPhoneVerificationUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
@@ -27,9 +29,14 @@ import vn.sunvibe.common.time.AppClock;
 import java.util.HashSet;
 
 /**
- * Self-registration: creates a PENDING tenant account ("register first, verify
- * later"), sends the first verification codes and signs the new user in on the
- * registering device, all in one transaction.
+ * Self-registration, all in one transaction.
+ * <p>
+ * "Verify first, register later": the request carries a registration token that
+ * proves the phone number, so the account is created ACTIVE with a verified
+ * phone. Without a token (only allowed while
+ * {@code app.security.registration.require-phone-verification} is off) the older
+ * flow applies: a PENDING account gets its first SMS code right away. Either way
+ * the new user is signed in on the registering device.
  */
 @Log4j2
 @Service
@@ -42,6 +49,8 @@ public class UserRegisterService implements UserRegisterUseCase {
     private final AuditLogPort auditLog;
     private final ContactVerificationUseCase contactVerification;
     private final LoginUseCase loginUseCase;
+    private final RegistrationPhoneVerificationUseCase phoneVerification;
+    private final RegistrationPolicy registrationPolicy;
 
     @Transactional
     @Override
@@ -62,6 +71,14 @@ public class UserRegisterService implements UserRegisterUseCase {
             throw new AuthValidationException(AuthFieldName.ID_CARD_NUMBER, "ID card number is already in use.");
         }
 
+        // The phone number was proven before this request: the token is used up here and handed
+        // back if anything below fails (same transaction)
+        boolean phoneVerifiedFirst = isProvided(userRegisterCommand.registrationToken());
+        if (phoneVerifiedFirst || registrationPolicy.isRequirePhoneVerification()) {
+            phoneVerification.consumeRegistrationToken(userRegisterCommand.registrationToken(), userRegisterCommand.username());
+            phoneVerifiedFirst = true;
+        }
+
         // Build Value-Object
         UserId userId = UserId.create(ulidGenerator.generateId());
         Username usernameVO = Username.create(userRegisterCommand.username());
@@ -73,6 +90,11 @@ public class UserRegisterService implements UserRegisterUseCase {
         // Self-registered accounts are always tenants; other roles are granted through separate flows
         appUser.assignRole(RoleName.TENANT.name());
 
+        // Phone proven up front: the PENDING account becomes ACTIVE straight away
+        if (phoneVerifiedFirst) {
+            appUser.verifyPhone(AppClock.currentUTC());
+        }
+
         // Save in database
         appUser = userRepository.save(appUser);
 
@@ -80,8 +102,10 @@ public class UserRegisterService implements UserRegisterUseCase {
         auditLog.record(AuthAuditEvent.of(AuditEventType.USER_REGISTERED, appUser.getId().getValue(),
                 appUser.getUsername().getValue()));
 
-        // The account stays PENDING until the phone is verified; send the first codes right away
-        contactVerification.sendCodeAfterRegistration(appUser, VerificationChannel.PHONE);
+        // Old flow: the account stays PENDING until the phone is verified; send the first code right away
+        if (!phoneVerifiedFirst) {
+            contactVerification.sendCodeAfterRegistration(appUser, VerificationChannel.PHONE);
+        }
         if (appUser.getEmail() != null) {
             contactVerification.sendCodeAfterRegistration(appUser, VerificationChannel.EMAIL);
         }

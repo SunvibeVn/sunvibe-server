@@ -78,6 +78,8 @@ flowchart TD
 
 | Nhóm | Method + endpoint | Cần đăng nhập | Rate limit / IP |
 |---|---|---|---|
+| Xác minh trước đăng ký | `POST /api/auth/registration/phone/send` | Không | 5 / giờ |
+| Xác minh trước đăng ký | `POST /api/auth/registration/phone/verify` | Không | 10 / 15 phút |
 | Đăng ký | `POST /api/users/command/register` | Không | 5 / giờ |
 | Đăng nhập | `POST /api/auth/login` | Không | 10 / phút |
 | Phiên | `POST /api/auth/refresh-token` | Không (dùng cookie refresh) | 30 / phút |

@@ -16,6 +16,8 @@ Cho phép người dùng tự tạo tài khoản bằng **số điện thoại +
 
 Xác minh số điện thoại / email: xem [05_AUTH_CONTACT_VERIFICATION.md](05_AUTH_CONTACT_VERIFICATION.md). Ngoài phạm vi: eKYC.
 
+> **Luồng "xác minh trước, đăng ký sau"** (mặc định, `app.security.registration.require-phone-verification=true`): client xác minh số điện thoại **trước** (`/api/auth/registration/phone/send` → `/verify`), nhận `registrationToken` rồi gửi kèm trong request này. Tài khoản khi đó được tạo **`ACTIVE`** với số đã xác minh và không có OTP SMS tự gửi. Khi cờ tắt, request không cần token và áp dụng luồng "đăng ký trước, xác minh sau" mô tả bên dưới. Chi tiết: [05_AUTH_CONTACT_VERIFICATION.md §11](05_AUTH_CONTACT_VERIFICATION.md).
+
 ---
 
 ## 2. API

@@ -20,6 +20,7 @@ public class UserConverter {
                 .email(userRegisterRequest.email())
                 .password(userRegisterRequest.password())
                 .idCardNumber(userRegisterRequest.idCardNumber())
+                .registrationToken(userRegisterRequest.registrationToken())
                 .clientInfo(clientInfo)
                 .build();
     }

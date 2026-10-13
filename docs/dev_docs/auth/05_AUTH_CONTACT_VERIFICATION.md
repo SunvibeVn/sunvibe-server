@@ -234,3 +234,53 @@ Test:
 3. **Chưa có API cập nhật hồ sơ** (thêm/đổi email sau đăng ký). Logic xác minh đã sẵn: `changeEmail` xóa trạng thái xác minh, rồi gọi `/verification/email/send`.
 4. Gửi SMS/email **đồng bộ** trong request: nhà cung cấp chậm thì request chậm theo.
 5. Chưa áp `@PreAuthorize("hasAuthority('PHONE_VERIFIED')")` ở module nào; cần quyết định những hành động nào bắt buộc xác minh.
+
+---
+
+## 11. XÁC MINH SĐT TRƯỚC KHI ĐĂNG KÝ ("VERIFY FIRST, REGISTER LATER")
+
+Màn hình đăng ký hiện ba bước: (1) chỉ nhập số điện thoại, (2) nhập OTP SMS, (3) điền họ tên và mật khẩu. Tài khoản chỉ được tạo ở bước 3, nên **không có tài khoản `PENDING` rác** và số điện thoại đã được chứng minh trước khi tạo.
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant A as auth-service
+    C->>A: POST /api/auth/registration/phone/send {phoneNumber}
+    A-->>C: {sentTo, expiresAt, resendAvailableAt} (SMS gửi đi)
+    C->>A: POST /api/auth/registration/phone/verify {phoneNumber, code}
+    A-->>C: {registrationToken, expiresAt}
+    C->>A: POST /api/users/command/register {..., registrationToken}
+    A-->>C: Phiên đăng nhập, tài khoản ACTIVE, phoneVerified = true
+```
+
+### 11.1. API (công khai, không cần access token)
+
+| Method | Endpoint | Body | Kết quả | Rate limit / IP |
+|---|---|---|---|---|
+| POST | `/api/auth/registration/phone/send` | `{ "phoneNumber": "0912345678" }` | Gửi OTP SMS; trả `sentTo`, `expiresAt`, `resendAvailableAt` | 5 / giờ |
+| POST | `/api/auth/registration/phone/verify` | `{ "phoneNumber": "...", "code": "123456" }` | Đúng mã: trả `registrationToken` (dùng một lần) và `expiresAt` | 10 / 15 phút |
+| POST | `/api/users/command/register` | thêm `registrationToken` | Tạo tài khoản `ACTIVE` đã xác minh SĐT | 5 / giờ |
+
+### 11.2. Quy tắc
+
+- **Số đã có tài khoản**: `send` trả lỗi trường `username` ("Phone number is already in use.") và **không gửi SMS**. Cùng quy tắc và thông điệp với `register`.
+- **Mã OTP**: dùng chung `VerificationPolicy` với xác minh sau đăng ký (hiệu lực 10 phút, sai tối đa 5 lần thì mã bị hủy, cách nhau 60 giây, tối đa 5 mã / số / 24 giờ). Mã mới hủy mã cũ **và thu hồi token chưa dùng** của cùng số.
+- **Registration token**: 32 byte ngẫu nhiên (base64url), **chỉ lưu hash SHA-256**, sống `app.security.verification.registration-token-lifetime` (15 phút) kể từ khi xác minh, **dùng một lần**, gắn với đúng số điện thoại đã xác minh.
+- **`register` với token**: token được dùng trong **cùng transaction** với việc tạo tài khoản; nếu đăng ký thất bại (email trùng, ...) thì token được trả lại và client thử lại được. Token sai, hết hạn, đã dùng hoặc của số khác trả **400** ("Your phone verification is invalid or has expired...").
+- **Cờ `app.security.registration.require-phone-verification`** (biến môi trường `REGISTRATION_REQUIRE_PHONE_VERIFICATION`, mặc định `true`): khi `true`, `register` bắt buộc có token. Khi `false`, request không token vẫn chạy theo luồng cũ (tài khoản `PENDING` + OTP tự gửi); request có token vẫn được hiểu như luồng mới. Dùng để triển khai lần lượt: bật BE với cờ `false`, đưa client mới lên, rồi bật `true`.
+- **Audit**: `REGISTRATION_PHONE_CODE_SENT`, `REGISTRATION_PHONE_VERIFIED`, `REGISTRATION_VERIFICATION_FAILED` (chi tiết: `NO_USABLE_CODE`, `WRONG_CODE`, `BURNED`, `TOKEN_REJECTED`).
+
+### 11.3. Lưu trữ
+
+Bảng `registration_phone_challenges` (migration `V202610121000`): `phone`, `code_hash` (SHA-256 muối bằng id), `failed_attempts`, `expires_at`, `consumed_at`, `verified_at`, `token_hash` (duy nhất), `token_expires_at`, `registered_at`. Job hằng ngày 03:45 (`app.security.verification.registration-cleanup-cron`) xóa bản ghi mà mã và token đều đã hết hạn quá 1 ngày.
+
+### 11.4. Thành phần mã nguồn
+
+| Tầng | Lớp |
+|---|---|
+| Presentation | `RegistrationVerificationController`, `RegistrationPhoneSendRequest`, `RegistrationPhoneVerifyRequest`, `RegistrationTokenResponse`, `RegistrationChallengeCleanupScheduler`, `UserRegisterRequest.registrationToken` |
+| Application | `RegistrationPhoneVerificationUseCase` / `RegistrationPhoneVerificationService`, `RegistrationChallengePurgeUseCase` / `RegistrationChallengePurgeService`, `RegistrationPolicy`, `RegistrationTokenResult`, `UserRegisterService` (dùng token) |
+| Domain | `RegistrationPhoneChallenge`, `RegistrationPhoneChallengeRepository` |
+| Infrastructure | `RegistrationPhoneChallengeRepositoryAdapter`, `RegistrationPhoneChallengeEntity`, `RegistrationPhoneChallengeJpaRepository` |
+
+Test: `RegistrationPhoneChallengeTest`, `RegistrationPhoneVerificationServiceTest`, `RegistrationPhoneChallengeRepositoryAdapterTest`, `UserRegisterServiceTest`.

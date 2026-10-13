@@ -6,9 +6,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.command.auth.LoginCommand;
 import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
+import vn.sunvibe.auth.core.application.exception.auth.VerificationException;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.query.auth.RegistrationTokenResult;
 import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
+import vn.sunvibe.auth.core.application.shared.RegistrationPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
+import vn.sunvibe.auth.core.application.usecase.auth.RegistrationPhoneVerificationUseCase;
 import vn.sunvibe.auth.core.application.usecase.user.LoginUseCase;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
@@ -96,6 +100,8 @@ class UserRegisterServiceTest {
     private RecordingAuditLog audit;
     private List<VerificationChannel> codesSent;
     private List<ClientInfo> sessionsStarted;
+    private List<String> consumedTokens;
+    private boolean tokenIsValid;
 
     @BeforeEach
     void setUp() {
@@ -143,7 +149,56 @@ class UserRegisterServiceTest {
                 return AuthResult.of(appUser, "access-token", "refresh-token");
             }
         };
-        service = new UserRegisterService(repository, passwordEncoder, ulidGenerator, audit, contactVerification, sessions);
+        consumedTokens = new ArrayList<>();
+        tokenIsValid = true;
+        RegistrationPhoneVerificationUseCase phoneVerification = new RegistrationPhoneVerificationUseCase() {
+            @Override
+            public VerificationSendResult sendCode(String phoneNumber) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public RegistrationTokenResult verifyCode(String phoneNumber, String code) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void consumeRegistrationToken(String registrationToken, String phoneNumber) {
+                if (!tokenIsValid) {
+                    throw new VerificationException("invalid token");
+                }
+                consumedTokens.add(registrationToken + "@" + phoneNumber);
+            }
+        };
+        // Most tests cover the older "register first, verify later" flow, which stays available behind the switch
+        service = serviceWith(false, passwordEncoder, ulidGenerator, contactVerification, sessions, phoneVerification);
+    }
+
+    private PasswordEncoder encoder;
+    private IdGenerator<String> ids;
+    private ContactVerificationUseCase contact;
+    private LoginUseCase login;
+    private RegistrationPhoneVerificationUseCase phone;
+
+    private UserRegisterService serviceWith(boolean requirePhoneVerification, PasswordEncoder passwordEncoder,
+                                            IdGenerator<String> ulidGenerator, ContactVerificationUseCase contactVerification,
+                                            LoginUseCase sessions, RegistrationPhoneVerificationUseCase phoneVerification) {
+        encoder = passwordEncoder;
+        ids = ulidGenerator;
+        contact = contactVerification;
+        login = sessions;
+        phone = phoneVerification;
+        return new UserRegisterService(repository, passwordEncoder, ulidGenerator, audit, contactVerification, sessions,
+                phoneVerification, new RegistrationPolicy(requirePhoneVerification));
+    }
+
+    private UserRegisterService requiringPhoneVerification() {
+        return serviceWith(true, encoder, ids, contact, login, phone);
+    }
+
+    private UserRegisterCommand commandWithToken(String username, String token) {
+        return UserRegisterCommand.builder().fullName("Nguyen Van A").username(username).password("P@ssw0rd!")
+                .registrationToken(token).build();
     }
 
     private UserRegisterCommand command(String username, String email, String idCardNumber) {
@@ -270,5 +325,69 @@ class UserRegisterServiceTest {
         AuthValidationException exception = assertThrows(AuthValidationException.class,
                 () -> service.execute(command("0912345678", null, "not-a-number")));
         assertEquals(AuthFieldName.ID_CARD_NUMBER, exception.getField());
+    }
+
+    /** "Verify first, register later": the token proves the phone, so the account starts ACTIVE and no code is sent. */
+    @Test
+    void execute_withARegistrationTokenCreatesAnActiveAccountWithAVerifiedPhone() {
+        AuthResult result = requiringPhoneVerification().execute(commandWithToken("0912345678", "the-token"));
+
+        AppUser saved = repository.findByUsername("0912345678");
+        assertEquals(UserStatus.ACTIVE, saved.getUserStatus());
+        assertTrue(saved.isPhoneVerified());
+        assertTrue(codesSent.isEmpty(), "the phone was proven already: no SMS code");
+        assertEquals(List.of("the-token@0912345678"), consumedTokens);
+        assertEquals("0912345678", result.username());
+        assertEquals(1, sessionsStarted.size());
+    }
+
+    @Test
+    void execute_withATokenAndAnEmailStillSendsTheEmailCode() {
+        UserRegisterCommand command = UserRegisterCommand.builder().fullName("Nguyen Van A").username("0912345678")
+                .email("a@example.com").password("P@ssw0rd!").registrationToken("the-token").build();
+
+        requiringPhoneVerification().execute(command);
+
+        assertEquals(List.of(VerificationChannel.EMAIL), codesSent);
+    }
+
+    @Test
+    void execute_withoutATokenIsRefusedWhenPhoneVerificationIsRequired() {
+        tokenIsValid = false;
+
+        assertThrows(VerificationException.class,
+                () -> requiringPhoneVerification().execute(commandWithToken("0912345678", null)));
+
+        assertNull(repository.findByUsername("0912345678"));
+        assertTrue(sessionsStarted.isEmpty());
+    }
+
+    @Test
+    void execute_aRejectedTokenCreatesNoAccount() {
+        tokenIsValid = false;
+
+        assertThrows(VerificationException.class,
+                () -> requiringPhoneVerification().execute(commandWithToken("0912345678", "stale-token")));
+
+        assertNull(repository.findByUsername("0912345678"));
+        assertTrue(sessionsStarted.isEmpty());
+    }
+
+    @Test
+    void execute_aTokenIsHonouredEvenWhileThePhoneVerificationSwitchIsOff() {
+        service.execute(commandWithToken("0912345678", "the-token"));
+
+        assertEquals(UserStatus.ACTIVE, repository.findByUsername("0912345678").getUserStatus());
+        assertEquals(List.of("the-token@0912345678"), consumedTokens);
+    }
+
+    @Test
+    void execute_existingPhoneIsRefusedBeforeTheTokenIsUsed() {
+        service.execute(command("0912345678", null, null));
+
+        assertThrows(AuthValidationException.class,
+                () -> requiringPhoneVerification().execute(commandWithToken("0912345678", "the-token")));
+
+        assertTrue(consumedTokens.isEmpty());
     }
 }
