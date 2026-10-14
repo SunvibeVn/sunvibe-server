@@ -6,7 +6,7 @@
       "Bash(git push origin main*)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
-      "Edit(//**/docs/features/*/brief/**)"
+      "Edit(//**/docs/features/**/brief/**)"
     ]
   },
   "hooks": {
