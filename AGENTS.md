@@ -34,6 +34,8 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 ## Hard rules
 - NEVER edit a committed Flyway migration. Add a new one (see .claude/rules/flyway.md).
 - NEVER read or print .env, secrets, or JWT signing keys.
+- NEVER commit a secret: CI gitleaks-scans new commits (.github/workflows/secret-scan.yml). A false positive goes
+  into .gitleaksignore as a fingerprint (never the value), only after owner review.
 - Every new endpoint: OpenAPI annotations (springdoc, io.swagger.v3.oas.annotations) + explicit authorization rule + test.
 - Errors use the shared format: vn.sunvibe.common.dto.response.error.ErrorResponse(message, errors),
   produced by common/exception/GlobalServerExceptionHandler or a module *ExceptionHandler. Never leak stack traces.

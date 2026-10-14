@@ -1,0 +1,52 @@
+# Gitleaks fingerprints (commit:file:rule:line) of known findings in git history.
+# Fingerprints only: never put a secret value in this file. Produced with `gitleaks git --redact`.
+# Git history is not rewritten (ADR-002), so these stay. Add a line only after the owner has checked it.
+# CI reads this file from the PR base (or the pushed commit), so a new exception lands in its own PR first;
+# after a squash merge, use the fingerprint of the commit on main.
+
+# Old JWT signing key (8b63463). Value rotated in W1, PR #9 (bee2ad5); the old key must not be configured anywhere.
+# 8b63463 also holds the old mail username and app password (lines 13-14; the owner revokes the app password, ADR-002 W0).
+# gitleaks has no rule that matches them, so they need no line here; this list is not a full list of leaked values.
+8b63463e93230c79e1a7b5c1805377d4f4e399f4:app/src/main/resources/application.yml:generic-api-key:59
+
+# application-test.yml: test-profile values (ID-card keys, JWT secret), public by ADR-002 policy, not secrets.
+34ea919e08b1e62f938966d0b193a756562d1ded:app/src/main/resources/application-test.yml:generic-api-key:16
+34ea919e08b1e62f938966d0b193a756562d1ded:app/src/main/resources/application-test.yml:generic-api-key:17
+bee2ad5b01bd6f60b6d4a8042f16fa3cad54797a:app/src/main/resources/application-test.yml:generic-api-key:27
+
+# Old dev_docs/auth (removed from this repo): truncated example access tokens ending in "...", not real tokens.
+79c90b81ce13e7f0a0fd0900c8e2e841a75a21d4:dev_docs/auth/00_AUTH_BUSINESS_FLOWS.md:generic-api-key:302
+fa413165fb49255a5fd059baf636e6c5eefea4b6:dev_docs/auth/01_AUTH_REGISTER_FLOW.md:generic-api-key:67
+fa413165fb49255a5fd059baf636e6c5eefea4b6:dev_docs/auth/02_AUTH_LOGIN_FLOW.md:generic-api-key:57
+fa413165fb49255a5fd059baf636e6c5eefea4b6:dev_docs/auth/03_AUTH_REFRESH_TOKEN_FLOW.md:generic-api-key:93
+
+# Test fixtures under src/test: fixed ID-card keys and JWT secrets used only by tests, not secrets.
+1bfac71c21cd28b7ad17cfd2166c4ffe31952bfc:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/auth/impl/PasswordResetServiceTransactionTest.java:generic-api-key:46
+1bfac71c21cd28b7ad17cfd2166c4ffe31952bfc:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/auth/impl/PasswordResetServiceTransactionTest.java:generic-api-key:47
+1bfac71c21cd28b7ad17cfd2166c4ffe31952bfc:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/user/impl/LoginServiceTransactionTest.java:generic-api-key:52
+1bfac71c21cd28b7ad17cfd2166c4ffe31952bfc:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/user/impl/LoginServiceTransactionTest.java:generic-api-key:53
+1bfac71c21cd28b7ad17cfd2166c4ffe31952bfc:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/PasswordResetTokenRepositoryAdapterTest.java:generic-api-key:21
+1bfac71c21cd28b7ad17cfd2166c4ffe31952bfc:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/PasswordResetTokenRepositoryAdapterTest.java:generic-api-key:22
+2a5ab8a0f5186de17d5d5f083a7917f1ac2c8cb7:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/security/provider/JWTProviderTest.java:generic-api-key:55
+2f8a63b508e63c051496d08bca15354d4c358d95:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/auth/impl/PasswordResetServiceTest.java:generic-api-key:151
+3b7dd1c3e47cec9e7be18b5cd425bdb3ef38e2b9:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/security/filter/JWTRequestFilterTest.java:generic-api-key:45
+3b7dd1c3e47cec9e7be18b5cd425bdb3ef38e2b9:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/security/provider/JWTProviderTest.java:generic-api-key:48
+673528af9027ea02743f0877794c9d1a2a81412e:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/auth/impl/TokenRefreshServiceTransactionTest.java:generic-api-key:57
+673528af9027ea02743f0877794c9d1a2a81412e:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/auth/impl/TokenRefreshServiceTransactionTest.java:generic-api-key:58
+673528af9027ea02743f0877794c9d1a2a81412e:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/RefreshTokenRepositoryAdapterTest.java:generic-api-key:29
+673528af9027ea02743f0877794c9d1a2a81412e:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/RefreshTokenRepositoryAdapterTest.java:generic-api-key:30
+7cd4333fda325ab1bd26134b86be5e6f40e74328:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/audit/AuthAuditLogAdapterTest.java:generic-api-key:42
+7cd4333fda325ab1bd26134b86be5e6f40e74328:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/audit/AuthAuditLogAdapterTest.java:generic-api-key:43
+851ae2a15db89ed2094ea202b1d3307b5c698a31:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/repository/user/UserJpaRepositorySoftDeleteTest.java:generic-api-key:22
+851ae2a15db89ed2094ea202b1d3307b5c698a31:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/repository/user/UserJpaRepositorySoftDeleteTest.java:generic-api-key:23
+8e99e647b27d12599b2b6900bfe9db1fc8e4b31f:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/auth/impl/ContactVerificationServiceTransactionTest.java:generic-api-key:48
+8e99e647b27d12599b2b6900bfe9db1fc8e4b31f:modules/auth-service/src/test/java/vn/sunvibe/auth/core/application/usecase/auth/impl/ContactVerificationServiceTransactionTest.java:generic-api-key:49
+8e99e647b27d12599b2b6900bfe9db1fc8e4b31f:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/VerificationCodeRepositoryAdapterTest.java:generic-api-key:23
+8e99e647b27d12599b2b6900bfe9db1fc8e4b31f:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/VerificationCodeRepositoryAdapterTest.java:generic-api-key:24
+a89dba1471fde5965cadb3b194882eb52edc0fb2:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/security/provider/JWTProviderTest.java:generic-api-key:20
+b4b2ebf89cedbc7022c63c6fa8327c04820f4200:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/PendingAccountRepositoryAdapterTest.java:generic-api-key:26
+b4b2ebf89cedbc7022c63c6fa8327c04820f4200:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/PendingAccountRepositoryAdapterTest.java:generic-api-key:27
+c7e05da58e23a93e5b0b92475d7ae15a335d4f17:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/UserRepositoryAdapterEncryptionTest.java:generic-api-key:31
+c7e05da58e23a93e5b0b92475d7ae15a335d4f17:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/UserRepositoryAdapterEncryptionTest.java:generic-api-key:32
+dbd9833b1ef8fedf0738bd33afb19271495146c8:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/RegistrationPhoneChallengeRepositoryAdapterTest.java:generic-api-key:22
+dbd9833b1ef8fedf0738bd33afb19271495146c8:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/RegistrationPhoneChallengeRepositoryAdapterTest.java:generic-api-key:23
