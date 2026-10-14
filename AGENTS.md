@@ -47,8 +47,9 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
    Then remind the owner to commit the hub docs.
 
 ## Context
-- Feature docs: ../docs/features/INDEX.md, then ../docs/features/<feature>/ (brief = business truth, read only;
-  as-built = current behavior; impl/ = spec, plan, handoff). Read only the feature you work on.
+- Feature docs: ../docs/features/INDEX.md, then ../docs/features/<module>/<feature>/ (brief = business truth, read
+  only; as-built = current behavior; impl/ = spec, plan, handoff; latest spec and plan only). Shared module rules:
+  ../docs/features/<module>/brief/ if present. Read only the feature you work on.
 - Past bugs: ../docs/known-issues.md
 - Business terms: ../docs/product/glossary.md
 - Auth flow details: docs/dev_docs/auth/; DB schema notes: docs/dev_docs/database/
