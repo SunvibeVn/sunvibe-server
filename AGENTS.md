@@ -52,4 +52,4 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   ../docs/features/<module>/brief/ if present. Read only the feature you work on.
 - Past bugs: ../docs/known-issues.md
 - Business terms: ../docs/product/glossary.md
-- Auth flow details: docs/dev_docs/auth/; DB schema notes: docs/dev_docs/database/
+- Auth flow details: ../docs/features/auth/ (original Vietnamese docs: assets/dev_docs/); DB schema notes: docs/dev_docs/database/
