@@ -9,6 +9,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: create-drop
+  mail:
+    # Test-only dummy values (public, committed); not a real mailbox.
+    username: test@sunvibe.invalid
+    password: test-only-password
 
 app:
   sms:
@@ -18,3 +22,6 @@ app:
     # Test-only keys (public, committed); never use for real data.
     id-card-key: bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=
     id-card-index-key: HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=
+  jwt:
+    # Test-only key (public, committed); never use for real data.
+    secret: 07zN1TVoUqmFylsMFQ4pwPMcHxwqc/2EZhI44H9DjEkoXA5YSbHzostN8CNOIUi6

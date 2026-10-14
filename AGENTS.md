@@ -8,6 +8,9 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - Run local: start a local PostgreSQL, set the env vars from .env.example in your shell or IDE run config
   (Spring does not read .env files), then ./gradlew :app:bootRun --args='--spring.profiles.active=dev'
   Default port 8082 (SERVER_PORT).
+  Outside the dev/test profiles these env vars are required (no default in application.yml): MAIL_USERNAME,
+  MAIL_PASSWORD, JWT_SECRET (base64). A missing JWT_SECRET or MAIL_USERNAME fails startup; a missing MAIL_PASSWORD
+  fails only when mail is sent. The dev profile has a public dev-only JWT_SECRET and empty mail values; env vars win if set.
 - Export API contract: ./gradlew exportOpenApi -> api/openapi.json (commit it). Swagger UI (local): http://localhost:8082/swagger-ui/index.html
 
 ## Modules

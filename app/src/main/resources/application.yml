@@ -10,8 +10,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: info.jasmine@gmail.com
-    password: egrpxvajcgdvqwmu
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -56,7 +56,7 @@ app:
   cors:
     allowed-origins: http://localhost:3000
   jwt:
-    secret: v9yBEHMbQeThWmZq4t7wzCFJaNdRfUjXn2r5u8xADGKbPeShVkYCFJaNdRfUjXn2r5u8xADGKbPeShVkYp
+    secret: ${JWT_SECRET}
     expiration:
       # Short-lived on purpose: clients renew it silently via POST /api/auth/refresh-token
       minutes: 15

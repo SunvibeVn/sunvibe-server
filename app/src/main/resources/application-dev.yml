@@ -7,3 +7,13 @@ app:
     # never use them for real data. Env vars still win if set.
     id-card-key: ${ID_CARD_CRYPTO_KEY:bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=}
     id-card-index-key: ${ID_CARD_CRYPTO_INDEX_KEY:HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=}
+  jwt:
+    # Local-development JWT signing key only. It is committed to git, so it is public:
+    # never use it for real data. The env var wins if set.
+    secret: ${JWT_SECRET:kmQq4ydBV1bxX3Yz7aQBH3xft428PqMVrZJmKGmsv5k2Wh6aFuC9hrCFFIN2ezLo}
+spring:
+  mail:
+    # Empty by default so dev boots without SMTP credentials (sending mail then fails).
+    # The env vars win if set.
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
