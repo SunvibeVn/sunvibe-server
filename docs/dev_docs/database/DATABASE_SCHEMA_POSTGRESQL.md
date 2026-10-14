@@ -129,7 +129,7 @@ CREATE UNIQUE INDEX idx_password_reset_token_token ON password_reset_token (toke
 CREATE INDEX idx_password_reset_token_destination ON password_reset_token (destination);
 CREATE INDEX idx_password_reset_token_user_id ON password_reset_token (user_id);
 
--- Mã xác minh SĐT (SMS) / email. Chỉ lưu SHA-256 có salt của mã. Xem dev_docs/auth/05_AUTH_CONTACT_VERIFICATION.md
+-- Mã xác minh SĐT (SMS) / email. Chỉ lưu SHA-256 có salt của mã. Xem ../../../../docs/features/auth/assets/dev_docs/05_AUTH_CONTACT_VERIFICATION.md
 CREATE TABLE verification_codes (
     id BIGINT NOT NULL PRIMARY KEY,
     user_id VARCHAR(26) NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -143,7 +143,7 @@ CREATE TABLE verification_codes (
 );
 CREATE INDEX idx_verification_codes_user_channel ON verification_codes (user_id, channel, created_at);
 
--- Nhật ký bảo mật của auth-service (append-only, giữ 180 ngày). Xem dev_docs/auth/04_AUTH_AUDIT_LOG.md
+-- Nhật ký bảo mật của auth-service (append-only, giữ 180 ngày). Xem ../../../../docs/features/auth/assets/dev_docs/04_AUTH_AUDIT_LOG.md
 CREATE TABLE auth_audit_events (
     id BIGINT NOT NULL PRIMARY KEY,
     event_type VARCHAR(50) NOT NULL, -- LOGIN_SUCCEEDED, LOGIN_FAILED, ACCOUNT_TEMPORARILY_LOCKED, ...
