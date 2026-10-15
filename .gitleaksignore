@@ -50,3 +50,6 @@ c7e05da58e23a93e5b0b92475d7ae15a335d4f17:modules/auth-service/src/test/java/vn/s
 c7e05da58e23a93e5b0b92475d7ae15a335d4f17:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/UserRepositoryAdapterEncryptionTest.java:generic-api-key:32
 dbd9833b1ef8fedf0738bd33afb19271495146c8:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/RegistrationPhoneChallengeRepositoryAdapterTest.java:generic-api-key:22
 dbd9833b1ef8fedf0738bd33afb19271495146c8:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/auth/RegistrationPhoneChallengeRepositoryAdapterTest.java:generic-api-key:23
+# W6 (beb8147, merged to main with a merge commit): the same public test ID-card keys as application-test.yml.
+beb8147a2b3f1134d852773e8ba18ee5d63c8390:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/UserRepositoryAdapterRoleTest.java:generic-api-key:35
+beb8147a2b3f1134d852773e8ba18ee5d63c8390:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/UserRepositoryAdapterRoleTest.java:generic-api-key:36
