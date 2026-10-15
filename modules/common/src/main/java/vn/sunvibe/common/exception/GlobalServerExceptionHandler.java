@@ -4,8 +4,10 @@ import jakarta.mail.AuthenticationFailedException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import vn.sunvibe.common.constant.error.SystemErrorMessage;
 import vn.sunvibe.common.dto.response.error.BaseErrorModel;
@@ -18,6 +20,22 @@ import java.util.List;
 @RestControllerAdvice
 @Log4j2
 public class GlobalServerExceptionHandler {
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<java.util.Map<String, String>> handleAccessDenied(AccessDeniedException e,
+            jakarta.servlet.http.HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of(
+                "error", "Forbidden",
+                "message", "You do not have permission to access this resource.",
+                "path", request.getRequestURI()));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<BaseErrorModel> handleMalformedRequest(HttpMessageNotReadableException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new BaseErrorModel(HttpStatus.BAD_REQUEST.value(), SystemErrorMessage.BAD_REQUEST,
+                        AppClock.currentUTC()));
+    }
 
     // Handling unknown system errors (500)
     @ExceptionHandler(Exception.class)
@@ -59,7 +77,7 @@ public class GlobalServerExceptionHandler {
         // Build error response to return to client
         ErrorResponse<ValidationError> errorResponse = ErrorResponse.<ValidationError>builder().message(SystemErrorMessage.VALIDATION_FAILED).errors(errors).build();
 
-        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(errorResponse);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
     @ExceptionHandler(ValidationException.class)

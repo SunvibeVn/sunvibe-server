@@ -4,6 +4,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
+import vn.sunvibe.property.core.application.exception.PropertyValidationException;
+import vn.sunvibe.property.core.domain.model.aggregate.Property;
 import vn.sunvibe.property.core.domain.model.enums.PropertyType;
 import vn.sunvibe.property.core.presentation.dto.request.PropertyCreateRequest;
 
@@ -92,16 +94,13 @@ public class PropertyCreateRequestMapper {
      */
     private PropertyType parsePropertyType(String typeStr) {
         if (typeStr == null || typeStr.isBlank()) {
-            throw new IllegalArgumentException("PropertyType cannot be null");
+            throw new PropertyValidationException(Property.FieldName.TYPE, "Invalid property type.");
         }
 
         try {
             return PropertyType.valueOf(typeStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(
-                    "Invalid PropertyType: " + typeStr +
-                            ". Valid values: STUDIO, ONE_BEDROOM, TWO_BEDROOM, THREE_BEDROOM, FOUR_BEDROOM, DUPLEX, PENTHOUSE"
-            );
+            throw new PropertyValidationException(Property.FieldName.TYPE, "Invalid property type.");
         }
     }
 

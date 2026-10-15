@@ -25,13 +25,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.boot.test.system.CapturedOutput;
-import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
@@ -70,7 +67,6 @@ import vn.sunvibe.common.time.AppClock;
 @ActiveProfiles("test")
 @Import(PostgresContainerConfig.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@ExtendWith(OutputCaptureExtension.class)
 class PropertyCreateCharacterizationTest {
 
 	private static final String ENDPOINT = "/api/v1/properties";
@@ -268,20 +264,15 @@ class PropertyCreateCharacterizationTest {
 	// ==================== C4 / C5: access ====================
 
 	@Test
-	void create_tenant_returns500InsteadOf403AndStoresNothing(CapturedOutput output) throws Exception {
-		// The @PreAuthorize denial (AuthorizationDeniedException) is raised inside the controller call, so
-		// GlobalServerExceptionHandler's catch-all @ExceptionHandler(Exception.class) answers it as a 500;
-		// SecurityConfig's 403 AccessDeniedHandler is never reached. Bug candidate, not fixed in W2.
+	void create_tenant_returns403WithSecurityBodyAndStoresNothing() throws Exception {
 		String code = uniqueCode();
 
-		int logStart = output.getOut().length();
 		Result result = post(tenant, validBody(code, tenant.userId()));
 
-		assertEquals(500, result.status(), result.rawBody());
-		assertEquals(500, result.body().path("code").asInt());
-		assertEquals("INTERNAL_ERROR", result.body().path("message").asString());
-		assertTrue(result.body().path("error").isMissingNode(), "not SecurityConfig's 403 body");
-		assertTrue(loggedSince(output, logStart, "AuthorizationDeniedException"), "cause in the server log");
+		assertEquals(403, result.status(), result.rawBody());
+		assertEquals("Forbidden", result.body().path("error").asString());
+		assertEquals("You do not have permission to access this resource.", result.body().path("message").asString());
+		assertEquals(ENDPOINT, result.body().path("path").asString());
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
@@ -301,79 +292,67 @@ class PropertyCreateCharacterizationTest {
 	// ==================== C6 - C11: validation and errors ====================
 
 	@Test
-	void create_missingTitle_returns406ValidationEnvelope() throws Exception {
+	void create_missingTitle_returns400ValidationEnvelope() throws Exception {
 		String code = uniqueCode();
 		Map<String, Object> body = validBody(code, landlordA.userId());
 		body.remove("title");
 
 		Result result = post(admin, body);
 
-		assertEquals(406, result.status(), result.rawBody());
+		assertEquals(400, result.status(), result.rawBody());
 		assertEquals("Validation failed.", result.body().path("message").asString());
 		assertEquals(Map.of("title", "Title cannot be null"), validationErrors(result.body()));
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
 	@Test
-	void create_duplicatePropertyCode_returns500InternalErrorAndKeepsTheFirstRow(CapturedOutput output) throws Exception {
+	void create_duplicatePropertyCode_returns409AndKeepsTheFirstRow() throws Exception {
 		String code = uniqueCode();
 		assertEquals(201, post(admin, validBody(code, landlordA.userId())).status());
 
-		int logStart = output.getOut().length();
 		Result result = post(admin, validBody(code, landlordB.userId()));
 
-		assertEquals(500, result.status(), result.rawBody());
-		assertEquals(500, result.body().path("code").asInt());
-		assertEquals("INTERNAL_ERROR", result.body().path("message").asString());
-		assertTrue(loggedSince(output, logStart, "PropertyAlreadyExistsException: Property code already exists: " + code),
-				"cause in the server log");
+		assertEquals(409, result.status(), result.rawBody());
 		assertEquals(1, countPropertiesWithCode(code));
 		assertEquals(landlordA.userId(), propertyRow(code).get("OWNER_ID"));
 	}
 
 	@Test
-	void create_unknownAmenityId_returns500InternalErrorAndStoresNothing(CapturedOutput output) throws Exception {
+	void create_unknownAmenityId_returns422AndStoresNothing() throws Exception {
 		String code = uniqueCode();
 		Map<String, Object> body = validBody(code, landlordA.userId());
 		body.put("amenityTypes", List.of(10, UNKNOWN_MASTER_ID));
 
-		int logStart = output.getOut().length();
 		Result result = post(admin, body);
 
-		assertEquals(500, result.status(), result.rawBody());
-		assertEquals("INTERNAL_ERROR", result.body().path("message").asString());
-		assertTrue(loggedSince(output, logStart, "AmenityType not found: " + UNKNOWN_MASTER_ID), "cause in the server log");
+		assertEquals(422, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Map.of("amenityTypes", "Referenced master data was not found."), validationErrors(result.body()));
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
 	@Test
-	void create_unknownRuleCategoryId_returns500InternalErrorAndStoresNothing(CapturedOutput output) throws Exception {
+	void create_unknownRuleCategoryId_returns422AndStoresNothing() throws Exception {
 		String code = uniqueCode();
 		Map<String, Object> body = validBody(code, landlordA.userId());
 		body.put("ruleCategories", List.of(UNKNOWN_MASTER_ID));
 
-		int logStart = output.getOut().length();
 		Result result = post(admin, body);
 
-		assertEquals(500, result.status(), result.rawBody());
-		assertEquals("INTERNAL_ERROR", result.body().path("message").asString());
-		assertTrue(loggedSince(output, logStart, "RuleCategory not found: " + UNKNOWN_MASTER_ID), "cause in the server log");
+		assertEquals(422, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Map.of("ruleCategories", "Referenced master data was not found."), validationErrors(result.body()));
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
 	@Test
-	void create_propertyCodeWithTooFewDigits_returns500InternalErrorAndStoresNothing(CapturedOutput output)
-			throws Exception {
-		// Bean validation only checks @NotBlank; the format check is in the PropertyCode value object,
-		// whose IllegalArgumentException the service wraps in PropertyServiceException
-		assertPropertyCodeRejectedWith500("WT-CRT-1", output);
+	void create_propertyCodeWithTooFewDigits_returns400WithFieldErrorAndStoresNothing() throws Exception {
+		assertPropertyCodeRejectedWith400("WT-CRT-1", "Property code must follow the format XX-XXX-001.");
 	}
 
 	@Test
-	void create_lowerCasePropertyCode_returns500InternalErrorAndStoresNothing(CapturedOutput output)
-			throws Exception {
-		// The regex rejects lower case before PropertyCode's toUpperCase() can run
-		assertPropertyCodeRejectedWith500("wt-crt-001", output);
+	void create_lowerCasePropertyCode_returns400WithFieldErrorAndStoresNothing() throws Exception {
+		assertPropertyCodeRejectedWith400("wt-crt-001", "Property code must follow the format XX-XXX-001.");
 	}
 
 	@Test
@@ -390,38 +369,36 @@ class PropertyCreateCharacterizationTest {
 	}
 
 	@Test
-	void create_invalidPropertyType_returns500InternalErrorAndStoresNothing(CapturedOutput output) throws Exception {
+	void create_invalidPropertyType_returns400WithFieldErrorAndStoresNothing() throws Exception {
 		String code = uniqueCode();
 		Map<String, Object> body = validBody(code, landlordA.userId());
 		body.put("propertyType", "CASTLE");
 
-		int logStart = output.getOut().length();
 		Result result = post(admin, body);
 
-		assertEquals(500, result.status(), result.rawBody());
-		assertEquals("INTERNAL_ERROR", result.body().path("message").asString());
-		assertTrue(loggedSince(output, logStart, "Invalid PropertyType: CASTLE"), "cause in the server log");
+		assertEquals(400, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Map.of("type", "Invalid property type."), validationErrors(result.body()));
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
 	@Test
-	void create_imageWithBlankUrl_returns500NotValidationErrorAndStoresNothing(CapturedOutput output) throws Exception {
+	void create_imageWithBlankUrl_returns400WithFieldErrorAndStoresNothing() throws Exception {
 		// images has no @Valid, so the nested @NotBlank imageUrl never runs; the domain PropertyImage rejects it
 		String code = uniqueCode();
 		Map<String, Object> body = validBody(code, landlordA.userId());
 		body.put("images", List.of(image("", true, 0)));
 
-		int logStart = output.getOut().length();
 		Result result = post(admin, body);
 
-		assertEquals(500, result.status(), result.rawBody());
-		assertEquals("INTERNAL_ERROR", result.body().path("message").asString());
-		assertTrue(loggedSince(output, logStart, "ImageUrl cannot be null"), "cause in the server log");
+		assertEquals(400, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Map.of("images", "Image URL cannot be blank."), validationErrors(result.body()));
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
 	@Test
-	void create_zeroMonthlyPriceAndZeroBedrooms_returns406WithBothFieldErrors() throws Exception {
+	void create_zeroMonthlyPriceAndZeroBedrooms_returns400WithBothFieldErrors() throws Exception {
 		String code = uniqueCode();
 		Map<String, Object> body = validBody(code, landlordA.userId());
 		body.put("monthlyPrice", 0);
@@ -429,7 +406,7 @@ class PropertyCreateCharacterizationTest {
 
 		Result result = post(admin, body);
 
-		assertEquals(406, result.status(), result.rawBody());
+		assertEquals(400, result.status(), result.rawBody());
 		assertEquals("Validation failed.", result.body().path("message").asString());
 		assertEquals(Map.of(
 				"monthlyPrice", "MonthlyPrice must be > 0",
@@ -437,15 +414,45 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
+	@Test
+	void login_missingCredentials_returns400ValidationEnvelope() throws Exception {
+		HttpResponse<String> response = http.send(
+				HttpRequest.newBuilder(uri("/api/auth/login"))
+						.timeout(REQUEST_TIMEOUT)
+						.header("Content-Type", "application/json")
+						.POST(HttpRequest.BodyPublishers.ofString("{}"))
+						.build(),
+				HttpResponse.BodyHandlers.ofString());
+		Result result = new Result(response.statusCode(), json.readTree(response.body()), response.body());
+
+		assertEquals(400, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Map.of(
+				"username", "Phone numbers is mandatory.",
+				"password", "Password is mandatory."), validationErrors(result.body()));
+	}
+
+	@Test
+	void login_malformedJson_returns400() throws Exception {
+		HttpResponse<String> response = http.send(
+				HttpRequest.newBuilder(uri("/api/auth/login"))
+						.timeout(REQUEST_TIMEOUT)
+						.header("Content-Type", "application/json")
+						.POST(HttpRequest.BodyPublishers.ofString("{"))
+						.build(),
+				HttpResponse.BodyHandlers.ofString());
+
+		assertEquals(400, response.statusCode(), response.body());
+	}
+
 	// ==================== Helpers ====================
 
-	private void assertPropertyCodeRejectedWith500(String code, CapturedOutput output) throws Exception {
-		int logStart = output.getOut().length();
+	private void assertPropertyCodeRejectedWith400(String code, String expectedMessage) throws Exception {
 		Result result = post(admin, validBody(code, landlordA.userId()));
 
-		assertEquals(500, result.status(), result.rawBody());
-		assertEquals("INTERNAL_ERROR", result.body().path("message").asString());
-		assertTrue(loggedSince(output, logStart, "PropertyCode must follow the format"), "cause in the server log");
+		assertEquals(400, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Map.of("propertyCode", expectedMessage), validationErrors(result.body()));
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
@@ -497,11 +504,6 @@ class PropertyCreateCharacterizationTest {
 		String raw = response.body();
 		JsonNode parsed = raw == null || raw.isBlank() ? json.missingNode() : json.readTree(raw);
 		return new Result(response.statusCode(), parsed, "status " + response.statusCode() + ", body " + raw);
-	}
-
-	/** Only output written after {@code start}, so a cause logged by an earlier test cannot match. */
-	private static boolean loggedSince(CapturedOutput output, int start, String text) {
-		return output.getOut().substring(start).contains(text);
 	}
 
 	private URI uri(String path) {
