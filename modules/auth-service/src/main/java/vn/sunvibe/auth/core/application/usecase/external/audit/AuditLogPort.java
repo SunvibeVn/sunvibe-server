@@ -15,6 +15,12 @@ public interface AuditLogPort {
     void record(AuthAuditEvent event);
 
     /**
+     * Records a success event (e.g. a role granted) only once the caller's transaction commits, so a change that
+     * rolls back leaves no audit row. Outside a transaction it is recorded at once. Never throws.
+     */
+    void recordAfterCommit(AuthAuditEvent event);
+
+    /**
      * Deletes events older than {@code cutoff}.
      *
      * @return the number of deleted events

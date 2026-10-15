@@ -4,6 +4,7 @@ import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
+import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.repository.user.PendingAccountRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
@@ -72,6 +73,16 @@ public class InMemoryUserRepository implements UserDomainRepository, UserLoginAt
     @Override
     public Optional<AppUser> findById(UserId userId) {
         return users.values().stream().filter(u -> u.getId().equals(userId)).findFirst();
+    }
+
+    @Override
+    public boolean addRole(UserId userId, RoleName role) {
+        return findById(userId).orElseThrow().grantRole(role);
+    }
+
+    @Override
+    public boolean removeRole(UserId userId, RoleName role) {
+        return findById(userId).orElseThrow().revokeRole(role);
     }
 
     @Override

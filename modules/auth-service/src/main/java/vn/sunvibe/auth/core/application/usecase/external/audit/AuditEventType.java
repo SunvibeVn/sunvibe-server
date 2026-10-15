@@ -50,6 +50,10 @@ public enum AuditEventType {
     /** A registering phone number was proven; a registration token was issued. */
     REGISTRATION_PHONE_VERIFIED,
     /** A registration code or token was rejected (wrong, expired, burned, used or for another phone). */
-    REGISTRATION_VERIFICATION_FAILED
+    REGISTRATION_VERIFICATION_FAILED,
+    /** A role was granted to an account (role admin API, or OWNER on property create); details name role and actor. */
+    ROLE_GRANTED,
+    /** A role was revoked from an account; every session of that account was ended. Details name role and actor. */
+    ROLE_REVOKED
 
 }

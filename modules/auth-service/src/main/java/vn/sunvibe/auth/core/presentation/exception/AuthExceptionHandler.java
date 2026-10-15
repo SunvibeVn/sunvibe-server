@@ -13,12 +13,19 @@ import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedExcep
 import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenException;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationException;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledException;
+import vn.sunvibe.auth.core.application.exception.role.InactiveAccountException;
+import vn.sunvibe.auth.core.application.exception.role.RoleNotGrantableException;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.shared.service.CookieService;
+import vn.sunvibe.common.constant.error.SystemErrorMessage;
 import vn.sunvibe.common.dto.response.error.BaseErrorModel;
+import vn.sunvibe.common.dto.response.error.ErrorResponse;
+import vn.sunvibe.common.dto.response.error.ValidationError;
 import vn.sunvibe.common.time.AppClock;
+
+import java.util.List;
 
 /**
  * Auth-specific error responses. Ordered ahead of the application-wide handler,
@@ -82,6 +89,26 @@ public class AuthExceptionHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<BaseErrorModel> handleUserNotFound(UserNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error(HttpStatus.NOT_FOUND, e.getMessage()));
+    }
+
+    /** Role admin API: SUPER_ADMIN, an old role or an unknown name (auth-roles E-6). */
+    @ExceptionHandler(RoleNotGrantableException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleRoleNotGrantable(RoleNotGrantableException e) {
+        return validation(HttpStatus.BAD_REQUEST, "role", e.getMessage());
+    }
+
+    /** Role admin API: a role cannot be granted to a locked or terminated account (auth-roles E-7). */
+    @ExceptionHandler(InactiveAccountException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleInactiveAccount(InactiveAccountException e) {
+        return validation(HttpStatus.UNPROCESSABLE_ENTITY, "userId", e.getMessage());
+    }
+
+    private static ResponseEntity<ErrorResponse<ValidationError>> validation(HttpStatus status, String field,
+            String message) {
+        return ResponseEntity.status(status).body(ErrorResponse.<ValidationError>builder()
+                .message(SystemErrorMessage.VALIDATION_FAILED)
+                .errors(List.of(ValidationError.builder().field(field).message(message).build()))
+                .build());
     }
 
     private static BaseErrorModel error(HttpStatus status, String message) {

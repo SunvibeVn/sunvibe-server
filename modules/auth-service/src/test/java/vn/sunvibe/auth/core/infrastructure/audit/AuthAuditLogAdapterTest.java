@@ -86,6 +86,41 @@ class AuthAuditLogAdapterTest {
         assertNotNull(event.getOccurredAt());
     }
 
+    /** Success events (a role granted) must not outlive a rolled-back change (auth-roles US-4 AC-4, BR-8). */
+    @Test
+    void recordAfterCommit_callersTransactionRollsBack_writesNothing() {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            adapter.recordAfterCommit(AuthAuditEvent.of(AuditEventType.ROLE_GRANTED, "user-1", null, "role=OWNER"));
+            status.setRollbackOnly();
+        });
+
+        assertEquals(0, repository.count());
+    }
+
+    @Test
+    void recordAfterCommit_callersTransactionCommits_writesTheEventWithTheRequestData() {
+        MockHttpServletRequest request = new MockHttpServletRequest("PUT", "/api/v1/staff/users/u/roles/SALE");
+        request.setRemoteAddr("203.0.113.9");
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            adapter.recordAfterCommit(AuthAuditEvent.of(AuditEventType.ROLE_GRANTED, "user-1", null, "role=SALE"));
+            assertEquals(0, repository.count(), "not written before the commit");
+        });
+
+        AuthAuditEventEntity event = repository.findAll().getFirst();
+        assertEquals(AuditEventType.ROLE_GRANTED, event.getEventType());
+        assertEquals("role=SALE", event.getDetails());
+        assertEquals("203.0.113.9", event.getIpAddress());
+    }
+
+    @Test
+    void recordAfterCommit_withoutATransaction_writesAtOnce() {
+        adapter.recordAfterCommit(AuthAuditEvent.of(AuditEventType.ROLE_REVOKED, "user-1", null, "role=SALE"));
+
+        assertEquals(1, repository.count());
+    }
+
     @Test
     void record_takesClientIpAndUserAgentFromTheCurrentRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/login");

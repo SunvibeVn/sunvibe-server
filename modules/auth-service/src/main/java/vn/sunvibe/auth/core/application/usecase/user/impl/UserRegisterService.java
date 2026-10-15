@@ -87,8 +87,10 @@ public class UserRegisterService implements UserRegisterUseCase {
 
         AppUser appUser = AppUser.create(userId, userRegisterCommand.fullName(), usernameVO, emailVO, passwordVO, profileImageVO, idCardNumberVO, new HashSet<>(), AppClock.currentUTC());
 
-        // Self-registered accounts are always tenants; other roles are granted through separate flows
-        appUser.assignRole(RoleName.TENANT.name());
+        // Self-registered accounts get exactly TENANT and CUSTOMER (auth-roles BR-3); other roles are granted by staff
+        for (RoleName role : RoleName.SELF_REGISTRATION) {
+            appUser.assignRole(role.name());
+        }
 
         // Phone proven up front: the PENDING account becomes ACTIVE straight away
         if (phoneVerifiedFirst) {

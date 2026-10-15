@@ -65,6 +65,8 @@ class UserGetInfoServiceTest {
             public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
             @Override
             public java.util.Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
+            @Override public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
+            @Override public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
         };
 
         SecurityContextHolder.getContext().setAuthentication(

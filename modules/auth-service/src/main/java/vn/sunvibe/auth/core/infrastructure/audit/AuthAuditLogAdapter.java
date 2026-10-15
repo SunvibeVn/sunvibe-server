@@ -6,6 +6,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -51,6 +53,38 @@ public class AuthAuditLogAdapter implements AuditLogPort {
     @Override
     public void record(AuthAuditEvent event) {
         try {
+            AuthAuditEventEntity entity = toEntity(event);
+            inNewTransaction.executeWithoutResult(status -> repository.save(entity));
+        } catch (RuntimeException e) {
+            log.error("Could not write audit event {} for user {}", event.type(), event.userId(), e);
+        }
+    }
+
+    @Override
+    public void recordAfterCommit(AuthAuditEvent event) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            record(event);
+            return;
+        }
+        try {
+            // Built now, while the request (IP, User-Agent) is still at hand; written after the commit
+            AuthAuditEventEntity entity = toEntity(event);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    try {
+                        inNewTransaction.executeWithoutResult(status -> repository.save(entity));
+                    } catch (RuntimeException e) {
+                        log.error("Could not write audit event {} for user {}", event.type(), event.userId(), e);
+                    }
+                }
+            });
+        } catch (RuntimeException e) {
+            log.error("Could not write audit event {} for user {}", event.type(), event.userId(), e);
+        }
+    }
+
+    private AuthAuditEventEntity toEntity(AuthAuditEvent event) {
             AuthAuditEventEntity entity = new AuthAuditEventEntity();
             entity.setId(snowflakeIdGenerator.generateId());
             entity.setEventType(event.type());
@@ -63,10 +97,7 @@ public class AuthAuditLogAdapter implements AuditLogPort {
                 entity.setIpAddress(truncate(request.getRemoteAddr(), MAX_IP));
                 entity.setUserAgent(truncate(request.getHeader(HttpHeaders.USER_AGENT), MAX_USER_AGENT));
             }
-            inNewTransaction.executeWithoutResult(status -> repository.save(entity));
-        } catch (RuntimeException e) {
-            log.error("Could not write audit event {} for user {}", event.type(), event.userId(), e);
-        }
+            return entity;
     }
 
     @Override

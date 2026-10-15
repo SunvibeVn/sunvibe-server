@@ -40,11 +40,10 @@ public record PropertyCreateCommand(
         Integer minRentMonths,
 
         // ==================== Ownership & Audit ====================
-        // ownerId from the request body; only an ADMIN's value is used (W5)
-        String requestedOwnerId,
-        // The authenticated caller: user id, whether it holds ROLE_ADMIN, username (created_by)
+        // The owner named in the request (W6: required for every caller, never the caller by default)
+        String ownerId,
+        // The authenticated caller: user id (actor of the OWNER grant) and username (created_by)
         String actorUserId,
-        boolean actorIsAdmin,
         String createdBy,
 
         // ==================== Additional Data ====================

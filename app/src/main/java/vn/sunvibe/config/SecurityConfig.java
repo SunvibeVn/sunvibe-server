@@ -5,8 +5,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authorization.DefaultAuthorizationManagerFactory;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -64,6 +70,30 @@ public class SecurityConfig {
     private static final String ADMIN_FEATURE_PATH = "/features/admin/**";
 
     // ── Beans ────────────────────────────────────────────────
+
+    /**
+     * SUPER_ADMIN passes every ADMIN rule (auth-roles BR-4, W6-4). The one hierarchy for both the HTTP rules
+     * below (picked up from the context by authorizeHttpRequests) and method security ({@code @PreAuthorize}).
+     * Static, like every bean that method security needs early.
+     */
+    @Bean
+    static RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.withDefaultRolePrefix()
+                .role(RoleName.SUPER_ADMIN.name()).implies(RoleName.ADMIN.name())
+                .build();
+    }
+
+    /** Makes {@code @PreAuthorize("hasRole(...)")} use {@link #roleHierarchy()}. */
+    @Bean
+    static MethodSecurityExpressionHandler methodSecurityExpressionHandler(RoleHierarchy roleHierarchy) {
+        DefaultAuthorizationManagerFactory<MethodInvocation> authorizationManagerFactory =
+                new DefaultAuthorizationManagerFactory<>();
+        authorizationManagerFactory.setRoleHierarchy(roleHierarchy);
+        DefaultMethodSecurityExpressionHandler expressionHandler = new DefaultMethodSecurityExpressionHandler();
+        expressionHandler.setAuthorizationManagerFactory(authorizationManagerFactory);
+        return expressionHandler;
+    }
+
     @Bean
     public AuthenticationManager authenticationManager() throws Exception {
         return authConfiguration.getAuthenticationManager();

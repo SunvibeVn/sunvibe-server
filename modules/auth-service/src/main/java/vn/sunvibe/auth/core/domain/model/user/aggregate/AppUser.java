@@ -162,17 +162,51 @@ public class AppUser {
     }
 
     /**
-     * Grants a role at self-registration.
+     * Grants a role at self-registration: only {@link RoleName#SELF_REGISTRATION} (auth-roles BR-3).
      *
-     * @throws IllegalArgumentException for an unknown role, or for ADMIN / SUPER_ADMIN,
-     *                                  which can never be self-assigned
+     * @throws IllegalArgumentException for an unknown role or any other role
      */
     public void assignRole(String role) {
         RoleName roleName = RoleName.valueOf(role);
-        if (roleName == RoleName.ADMIN || roleName == RoleName.SUPER_ADMIN) {
+        if (!RoleName.SELF_REGISTRATION.contains(roleName)) {
             throw new IllegalArgumentException("Cannot register with this role.");
         }
         this.userRoles.add(role);
+    }
+
+    /**
+     * Adds a role granted by staff or by the system; who may grant what is checked by the caller.
+     *
+     * @return true if the role was added, false if the account already held it
+     * @throws IllegalArgumentException for SUPER_ADMIN, which the application never grants
+     */
+    public boolean grantRole(RoleName role) {
+        if (role == RoleName.SUPER_ADMIN) {
+            throw new IllegalArgumentException("SUPER_ADMIN is never granted.");
+        }
+        boolean added = this.userRoles.add(role.name());
+        if (added) {
+            touch();
+        }
+        return added;
+    }
+
+    /**
+     * Removes a role; the account may end with no roles.
+     *
+     * @return true if the role was removed, false if the account did not hold it
+     */
+    public boolean revokeRole(RoleName role) {
+        boolean removed = this.userRoles.remove(role.name());
+        if (removed) {
+            touch();
+        }
+        return removed;
+    }
+
+    /** Whether the account holds a staff or admin role ({@link RoleName#STAFF}). */
+    public boolean isStaff() {
+        return RoleName.STAFF.stream().anyMatch(role -> userRoles.contains(role.name()));
     }
 
     /** A successful password login: records it and forgets earlier failed attempts. */

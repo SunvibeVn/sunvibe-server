@@ -16,6 +16,8 @@ public enum RevokeReason {
     /** An already-rotated token was presented again: likely stolen. */
     REUSE_DETECTED,
     /** The owner no longer exists or is locked/disabled. */
-    ACCOUNT_INACTIVE
+    ACCOUNT_INACTIVE,
+    /** A role was revoked from the account by staff; every session is ended (auth-roles BR-11). */
+    ROLE_REVOKED
 
 }

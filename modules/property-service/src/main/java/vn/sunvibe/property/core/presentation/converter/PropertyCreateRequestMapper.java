@@ -1,7 +1,6 @@
 package vn.sunvibe.property.core.presentation.converter;
 
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.common.security.AuthenticatedUser;
@@ -22,8 +21,6 @@ import java.util.List;
 @Component
 public class PropertyCreateRequestMapper {
 
-    private static final String ROLE_ADMIN = "ROLE_ADMIN";
-
     /**
      * Map PropertyCreateRequest -> PropertyCreateCommand
      */
@@ -32,12 +29,9 @@ public class PropertyCreateRequestMapper {
             throw new IllegalArgumentException("PropertyCreateRequest cannot be null");
         }
 
-        // The caller, from the security context; the use case decides the owner
+        // The caller, from the security context: actor of the OWNER grant and created_by
         Authentication authentication = currentAuthentication();
         String actorUserId = ((AuthenticatedUser) authentication.getPrincipal()).getUserId();
-        boolean actorIsAdmin = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(ROLE_ADMIN::equals);
 
         // Convert property type string -> enum
         PropertyType propertyType = parsePropertyType(request.propertyType());
@@ -76,7 +70,6 @@ public class PropertyCreateRequestMapper {
                 // Ownership & audit
                 request.ownerId(),
                 actorUserId,
-                actorIsAdmin,
                 authentication.getName(),
 
                 // Additional data

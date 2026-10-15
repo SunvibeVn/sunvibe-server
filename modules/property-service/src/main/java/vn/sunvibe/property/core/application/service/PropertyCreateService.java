@@ -50,7 +50,7 @@ public class PropertyCreateService implements PropertyCreateUseCase {
         log.info("Creating property: code={}", command.propertyCode());
 
         try {
-            String ownerId = resolveOwner(command);
+            String ownerId = checkedOwner(command.ownerId());
 
             PropertyCode propertyCode;
             try {
@@ -85,6 +85,11 @@ public class PropertyCreateService implements PropertyCreateUseCase {
             addImages(property, command.images(), command.createdBy());
 
             propertyDomainRepository.save(property);
+            // Same transaction: if the grant fails, the property is not stored either (BR-8). The owner is checked
+            // again there; one who became ineligible meanwhile rolls everything back with 422
+            if (!userDirectoryPort.ensureOwnerRole(ownerId, command.actorUserId())) {
+                throw new PropertyOwnerNotFoundException();
+            }
             log.info("Property saved: id={}", property.getId());
 
             return property.getId();
@@ -100,24 +105,17 @@ public class PropertyCreateService implements PropertyCreateUseCase {
     }
 
     /**
-     * W5 (audit R3): a non-admin caller is always the owner; the ownerId in the request is ignored.
-     * An ADMIN must name an owner who is an existing, active user (no role check until W6).
+     * W6 (auth-roles BR-6, BR-7): every caller names the owner; the caller never becomes the owner by default.
+     * The owner must be able to sign in and hold no staff/admin role, so a staff caller naming themselves fails too.
      */
-    private String resolveOwner(PropertyCreateCommand command) {
-        String requested = command.requestedOwnerId();
-        if (!command.actorIsAdmin()) {
-            if (requested != null && !requested.equals(command.actorUserId())) {
-                log.info("ownerId in the request ignored for a non-admin caller");
-            }
-            return command.actorUserId();
-        }
-        if (requested == null || requested.isBlank()) {
+    private String checkedOwner(String ownerId) {
+        if (ownerId == null || ownerId.isBlank()) {
             throw new PropertyValidationException(Property.FieldName.OWNER_ID, "OwnerId is required.");
         }
-        if (!userDirectoryPort.existsActiveUser(requested)) {
+        if (!userDirectoryPort.isEligibleOwner(ownerId)) {
             throw new PropertyOwnerNotFoundException();
         }
-        return requested;
+        return ownerId;
     }
 
     private void applyRules(Property property, List<Integer> ruleCategoryIds) {
