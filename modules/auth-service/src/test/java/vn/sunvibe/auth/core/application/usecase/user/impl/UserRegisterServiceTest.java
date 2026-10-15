@@ -24,7 +24,7 @@ import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
-import vn.sunvibe.common.generator.id.IdGenerator;
+import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.util.ArrayList;

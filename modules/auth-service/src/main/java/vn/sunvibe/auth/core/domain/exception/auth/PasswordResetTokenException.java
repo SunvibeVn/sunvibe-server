@@ -1,6 +1,6 @@
 package vn.sunvibe.auth.core.domain.exception.auth;
 
-import vn.sunvibe.common.exception.BusinessRuleViolationException;
+import vn.sunvibe.shared.exception.BusinessRuleViolationException;
 
 import java.io.Serial;
 

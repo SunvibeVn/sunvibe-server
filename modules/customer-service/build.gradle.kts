@@ -1,4 +1,4 @@
 // Customer service module
 dependencies {
-    implementation(project(":modules:common"))
+    implementation(project(":modules:shared-service"))
 }

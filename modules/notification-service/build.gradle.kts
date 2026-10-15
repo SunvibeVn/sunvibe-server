@@ -1,4 +1,4 @@
 // Notification service module - business logic only
 dependencies {
-    implementation(project(":modules:common"))
+    implementation(project(":modules:shared-service"))
 }

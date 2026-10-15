@@ -15,7 +15,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 
 ## Modules
 - app: Spring Boot entry point (vn.sunvibe.SunvibeServerApplication) and the single SecurityFilterChain (app/.../config/SecurityConfig.java).
-- modules/common: shared exceptions, ErrorResponse, crypto, ID generators, AppClock.
+- modules/shared-service: shared exceptions, ErrorResponse, crypto, ID generators, AppClock (package vn.sunvibe.shared).
 - modules/auth-service: login, refresh-token rotation, registration, contact verification, password reset, audit, rate limit.
 - modules/property-service: properties (prices, images, amenities, rules, documents, availability).
 - Other modules under modules/ are empty placeholders. A new module must be added to settings.gradle.kts and app/build.gradle.kts.
@@ -37,8 +37,8 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - NEVER commit a secret: CI gitleaks-scans new commits (.github/workflows/secret-scan.yml). A false positive goes
   into .gitleaksignore as a fingerprint (never the value), only after owner review.
 - Every new endpoint: OpenAPI annotations (springdoc, io.swagger.v3.oas.annotations) + explicit authorization rule + test.
-- Errors use the shared format: vn.sunvibe.common.dto.response.error.ErrorResponse(message, errors),
-  produced by common/exception/GlobalServerExceptionHandler or a module *ExceptionHandler. Never leak stack traces.
+- Errors use the shared format: vn.sunvibe.shared.dto.response.error.ErrorResponse(message, errors),
+  produced by vn.sunvibe.shared.exception.GlobalServerExceptionHandler or a module *ExceptionHandler. Never leak stack traces.
 - New endpoints go under /api/v1/<resource>. Existing auth paths (/api/auth, /api/users/command, /api/user/query) are legacy.
 - CORS: explicit origin allow-list from config (app.cors.allowed-origins), allowCredentials=true. Never "*".
   See ../docs/decisions/ADR-001-direct-browser-api.md

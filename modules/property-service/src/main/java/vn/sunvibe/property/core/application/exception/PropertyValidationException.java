@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.application.exception;
 
 import lombok.Getter;
-import vn.sunvibe.common.exception.BusinessRuleViolationException;
+import vn.sunvibe.shared.exception.BusinessRuleViolationException;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;
 
 import java.io.Serial;

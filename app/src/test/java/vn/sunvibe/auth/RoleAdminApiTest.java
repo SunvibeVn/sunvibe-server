@@ -41,8 +41,8 @@ import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.model.user.vo.Username;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.common.generator.id.IdGenerator;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.time.AppClock;
 
 /**
  * Role admin API {@code /api/v1/staff/users/{userId}/roles} end to end on PostgreSQL (wave W6, W6-9; auth-roles

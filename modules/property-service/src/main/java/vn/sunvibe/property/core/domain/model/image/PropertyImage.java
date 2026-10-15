@@ -4,7 +4,7 @@ package vn.sunvibe.property.core.domain.model.image;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 
 import java.time.LocalDateTime;

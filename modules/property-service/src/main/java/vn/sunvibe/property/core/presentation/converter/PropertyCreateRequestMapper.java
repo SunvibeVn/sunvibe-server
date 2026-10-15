@@ -3,7 +3,7 @@ package vn.sunvibe.property.core.presentation.converter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import vn.sunvibe.common.security.AuthenticatedUser;
+import vn.sunvibe.shared.security.AuthenticatedUser;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;

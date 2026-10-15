@@ -19,11 +19,11 @@ import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.shared.service.CookieService;
-import vn.sunvibe.common.constant.error.SystemErrorMessage;
-import vn.sunvibe.common.dto.response.error.BaseErrorModel;
-import vn.sunvibe.common.dto.response.error.ErrorResponse;
-import vn.sunvibe.common.dto.response.error.ValidationError;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.constant.error.SystemErrorMessage;
+import vn.sunvibe.shared.dto.response.error.BaseErrorModel;
+import vn.sunvibe.shared.dto.response.error.ErrorResponse;
+import vn.sunvibe.shared.dto.response.error.ValidationError;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.util.List;
 

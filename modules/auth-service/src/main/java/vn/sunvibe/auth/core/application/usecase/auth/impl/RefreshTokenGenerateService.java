@@ -9,8 +9,8 @@ import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
-import vn.sunvibe.common.generator.id.IdGenerator;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.time.AppClock;
 
 /**
  * Starts a sign-in session: a new token family whose absolute lifetime is

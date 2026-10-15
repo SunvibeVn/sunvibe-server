@@ -28,7 +28,7 @@ import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapper
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserVOMapperImpl;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository;
-import vn.sunvibe.common.crypto.AesGcmCryptoService;
+import vn.sunvibe.shared.crypto.AesGcmCryptoService;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;

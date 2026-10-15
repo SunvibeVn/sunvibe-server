@@ -14,7 +14,7 @@ import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntit
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserRoleJpaRepository;
 import vn.sunvibe.auth.core.shared.constant.UserMessage;
-import vn.sunvibe.common.crypto.CryptoService;
+import vn.sunvibe.shared.crypto.CryptoService;
 
 import java.util.HashSet;
 import java.util.Optional;

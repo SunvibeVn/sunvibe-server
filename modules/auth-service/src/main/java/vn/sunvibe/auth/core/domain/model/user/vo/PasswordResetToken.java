@@ -3,7 +3,7 @@ package vn.sunvibe.auth.core.domain.model.user.vo;
 import lombok.Getter;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

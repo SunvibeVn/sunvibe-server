@@ -1,7 +1,7 @@
 package vn.sunvibe.auth.core.infrastructure.security.userdetails;
 
 import org.springframework.security.core.AuthenticatedPrincipal;
-import vn.sunvibe.common.security.AuthenticatedUser;
+import vn.sunvibe.shared.security.AuthenticatedUser;
 
 /**
  * Principal set by the JWT request filter: only the user id and the username, no password hash or e-mail.

@@ -21,8 +21,8 @@ import vn.sunvibe.auth.core.domain.model.user.vo.OtpCode;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.common.generator.id.IdGenerator;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Duration;
 import java.time.Instant;

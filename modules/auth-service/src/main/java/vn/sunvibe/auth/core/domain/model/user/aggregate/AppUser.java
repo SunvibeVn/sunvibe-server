@@ -7,7 +7,7 @@ import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;
 import java.util.Objects;

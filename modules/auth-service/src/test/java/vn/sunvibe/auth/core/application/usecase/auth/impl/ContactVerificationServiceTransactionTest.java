@@ -23,8 +23,8 @@ import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 import vn.sunvibe.auth.core.testsupport.RecordingEmailService;
 import vn.sunvibe.auth.core.testsupport.RecordingSmsSender;
-import vn.sunvibe.common.crypto.AesGcmCryptoService;
-import vn.sunvibe.common.generator.id.IdGenerator;
+import vn.sunvibe.shared.crypto.AesGcmCryptoService;
+import vn.sunvibe.shared.generator.id.IdGenerator;
 
 import java.time.Duration;
 import java.time.Instant;

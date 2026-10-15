@@ -18,7 +18,7 @@ import vn.sunvibe.auth.core.presentation.dto.request.user.UserRegisterRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.LoginResponse;
 import vn.sunvibe.auth.core.shared.constant.UserMessage;
 import vn.sunvibe.auth.core.shared.service.CookieService;
-import vn.sunvibe.common.response.ApiResponse;
+import vn.sunvibe.shared.response.ApiResponse;
 
 /**
  * Account write operations.

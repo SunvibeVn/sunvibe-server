@@ -12,4 +12,4 @@ paths:
 - After changing any endpoint or DTO: ./gradlew exportOpenApi and commit api/openapi.json.
 - New paths: /api/v1/<resource>, plural nouns, kebab-case. Do not copy the legacy auth paths.
 - Errors: throw application/domain exceptions; the shared handlers return
-  vn.sunvibe.common.dto.response.error.ErrorResponse. Never leak exception messages or stack traces.
+  vn.sunvibe.shared.dto.response.error.ErrorResponse. Never leak exception messages or stack traces.

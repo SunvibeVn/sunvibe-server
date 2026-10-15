@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.auth.core.application.usecase.user.UserGetInfoUseCase;
 import vn.sunvibe.auth.core.presentation.converter.user.UserConverter;
 import vn.sunvibe.auth.core.presentation.dto.response.user.UserProfileInfo;
-import vn.sunvibe.common.response.ApiResponse;
+import vn.sunvibe.shared.response.ApiResponse;
 
 /**
  * Account read operations.

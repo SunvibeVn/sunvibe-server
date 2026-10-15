@@ -8,7 +8,7 @@ import vn.sunvibe.auth.core.application.command.role.RoleChangeCommand;
 import vn.sunvibe.auth.core.application.query.role.UserRolesResult;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.presentation.dto.response.role.UserRolesResponse;
-import vn.sunvibe.common.security.AuthenticatedUser;
+import vn.sunvibe.shared.security.AuthenticatedUser;
 
 /**
  * Builds role admin commands from the path and the signed-in caller.
