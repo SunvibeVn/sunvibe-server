@@ -18,7 +18,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - modules/shared-service: shared exceptions, ErrorResponse, crypto, ID generators, AppClock (package vn.sunvibe.shared).
 - modules/auth-service: login, refresh-token rotation, registration, contact verification, password reset, audit, rate limit.
 - modules/property-service: properties (prices, images, amenities, rules, documents, availability).
-- Other modules under modules/ are empty placeholders. A new module must be added to settings.gradle.kts and app/build.gradle.kts.
+- modules/listing-service, modules/notification-service: empty placeholders (target names, ADR-003). A new module must be added to settings.gradle.kts and app/build.gradle.kts.
 
 ## Architecture
 - DDD + Hexagonal + CQRS. Package root per module: vn.sunvibe.<module>.core.{domain,application,infrastructure,presentation,shared}.
