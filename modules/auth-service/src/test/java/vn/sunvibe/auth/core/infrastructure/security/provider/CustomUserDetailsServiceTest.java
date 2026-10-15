@@ -61,6 +61,18 @@ class CustomUserDetailsServiceTest {
         public java.util.Optional<AppUser> findById(vn.sunvibe.auth.core.domain.model.user.vo.UserId userId) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public boolean addRole(vn.sunvibe.auth.core.domain.model.user.vo.UserId userId,
+                               vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean removeRole(vn.sunvibe.auth.core.domain.model.user.vo.UserId userId,
+                                  vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     @Test

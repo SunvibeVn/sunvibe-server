@@ -52,22 +52,23 @@ public class PropertyController {
      * @return PropertyCreateResponse record with status 201 CREATED
      */
     @PostMapping
-    @Operation(summary = "Create a property")
+    @Operation(summary = "Create a property for an owner (SALE, SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Property created",
                     content = @Content(schema = @Schema(implementation = PropertyCreateResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request (an ADMIN without ownerId: field ownerId)",
+            @ApiResponse(responseCode = "400", description = "Invalid request (e.g. ownerId missing or blank: field ownerId)",
                     content = @Content(schema = @Schema(oneOf = {ErrorResponse.class, BaseErrorModel.class}))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
                     content = @Content(schema = @Schema(type = "object"))),
-            @ApiResponse(responseCode = "403", description = "Insufficient permissions",
+            @ApiResponse(responseCode = "403", description = "Caller is not SALE, SALE_LEADER, SALES_MANAGER, ADMIN or SUPER_ADMIN",
                     content = @Content(schema = @Schema(type = "object"))),
             @ApiResponse(responseCode = "409", description = "Property code already exists",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "422", description = "Referenced master data or owner (ADMIN) is invalid",
+            @ApiResponse(responseCode = "422", description = "Referenced master data is invalid, or the owner is unknown, inactive or staff",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @PreAuthorize("hasRole('ADMIN') or hasRole('LANDLORD')")
+    // auth-roles BR-5 (W6-5): staff only; SUPER_ADMIN passes hasRole('ADMIN') through the role hierarchy
+    @PreAuthorize("hasAnyRole('SALE', 'SALE_LEADER', 'SALES_MANAGER', 'ADMIN')")
     public ResponseEntity<PropertyCreateResponse> createProperty(
             @Valid @RequestBody PropertyCreateRequest request) {
 

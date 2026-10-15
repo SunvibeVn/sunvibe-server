@@ -43,8 +43,17 @@ class FlywayPostgresMigrationTest {
 
 		assertEquals(
 				List.of("V202610150220__create_permission_tables.sql", "V202610150221__create_property_tables.sql",
+						"V202610160900__seed_roles.sql", "V202610160901__backfill_target_roles.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 3, applied.size()));
+				applied.subList(applied.size() - 5, applied.size()));
+	}
+
+	/** Roles come from Flyway since W6 (auth-roles BR-1), no longer from RoleDataInitializer. */
+	@Test
+	void migrate_emptyDatabase_seedsTheFourteenRoles() {
+		assertEquals(List.of("ADMIN", "CUSTOMER", "EMPLOYEE", "LANDLORD", "LEADER", "LISTING_REVIEWER", "MANAGER",
+						"OWNER", "SALE", "SALES_MANAGER", "SALE_LEADER", "SUPER_ADMIN", "TENANT", "USER"),
+				jdbc.queryForList("SELECT name FROM roles ORDER BY name COLLATE \"C\"", String.class));
 	}
 
 	@Test

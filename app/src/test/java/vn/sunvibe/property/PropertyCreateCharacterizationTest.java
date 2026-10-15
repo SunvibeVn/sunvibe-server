@@ -37,6 +37,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
@@ -48,10 +49,9 @@ import vn.sunvibe.common.time.AppClock;
 /**
  * Characterization tests (wave W2) for {@code POST /api/v1/properties}: they record what the endpoint does
  * today, end to end (HTTP, security, mapper, use case, JPA on PostgreSQL), including behavior that later waves change.
- * A test whose name ends in {@code _changesInW6} pins behavior that is planned to change (W6: roles).
- * Do not "fix" these assertions here; the wave that changes the behavior updates them.
- * Since W5 the owner comes from the caller: a non-admin caller is always the owner (ownerId in the body is
- * ignored); an ADMIN must name an existing, active user as owner.
+ * Since W6 (auth-roles brief BR-5..BR-8, E-1..E-3): only SALE, SALE_LEADER, SALES_MANAGER and ADMIN (and
+ * SUPER_ADMIN through the role hierarchy) may create; every caller names the owner, who must be able to sign in
+ * and must not be staff/admin, and gets OWNER (audited, the creator is the actor). The caller is never the owner.
  * <p>
  * Users are created through the auth domain repository and log in through {@code POST /api/auth/login},
  * so every request carries a real access token. Tokens and passwords are never printed.
@@ -100,13 +100,21 @@ class PropertyCreateCharacterizationTest {
 	private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
 	private final JsonMapper json = JsonMapper.builder().build();
 
+	// Callers (logged in)
 	private TestUser admin;
+	private TestUser superAdmin;
+	private TestUser sale;
+	private TestUser saleLeader;
+	private TestUser salesManager;
+	private TestUser manager;
 	private TestUser landlordA;
-	private TestUser landlordB;
 	private TestUser tenant;
+	// Owners only (never log in)
+	private TestUser landlordB;
 	private TestUser unverifiedLandlord;
 
-	private record TestUser(String userId, String username, String accessToken) {
+	/** {@code secret} is the password before {@link #logIn}, the access token after. */
+	private record TestUser(String userId, String username, String secret) {
 		@Override
 		public String toString() {
 			// Keeps the token out of any assertion message or log line
@@ -126,12 +134,18 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countIds("rule_categories", List.of(UNKNOWN_MASTER_ID)));
 		assertEquals(0, countIds("amenity_types", List.of(UNKNOWN_MASTER_ID)));
 
-		// 5 logins, under the 10 per minute per IP limit on POST /api/auth/login
-		admin = createUserAndLogIn("ADMIN", true);
-		landlordA = createUserAndLogIn("LANDLORD", true);
-		landlordB = createUserAndLogIn("LANDLORD", true);
-		tenant = createUserAndLogIn("TENANT", true);
-		unverifiedLandlord = createUserAndLogIn("LANDLORD", false);
+		// 8 logins + 2 in the login_* tests: within the 10 per minute per IP limit on POST /api/auth/login
+		admin = logIn(createUser(UserStatus.ACTIVE, "ADMIN"));
+		superAdmin = logIn(createUser(UserStatus.ACTIVE, "SUPER_ADMIN"));
+		sale = logIn(createUser(UserStatus.ACTIVE, "SALE"));
+		saleLeader = logIn(createUser(UserStatus.ACTIVE, "SALE_LEADER"));
+		salesManager = logIn(createUser(UserStatus.ACTIVE, "SALES_MANAGER"));
+		manager = logIn(createUser(UserStatus.ACTIVE, "MANAGER"));
+		landlordA = logIn(createUser(UserStatus.ACTIVE, "LANDLORD", "OWNER"));
+		// A self-registered account: TENANT + CUSTOMER (BR-3)
+		tenant = logIn(createUser(UserStatus.ACTIVE, "TENANT", "CUSTOMER"));
+		landlordB = createUser(UserStatus.ACTIVE, "LANDLORD", "OWNER");
+		unverifiedLandlord = createUser(UserStatus.PENDING, "LANDLORD");
 	}
 
 	@AfterAll
@@ -209,55 +223,96 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countWherePropertyId("property_prices", id));
 	}
 
-	// ==================== C2 / C3: owner (W5) and role (insecure until W6) ====================
+	// ==================== C2 / C3: who may create (BR-5) and the owner (BR-6..BR-8) ====================
 
+	/** BR-5, BR-8: SALE creates for a customer, who becomes the owner and gets OWNER, audited with SALE as actor. */
 	@Test
-	void create_landlordForOwnProperty_returns201_changesInW6() throws Exception {
+	void create_saleForACustomer_returns201StoresThatOwnerAndGrantsOwner() throws Exception {
+		TestUser owner = createUser(UserStatus.ACTIVE, "TENANT", "CUSTOMER");
 		String code = uniqueCode();
 
-		Result result = post(landlordA, validBody(code, landlordA.userId()));
+		Result result = post(sale, validBody(code, owner.userId()));
 
 		assertEquals(201, result.status(), result.rawBody());
-		assertEquals(landlordA.userId(), result.body().path("ownerId").asString());
-		assertEquals(landlordA.username(), result.body().path("createdBy").asString());
+		assertEquals(owner.userId(), result.body().path("ownerId").asString());
+		assertEquals(sale.username(), result.body().path("createdBy").asString());
 		Map<String, Object> row = propertyRow(code);
-		assertEquals(landlordA.userId(), row.get("OWNER_ID"));
-		assertEquals(landlordA.username(), row.get("CREATED_BY"));
+		assertEquals(owner.userId(), row.get("OWNER_ID"), "the caller never becomes the owner");
+		assertEquals(sale.username(), row.get("CREATED_BY"));
+		assertEquals(Set.of("TENANT", "CUSTOMER", "OWNER"), roles(owner.userId()));
+		assertEquals(List.of("role=OWNER;actorUserId=" + sale.userId()), ownerGrantAudit(owner.userId()));
 	}
 
+	/** BR-5 (W6-5): SALE_LEADER, SALES_MANAGER and SUPER_ADMIN (role hierarchy, BR-4) may create too. */
 	@Test
-	void create_landlordAWithOwnerIdOfLandlordB_storesLandlordAAsOwner_changesInW6() throws Exception {
-		// W5-1 (audit R3, T-021): a non-admin caller is the owner; the ownerId in the body is ignored, no error.
-		// W6 changes it again: a LANDLORD caller is expected to lose create access altogether.
+	void create_saleLeaderSalesManagerAndSuperAdmin_return201AndGrantOwner() throws Exception {
+		for (TestUser caller : List.of(saleLeader, salesManager, superAdmin)) {
+			TestUser owner = createUser(UserStatus.ACTIVE, "CUSTOMER");
+			String code = uniqueCode();
+
+			Result result = post(caller, validBody(code, owner.userId()));
+
+			assertEquals(201, result.status(), caller + ": " + result.rawBody());
+			assertEquals(owner.userId(), propertyRow(code).get("OWNER_ID"));
+			assertEquals(Set.of("CUSTOMER", "OWNER"), roles(owner.userId()));
+		}
+	}
+
+	/** BR-8: an owner who already holds OWNER is not granted again (no audit row). */
+	@Test
+	void create_ownerAlreadyHoldsOwner_returns201WithoutANewGrant() throws Exception {
+		String code = uniqueCode();
+
+		Result result = post(sale, validBody(code, landlordB.userId()));
+
+		assertEquals(201, result.status(), result.rawBody());
+		assertEquals(Set.of("LANDLORD", "OWNER"), roles(landlordB.userId()));
+		assertTrue(ownerGrantAudit(landlordB.userId()).isEmpty());
+	}
+
+	/** BR-5, E-1 (W6-5): LANDLORD lost create access (it was allowed until W6). */
+	@Test
+	void create_landlord_returns403AndStoresNothing() throws Exception {
 		String code = uniqueCode();
 
 		Result result = post(landlordA, validBody(code, landlordB.userId()));
 
-		assertEquals(201, result.status(), result.rawBody());
-		assertEquals(landlordA.userId(), result.body().path("ownerId").asString());
-		assertEquals(landlordA.username(), result.body().path("createdBy").asString());
-		Map<String, Object> row = propertyRow(code);
-		assertEquals(landlordA.userId(), row.get("OWNER_ID"), "owner_id is the caller, not the id from the body");
-		assertEquals(landlordA.username(), row.get("CREATED_BY"));
+		assertEquals(403, result.status(), result.rawBody());
+		assertEquals("Forbidden", result.body().path("error").asString());
+		assertEquals(0, countPropertiesWithCode(code));
 	}
 
+	/** BR-5, E-1: MANAGER (old role, not dual-granted to SALES_MANAGER) and TENANT + CUSTOMER cannot create. */
 	@Test
-	void create_landlordWithoutOwnerId_storesCallerAsOwner_changesInW6() throws Exception {
-		// W5-1: ownerId is optional for a non-admin caller
+	void create_managerOrTenantCustomer_returns403AndStoresNothing() throws Exception {
+		for (TestUser caller : List.of(manager, tenant)) {
+			String code = uniqueCode();
+
+			Result result = post(caller, validBody(code, landlordB.userId()));
+
+			assertEquals(403, result.status(), caller + ": " + result.rawBody());
+			assertEquals(0, countPropertiesWithCode(code));
+		}
+	}
+
+	/** BR-6, E-2 (W6-6): every caller must name the owner. */
+	@Test
+	void create_saleWithoutOwnerId_returns400AndStoresNothing() throws Exception {
 		String code = uniqueCode();
 		Map<String, Object> body = validBody(code, null);
 		body.remove("ownerId");
 
-		Result result = post(landlordA, body);
+		Result result = post(sale, body);
 
-		assertEquals(201, result.status(), result.rawBody());
-		assertEquals(landlordA.userId(), result.body().path("ownerId").asString());
-		assertEquals(landlordA.userId(), propertyRow(code).get("OWNER_ID"));
+		assertEquals(400, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Set.of("ownerId"), validationErrors(result.body()).keySet());
+		assertEquals(0, countPropertiesWithCode(code));
 	}
 
+	/** BR-6, E-2 */
 	@Test
 	void create_adminWithoutOwnerId_returns400AndStoresNothing() throws Exception {
-		// W5-2
 		String code = uniqueCode();
 		Map<String, Object> body = validBody(code, null);
 		body.remove("ownerId");
@@ -270,9 +325,9 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
+	/** BR-6, E-2 */
 	@Test
 	void create_adminWithBlankOwnerId_returns400AndStoresNothing() throws Exception {
-		// W5-2
 		String code = uniqueCode();
 
 		Result result = post(admin, validBody(code, "   "));
@@ -283,9 +338,9 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
+	/** BR-7, E-3: unknown owner -> 422; the id is never echoed. */
 	@Test
 	void create_adminWithUnknownOwnerId_returns422AndStoresNothing() throws Exception {
-		// W5-3: the named owner must be an existing, active user; the id is never echoed back
 		String code = uniqueCode();
 		String unknownOwnerId = "01JUNKNOWNOWNER00000000000";
 
@@ -298,27 +353,45 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
+	/** BR-7, E-3 (W6-7): a staff owner (here SALE) or a locked owner -> 422, nothing stored, no OWNER granted. */
+	@Test
+	void create_staffOrLockedOwner_returns422AndGrantsNothing() throws Exception {
+		TestUser staffOwner = createUser(UserStatus.ACTIVE, "SALE");
+		TestUser lockedOwner = createUser(UserStatus.LOCK, "CUSTOMER");
+		for (TestUser owner : List.of(staffOwner, lockedOwner)) {
+			String code = uniqueCode();
+
+			Result result = post(admin, validBody(code, owner.userId()));
+
+			assertEquals(422, result.status(), owner + ": " + result.rawBody());
+			assertEquals(Map.of("ownerId", "Referenced owner was not found."), validationErrors(result.body()));
+			assertEquals(0, countPropertiesWithCode(code));
+			assertFalse(roles(owner.userId()).contains("OWNER"));
+			assertTrue(ownerGrantAudit(owner.userId()).isEmpty());
+		}
+	}
+
+	/** BR-6, BR-7: a caller who names themselves is checked like anyone else; staff is never an eligible owner. */
+	@Test
+	void create_saleNamesThemselves_returns422() throws Exception {
+		String code = uniqueCode();
+
+		Result result = post(sale, validBody(code, sale.userId()));
+
+		assertEquals(422, result.status(), result.rawBody());
+		assertEquals(0, countPropertiesWithCode(code));
+	}
+
+	/** BR-7: "active" means the account may sign in, so a PENDING account counts (W5 decision kept). */
 	@Test
 	void create_adminWithOwnerIdOfUnverifiedUser_returns201AndStoresThatOwner() throws Exception {
-		// W5-3: "active" is the sign-in rule (not deleted, locked or terminated), so a PENDING account counts
 		String code = uniqueCode();
 
 		Result result = post(admin, validBody(code, unverifiedLandlord.userId()));
 
 		assertEquals(201, result.status(), result.rawBody());
 		assertEquals(unverifiedLandlord.userId(), propertyRow(code).get("OWNER_ID"));
-	}
-
-	@Test
-	void create_landlordWithUnverifiedPhone_returns201_changesInW6() throws Exception {
-		// The rule checks only the role, not the PHONE_VERIFIED authority; a PENDING account can log in
-		String code = uniqueCode();
-
-		Result result = post(unverifiedLandlord, validBody(code, landlordB.userId()));
-
-		assertEquals(201, result.status(), result.rawBody());
-		assertEquals(unverifiedLandlord.username(), propertyRow(code).get("CREATED_BY"));
-		assertEquals(unverifiedLandlord.userId(), propertyRow(code).get("OWNER_ID"), "W5-1: the caller is the owner");
+		assertTrue(roles(unverifiedLandlord.userId()).contains("OWNER"));
 	}
 
 	// ==================== C4 / C5: access ====================
@@ -516,40 +589,58 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
-	private TestUser createUserAndLogIn(String role, boolean phoneVerified) throws Exception {
+	/** Saved through the auth repository; PENDING keeps the phone unverified. The password is kept for logIn. */
+	private TestUser createUser(UserStatus status, String... roles) {
 		String username = "09" + String.format("%08d", PHONE_SEQUENCE.getAndIncrement());
 		String password = UUID.randomUUID().toString();
 		Instant now = AppClock.currentUTC();
 
 		AppUser user = AppUser.create(
 				UserId.create(ulidGenerator.generateId()),
-				"W2 " + role,
+				"W6 " + String.join(" ", roles),
 				Username.create(username),
 				null,
 				Password.create(passwordEncoder.encode(password)),
 				ProfileImage.create(null),
 				null,
-				new HashSet<>(Set.of(role)),
+				new HashSet<>(Set.of(roles)),
 				now);
-		if (phoneVerified) {
+		if (status != UserStatus.PENDING) {
 			user.verifyPhone(now);
+			user.setUserStatus(status);
 		}
 		AppUser saved = userRepository.save(user);
+		return new TestUser(saved.getId().getValue(), username, password);
+	}
 
+	/** The same user with an access token in place of the password. */
+	private TestUser logIn(TestUser user) throws Exception {
 		HttpResponse<String> login = http.send(
 				HttpRequest.newBuilder(uri("/api/auth/login"))
 						.timeout(REQUEST_TIMEOUT)
 						.header("Content-Type", "application/json")
 						.POST(HttpRequest.BodyPublishers.ofString(
-								json.writeValueAsString(Map.of("username", username, "password", password))))
+								json.writeValueAsString(Map.of("username", user.username(), "password", user.secret()))))
 						.build(),
 				HttpResponse.BodyHandlers.ofString());
 		// The login body holds the token, so it is never put in the failure message
-		assertEquals(200, login.statusCode(), "login failed for the " + role + " test user, status " + login.statusCode());
+		assertEquals(200, login.statusCode(), "login failed for " + user + ", status " + login.statusCode());
 		String accessToken = json.readTree(login.body()).path("result").path("accessToken").asString();
-		assertFalse(accessToken.isBlank(), "login returned no access token for the " + role + " test user");
+		assertFalse(accessToken.isBlank(), "login returned no access token for " + user);
 
-		return new TestUser(saved.getId().getValue(), username, accessToken);
+		return new TestUser(user.userId(), user.username(), accessToken);
+	}
+
+	private Set<String> roles(String userId) {
+		return Set.copyOf(jdbc.queryForList(
+				"select r.name from user_roles ur join roles r on r.id = ur.role_id where ur.user_id = ?", String.class,
+				userId));
+	}
+
+	private List<String> ownerGrantAudit(String userId) {
+		return jdbc.queryForList(
+				"select details from auth_audit_events where event_type = 'ROLE_GRANTED' and user_id = ?", String.class,
+				userId);
 	}
 
 	private Result post(TestUser caller, Map<String, Object> body) throws Exception {
@@ -558,7 +649,7 @@ class PropertyCreateCharacterizationTest {
 				.header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)));
 		if (caller != null) {
-			request.header("Authorization", "Bearer " + caller.accessToken());
+			request.header("Authorization", "Bearer " + caller.secret());
 		}
 		HttpResponse<String> response = http.send(request.build(), HttpResponse.BodyHandlers.ofString());
 		String raw = response.body();

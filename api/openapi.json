@@ -433,7 +433,7 @@
                 }
               }
             },
-            "description" : "Invalid request (an ADMIN without ownerId: field ownerId)"
+            "description" : "Invalid request (e.g. ownerId missing or blank: field ownerId)"
           },
           "401" : {
             "content" : {
@@ -453,7 +453,7 @@
                 }
               }
             },
-            "description" : "Insufficient permissions"
+            "description" : "Caller is not SALE, SALE_LEADER, SALES_MANAGER, ADMIN or SUPER_ADMIN"
           },
           "409" : {
             "content" : {
@@ -473,11 +473,214 @@
                 }
               }
             },
-            "description" : "Referenced master data or owner (ADMIN) is invalid"
+            "description" : "Referenced master data is invalid, or the owner is unknown, inactive or staff"
           }
         },
-        "summary" : "Create a property",
+        "summary" : "Create a property for an owner (SALE, SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
         "tags" : [ "property-controller" ]
+      }
+    },
+    "/api/v1/staff/users/{userId}/roles" : {
+      "get" : {
+        "operationId" : "getRoles",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserRolesResponse"
+                }
+              }
+            },
+            "description" : "The account's roles"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Caller is not ADMIN or SUPER_ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BaseErrorModel"
+                }
+              }
+            },
+            "description" : "No such account"
+          }
+        },
+        "summary" : "Read an account's roles (ADMIN, SUPER_ADMIN)",
+        "tags" : [ "staff-user-role-controller" ]
+      }
+    },
+    "/api/v1/staff/users/{userId}/roles/{role}" : {
+      "delete" : {
+        "description" : "Revocable: OWNER, CUSTOMER, SALE, SALE_LEADER, SALES_MANAGER, LISTING_REVIEWER; ADMIN only for SUPER_ADMIN. Revoking a held role ends every session of the account; revoking a role that is not held changes nothing. An account may end with no roles.",
+        "operationId" : "revokeRole",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "OWNER, CUSTOMER, SALE, SALE_LEADER, SALES_MANAGER, LISTING_REVIEWER; ADMIN only for SUPER_ADMIN",
+          "in" : "path",
+          "name" : "role",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "The account does not hold the role"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Role not revocable (SUPER_ADMIN, an old role or an unknown name); field role"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Caller may not change this role (ADMIN changing ADMIN), changes their own roles, or is ADMIN and the account holds ADMIN or SUPER_ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BaseErrorModel"
+                }
+              }
+            },
+            "description" : "No such account"
+          }
+        },
+        "summary" : "Revoke a role (idempotent)",
+        "tags" : [ "staff-user-role-controller" ]
+      },
+      "put" : {
+        "description" : "Grantable: OWNER, CUSTOMER, SALE, SALE_LEADER, SALES_MANAGER, LISTING_REVIEWER; ADMIN only for SUPER_ADMIN. Only an account that may sign in gets a role. Granting a role already held changes nothing.",
+        "operationId" : "grantRole",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "OWNER, CUSTOMER, SALE, SALE_LEADER, SALES_MANAGER, LISTING_REVIEWER; ADMIN only for SUPER_ADMIN",
+          "in" : "path",
+          "name" : "role",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "The account holds the role"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Role not grantable (SUPER_ADMIN, an old role or an unknown name); field role"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Caller may not change this role (ADMIN changing ADMIN), changes their own roles, or is ADMIN and the account holds ADMIN or SUPER_ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BaseErrorModel"
+                }
+              }
+            },
+            "description" : "No such account"
+          },
+          "422" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The account is locked or terminated; field userId"
+          }
+        },
+        "summary" : "Grant a role (idempotent)",
+        "tags" : [ "staff-user-role-controller" ]
       }
     }
   },
@@ -817,7 +1020,8 @@
           },
           "ownerId" : {
             "type" : "string",
-            "description" : "ADMIN only: the owner's user id (required for ADMIN). Ignored for other callers; the owner is the caller."
+            "description" : "The owner's user id (required). The owner must be able to sign in and must not hold a staff or admin role; the owner gets the OWNER role if missing. The caller is never the owner by default.",
+            "minLength" : 1
           },
           "postalCode" : {
             "type" : "string"
@@ -855,7 +1059,7 @@
             "minLength" : 1
           }
         },
-        "required" : [ "bathrooms", "bedrooms", "depositPrice", "district", "minRentMonths", "monthlyPrice", "propertyCode", "propertyType", "squareMeters", "street", "title", "ward" ]
+        "required" : [ "bathrooms", "bedrooms", "depositPrice", "district", "minRentMonths", "monthlyPrice", "ownerId", "propertyCode", "propertyType", "squareMeters", "street", "title", "ward" ]
       },
       "PropertyCreateResponse" : {
         "type" : "object",
@@ -1065,6 +1269,22 @@
           }
         },
         "required" : [ "confirmPassword", "fullName", "password", "username" ]
+      },
+      "UserRolesResponse" : {
+        "type" : "object",
+        "properties" : {
+          "roles" : {
+            "type" : "array",
+            "description" : "Role names, sorted, e.g. CUSTOMER, OWNER, TENANT",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "userId" : {
+            "type" : "string",
+            "description" : "The account's user id"
+          }
+        }
       },
       "VerificationConfirmRequest" : {
         "type" : "object",

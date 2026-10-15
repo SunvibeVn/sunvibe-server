@@ -88,6 +88,8 @@ class PasswordChangeServiceTest {
             public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
             @Override
             public Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
+            @Override public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
+            @Override public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
         }, PASSWORD_ENCODER, refreshTokens, audit, sessions);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(USERNAME, null, List.of()));

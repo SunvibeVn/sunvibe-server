@@ -85,6 +85,16 @@ class TokenRefreshServiceTest {
         public Optional<AppUser> findById(UserId userId) {
             return storedUser.filter(u -> u.getId().equals(userId));
         }
+
+        @Override
+        public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     /** The token the client presents, issued {@code age} ago at login. */

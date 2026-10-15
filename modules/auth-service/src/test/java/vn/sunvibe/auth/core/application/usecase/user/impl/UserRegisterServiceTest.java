@@ -93,6 +93,16 @@ class UserRegisterServiceTest {
         public Optional<AppUser> findById(UserId userId) {
             throw new UnsupportedOperationException();
         }
+
+        @Override
+        public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
+            throw new UnsupportedOperationException();
+        }
     }
 
     private FakeUserDomainRepository repository;
@@ -262,11 +272,13 @@ class UserRegisterServiceTest {
         assertTrue(sessionsStarted.isEmpty());
     }
 
+    /** auth-roles US-1 AC-1, BR-3 (W6-3): exactly TENANT and CUSTOMER. */
     @Test
-    void execute_alwaysAssignsTenantRole() {
+    void execute_assignsExactlyTenantAndCustomer() {
         service.execute(command("0912345678", null, null));
 
-        assertEquals(Set.of(RoleName.TENANT.name()), repository.findByUsername("0912345678").getUserRoles());
+        assertEquals(Set.of(RoleName.TENANT.name(), RoleName.CUSTOMER.name()),
+                repository.findByUsername("0912345678").getUserRoles());
     }
 
     @Test

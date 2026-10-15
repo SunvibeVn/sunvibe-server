@@ -18,6 +18,12 @@ public class RecordingAuditLog implements AuditLogPort {
         events.add(event);
     }
 
+    /** No transactions here: recorded at once, like the real adapter outside a transaction. */
+    @Override
+    public void recordAfterCommit(AuthAuditEvent event) {
+        events.add(event);
+    }
+
     @Override
     public int purgeOlderThan(Instant cutoff) {
         throw new UnsupportedOperationException();

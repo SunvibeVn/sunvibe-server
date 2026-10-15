@@ -68,8 +68,9 @@ public record PropertyCreateRequest(
         Integer minRentMonths,
 
         // ==================== Ownership ====================
-        @Schema(description = "ADMIN only: the owner's user id (required for ADMIN). Ignored for other callers; "
-                + "the owner is the caller.")
+        @Schema(description = "The owner's user id (required). The owner must be able to sign in and must not hold a "
+                + "staff or admin role; the owner gets the OWNER role if missing. The caller is never the owner by default.")
+        @NotBlank(message = "OwnerId is required.")
         String ownerId,
 
         // ==================== Additional Data ====================

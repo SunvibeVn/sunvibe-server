@@ -21,112 +21,111 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Owner resolution (wave W5, audit R3): a non-admin caller is the owner whatever the body says (W5-1);
- * an ADMIN must name an owner (W5-2) who is an existing, active user (W5-3).
+ * Owner on property create (wave W6, auth-roles brief BR-6..BR-8): every caller names the owner, the caller never
+ * becomes the owner, the owner must be eligible, and gets OWNER through the user directory.
  */
 class PropertyCreateServiceOwnerTest {
 
     private static final String CALLER_ID = "01CALLER000000000000000000";
-    private static final String OTHER_USER_ID = "01OTHERUSER000000000000000";
+    private static final String OWNER_ID = "01OWNER0000000000000000000";
     private static final String CALLER_USERNAME = "0912345678";
 
     private final InMemoryPropertyDomainRepository properties = new InMemoryPropertyDomainRepository();
-    private final RecordingUserDirectory users = new RecordingUserDirectory(Set.of(CALLER_ID, OTHER_USER_ID));
+    private final RecordingUserDirectory users = new RecordingUserDirectory(Set.of(OWNER_ID), true);
     private final PropertyCreateService service = new PropertyCreateService(
             properties, new EmptyRuleCategories(), new EmptyAmenityTypes(), users);
 
+    /** BR-6, BR-8 */
     @Test
-    void execute_nonAdminNamingAnotherOwner_storesCallerAsOwner() {
-        service.execute(command(OTHER_USER_ID, false));
+    void execute_eligibleOwner_storesThatOwnerAndEnsuresTheOwnerRole() {
+        service.execute(command(OWNER_ID));
 
-        assertEquals(CALLER_ID, properties.saved().getFirst().getOwnerId());
+        assertEquals(OWNER_ID, properties.saved().getFirst().getOwnerId());
         assertEquals(CALLER_USERNAME, properties.saved().getFirst().getCreatedBy());
+        assertEquals(List.of("eligible?" + OWNER_ID, "ensureOwner:" + OWNER_ID + " by " + CALLER_ID), users.calls);
     }
 
+    /** BR-7: an owner who became staff between the check and the grant -> 422 (the transaction rolls back). */
     @Test
-    void execute_nonAdminWithoutOwnerId_storesCallerAsOwner() {
-        service.execute(command(null, false));
+    void execute_ownerIneligibleAtGrantTime_throwsOwnerNotFound() {
+        PropertyCreateService racing = new PropertyCreateService(properties, new EmptyRuleCategories(),
+                new EmptyAmenityTypes(), new RecordingUserDirectory(Set.of(OWNER_ID), false));
 
-        assertEquals(CALLER_ID, properties.saved().getFirst().getOwnerId());
+        assertThrows(PropertyOwnerNotFoundException.class, () -> racing.execute(command(OWNER_ID)));
     }
 
+    /** BR-6, E-2 */
     @Test
-    void execute_nonAdmin_neverLooksUpTheRequestedOwner() {
-        service.execute(command("01NOSUCHUSER00000000000000", false));
-
-        assertTrue(users.lookups.isEmpty(), "the directory is called only for ADMIN");
-    }
-
-    @Test
-    void execute_adminNamingAnActiveUser_storesThatUserAsOwner() {
-        service.execute(command(OTHER_USER_ID, true));
-
-        assertEquals(OTHER_USER_ID, properties.saved().getFirst().getOwnerId());
-        assertEquals(CALLER_USERNAME, properties.saved().getFirst().getCreatedBy());
-        assertEquals(List.of(OTHER_USER_ID), users.lookups);
-    }
-
-    @Test
-    void execute_adminNamingThemselves_storesAdminAsOwner() {
-        service.execute(command(CALLER_ID, true));
-
-        assertEquals(CALLER_ID, properties.saved().getFirst().getOwnerId());
-    }
-
-    @Test
-    void execute_adminWithoutOwnerId_rejectsOnOwnerIdField() {
+    void execute_withoutOwnerId_rejectsOnOwnerIdField() {
         PropertyValidationException e = assertThrows(PropertyValidationException.class,
-                () -> service.execute(command(null, true)));
+                () -> service.execute(command(null)));
 
         assertEquals("ownerId", e.getFieldName());
+        assertTrue(users.calls.isEmpty());
         assertTrue(properties.saved().isEmpty());
     }
 
+    /** BR-6, E-2 */
     @Test
-    void execute_adminWithBlankOwnerId_rejectsOnOwnerIdField() {
+    void execute_blankOwnerId_rejectsOnOwnerIdField() {
         PropertyValidationException e = assertThrows(PropertyValidationException.class,
-                () -> service.execute(command("  ", true)));
+                () -> service.execute(command("  ")));
 
         assertEquals("ownerId", e.getFieldName());
-        assertTrue(users.lookups.isEmpty());
-        assertTrue(properties.saved().isEmpty());
+        assertTrue(users.calls.isEmpty());
     }
 
+    /** BR-7, E-3: unknown, inactive or staff owner; nothing stored, no role granted, id not in the message. */
     @Test
-    void execute_adminNamingUnknownOrInactiveUser_throwsOwnerNotFoundWithoutTheId() {
-        String unknown = "01NOSUCHUSER00000000000000";
+    void execute_ineligibleOwner_throwsOwnerNotFoundAndGrantsNothing() {
+        String ineligible = "01STAFFORUNKNOWN0000000000";
 
         PropertyOwnerNotFoundException e = assertThrows(PropertyOwnerNotFoundException.class,
-                () -> service.execute(command(unknown, true)));
+                () -> service.execute(command(ineligible)));
 
         assertEquals("Referenced owner was not found.", e.getMessage());
-        assertEquals(List.of(unknown), users.lookups);
+        assertEquals(List.of("eligible?" + ineligible), users.calls);
         assertTrue(properties.saved().isEmpty());
     }
 
-    private static PropertyCreateCommand command(String requestedOwnerId, boolean actorIsAdmin) {
+    /** BR-6: naming yourself is checked like anyone else (a staff caller is never eligible). */
+    @Test
+    void execute_callerNamesThemselves_isCheckedForEligibility() {
+        assertThrows(PropertyOwnerNotFoundException.class, () -> service.execute(command(CALLER_ID)));
+        assertTrue(properties.saved().isEmpty());
+    }
+
+    private static PropertyCreateCommand command(String ownerId) {
         return new PropertyCreateCommand(
                 "DA-APT-001", "Title", "Description",
                 "1 Bach Dang", "Thach Thang", "Hai Chau", null, null, null, null,
                 PropertyType.STUDIO, 1, 1, 35.0,
                 new BigDecimal("5000000"), new BigDecimal("5000000"), 6,
-                requestedOwnerId, CALLER_ID, actorIsAdmin, CALLER_USERNAME,
+                ownerId, CALLER_ID, CALLER_USERNAME,
                 List.of(), List.of(), List.of());
     }
 
-    /** Knows a fixed set of active user ids and records every lookup. */
+    /** Knows a fixed set of eligible owners and records every call. */
     private static final class RecordingUserDirectory implements UserDirectoryPort {
-        private final Set<String> activeUserIds;
-        private final List<String> lookups = new ArrayList<>();
+        private final Set<String> eligibleOwners;
+        private final boolean stillEligibleAtGrant;
+        private final List<String> calls = new ArrayList<>();
 
-        private RecordingUserDirectory(Set<String> activeUserIds) {
-            this.activeUserIds = activeUserIds;
+        private RecordingUserDirectory(Set<String> eligibleOwners, boolean stillEligibleAtGrant) {
+            this.eligibleOwners = eligibleOwners;
+            this.stillEligibleAtGrant = stillEligibleAtGrant;
         }
 
         @Override
-        public boolean existsActiveUser(String userId) {
-            lookups.add(userId);
-            return activeUserIds.contains(userId);
+        public boolean isEligibleOwner(String userId) {
+            calls.add("eligible?" + userId);
+            return eligibleOwners.contains(userId);
+        }
+
+        @Override
+        public boolean ensureOwnerRole(String ownerUserId, String actorUserId) {
+            calls.add("ensureOwner:" + ownerUserId + " by " + actorUserId);
+            return stillEligibleAtGrant;
         }
     }
 
