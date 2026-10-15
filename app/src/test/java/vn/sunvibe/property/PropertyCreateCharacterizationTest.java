@@ -29,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -37,6 +38,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
@@ -48,7 +50,7 @@ import vn.sunvibe.common.time.AppClock;
 
 /**
  * Characterization tests (wave W2) for {@code POST /api/v1/properties}: they record what the endpoint does
- * today, end to end (HTTP, security, mapper, use case, JPA on H2), including behavior that later waves change.
+ * today, end to end (HTTP, security, mapper, use case, JPA on PostgreSQL), including behavior that later waves change.
  * A test whose name ends in {@code _changesInW5} / {@code _changesInW6} pins insecure behavior that is
  * planned to change (W5: owner taken from the caller, W6: roles). Do not "fix" these assertions here; the
  * wave that changes the behavior updates them.
@@ -62,16 +64,18 @@ import vn.sunvibe.common.time.AppClock;
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-		// Own in-memory database, so other Spring contexts in the same JVM cannot drop or share its tables
-		properties = "spring.datasource.url=jdbc:h2:mem:property-create-characterization")
+		properties = {
+			"spring.flyway.enabled=true",
+			"spring.jpa.hibernate.ddl-auto=validate" })
 @ActiveProfiles("test")
+@Import(PostgresContainerConfig.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @ExtendWith(OutputCaptureExtension.class)
 class PropertyCreateCharacterizationTest {
 
 	private static final String ENDPOINT = "/api/v1/properties";
 	private static final String DEFAULT_CITY = "Đà Nẵng";
-	/** Seeded by PropertyMasterDataInitializer: rule categories 1-6, amenity types 1-4 (groups) and 10+. */
+	/** Seeded by R__property_master_data.sql: rule categories 1-6, amenity types 1-4 (groups) and 10+. */
 	private static final List<Integer> RULE_IDS = List.of(1, 2);
 	private static final List<Integer> AMENITY_IDS = List.of(10, 11);
 	private static final int UNKNOWN_MASTER_ID = 9999;

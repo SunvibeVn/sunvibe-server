@@ -44,6 +44,11 @@ class ConfigSecretsGuardTest {
 	}
 
 	@Test
+	void baseProfile_hibernateDdlAuto_isValidate() throws IOException {
+		assertEquals("validate", rawValue(load("application.yml"), "spring.jpa.hibernate.ddl-auto"));
+	}
+
+	@Test
 	void baseProfile_secretKeys_arePlaceholdersWithoutDefaults() throws IOException {
 		List<PropertySource<?>> base = load("application.yml");
 

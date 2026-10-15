@@ -6,7 +6,7 @@ spring:
     name: sunvibe-server
   jpa:
       hibernate:
-        ddl-auto: update
+        ddl-auto: validate
   mail:
     host: smtp.gmail.com
     port: 587
