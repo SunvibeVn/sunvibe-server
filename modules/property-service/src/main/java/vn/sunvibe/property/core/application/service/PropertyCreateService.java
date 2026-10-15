@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.exception.PropertyAlreadyExistsException;
 import vn.sunvibe.property.core.application.exception.PropertyServiceException;
+import vn.sunvibe.property.core.application.exception.PropertyValidationException;
 import vn.sunvibe.property.core.application.usecase.PropertyCreateUseCase;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;
 import vn.sunvibe.property.core.domain.model.amenity.AmenityType;
@@ -18,7 +19,10 @@ import vn.sunvibe.property.core.domain.model.vo.Location;
 import vn.sunvibe.property.core.domain.model.vo.Money;
 import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.exception.PropertyAmenityNotFoundException;
+import vn.sunvibe.property.core.domain.exception.PropertyRuleNotFoundException;
 import vn.sunvibe.property.core.domain.repository.AmenityTypeDomainRepository;
+import vn.sunvibe.common.exception.ResourceNotFoundException;
 import vn.sunvibe.property.core.domain.repository.PropertyDomainRepository;
 import vn.sunvibe.property.core.domain.repository.RuleCategoryDomainRepository;
 
@@ -43,7 +47,13 @@ public class PropertyCreateService implements PropertyCreateUseCase {
         log.info("Creating property: code={}", command.propertyCode());
 
         try {
-            PropertyCode propertyCode = PropertyCode.of(command.propertyCode());
+            PropertyCode propertyCode;
+            try {
+                propertyCode = PropertyCode.of(command.propertyCode());
+            } catch (IllegalArgumentException e) {
+                throw new PropertyValidationException(Property.FieldName.PROPERTY_CODE,
+                        "Property code must follow the format XX-XXX-001.");
+            }
             if (propertyDomainRepository.existsByCode(propertyCode)) {
                 throw new PropertyAlreadyExistsException("Property code already exists: " + command.propertyCode());
             }
@@ -74,8 +84,9 @@ public class PropertyCreateService implements PropertyCreateUseCase {
 
             return property.getId();
 
-        } catch (PropertyServiceException | PropertyAlreadyExistsException e) {
-            log.warn("Validation error: {}", e.getMessage());
+        } catch (PropertyServiceException | PropertyAlreadyExistsException | PropertyValidationException
+                | ResourceNotFoundException e) {
+            log.warn("Validation error: {}", e.getClass().getSimpleName());
             throw e;
         } catch (Exception e) {
             log.error("Unexpected error creating property", e);
@@ -86,7 +97,7 @@ public class PropertyCreateService implements PropertyCreateUseCase {
     private void applyRules(Property property, List<Integer> ruleCategoryIds) {
         for (Integer id : ruleCategoryIds) {
             RuleCategory ruleCategory = ruleCategoryDomainRepository.findById(id)
-                    .orElseThrow(() -> new PropertyServiceException("RuleCategory not found: " + id));
+                    .orElseThrow(() -> new PropertyRuleNotFoundException());
             property.applyRule(PropertyRuleApply.createDefault(property.getId(), ruleCategory));
         }
     }
@@ -94,17 +105,21 @@ public class PropertyCreateService implements PropertyCreateUseCase {
     private void applyAmenities(Property property, List<Integer> amenityTypeIds) {
         for (Integer id : amenityTypeIds) {
             AmenityType amenityType = amenityTypeDomainRepository.findById(id)
-                    .orElseThrow(() -> new PropertyServiceException("AmenityType not found: " + id));
+                    .orElseThrow(() -> new PropertyAmenityNotFoundException("Amenity reference is invalid."));
             property.applyAmenity(PropertyAmenityApply.included(property.getId(), amenityType));
         }
     }
 
     private void addImages(Property property, List<PropertyCreateCommand.ImageData> images, String uploadedBy) {
         for (PropertyCreateCommand.ImageData data : images) {
-            PropertyImage image = data.isPrimary()
-                    ? PropertyImage.createPrimary(property.getId(), data.imageUrl(), data.imageKey(), data.caption(), uploadedBy)
-                    : PropertyImage.create(property.getId(), data.imageUrl(), data.imageKey(), data.caption(), data.displayOrder(), uploadedBy);
-            property.addImage(image);
+            try {
+                PropertyImage image = data.isPrimary()
+                        ? PropertyImage.createPrimary(property.getId(), data.imageUrl(), data.imageKey(), data.caption(), uploadedBy)
+                        : PropertyImage.create(property.getId(), data.imageUrl(), data.imageKey(), data.caption(), data.displayOrder(), uploadedBy);
+                property.addImage(image);
+            } catch (IllegalArgumentException e) {
+                throw new PropertyValidationException(Property.FieldName.IMAGES, "Image URL cannot be blank.");
+            }
         }
     }
 }

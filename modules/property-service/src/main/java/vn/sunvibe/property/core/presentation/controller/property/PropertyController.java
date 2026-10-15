@@ -1,5 +1,10 @@
 package vn.sunvibe.property.core.presentation.controller.property;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +23,8 @@ import vn.sunvibe.property.core.presentation.converter.PropertyCreateRequestMapp
 import vn.sunvibe.property.core.presentation.converter.PropertyCreateResponseMapper;
 import vn.sunvibe.property.core.presentation.dto.request.PropertyCreateRequest;
 import vn.sunvibe.property.core.presentation.dto.response.PropertyCreateResponse;
+import vn.sunvibe.common.dto.response.error.BaseErrorModel;
+import vn.sunvibe.common.dto.response.error.ErrorResponse;
 
 /**
  * Controller - PropertyController (Record version)
@@ -45,6 +52,21 @@ public class PropertyController {
      * @return PropertyCreateResponse record with status 201 CREATED
      */
     @PostMapping
+    @Operation(summary = "Create a property")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Property created",
+                    content = @Content(schema = @Schema(implementation = PropertyCreateResponse.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid request",
+                    content = @Content(schema = @Schema(oneOf = {ErrorResponse.class, BaseErrorModel.class}))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(type = "object"))),
+            @ApiResponse(responseCode = "403", description = "Insufficient permissions",
+                    content = @Content(schema = @Schema(type = "object"))),
+            @ApiResponse(responseCode = "409", description = "Property code already exists",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "Referenced master data is invalid",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
     @PreAuthorize("hasRole('ADMIN') or hasRole('LANDLORD')")
     public ResponseEntity<PropertyCreateResponse> createProperty(
             @Valid @RequestBody PropertyCreateRequest request) {
