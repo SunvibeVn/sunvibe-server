@@ -22,6 +22,7 @@ import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
+import vn.sunvibe.common.security.AuthenticatedUser;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -120,9 +121,23 @@ class JWTRequestFilterTest {
 
         assertNotNull(authentication);
         assertTrue(authentication.isAuthenticated());
-        assertEquals(USERNAME, authentication.getPrincipal());
+        assertEquals(USERNAME, authentication.getName());
         assertEquals(Set.of("ROLE_HOST"), authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority).collect(Collectors.toSet()));
+    }
+
+    @Test
+    void activeUser_principalExposesUserIdAndNameStaysTheUsername() throws Exception {
+        String token = issueTokenForActiveUser();
+
+        Authentication authentication = filterWith(token);
+
+        assertNotNull(authentication);
+        assertEquals(USERNAME, authentication.getName(), "getName() is still the username (created_by, CurrentUser)");
+        AuthenticatedUser principal = assertInstanceOf(AuthenticatedUser.class, authentication.getPrincipal());
+        assertEquals(USER_ID, principal.getUserId());
+        assertFalse(authentication.getPrincipal() instanceof CustomUserDetails,
+                "the principal must not carry the password hash or e-mail");
     }
 
     @Test
@@ -186,7 +201,7 @@ class JWTRequestFilterTest {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         assertNotNull(authentication);
-        assertEquals(USERNAME, authentication.getPrincipal());
+        assertEquals(USERNAME, authentication.getName());
     }
 
     @Test

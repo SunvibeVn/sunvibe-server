@@ -1,8 +1,10 @@
 package vn.sunvibe.property.core.presentation.converter;
 
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import vn.sunvibe.common.security.AuthenticatedUser;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;
@@ -20,6 +22,8 @@ import java.util.List;
 @Component
 public class PropertyCreateRequestMapper {
 
+    private static final String ROLE_ADMIN = "ROLE_ADMIN";
+
     /**
      * Map PropertyCreateRequest -> PropertyCreateCommand
      */
@@ -28,8 +32,12 @@ public class PropertyCreateRequestMapper {
             throw new IllegalArgumentException("PropertyCreateRequest cannot be null");
         }
 
-        // Get user ID from security context
-        String userId = getCurrentUserId();
+        // The caller, from the security context; the use case decides the owner
+        Authentication authentication = currentAuthentication();
+        String actorUserId = ((AuthenticatedUser) authentication.getPrincipal()).getUserId();
+        boolean actorIsAdmin = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(ROLE_ADMIN::equals);
 
         // Convert property type string -> enum
         PropertyType propertyType = parsePropertyType(request.propertyType());
@@ -67,7 +75,9 @@ public class PropertyCreateRequestMapper {
 
                 // Ownership & audit
                 request.ownerId(),
-                userId,
+                actorUserId,
+                actorIsAdmin,
+                authentication.getName(),
 
                 // Additional data
                 request.ruleCategories(),
@@ -105,13 +115,15 @@ public class PropertyCreateRequestMapper {
     }
 
     /**
-     * Get userId from security context.
+     * The authenticated caller. Its principal must expose the user id (set by the JWT request filter).
      */
-    private String getCurrentUserId() {
+    private Authentication currentAuthentication() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            return authentication.getName();
+        if (authentication != null && authentication.isAuthenticated()
+                && authentication.getPrincipal() instanceof AuthenticatedUser) {
+            return authentication;
         }
-        throw new IllegalArgumentException("Cannot retrieve userId from security context");
+        // Unreachable after the JWT filter and @PreAuthorize; fails closed (500) rather than guess an owner
+        throw new IllegalStateException("Principal does not expose a user id");
     }
 }

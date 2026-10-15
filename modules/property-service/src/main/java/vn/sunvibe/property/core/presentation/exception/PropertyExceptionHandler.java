@@ -16,6 +16,7 @@ import vn.sunvibe.property.core.application.exception.PropertyAlreadyExistsExcep
 import vn.sunvibe.property.core.application.exception.PropertyServiceException;
 import vn.sunvibe.property.core.application.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.exception.PropertyAmenityNotFoundException;
+import vn.sunvibe.property.core.domain.exception.PropertyOwnerNotFoundException;
 import vn.sunvibe.property.core.domain.exception.PropertyRuleNotFoundException;
 import vn.sunvibe.property.core.presentation.controller.property.PropertyController;
 
@@ -37,6 +38,11 @@ public class PropertyExceptionHandler {
     public ResponseEntity<ErrorResponse<ValidationError>> handleUnknownReference(ResourceNotFoundException e) {
         String field = e instanceof PropertyAmenityNotFoundException ? "amenityTypes" : "ruleCategories";
         return validation(HttpStatus.UNPROCESSABLE_ENTITY, field, "Referenced master data was not found.");
+    }
+
+    @ExceptionHandler(PropertyOwnerNotFoundException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleUnknownOwner(PropertyOwnerNotFoundException e) {
+        return validation(HttpStatus.UNPROCESSABLE_ENTITY, "ownerId", "Referenced owner was not found.");
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

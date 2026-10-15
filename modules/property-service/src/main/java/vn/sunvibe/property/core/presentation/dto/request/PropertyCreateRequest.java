@@ -1,5 +1,6 @@
 package vn.sunvibe.property.core.presentation.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
@@ -67,7 +68,8 @@ public record PropertyCreateRequest(
         Integer minRentMonths,
 
         // ==================== Ownership ====================
-        @NotBlank(message = "OwnerId cannot be null")
+        @Schema(description = "ADMIN only: the owner's user id (required for ADMIN). Ignored for other callers; "
+                + "the owner is the caller.")
         String ownerId,
 
         // ==================== Additional Data ====================

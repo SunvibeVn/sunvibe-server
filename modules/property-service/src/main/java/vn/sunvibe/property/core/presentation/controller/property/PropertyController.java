@@ -56,7 +56,7 @@ public class PropertyController {
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Property created",
                     content = @Content(schema = @Schema(implementation = PropertyCreateResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid request",
+            @ApiResponse(responseCode = "400", description = "Invalid request (an ADMIN without ownerId: field ownerId)",
                     content = @Content(schema = @Schema(oneOf = {ErrorResponse.class, BaseErrorModel.class}))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
                     content = @Content(schema = @Schema(type = "object"))),
@@ -64,7 +64,7 @@ public class PropertyController {
                     content = @Content(schema = @Schema(type = "object"))),
             @ApiResponse(responseCode = "409", description = "Property code already exists",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "422", description = "Referenced master data is invalid",
+            @ApiResponse(responseCode = "422", description = "Referenced master data or owner (ADMIN) is invalid",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PreAuthorize("hasRole('ADMIN') or hasRole('LANDLORD')")
