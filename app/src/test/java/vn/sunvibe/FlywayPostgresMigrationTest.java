@@ -8,17 +8,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.postgresql.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
-
-import vn.sunvibe.property.core.shared.runner.PropertyMasterDataInitializer;
 
 /**
  * Builds the schema with Flyway only, on a real PostgreSQL 17 (Testcontainers), and lets Hibernate validate it
@@ -31,7 +23,7 @@ import vn.sunvibe.property.core.shared.runner.PropertyMasterDataInitializer;
 		"spring.jpa.hibernate.ddl-auto=validate" })
 // The container's connection details replace the H2 datasource of application-test.yml
 @ActiveProfiles("test")
-@Import(FlywayPostgresMigrationTest.PostgresContainerConfig.class)
+@Import(PostgresContainerConfig.class)
 class FlywayPostgresMigrationTest {
 
 	/** Tables that only Hibernate created before W3. */
@@ -40,19 +32,6 @@ class FlywayPostgresMigrationTest {
 			"properties", "property_images", "property_amenity", "property_rules", "property_document",
 			"property_prices", "property_availability", "amenity_types", "rule_categories", "document_types");
 
-	@TestConfiguration(proxyBeanMethods = false)
-	static class PostgresContainerConfig {
-
-		@Bean
-		@ServiceConnection
-		PostgreSQLContainer postgres() {
-			return new PostgreSQLContainer(DockerImageName.parse("postgres:17.6-alpine"));
-		}
-	}
-
-	/** Replaced by a no-op mock, so every master-data row must come from R__property_master_data.sql. */
-	@MockitoBean
-	private PropertyMasterDataInitializer propertyMasterDataInitializer;
 
 	@Autowired
 	private JdbcTemplate jdbc;
