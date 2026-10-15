@@ -12,7 +12,7 @@ import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 
 /**
  * Revokes a role and ends every session of the account (auth-roles US-4 AC-5, BR-11): its refresh tokens are

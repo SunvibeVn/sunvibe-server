@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import vn.sunvibe.auth.core.domain.model.auth.VerificationCode;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
-import vn.sunvibe.common.crypto.AesGcmCryptoService;
+import vn.sunvibe.shared.crypto.AesGcmCryptoService;
 
 import java.time.Duration;
 import java.time.Instant;

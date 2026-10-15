@@ -6,7 +6,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import vn.sunvibe.auth.core.domain.model.auth.RegistrationPhoneChallenge;
-import vn.sunvibe.common.crypto.AesGcmCryptoService;
+import vn.sunvibe.shared.crypto.AesGcmCryptoService;
 
 import java.time.Duration;
 import java.time.Instant;

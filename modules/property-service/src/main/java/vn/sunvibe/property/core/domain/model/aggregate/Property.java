@@ -4,7 +4,7 @@ package vn.sunvibe.property.core.domain.model.aggregate;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 import vn.sunvibe.property.core.application.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
 import vn.sunvibe.property.core.domain.model.availability.PropertyAvailability;

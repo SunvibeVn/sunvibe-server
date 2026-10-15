@@ -10,7 +10,7 @@ import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository;
-import vn.sunvibe.common.crypto.AesGcmCryptoService;
+import vn.sunvibe.shared.crypto.AesGcmCryptoService;
 
 import java.time.Duration;
 import java.time.Instant;

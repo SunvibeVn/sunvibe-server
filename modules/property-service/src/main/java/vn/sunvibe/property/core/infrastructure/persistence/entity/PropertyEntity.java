@@ -3,7 +3,7 @@ package vn.sunvibe.property.core.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import vn.sunvibe.property.core.domain.model.enums.PropertyType;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

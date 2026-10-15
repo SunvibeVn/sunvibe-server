@@ -2,7 +2,7 @@ package vn.sunvibe.property.core.domain.model.document;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 
 import java.time.LocalDate;

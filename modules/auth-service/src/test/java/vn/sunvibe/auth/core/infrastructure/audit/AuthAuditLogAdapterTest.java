@@ -20,8 +20,8 @@ import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.audit.AuthAuditEventEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.audit.AuthAuditEventJpaRepository;
-import vn.sunvibe.common.crypto.AesGcmCryptoService;
-import vn.sunvibe.common.generator.id.IdGenerator;
+import vn.sunvibe.shared.crypto.AesGcmCryptoService;
+import vn.sunvibe.shared.generator.id.IdGenerator;
 
 import java.time.Duration;
 import java.time.Instant;

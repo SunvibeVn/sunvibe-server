@@ -23,8 +23,8 @@ import vn.sunvibe.property.core.presentation.converter.PropertyCreateRequestMapp
 import vn.sunvibe.property.core.presentation.converter.PropertyCreateResponseMapper;
 import vn.sunvibe.property.core.presentation.dto.request.PropertyCreateRequest;
 import vn.sunvibe.property.core.presentation.dto.response.PropertyCreateResponse;
-import vn.sunvibe.common.dto.response.error.BaseErrorModel;
-import vn.sunvibe.common.dto.response.error.ErrorResponse;
+import vn.sunvibe.shared.dto.response.error.BaseErrorModel;
+import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 /**
  * Controller - PropertyController (Record version)

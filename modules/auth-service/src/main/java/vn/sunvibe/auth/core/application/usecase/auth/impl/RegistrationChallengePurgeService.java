@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.usecase.auth.RegistrationChallengePurgeUseCase;
 import vn.sunvibe.auth.core.domain.repository.auth.RegistrationPhoneChallengeRepository;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Duration;
 

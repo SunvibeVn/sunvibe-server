@@ -14,7 +14,7 @@ import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.VerificationConfirmRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.VerificationSendResponse;
-import vn.sunvibe.common.response.ApiResponse;
+import vn.sunvibe.shared.response.ApiResponse;
 
 /**
  * Verification of the signed-in user's phone number (SMS code) and e-mail.

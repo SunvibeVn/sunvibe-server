@@ -16,7 +16,7 @@ import vn.sunvibe.auth.core.presentation.dto.request.auth.RegistrationPhoneSendR
 import vn.sunvibe.auth.core.presentation.dto.request.auth.RegistrationPhoneVerifyRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.RegistrationTokenResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.VerificationSendResponse;
-import vn.sunvibe.common.response.ApiResponse;
+import vn.sunvibe.shared.response.ApiResponse;
 
 /**
  * Phone verification before registration ("verify first, register later"). Both

@@ -24,7 +24,7 @@ import vn.sunvibe.property.core.domain.exception.PropertyAmenityNotFoundExceptio
 import vn.sunvibe.property.core.domain.exception.PropertyOwnerNotFoundException;
 import vn.sunvibe.property.core.domain.exception.PropertyRuleNotFoundException;
 import vn.sunvibe.property.core.domain.repository.AmenityTypeDomainRepository;
-import vn.sunvibe.common.exception.ResourceNotFoundException;
+import vn.sunvibe.shared.exception.ResourceNotFoundException;
 import vn.sunvibe.property.core.domain.repository.PropertyDomainRepository;
 import vn.sunvibe.property.core.domain.repository.RuleCategoryDomainRepository;
 

@@ -13,7 +13,7 @@ import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapperImpl;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserVOMapperImpl;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
-import vn.sunvibe.common.crypto.AesGcmCryptoService;
+import vn.sunvibe.shared.crypto.AesGcmCryptoService;
 
 import java.time.Instant;
 import java.util.HashSet;

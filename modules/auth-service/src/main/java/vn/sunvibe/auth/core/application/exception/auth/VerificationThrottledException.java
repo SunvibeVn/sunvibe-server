@@ -1,7 +1,7 @@
 package vn.sunvibe.auth.core.application.exception.auth;
 
 import lombok.Getter;
-import vn.sunvibe.common.exception.ApplicationException;
+import vn.sunvibe.shared.exception.ApplicationException;
 
 import java.io.Serial;
 import java.time.Duration;

@@ -1,6 +1,6 @@
 package vn.sunvibe.auth.core.domain.exception.auth;
 
-import vn.sunvibe.common.exception.DomainException;
+import vn.sunvibe.shared.exception.DomainException;
 
 import java.io.Serial;
 

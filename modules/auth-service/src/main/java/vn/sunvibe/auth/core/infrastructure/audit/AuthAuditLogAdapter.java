@@ -16,8 +16,8 @@ import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.audit.AuthAuditEventEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.audit.AuthAuditEventJpaRepository;
-import vn.sunvibe.common.generator.id.IdGenerator;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;
 

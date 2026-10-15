@@ -16,7 +16,7 @@ include("modules:campaign-service")
 include("modules:analyst-service")
 include("modules:email-service")
 include("modules:chat-service")
-include("modules:common")
+include("modules:shared-service")
 
 @Suppress("UnstableApiUsage")
 dependencyResolutionManagement {

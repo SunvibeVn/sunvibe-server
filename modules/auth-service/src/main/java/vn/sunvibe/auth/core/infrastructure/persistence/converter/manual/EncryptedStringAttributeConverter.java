@@ -4,7 +4,7 @@ import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import vn.sunvibe.common.crypto.CryptoService;
+import vn.sunvibe.shared.crypto.CryptoService;
 
 /**
  * Transparently encrypts a JPA entity field at rest and decrypts it on

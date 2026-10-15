@@ -32,7 +32,7 @@ import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordForgotRespons
 import vn.sunvibe.auth.core.presentation.dto.response.auth.PasswordResetResponse;
 import vn.sunvibe.auth.core.shared.constant.AuthMessage;
 import vn.sunvibe.auth.core.shared.service.CookieService;
-import vn.sunvibe.common.response.ApiResponse;
+import vn.sunvibe.shared.response.ApiResponse;
 
 import java.time.Instant;
 import java.time.LocalDateTime;

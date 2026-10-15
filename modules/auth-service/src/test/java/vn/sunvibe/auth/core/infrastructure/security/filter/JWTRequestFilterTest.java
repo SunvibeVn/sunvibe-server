@@ -22,7 +22,7 @@ import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
-import vn.sunvibe.common.security.AuthenticatedUser;
+import vn.sunvibe.shared.security.AuthenticatedUser;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

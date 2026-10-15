@@ -28,8 +28,8 @@ import vn.sunvibe.auth.core.infrastructure.persistence.adapter.auth.RefreshToken
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.manual.RefreshTokenEntityMapper;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.RefreshTokenEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.RefreshTokenJpaRepository;
-import vn.sunvibe.common.crypto.AesGcmCryptoService;
-import vn.sunvibe.common.generator.id.IdGenerator;
+import vn.sunvibe.shared.crypto.AesGcmCryptoService;
+import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;

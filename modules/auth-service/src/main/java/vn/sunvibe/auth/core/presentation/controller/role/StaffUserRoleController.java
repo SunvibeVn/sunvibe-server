@@ -21,8 +21,8 @@ import vn.sunvibe.auth.core.application.usecase.role.RoleRevokeUseCase;
 import vn.sunvibe.auth.core.application.usecase.role.UserRoleQueryUseCase;
 import vn.sunvibe.auth.core.presentation.converter.role.RoleConverter;
 import vn.sunvibe.auth.core.presentation.dto.response.role.UserRolesResponse;
-import vn.sunvibe.common.dto.response.error.BaseErrorModel;
-import vn.sunvibe.common.dto.response.error.ErrorResponse;
+import vn.sunvibe.shared.dto.response.error.BaseErrorModel;
+import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 /**
  * Role admin API (wave W6, auth-roles US-4, BR-9..BR-11). ADMIN (and SUPER_ADMIN through the role hierarchy)

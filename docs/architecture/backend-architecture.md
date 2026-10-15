@@ -8,7 +8,7 @@ Moved from the former `CLAUDE.md` (2026-10-13). Per-layer rules with code exampl
 This project follows a **Modular Monolith** architecture with **DDD + Hexagonal Architecture + CQRS** patterns.
 
 - **Root module**: `app` (Spring Boot application, `vn.sunvibe.SunvibeServerApplication`, global `config/SecurityConfig`)
-- **Shared module**: `modules/common` (exceptions, error DTOs, crypto, ID generators, `AppClock`)
+- **Shared module**: `modules/shared-service`, package `vn.sunvibe.shared` (exceptions, error DTOs, crypto, ID generators, `AppClock`)
 - **Domain modules**: `modules/<name>-service`. With code today: `auth-service`, `property-service`.
   Empty placeholders: listing, booking, review, customer, payment, notification, campaign, analyst, email, chat.
 

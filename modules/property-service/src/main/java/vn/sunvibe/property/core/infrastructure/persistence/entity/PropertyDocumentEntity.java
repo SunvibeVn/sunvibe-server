@@ -3,7 +3,7 @@ package vn.sunvibe.property.core.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

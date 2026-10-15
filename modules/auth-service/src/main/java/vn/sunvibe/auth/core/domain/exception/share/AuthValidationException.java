@@ -2,7 +2,7 @@ package vn.sunvibe.auth.core.domain.exception.share;
 
 import lombok.Getter;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
-import vn.sunvibe.common.exception.ValidationException;
+import vn.sunvibe.shared.exception.ValidationException;
 
 import java.io.Serial;
 

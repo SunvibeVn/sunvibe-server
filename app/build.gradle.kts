@@ -10,7 +10,7 @@ dependencyManagement {
 }
 
 dependencies {
-    implementation(project(":modules:common"))
+    implementation(project(":modules:shared-service"))
     implementation(project(":modules:auth-service"))
     implementation(project(":modules:listing-service"))
     implementation(project(":modules:booking-service"))

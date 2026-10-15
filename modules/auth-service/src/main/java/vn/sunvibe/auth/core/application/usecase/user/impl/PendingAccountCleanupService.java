@@ -16,7 +16,7 @@ import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.PendingAccountRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;
 import java.util.List;

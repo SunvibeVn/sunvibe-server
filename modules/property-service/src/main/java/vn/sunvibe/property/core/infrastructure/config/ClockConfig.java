@@ -2,7 +2,7 @@ package vn.sunvibe.property.core.infrastructure.config;
 
 import jakarta.validation.ClockProvider;
 import org.springframework.context.annotation.Configuration;
-import vn.sunvibe.common.time.AppClock;
+import vn.sunvibe.shared.time.AppClock;
 
 import jakarta.annotation.PostConstruct;
 

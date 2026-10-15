@@ -1,6 +1,6 @@
 package vn.sunvibe.auth.core.application.exception.auth;
 
-import vn.sunvibe.common.exception.ApplicationException;
+import vn.sunvibe.shared.exception.ApplicationException;
 
 import java.io.Serial;
 
