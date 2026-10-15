@@ -31,7 +31,7 @@ import org.springframework.test.context.ActiveProfiles;
 class OpenApiExportTest {
 
 	/** The random test port would otherwise change the file on every run. */
-	private static final String STABLE_SERVER_URL = "http://localhost:8082";
+	private static final String STABLE_SERVER_URL = "http://localhost:8081";
 
 	@Value("${local.server.port}")
 	private int port;

@@ -1,6 +1,7 @@
 package vn.sunvibe;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -36,6 +37,11 @@ class ConfigSecretsGuardTest {
 			MAIL_USERNAME, "${MAIL_USERNAME}",
 			MAIL_PASSWORD, "${MAIL_PASSWORD}",
 			JWT_SECRET, "${JWT_SECRET}");
+
+	@Test
+	void baseProfile_defaultServerPort_is8081() throws IOException {
+		assertEquals("${SERVER_PORT:8081}", rawValue(load("application.yml"), "server.port"));
+	}
 
 	@Test
 	void baseProfile_secretKeys_arePlaceholdersWithoutDefaults() throws IOException {
