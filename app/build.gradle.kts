@@ -36,6 +36,9 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("com.h2database:h2")
+    // PostgreSQL in Docker for the Flyway migration test (FlywayPostgresMigrationTest); needs Docker locally and in CI
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
 }
 
 tasks.withType<Test> {
