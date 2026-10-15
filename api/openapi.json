@@ -433,7 +433,7 @@
                 }
               }
             },
-            "description" : "Invalid request"
+            "description" : "Invalid request (an ADMIN without ownerId: field ownerId)"
           },
           "401" : {
             "content" : {
@@ -473,7 +473,7 @@
                 }
               }
             },
-            "description" : "Referenced master data is invalid"
+            "description" : "Referenced master data or owner (ADMIN) is invalid"
           }
         },
         "summary" : "Create a property",
@@ -817,7 +817,7 @@
           },
           "ownerId" : {
             "type" : "string",
-            "minLength" : 1
+            "description" : "ADMIN only: the owner's user id (required for ADMIN). Ignored for other callers; the owner is the caller."
           },
           "postalCode" : {
             "type" : "string"
@@ -855,7 +855,7 @@
             "minLength" : 1
           }
         },
-        "required" : [ "bathrooms", "bedrooms", "depositPrice", "district", "minRentMonths", "monthlyPrice", "ownerId", "propertyCode", "propertyType", "squareMeters", "street", "title", "ward" ]
+        "required" : [ "bathrooms", "bedrooms", "depositPrice", "district", "minRentMonths", "monthlyPrice", "propertyCode", "propertyType", "squareMeters", "street", "title", "ward" ]
       },
       "PropertyCreateResponse" : {
         "type" : "object",

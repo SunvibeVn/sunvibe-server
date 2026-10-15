@@ -40,7 +40,11 @@ public record PropertyCreateCommand(
         Integer minRentMonths,
 
         // ==================== Ownership & Audit ====================
-        String ownerId,
+        // ownerId from the request body; only an ADMIN's value is used (W5)
+        String requestedOwnerId,
+        // The authenticated caller: user id, whether it holds ROLE_ADMIN, username (created_by)
+        String actorUserId,
+        boolean actorIsAdmin,
         String createdBy,
 
         // ==================== Additional Data ====================
@@ -83,7 +87,7 @@ public record PropertyCreateCommand(
                 monthlyPrice != null && monthlyPrice.compareTo(BigDecimal.ZERO) > 0 &&
                 depositPrice != null && depositPrice.compareTo(BigDecimal.ZERO) > 0 &&
                 minRentMonths != null && minRentMonths >= 1 &&
-                ownerId != null && !ownerId.isBlank() &&
+                actorUserId != null && !actorUserId.isBlank() &&
                 createdBy != null && !createdBy.isBlank() &&
                 street != null && !street.isBlank() &&
                 ward != null && !ward.isBlank() &&

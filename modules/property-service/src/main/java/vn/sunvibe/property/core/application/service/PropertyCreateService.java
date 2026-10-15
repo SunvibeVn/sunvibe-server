@@ -8,6 +8,7 @@ import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.exception.PropertyAlreadyExistsException;
 import vn.sunvibe.property.core.application.exception.PropertyServiceException;
 import vn.sunvibe.property.core.application.exception.PropertyValidationException;
+import vn.sunvibe.property.core.application.shared.external.user.UserDirectoryPort;
 import vn.sunvibe.property.core.application.usecase.PropertyCreateUseCase;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;
 import vn.sunvibe.property.core.domain.model.amenity.AmenityType;
@@ -20,6 +21,7 @@ import vn.sunvibe.property.core.domain.model.vo.Money;
 import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 import vn.sunvibe.property.core.domain.exception.PropertyAmenityNotFoundException;
+import vn.sunvibe.property.core.domain.exception.PropertyOwnerNotFoundException;
 import vn.sunvibe.property.core.domain.exception.PropertyRuleNotFoundException;
 import vn.sunvibe.property.core.domain.repository.AmenityTypeDomainRepository;
 import vn.sunvibe.common.exception.ResourceNotFoundException;
@@ -37,6 +39,7 @@ public class PropertyCreateService implements PropertyCreateUseCase {
     private final PropertyDomainRepository propertyDomainRepository;
     private final RuleCategoryDomainRepository ruleCategoryDomainRepository;
     private final AmenityTypeDomainRepository amenityTypeDomainRepository;
+    private final UserDirectoryPort userDirectoryPort;
 
     @Override
     public PropertyId execute(PropertyCreateCommand command) {
@@ -47,6 +50,8 @@ public class PropertyCreateService implements PropertyCreateUseCase {
         log.info("Creating property: code={}", command.propertyCode());
 
         try {
+            String ownerId = resolveOwner(command);
+
             PropertyCode propertyCode;
             try {
                 propertyCode = PropertyCode.of(command.propertyCode());
@@ -71,7 +76,7 @@ public class PropertyCreateService implements PropertyCreateUseCase {
                     Money.vnd(command.monthlyPrice()),
                     Money.vnd(command.depositPrice()),
                     command.minRentMonths(),
-                    command.ownerId(),
+                    ownerId,
                     command.createdBy()
             );
 
@@ -92,6 +97,27 @@ public class PropertyCreateService implements PropertyCreateUseCase {
             log.error("Unexpected error creating property", e);
             throw new PropertyServiceException("Failed to create property: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * W5 (audit R3): a non-admin caller is always the owner; the ownerId in the request is ignored.
+     * An ADMIN must name an owner who is an existing, active user (no role check until W6).
+     */
+    private String resolveOwner(PropertyCreateCommand command) {
+        String requested = command.requestedOwnerId();
+        if (!command.actorIsAdmin()) {
+            if (requested != null && !requested.equals(command.actorUserId())) {
+                log.info("ownerId in the request ignored for a non-admin caller");
+            }
+            return command.actorUserId();
+        }
+        if (requested == null || requested.isBlank()) {
+            throw new PropertyValidationException(Property.FieldName.OWNER_ID, "OwnerId is required.");
+        }
+        if (!userDirectoryPort.existsActiveUser(requested)) {
+            throw new PropertyOwnerNotFoundException();
+        }
+        return requested;
     }
 
     private void applyRules(Property property, List<Integer> ruleCategoryIds) {

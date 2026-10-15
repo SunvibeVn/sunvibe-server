@@ -48,9 +48,10 @@ import vn.sunvibe.common.time.AppClock;
 /**
  * Characterization tests (wave W2) for {@code POST /api/v1/properties}: they record what the endpoint does
  * today, end to end (HTTP, security, mapper, use case, JPA on PostgreSQL), including behavior that later waves change.
- * A test whose name ends in {@code _changesInW5} / {@code _changesInW6} pins insecure behavior that is
- * planned to change (W5: owner taken from the caller, W6: roles). Do not "fix" these assertions here; the
- * wave that changes the behavior updates them.
+ * A test whose name ends in {@code _changesInW6} pins behavior that is planned to change (W6: roles).
+ * Do not "fix" these assertions here; the wave that changes the behavior updates them.
+ * Since W5 the owner comes from the caller: a non-admin caller is always the owner (ownerId in the body is
+ * ignored); an ADMIN must name an existing, active user as owner.
  * <p>
  * Users are created through the auth domain repository and log in through {@code POST /api/auth/login},
  * so every request carries a real access token. Tokens and passwords are never printed.
@@ -174,7 +175,7 @@ class PropertyCreateCharacterizationTest {
 
 		Map<String, Object> row = propertyRow(code);
 		assertEquals(id, row.get("ID"));
-		assertEquals(landlordA.userId(), row.get("OWNER_ID"), "owner_id is the value from the request body");
+		assertEquals(landlordA.userId(), row.get("OWNER_ID"), "an ADMIN names the owner in the request body");
 		assertEquals(admin.username(), row.get("CREATED_BY"), "created_by stores the username (phone number)");
 		assertEquals(admin.username(), row.get("UPDATED_BY"));
 		assertEquals("AVAILABLE", row.get("STATUS"));
@@ -208,7 +209,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countWherePropertyId("property_prices", id));
 	}
 
-	// ==================== C2 / C3: owner and role (insecure today) ====================
+	// ==================== C2 / C3: owner (W5) and role (insecure until W6) ====================
 
 	@Test
 	void create_landlordForOwnProperty_returns201_changesInW6() throws Exception {
@@ -225,29 +226,87 @@ class PropertyCreateCharacterizationTest {
 	}
 
 	@Test
-	void create_landlordAWithOwnerIdOfLandlordB_storesLandlordBAsOwner_changesInW5() throws Exception {
-		// Audit R3 (IDOR): the owner comes from the request body, never from the caller.
-		// W6 changes it too: a LANDLORD caller is expected to lose create access altogether.
+	void create_landlordAWithOwnerIdOfLandlordB_storesLandlordAAsOwner_changesInW6() throws Exception {
+		// W5-1 (audit R3, T-021): a non-admin caller is the owner; the ownerId in the body is ignored, no error.
+		// W6 changes it again: a LANDLORD caller is expected to lose create access altogether.
 		String code = uniqueCode();
 
 		Result result = post(landlordA, validBody(code, landlordB.userId()));
 
 		assertEquals(201, result.status(), result.rawBody());
-		assertEquals(landlordB.userId(), result.body().path("ownerId").asString());
+		assertEquals(landlordA.userId(), result.body().path("ownerId").asString());
+		assertEquals(landlordA.username(), result.body().path("createdBy").asString());
 		Map<String, Object> row = propertyRow(code);
-		assertEquals(landlordB.userId(), row.get("OWNER_ID"), "owner_id is another landlord's id");
-		assertEquals(landlordA.username(), row.get("CREATED_BY"), "created_by still shows the real caller");
+		assertEquals(landlordA.userId(), row.get("OWNER_ID"), "owner_id is the caller, not the id from the body");
+		assertEquals(landlordA.username(), row.get("CREATED_BY"));
 	}
 
 	@Test
-	void create_ownerIdThatIsNoUser_returns201AndStoresIt_changesInW5() throws Exception {
-		// No foreign key and no lookup: any non-blank string is accepted as owner
+	void create_landlordWithoutOwnerId_storesCallerAsOwner_changesInW6() throws Exception {
+		// W5-1: ownerId is optional for a non-admin caller
 		String code = uniqueCode();
+		Map<String, Object> body = validBody(code, null);
+		body.remove("ownerId");
 
-		Result result = post(admin, validBody(code, "not-a-user-id"));
+		Result result = post(landlordA, body);
 
 		assertEquals(201, result.status(), result.rawBody());
-		assertEquals("not-a-user-id", propertyRow(code).get("OWNER_ID"));
+		assertEquals(landlordA.userId(), result.body().path("ownerId").asString());
+		assertEquals(landlordA.userId(), propertyRow(code).get("OWNER_ID"));
+	}
+
+	@Test
+	void create_adminWithoutOwnerId_returns400AndStoresNothing() throws Exception {
+		// W5-2
+		String code = uniqueCode();
+		Map<String, Object> body = validBody(code, null);
+		body.remove("ownerId");
+
+		Result result = post(admin, body);
+
+		assertEquals(400, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Set.of("ownerId"), validationErrors(result.body()).keySet());
+		assertEquals(0, countPropertiesWithCode(code));
+	}
+
+	@Test
+	void create_adminWithBlankOwnerId_returns400AndStoresNothing() throws Exception {
+		// W5-2
+		String code = uniqueCode();
+
+		Result result = post(admin, validBody(code, "   "));
+
+		assertEquals(400, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Set.of("ownerId"), validationErrors(result.body()).keySet());
+		assertEquals(0, countPropertiesWithCode(code));
+	}
+
+	@Test
+	void create_adminWithUnknownOwnerId_returns422AndStoresNothing() throws Exception {
+		// W5-3: the named owner must be an existing, active user; the id is never echoed back
+		String code = uniqueCode();
+		String unknownOwnerId = "01JUNKNOWNOWNER00000000000";
+
+		Result result = post(admin, validBody(code, unknownOwnerId));
+
+		assertEquals(422, result.status(), result.rawBody());
+		assertEquals("Validation failed.", result.body().path("message").asString());
+		assertEquals(Map.of("ownerId", "Referenced owner was not found."), validationErrors(result.body()));
+		assertFalse(result.rawBody().contains(unknownOwnerId), "the response must not echo the owner id");
+		assertEquals(0, countPropertiesWithCode(code));
+	}
+
+	@Test
+	void create_adminWithOwnerIdOfUnverifiedUser_returns201AndStoresThatOwner() throws Exception {
+		// W5-3: "active" is the sign-in rule (not deleted, locked or terminated), so a PENDING account counts
+		String code = uniqueCode();
+
+		Result result = post(admin, validBody(code, unverifiedLandlord.userId()));
+
+		assertEquals(201, result.status(), result.rawBody());
+		assertEquals(unverifiedLandlord.userId(), propertyRow(code).get("OWNER_ID"));
 	}
 
 	@Test
@@ -255,10 +314,11 @@ class PropertyCreateCharacterizationTest {
 		// The rule checks only the role, not the PHONE_VERIFIED authority; a PENDING account can log in
 		String code = uniqueCode();
 
-		Result result = post(unverifiedLandlord, validBody(code, unverifiedLandlord.userId()));
+		Result result = post(unverifiedLandlord, validBody(code, landlordB.userId()));
 
 		assertEquals(201, result.status(), result.rawBody());
 		assertEquals(unverifiedLandlord.username(), propertyRow(code).get("CREATED_BY"));
+		assertEquals(unverifiedLandlord.userId(), propertyRow(code).get("OWNER_ID"), "W5-1: the caller is the owner");
 	}
 
 	// ==================== C4 / C5: access ====================

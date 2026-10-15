@@ -20,6 +20,7 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
+import vn.sunvibe.auth.core.infrastructure.security.userdetails.AuthenticatedUserPrincipal;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
 
 import java.io.IOException;
@@ -111,7 +112,9 @@ public class JWTRequestFilter extends OncePerRequestFilter {
             return Optional.empty();
         }
 
-        return Optional.of(new UsernamePasswordAuthenticationToken(user.getUsername(), null, user.getAuthorities()));
+        // The principal carries the user id of the reloaded account (already matched against uid); getName() stays the username
+        AuthenticatedUserPrincipal principal = new AuthenticatedUserPrincipal(user.getUserId(), user.getUsername());
+        return Optional.of(new UsernamePasswordAuthenticationToken(principal, null, user.getAuthorities()));
     }
 
     /**
