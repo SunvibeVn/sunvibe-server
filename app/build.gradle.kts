@@ -31,6 +31,8 @@ dependencies {
     // PostgreSQL in Docker for the Flyway migration test (FlywayPostgresMigrationTest); needs Docker locally and in CI
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:testcontainers-postgresql")
+    // Source-level module boundary test (ModuleBoundaryArchTest, ADR-009); core library only, not managed by the Boot BOM
+    testImplementation("com.tngtech.archunit:archunit:1.5.1")
 }
 
 tasks.withType<Test> {

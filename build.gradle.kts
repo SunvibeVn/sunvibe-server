@@ -46,7 +46,7 @@ subprojects {
 
 // Module boundaries: a module may depend only on :modules:shared-service (ADR-009), and shared-service
 // depends on no module (ADR-003). Only :app may depend on any module (it wires the adapters).
-// Checks declared project dependencies only; source-level import checks wait for ArchUnit (ADR-003/ADR-009).
+// Checks declared project dependencies only; source-level imports: app ModuleBoundaryArchTest (ADR-003/ADR-009).
 val boundaryCheckedProjects = subprojects.filter { it.path != ":app" }
 boundaryCheckedProjects.forEach { evaluationDependsOn(it.path) }
 
