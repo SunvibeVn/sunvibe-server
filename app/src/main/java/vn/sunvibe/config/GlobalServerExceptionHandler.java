@@ -1,4 +1,4 @@
-package vn.sunvibe.shared.exception;
+package vn.sunvibe.config;
 
 import jakarta.mail.AuthenticationFailedException;
 import lombok.extern.log4j.Log4j2;
@@ -13,6 +13,9 @@ import vn.sunvibe.shared.constant.error.SystemErrorMessage;
 import vn.sunvibe.shared.dto.response.error.BaseErrorModel;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.shared.dto.response.error.ValidationError;
+import vn.sunvibe.shared.exception.ApplicationException;
+import vn.sunvibe.shared.exception.BaseBusinessException;
+import vn.sunvibe.shared.exception.ValidationException;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.util.List;
