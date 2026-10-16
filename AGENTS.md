@@ -28,6 +28,10 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - Commands and DTOs are Java records. Request DTO -> Command via presentation converters.
 - DTOs at the API edge; never return JPA entities or domain objects.
 - New modules follow the property-service layout. Inside auth-service keep its existing variant (usecase/<area>/impl, persistence/converter).
+- Cross-module calls (../docs/decisions/ADR-009-cross-module-ports.md): the consumer declares a port in its
+  core/application/shared/external/<topic>/, the provider publishes a use case, and the adapter lives in app
+  (vn.sunvibe.integration.<Provider><Topic>Adapter, with a unit test). No Gradle dependency between feature modules:
+  only feature -> shared-service and app -> any module. ./gradlew checkModuleBoundaries (part of check/build) fails otherwise.
 - Full guide: docs/architecture/backend-architecture.md (overview, package tree, dependency rules)
   and docs/architecture/layer-guide.md (per-layer rules with examples). Cross-repo: ../docs/architecture.md
 

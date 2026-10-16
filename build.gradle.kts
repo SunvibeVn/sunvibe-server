@@ -43,3 +43,38 @@ subprojects {
 		implementation("org.slf4j:slf4j-api")
 	}
 }
+
+// Module boundaries: a module may depend only on :modules:shared-service (ADR-009), and shared-service
+// depends on no module (ADR-003). Only :app may depend on any module (it wires the adapters).
+// Checks declared project dependencies only; source-level import checks wait for ArchUnit (ADR-003/ADR-009).
+val boundaryCheckedProjects = subprojects.filter { it.path != ":app" }
+boundaryCheckedProjects.forEach { evaluationDependsOn(it.path) }
+
+val checkModuleBoundaries = tasks.register("checkModuleBoundaries") {
+	group = "verification"
+	description = "Fails if a module depends on another module except :modules:shared-service (ADR-009)."
+	val sharedPath = ":modules:shared-service"
+	val violations = provider {
+		boundaryCheckedProjects.flatMap { module ->
+			module.configurations.flatMap { configuration ->
+				configuration.dependencies.withType<ProjectDependency>()
+					.filter { it.path != module.path && (it.path != sharedPath || module.path == sharedPath) }
+					.map { "${module.path} -> ${it.path} (${configuration.name})" }
+			}
+		}.distinct()
+	}
+	doLast {
+		val found = violations.get()
+		if (found.isNotEmpty()) {
+			throw GradleException(
+				"Module boundary violation (ADR-009, ../docs/decisions/ADR-009-cross-module-ports.md):\n" +
+					found.joinToString("\n") { "  $it" } +
+					"\nDeclare a port in the consuming module and put the adapter in :app (vn.sunvibe.integration)."
+			)
+		}
+	}
+}
+
+tasks.check {
+	dependsOn(checkModuleBoundaries)
+}

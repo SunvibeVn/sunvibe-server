@@ -123,6 +123,22 @@ Forbidden:
 - ❌ Application importing `infrastructure.*`, `presentation.*`
 - ❌ Presentation importing `infrastructure.*` (use application layer instead) or the domain layer directly (use use cases)
 
+### Between modules (ADR-009)
+Full rule: `sunvibe-hub/docs/decisions/ADR-009-cross-module-ports.md`.
+- The only Gradle edges are `feature -> :modules:shared-service` and `app -> any module`; `shared-service` depends on
+  no module (ADR-003). `./gradlew checkModuleBoundaries` (run by `check`, so by `build` and CI) fails on any other
+  declared project dependency. It does not read source imports (ArchUnit follow-up in ADR-003/ADR-009).
+- A module that needs another module's data or action declares an outbound port in its own
+  `core/application/shared/external/<topic>/`, typed in its own terms (no class of the other module).
+- The provider exposes a published use case in `core/application/usecase/...` and keeps entities, repositories and
+  infrastructure private.
+- The adapter lives in `app`, package `vn.sunvibe.integration`, named `<Provider><Topic>Adapter`
+  (e.g. `AuthUserDirectoryAdapter`). It only translates and forwards, and has a unit test in `app`.
+- Authorization stays with the consumer's endpoint. A published use case states which already-authorized operation
+  may call it, and the adapter must not expose it over HTTP.
+- A contract every module needs and that holds no business rule (e.g. `AuthenticatedUser`) may live in `shared-service`.
+- Reactions after commit or in another module's transaction use events/outbox, not ports.
+
 ## Example flow: create entity
 
 1. Controller receives HTTP request
@@ -148,6 +164,7 @@ Forbidden:
 9. **Mappers** use factory methods, not reflection
 10. **No circular dependencies** between layers
 11. Register the module in `settings.gradle.kts` and as a dependency of `app/build.gradle.kts`
+12. **Depends only on `:modules:shared-service`**; calls to other modules go through a port and an adapter in `app` (ADR-009)
 
 ## Summary
 
