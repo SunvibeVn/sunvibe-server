@@ -42,7 +42,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   into .gitleaksignore as a fingerprint (never the value), only after owner review.
 - Every new endpoint: OpenAPI annotations (springdoc, io.swagger.v3.oas.annotations) + explicit authorization rule + test.
 - Errors use the shared format: vn.sunvibe.shared.dto.response.error.ErrorResponse(message, errors),
-  produced by vn.sunvibe.shared.exception.GlobalServerExceptionHandler or a module *ExceptionHandler. Never leak stack traces.
+  produced by vn.sunvibe.config.GlobalServerExceptionHandler (app) or a module *ExceptionHandler. Never leak stack traces.
 - New endpoints go under /api/v1/<resource>. Existing auth paths (/api/auth, /api/users/command, /api/user/query) are legacy.
 - CORS: explicit origin allow-list from config (app.cors.allowed-origins), allowCredentials=true. Never "*".
   See ../docs/decisions/ADR-001-direct-browser-api.md
