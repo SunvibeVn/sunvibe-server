@@ -3,6 +3,7 @@ package vn.sunvibe.property;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
@@ -52,6 +53,9 @@ import vn.sunvibe.shared.time.AppClock;
  * Since W6 (auth-roles brief BR-5..BR-8, E-1..E-3): only SALE, SALE_LEADER, SALES_MANAGER and ADMIN (and
  * SUPER_ADMIN through the role hierarchy) may create; every caller names the owner, who must be able to sign in
  * and must not be staff/admin, and gets OWNER (audited, the creator is the actor). The caller is never the owner.
+ * Since W8 (property-units brief US-3, BR-8, BR-10..BR-12, E-1): a create also stores the canonical unit and the
+ * ownership of the named owner in the same transaction. The API is unchanged, so the cases of the sections above
+ * are untouched; the W8 section below adds three.
  * <p>
  * Users are created through the auth domain repository and log in through {@code POST /api/auth/login},
  * so every request carries a real access token. Tokens and passwords are never printed.
@@ -76,6 +80,8 @@ class PropertyCreateCharacterizationTest {
 	private static final List<Integer> RULE_IDS = List.of(1, 2);
 	private static final List<Integer> AMENITY_IDS = List.of(10, 11);
 	private static final int UNKNOWN_MASTER_ID = 9999;
+	/** ADR-006: 26 characters, Crockford base32. */
+	private static final String ULID = "^[0-9A-HJKMNP-TV-Z]{26}$";
 
 	private static final AtomicInteger PHONE_SEQUENCE = new AtomicInteger(1);
 	private static final AtomicInteger CODE_SEQUENCE = new AtomicInteger(100001);
@@ -211,8 +217,8 @@ class PropertyCreateCharacterizationTest {
 
 	@Test
 	void create_validBody_storesNoAvailabilityAndNoPriceRows() throws Exception {
-		// The domain Property creates an AVAILABLE PropertyAvailability, but PropertyEntityMapper.toEntity
-		// does not map it (nor any price history), so nothing reaches those tables today.
+		// No availability is built any more (the property_availability table is retired, BR-13) and
+		// PropertyEntityMapper.toEntity maps no price history, so nothing reaches those tables.
 		String code = uniqueCode();
 
 		Result result = post(admin, validBody(code, landlordA.userId()));
@@ -578,6 +584,105 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(400, response.statusCode(), response.body());
 	}
 
+	// ==================== W8: units and ownership ====================
+
+	/**
+	 * W8-10 (US-3 AC-1, BR-4, BR-5, BR-8, BR-10, BR-12, BR-14): a successful create also stores exactly one canonical
+	 * unit and one unverified ownership. Their foreign keys to properties only hold if the property is saved first.
+	 */
+	@Test
+	void create_validBody_storesTheCanonicalUnitAndTheOwnership() throws Exception {
+		String code = uniqueCode();
+
+		Result result = post(admin, validBody(code, landlordA.userId()));
+
+		assertEquals(201, result.status(), result.rawBody());
+		String id = result.body().path("id").asString();
+
+		List<Map<String, Object>> units = jdbc.queryForList("select * from units where property_id = ?", id);
+		assertEquals(1, units.size(), "exactly one unit");
+		Map<String, Object> unit = units.getFirst();
+		assertEquals(code, unit.get("unit_code"), "the canonical unit takes the property code");
+		assertEquals("STUDIO", unit.get("unit_type"));
+		assertEquals(1, unit.get("bedrooms"));
+		assertEquals(1, unit.get("bathrooms"));
+		assertEquals(35.5, unit.get("area_sqm"));
+		assertEquals("AVAILABLE", unit.get("availability_state"));
+		assertEquals(0L, unit.get("version"));
+		assertTrue(((String) unit.get("id")).matches(ULID), "unit id is a ULID: " + unit.get("id"));
+
+		List<Map<String, Object>> ownerships = jdbc.queryForList(
+				"select * from property_ownerships where property_id = ?", id);
+		assertEquals(1, ownerships.size(), "exactly one ownership");
+		Map<String, Object> ownership = ownerships.getFirst();
+		assertEquals(landlordA.userId(), ownership.get("user_id"));
+		assertEquals("OWNER", ownership.get("relation_type"));
+		assertEquals("UNVERIFIED", ownership.get("verification_state"));
+		assertNull(ownership.get("valid_to"));
+		assertTrue(((String) ownership.get("id")).matches(ULID), "ownership id is a ULID: " + ownership.get("id"));
+		// Compared in SQL, so no zone of the JVM or the session can shift the day (a create late in the evening)
+		assertEquals(Boolean.TRUE, jdbc.queryForObject(
+				"select o.valid_from = cast(p.created_at as date) from property_ownerships o"
+						+ " join properties p on p.id = o.property_id where o.property_id = ?", Boolean.class, id),
+				"valid_from is the date of properties.created_at");
+
+		assertEquals(0L, jdbc.queryForObject("select version from properties where id = ?", Long.class, id));
+	}
+
+	/**
+	 * W8-11 (US-3 AC-3, BR-12, E-1): a create that is refused stores no unit and no ownership. The rollback after the
+	 * property was saved (the owner turns ineligible at grant time) is PropertyCreateRollbackPostgresTest.
+	 */
+	@Test
+	void create_failingRequests_storeNoUnitAndNoOwnership() throws Exception {
+		String codeA = uniqueCode();
+		assertEquals(201, post(admin, validBody(codeA, landlordA.userId())).status());
+		int unitsBefore = countRows("units");
+		int ownershipsBefore = countRows("property_ownerships");
+
+		// 403: LANDLORD may not create (BR-5)
+		assertPostStatus(403, landlordA, validBody(uniqueCode(), landlordB.userId()));
+		// 400: SALE names no owner (BR-6)
+		Map<String, Object> withoutOwner = validBody(uniqueCode(), null);
+		withoutOwner.remove("ownerId");
+		assertPostStatus(400, sale, withoutOwner);
+		// 409: the code of the first create again
+		assertPostStatus(409, admin, validBody(codeA, landlordB.userId()));
+		// 422: unknown master data
+		Map<String, Object> unknownAmenity = validBody(uniqueCode(), landlordA.userId());
+		unknownAmenity.put("amenityTypes", List.of(10, UNKNOWN_MASTER_ID));
+		assertPostStatus(422, admin, unknownAmenity);
+		// 422: a staff account (here SALE) is not an eligible owner (BR-7)
+		assertPostStatus(422, admin, validBody(uniqueCode(), sale.userId()));
+
+		assertEquals(unitsBefore, countRows("units"), "no unit stored by a refused create");
+		assertEquals(ownershipsBefore, countRows("property_ownerships"), "no ownership stored by a refused create");
+	}
+
+	/**
+	 * W8-15 (BR-11, Q-9, auth-roles Q-6): revoking OWNER through the role admin API keeps the ownership row and
+	 * properties.owner_id as they were: the role is a permission to use the system, the ownership a fact.
+	 */
+	@Test
+	void create_thenOwnerRoleRevoked_keepsTheOwnership() throws Exception {
+		TestUser owner = createUser(UserStatus.ACTIVE, "TENANT", "CUSTOMER");
+		String code = uniqueCode();
+		Result result = post(admin, validBody(code, owner.userId()));
+		assertEquals(201, result.status(), result.rawBody());
+		String id = result.body().path("id").asString();
+		assertEquals(Set.of("TENANT", "CUSTOMER", "OWNER"), roles(owner.userId()), "the create granted OWNER");
+		Map<String, Object> ownershipBefore = jdbc.queryForMap(
+				"select * from property_ownerships where property_id = ?", id);
+
+		int status = delete(admin, "/api/v1/staff/users/" + owner.userId() + "/roles/OWNER");
+
+		assertEquals(204, status);
+		assertEquals(Set.of("TENANT", "CUSTOMER"), roles(owner.userId()), "OWNER is revoked");
+		assertEquals(ownershipBefore, jdbc.queryForMap(
+				"select * from property_ownerships where property_id = ?", id), "the ownership row is unchanged");
+		assertEquals(owner.userId(), propertyRow(code).get("OWNER_ID"), "owner_id is unchanged");
+	}
+
 	// ==================== Helpers ====================
 
 	private void assertPropertyCodeRejectedWith400(String code, String expectedMessage) throws Exception {
@@ -587,6 +692,12 @@ class PropertyCreateCharacterizationTest {
 		assertEquals("Validation failed.", result.body().path("message").asString());
 		assertEquals(Map.of("propertyCode", expectedMessage), validationErrors(result.body()));
 		assertEquals(0, countPropertiesWithCode(code));
+	}
+
+	private void assertPostStatus(int expectedStatus, TestUser caller, Map<String, Object> body) throws Exception {
+		Result result = post(caller, body);
+
+		assertEquals(expectedStatus, result.status(), caller + ": " + result.rawBody());
 	}
 
 	/** Saved through the auth repository; PENDING keeps the phone unverified. The password is kept for logIn. */
@@ -657,6 +768,18 @@ class PropertyCreateCharacterizationTest {
 		return new Result(response.statusCode(), parsed, "status " + response.statusCode() + ", body " + raw);
 	}
 
+	/** DELETE with the caller's bearer token; the status is all the callers need. */
+	private int delete(TestUser caller, String path) throws Exception {
+		HttpResponse<String> response = http.send(
+				HttpRequest.newBuilder(uri(path))
+						.timeout(REQUEST_TIMEOUT)
+						.header("Authorization", "Bearer " + caller.secret())
+						.DELETE()
+						.build(),
+				HttpResponse.BodyHandlers.ofString());
+		return response.statusCode();
+	}
+
 	private URI uri(String path) {
 		return URI.create("http://localhost:" + port + path);
 	}
@@ -713,6 +836,10 @@ class PropertyCreateCharacterizationTest {
 
 	private int countPropertiesWithCode(String propertyCode) {
 		return jdbc.queryForObject("select count(*) from properties where property_code = ?", Integer.class, propertyCode);
+	}
+
+	private int countRows(String table) {
+		return jdbc.queryForObject("select count(*) from " + table, Integer.class);
 	}
 
 	private int countIds(String table, List<Integer> ids) {

@@ -109,6 +109,12 @@ public class PropertyEntity {
     @Column(name = "updated_by", nullable = false, length = 36)
     private String updatedBy;
 
+    // ==================== Optimistic Locking ====================
+    // Hibernate writes 0 on insert and adds 1 on every update; a stale update then fails (BR-14).
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     // ==================== Relationships ====================
     @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<PropertyImageEntity> images = new ArrayList<>();
@@ -124,9 +130,6 @@ public class PropertyEntity {
 
     @OneToMany(mappedBy = "property", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<PropertyPriceEntity> priceHistory = new ArrayList<>();
-
-    @OneToOne(mappedBy = "property", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private PropertyAvailabilityEntity availability;
 
     // ==================== Lifecycle Callbacks ====================
     @PrePersist

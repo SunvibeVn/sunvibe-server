@@ -73,7 +73,8 @@ public class PropertyEntityMapper {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getCreatedBy(),
-                entity.getUpdatedBy()
+                entity.getUpdatedBy(),
+                entity.getVersion()
         );
 
         // Restore sub-entities if present
@@ -144,6 +145,7 @@ public class PropertyEntityMapper {
                 .updatedAt(domain.getUpdatedAt())
                 .createdBy(domain.getCreatedBy())
                 .updatedBy(domain.getUpdatedBy())
+                .version(domain.getVersion())
                 .build();
 
         // Convert sub-entities
