@@ -127,7 +127,15 @@ Forbidden:
 Full rule: `sunvibe-hub/docs/decisions/ADR-009-cross-module-ports.md`.
 - The only Gradle edges are `feature -> :modules:shared-service` and `app -> any module`; `shared-service` depends on
   no module (ADR-003). `./gradlew checkModuleBoundaries` (run by `check`, so by `build` and CI) fails on any other
-  declared project dependency. It does not read source imports (ArchUnit follow-up in ADR-003/ADR-009).
+  declared project dependency. Source imports are checked by the ArchUnit test
+  `app/src/test/java/vn/sunvibe/architecture/ModuleBoundaryArchTest.java` (part of `test`, so of `build` and CI) on
+  the compiled main classes of every module: feature cores `vn.sunvibe.<module>.core..` do not use each other;
+  `vn.sunvibe.shared..` uses no other `vn.sunvibe` class; no feature or shared class uses an app class
+  (`vn.sunvibe.config..`, `vn.sunvibe.integration..`, `SunvibeServerApplication`); `vn.sunvibe.integration..` uses
+  only feature classes in `..core.application.usecase..` (not `usecase..impl..`) and
+  `..core.application.shared.external..`; every class lives in one of these packages; other app classes
+  use no feature class except the named allowlist `SecurityConfig` -> `RoleName`, `JWTRequestFilter` (a new
+  exception needs an ADR-009 change).
 - A module that needs another module's data or action declares an outbound port in its own
   `core/application/shared/external/<topic>/`, typed in its own terms (no class of the other module).
 - The provider exposes a published use case in `core/application/usecase/...` and keeps entities, repositories and
