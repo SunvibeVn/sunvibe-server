@@ -99,16 +99,6 @@ public interface PropertyJpaRepository extends JpaRepository<PropertyEntity, Str
     );
 
     /**
-     * Custom query: Find properties available for rent.
-     */
-    @Query("SELECT DISTINCT p FROM PropertyEntity p " +
-            "JOIN p.availability a " +
-            "WHERE p.status = 'AVAILABLE' " +
-            "AND a.status = 'AVAILABLE' " +
-            "AND a.availableFromDate <= CURRENT_DATE")
-    List<PropertyEntity> findAvailableForRent();
-
-    /**
      * Custom query: Find currently rented properties.
      */
     @Query("SELECT p FROM PropertyEntity p " +

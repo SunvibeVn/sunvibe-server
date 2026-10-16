@@ -1,9 +1,13 @@
 package vn.sunvibe;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Table;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +40,9 @@ class FlywayPostgresMigrationTest {
 	@Autowired
 	private JdbcTemplate jdbc;
 
+	@Autowired
+	private EntityManagerFactory entityManagerFactory;
+
 	@Test
 	void migrate_emptyDatabase_appliesTheBaselineMigrations() {
 		List<String> applied = jdbc.queryForList(
@@ -44,8 +51,24 @@ class FlywayPostgresMigrationTest {
 		assertEquals(
 				List.of("V202610150220__create_permission_tables.sql", "V202610150221__create_property_tables.sql",
 						"V202610160900__seed_roles.sql", "V202610160901__backfill_target_roles.sql",
+						"V202610161000__create_units_table.sql", "V202610161001__create_property_ownerships_table.sql",
+						"V202610161002__add_version_to_properties.sql",
+						"V202610161003__backfill_units_and_property_ownerships.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 5, applied.size()));
+				applied.subList(applied.size() - 9, applied.size()));
+	}
+
+	/** Wave W8 (property-units spec section 4, W8-14): units, ownerships and properties.version come from Flyway. */
+	@Test
+	void migrate_emptyDatabase_createsTheW8TablesAndVersionColumn() {
+		List<String> tables = jdbc.queryForList(
+				"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'", String.class);
+		List<String> propertyColumns = jdbc.queryForList("SELECT column_name FROM information_schema.columns"
+				+ " WHERE table_schema = 'public' AND table_name = 'properties'", String.class);
+
+		assertTrue(tables.contains("units"), "missing table units");
+		assertTrue(tables.contains("property_ownerships"), "missing table property_ownerships");
+		assertTrue(propertyColumns.contains("version"), "missing column properties.version");
 	}
 
 	/** Roles come from Flyway since W6 (auth-roles BR-1), no longer from RoleDataInitializer. */
@@ -81,5 +104,19 @@ class FlywayPostgresMigrationTest {
 				jdbc.queryForObject("SELECT category_name FROM amenity_types WHERE id = 14", String.class));
 		assertEquals(1825,
 				jdbc.queryForObject("SELECT renewal_frequency_days FROM document_types WHERE id = 5", Integer.class));
+	}
+
+	/** Wave W8 (property-units BR-13, C-13): the table stays, but no entity maps it any more. */
+	@Test
+	void context_noEntityMapsPropertyAvailability() {
+		List<String> mappedTables = entityManagerFactory.getMetamodel().getEntities().stream()
+				.map(entity -> entity.getJavaType().getAnnotation(Table.class))
+				.filter(table -> table != null)
+				.map(Table::name)
+				.toList();
+
+		assertTrue(!mappedTables.isEmpty(), "no @Table found: the metamodel check would pass vacuously");
+		assertFalse(mappedTables.contains("property_availability"),
+				"an entity still maps property_availability: " + mappedTables);
 	}
 }

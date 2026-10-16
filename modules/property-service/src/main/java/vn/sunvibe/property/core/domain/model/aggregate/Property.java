@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import vn.sunvibe.shared.time.AppClock;
 import vn.sunvibe.property.core.application.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
-import vn.sunvibe.property.core.domain.model.availability.PropertyAvailability;
 import vn.sunvibe.property.core.domain.model.document.PropertyDocument;
 import vn.sunvibe.property.core.domain.model.enums.PropertyStatus;
 import vn.sunvibe.property.core.domain.model.enums.PropertyType;
@@ -31,7 +30,7 @@ import java.util.Objects;
  * - appliedRules: List<PropertyRuleApply> (N:M via RuleCategory)
  * - amenities: List<PropertyAmenityApply> (N:M via AmenityType)
  * - documents: List<PropertyDocument> (1:M, ref to DocumentType master)
- * - images, prices, availability: unchanged (1:M direct)
+ * - images, prices: unchanged (1:M direct)
  */
 
 @Data
@@ -58,6 +57,7 @@ public class Property {
     private LocalDateTime updatedAt;
     private String createdBy;
     private String updatedBy;
+    private Long version;                    // Optimistic lock: null for a new property; set when loaded from the database (BR-14)
 
     // ==================== REFACTORED Relationships ====================
 
@@ -71,7 +71,6 @@ public class Property {
     private List<PropertyImage> images = new ArrayList<>();
     private List<PropertyDocument> documents = new ArrayList<>();
     private List<PropertyPrice> priceHistories = new ArrayList<>();
-    private PropertyAvailability availability;
 
     // ==================== Constructor ====================
 
@@ -122,7 +121,6 @@ public class Property {
         this.updatedAt = AppClock.currentLocalTime();
         this.createdBy = createdBy;
         this.updatedBy = createdBy;
-        this.availability = PropertyAvailability.createAvailable(id);
     }
 
     // ==================== Factory Methods ====================
@@ -146,7 +144,7 @@ public class Property {
                                 Integer bedrooms, Integer bathrooms, Double squareMeters,
                                 Money monthlyPrice, Money depositPrice, Integer minRentMonths,
                                 String ownerId, PropertyStatus status, LocalDateTime createdAt,
-                                LocalDateTime updatedAt, String createdBy, String updatedBy) {
+                                LocalDateTime updatedAt, String createdBy, String updatedBy, Long version) {
         Property property = new Property(id, code, title, description, location, type,
                 bedrooms, bathrooms, squareMeters, monthlyPrice,
                 depositPrice, minRentMonths, ownerId, createdBy);
@@ -154,6 +152,7 @@ public class Property {
         property.createdAt = createdAt;
         property.updatedAt = updatedAt;
         property.updatedBy = updatedBy;
+        property.version = version;
         return property;
     }
 
@@ -375,24 +374,6 @@ public class Property {
                 .orElse(null);
     }
 
-    // ==================== Availability Management ====================
-
-    /**
-     * Check whether the property is available.
-     */
-    public boolean isAvailable() {
-        return status == PropertyStatus.AVAILABLE && availability != null && availability.isAvailable();
-    }
-
-    /**
-     * Check availability for a time period.
-     */
-    public boolean isAvailableForPeriod(java.time.LocalDate checkIn, java.time.LocalDate checkOut) {
-        return status == PropertyStatus.AVAILABLE &&
-                availability != null &&
-                availability.isAvailableForPeriod(checkIn, checkOut);
-    }
-
     // ==================== Helper Methods ====================
 
     private boolean isValidStatus(String status) {
@@ -465,8 +446,7 @@ public class Property {
         AMENITIES("amenities", "Amenities"),
         IMAGES("images", "Images"),
         DOCUMENTS("documents", "Documents"),
-        PRICE_HISTORIES("priceHistories", "Price Histories"),
-        AVAILABILITY("availability", "Availability");
+        PRICE_HISTORIES("priceHistories", "Price Histories");
 
         // Getters
         private final String fieldName;      // Database/JSON field name

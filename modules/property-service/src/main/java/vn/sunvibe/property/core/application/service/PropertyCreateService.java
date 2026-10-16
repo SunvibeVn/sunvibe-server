@@ -14,8 +14,10 @@ import vn.sunvibe.property.core.domain.model.aggregate.Property;
 import vn.sunvibe.property.core.domain.model.amenity.AmenityType;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
 import vn.sunvibe.property.core.domain.model.image.PropertyImage;
+import vn.sunvibe.property.core.domain.model.ownership.PropertyOwnership;
 import vn.sunvibe.property.core.domain.model.rule.PropertyRuleApply;
 import vn.sunvibe.property.core.domain.model.rule.RuleCategory;
+import vn.sunvibe.property.core.domain.model.unit.Unit;
 import vn.sunvibe.property.core.domain.model.vo.Location;
 import vn.sunvibe.property.core.domain.model.vo.Money;
 import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
@@ -26,7 +28,9 @@ import vn.sunvibe.property.core.domain.exception.PropertyRuleNotFoundException;
 import vn.sunvibe.property.core.domain.repository.AmenityTypeDomainRepository;
 import vn.sunvibe.shared.exception.ResourceNotFoundException;
 import vn.sunvibe.property.core.domain.repository.PropertyDomainRepository;
+import vn.sunvibe.property.core.domain.repository.PropertyOwnershipDomainRepository;
 import vn.sunvibe.property.core.domain.repository.RuleCategoryDomainRepository;
+import vn.sunvibe.property.core.domain.repository.UnitDomainRepository;
 
 import java.util.List;
 
@@ -40,6 +44,8 @@ public class PropertyCreateService implements PropertyCreateUseCase {
     private final RuleCategoryDomainRepository ruleCategoryDomainRepository;
     private final AmenityTypeDomainRepository amenityTypeDomainRepository;
     private final UserDirectoryPort userDirectoryPort;
+    private final UnitDomainRepository unitDomainRepository;
+    private final PropertyOwnershipDomainRepository propertyOwnershipDomainRepository;
 
     @Override
     public PropertyId execute(PropertyCreateCommand command) {
@@ -85,8 +91,15 @@ public class PropertyCreateService implements PropertyCreateUseCase {
             addImages(property, command.images(), command.createdBy());
 
             propertyDomainRepository.save(property);
-            // Same transaction: if the grant fails, the property is not stored either (BR-8). The owner is checked
-            // again there; one who became ineligible meanwhile rolls everything back with 422
+            // W8 (property-units BR-8, BR-10, BR-12): the canonical unit and the ownership of the named owner are
+            // stored with the property, in the same transaction. Both refer to the property by id (foreign keys) and
+            // Hibernate inserts in the order of the save calls, so the property goes first
+            unitDomainRepository.save(Unit.createCanonical(property));
+            propertyOwnershipDomainRepository.save(PropertyOwnership.createUnverifiedOwner(
+                    property.getId(), ownerId, property.getCreatedAt().toLocalDate()));
+            // Same transaction: if the grant fails, the property, its unit and its ownership are not stored either
+            // (BR-8). The owner is checked again there; one who became ineligible meanwhile rolls everything back
+            // with 422
             if (!userDirectoryPort.ensureOwnerRole(ownerId, command.actorUserId())) {
                 throw new PropertyOwnerNotFoundException();
             }
