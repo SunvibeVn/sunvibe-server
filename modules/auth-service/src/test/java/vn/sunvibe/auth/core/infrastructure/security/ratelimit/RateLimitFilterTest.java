@@ -219,4 +219,131 @@ class RateLimitFilterTest {
         assertEquals(1, logs.list.size());
         assertTrue(logs.list.get(0).getFormattedMessage().contains("203.0.113.7"));
     }
+
+    // ==================== legacy and v1 pairs (auth-browser-session spec §3.8; W10-11) ====================
+
+    private static final RateLimitProperties.Rule LEGACY_LOGIN_PAIR =
+            new RateLimitProperties.Rule("POST", "/api/auth/login", 10, Duration.ofMinutes(1), "login");
+
+    private static final RateLimitProperties.Rule V1_LOGIN_PAIR =
+            new RateLimitProperties.Rule("POST", "/api/v1/auth/login", 10, Duration.ofMinutes(1), "login");
+
+    private RateLimitFilter pairFilter() {
+        return new RateLimitFilter(new RateLimitProperties(true, List.of(LEGACY_LOGIN_PAIR, V1_LOGIN_PAIR)),
+                new TokenBucketRateLimiter(), JsonMapper.builder().build(), corsSource());
+    }
+
+    private static MockHttpServletResponse sendFrom(RateLimitFilter filter, String path, String origin)
+            throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
+        request.setRemoteAddr("203.0.113.7");
+        if (origin != null) {
+            request.addHeader(HttpHeaders.ORIGIN, origin);
+        }
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(request, response, new MockFilterChain());
+        return response;
+    }
+
+    /** W10-11: while both paths exist, one bucket per IP, so the move does not double anyone's budget. */
+    @Test
+    void pair_sharesOneBucket() throws Exception {
+        RateLimitFilter filter = pairFilter();
+        for (int i = 0; i < 5; i++) {
+            assertEquals(200, send(filter, "POST", "/api/auth/login", "203.0.113.7").getStatus(), "legacy " + i);
+            assertEquals(200, send(filter, "POST", "/api/v1/auth/login", "203.0.113.7").getStatus(), "v1 " + i);
+        }
+
+        assertEquals(429, send(filter, "POST", "/api/auth/login", "203.0.113.7").getStatus());
+        assertEquals(429, send(filter, "POST", "/api/v1/auth/login", "203.0.113.7").getStatus());
+        assertEquals(200, send(filter, "POST", "/api/v1/auth/login", "198.51.100.1").getStatus(), "per IP");
+    }
+
+    @Test
+    void pair_rulesWithoutBucket_keepSeparateBuckets() throws Exception {
+        RateLimitProperties.Rule legacy = new RateLimitProperties.Rule("POST", "/api/auth/login", 1, Duration.ofMinutes(1));
+        RateLimitProperties.Rule v1 = new RateLimitProperties.Rule("POST", "/api/v1/auth/login", 1, Duration.ofMinutes(1));
+        RateLimitFilter filter = new RateLimitFilter(new RateLimitProperties(true, List.of(legacy, v1)),
+                new TokenBucketRateLimiter(), JsonMapper.builder().build(), corsSource());
+
+        assertEquals(200, send(filter, "POST", "/api/auth/login", "203.0.113.7").getStatus());
+        assertEquals(200, send(filter, "POST", "/api/v1/auth/login", "203.0.113.7").getStatus());
+        assertNull(legacy.bucket());
+    }
+
+    /** Spring MVC routes /api/v1/auth/log%69n to login, so the limiter must count it (known-issues 2026-10-17). */
+    @Test
+    void v1Login_percentEncodedPath_isCounted() throws Exception {
+        RateLimitFilter filter = pairFilter();
+        for (int i = 0; i < 10; i++) {
+            assertEquals(200, send(filter, "POST", "/api/v1/auth/log%69n", "203.0.113.7").getStatus());
+        }
+
+        assertEquals(429, send(filter, "POST", "/api/v1/auth/login", "203.0.113.7").getStatus());
+    }
+
+    /**
+     * Known-issues 2026-10-17: the path is decoded as UTF-8 the way MVC and Security decode it, never with the
+     * charset the client names, so no Content-Type can make the limiter see another path than the controller.
+     */
+    @Test
+    void v1Login_clientCharset_doesNotChangeTheMatchedPath() throws Exception {
+        RateLimitFilter filter = pairFilter();
+        for (int i = 0; i < 10; i++) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/log%69n");
+            request.setRemoteAddr("203.0.113.7");
+            request.setCharacterEncoding("UTF-16");
+            filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+        }
+
+        assertEquals(429, send(filter, "POST", "/api/v1/auth/login", "203.0.113.7").getStatus());
+    }
+
+    /** Spec §3.4, §3.7: the v1 429 is the RATE_LIMITED ErrorResponse and carries CORS for an allowed origin. */
+    @Test
+    void v1Path_limited_answersRatelimitedBody() throws Exception {
+        RateLimitFilter filter = pairFilter();
+        for (int i = 0; i < 10; i++) {
+            send(filter, "POST", "/api/auth/login", "203.0.113.7");
+        }
+
+        MockHttpServletResponse limited = sendFrom(filter, "/api/v1/auth/login", ALLOWED_ORIGIN);
+
+        assertEquals(429, limited.getStatus());
+        assertNotNull(limited.getHeader(HttpHeaders.RETRY_AFTER));
+        assertEquals("{\"code\":\"RATE_LIMITED\",\"message\":\"" + RateLimitFilter.MESSAGE
+                + "\",\"errors\":[],\"correlationId\":\"" + CORRELATION_ID + "\"}", limited.getContentAsString());
+        assertEquals(ALLOWED_ORIGIN, limited.getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+        assertEquals("true", limited.getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_CREDENTIALS));
+        assertEquals(1, logs.list.size());
+        String message = logs.list.get(0).getFormattedMessage();
+        assertTrue(message.contains("/api/v1/auth/login"), message);
+        assertFalse(message.contains("203.0.113.7"), message);
+    }
+
+    /** Spec §3.8: the body follows the path that was called, even when the v1 path used up the shared bucket. */
+    @Test
+    void legacyPath_limited_keepsTheLegacyBody() throws Exception {
+        RateLimitFilter filter = pairFilter();
+        for (int i = 0; i < 10; i++) {
+            send(filter, "POST", "/api/v1/auth/login", "203.0.113.7");
+        }
+
+        MockHttpServletResponse limited = sendFrom(filter, "/api/auth/login", ALLOWED_ORIGIN);
+
+        assertEquals(429, limited.getStatus());
+        assertTrue(limited.getContentAsString().contains("\"code\":429"));
+        assertTrue(limited.getContentAsString().contains("errorTime"));
+        assertFalse(limited.getContentAsString().contains("RATE_LIMITED"));
+        assertEquals(1, logs.list.size());
+        String message = logs.list.get(0).getFormattedMessage();
+        assertTrue(message.contains("/api/auth/login"), message);
+        assertTrue(message.contains("203.0.113.7"), message);
+    }
+
+    @Test
+    void rule_blankBucket_isRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new RateLimitProperties.Rule("POST", "/api/auth/login", 10, Duration.ofMinutes(1), " "));
+    }
 }

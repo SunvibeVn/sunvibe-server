@@ -180,4 +180,106 @@ class ContactVerificationServiceTest {
 
         assertDoesNotThrow(() -> failingSms.sendCodeAfterRegistration(user, VerificationChannel.PHONE));
     }
+
+    @Test
+    void confirm_wrongCode_carriesReasonCodeIncorrect() {
+        service.sendCode(VerificationChannel.PHONE);
+        String wrongCode = sms.lastCode().equals("000000") ? "111111" : "000000";
+
+        VerificationException wrong = assertThrows(VerificationException.class,
+                () -> service.confirm(VerificationChannel.PHONE, wrongCode));
+
+        assertEquals(VerificationException.Reason.CODE_INCORRECT, wrong.getReason());
+        assertEquals(ContactVerificationService.WRONG_CODE, wrong.getMessage());
+    }
+
+    @Test
+    void confirm_expiredCode_carriesReasonCodeExpired() {
+        service.sendCode(VerificationChannel.PHONE);
+        String code = sms.lastCode();
+        codes.all().forEach(c -> codes.age(c.getId(), Duration.ofMinutes(11)));
+
+        VerificationException expired = assertThrows(VerificationException.class,
+                () -> service.confirm(VerificationChannel.PHONE, code));
+
+        assertEquals(VerificationException.Reason.CODE_EXPIRED, expired.getReason());
+        assertEquals(ContactVerificationService.INVALID_CODE, expired.getMessage());
+    }
+
+    @Test
+    void confirm_fifthWrongCode_carriesReasonAttemptsExceeded() {
+        service.sendCode(VerificationChannel.PHONE);
+        String wrongCode = sms.lastCode().equals("000000") ? "111111" : "000000";
+        for (int i = 0; i < 4; i++) {
+            assertThrows(VerificationException.class, () -> service.confirm(VerificationChannel.PHONE, wrongCode));
+        }
+
+        VerificationException burned = assertThrows(VerificationException.class,
+                () -> service.confirm(VerificationChannel.PHONE, wrongCode));
+
+        assertEquals(VerificationException.Reason.CODE_ATTEMPTS_EXCEEDED, burned.getReason());
+        assertEquals(ContactVerificationService.TOO_MANY_ATTEMPTS, burned.getMessage());
+    }
+
+    @Test
+    void confirm_alreadyVerified_carriesReasonAlreadyVerified() {
+        user.verifyPhone(Instant.now());
+
+        VerificationException exception = assertThrows(VerificationException.class,
+                () -> service.confirm(VerificationChannel.PHONE, "123456"));
+
+        assertEquals(VerificationException.Reason.ALREADY_VERIFIED, exception.getReason());
+        assertEquals(ContactVerificationService.ALREADY_VERIFIED, exception.getMessage());
+    }
+
+    @Test
+    void sendCode_alreadyVerified_carriesReasonAlreadyVerified() {
+        user.verifyPhone(Instant.now());
+
+        VerificationException exception = assertThrows(VerificationException.class,
+                () -> service.sendCode(VerificationChannel.PHONE));
+
+        assertEquals(VerificationException.Reason.ALREADY_VERIFIED, exception.getReason());
+        assertEquals(ContactVerificationService.ALREADY_VERIFIED, exception.getMessage());
+    }
+
+    @Test
+    void sendEmailCode_noEmail_carriesReasonNoEmail() {
+        user.setEmail(null);
+
+        VerificationException exception = assertThrows(VerificationException.class,
+                () -> service.sendCode(VerificationChannel.EMAIL));
+
+        assertEquals(VerificationException.Reason.NO_EMAIL, exception.getReason());
+        assertEquals(ContactVerificationService.NO_EMAIL, exception.getMessage());
+    }
+
+    @Test
+    void sendCode_withinCooldown_carriesReasonResendTooSoon() {
+        service.sendCode(VerificationChannel.PHONE);
+
+        VerificationThrottledException throttled = assertThrows(VerificationThrottledException.class,
+                () -> service.sendCode(VerificationChannel.PHONE));
+
+        assertEquals(VerificationThrottledException.Reason.RESEND_TOO_SOON, throttled.getReason());
+        assertEquals(ContactVerificationService.TOO_SOON, throttled.getMessage());
+    }
+
+    /** W10-3: the fifth code in 24 h was already sent, so the sixth request is refused. */
+    @Test
+    void sendCode_sixthToday_carriesReasonDailyLimit() {
+        ContactVerificationService fivePerDay = new ContactVerificationService(new InMemoryUserRepository().with(user),
+                codes, sms, email, new AtomicLong()::incrementAndGet,
+                new VerificationPolicy(Duration.ofMinutes(10), 5, Duration.ofSeconds(60), 5), audit);
+        for (int i = 0; i < 5; i++) {
+            fivePerDay.sendCode(VerificationChannel.PHONE);
+            codes.all().forEach(c -> codes.age(c.getId(), Duration.ofSeconds(90)));
+        }
+
+        VerificationThrottledException throttled = assertThrows(VerificationThrottledException.class,
+                () -> fivePerDay.sendCode(VerificationChannel.PHONE));
+
+        assertEquals(VerificationThrottledException.Reason.DAILY_LIMIT, throttled.getReason());
+        assertEquals(ContactVerificationService.DAILY_LIMIT, throttled.getMessage());
+    }
 }

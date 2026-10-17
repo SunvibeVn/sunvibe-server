@@ -2,6 +2,10 @@ app:
   cors:
     # Browser origins allowed to call the API (ADR-001). Comma-separated.
     allowed-origins: https://www.sunvibe.vn
+  auth:
+    refresh-cookie:
+      # The __Secure- prefix makes the browser accept the cookie only over HTTPS
+      name: __Secure-sv_refresh
 
 # Do not publish the API contract or Swagger UI in production.
 springdoc:

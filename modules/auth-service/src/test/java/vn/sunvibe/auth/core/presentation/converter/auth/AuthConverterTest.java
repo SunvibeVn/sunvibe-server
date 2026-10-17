@@ -16,7 +16,7 @@ class AuthConverterTest {
     private final AuthConverter converter = new AuthConverter(cookieService);
 
     private static final AuthResult RESULT = new AuthResult("access-token", "refresh-secret", "0912345678", null,
-            Set.of("TENANT"), false, false);
+            Set.of("TENANT"), false, false, "01ARZ3NDEKTSV4RRFFQ69G5FAV", "Nguyen Van A");
 
     @Test
     void toLoginResponse_carriesTheAccessTokenButNeverTheRefreshToken() {

@@ -175,7 +175,7 @@ class UserRegisterServiceTest {
             @Override
             public void consumeRegistrationToken(String registrationToken, String phoneNumber) {
                 if (!tokenIsValid) {
-                    throw new VerificationException("invalid token");
+                    throw new VerificationException(VerificationException.Reason.REGISTRATION_TOKEN_INVALID, "invalid token");
                 }
                 consumedTokens.add(registrationToken + "@" + phoneNumber);
             }

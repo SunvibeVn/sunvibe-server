@@ -112,7 +112,8 @@ public class PasswordResetToken {
      */
     public void markAsUsed(Instant now) {
         if (this.used) {
-            throw new PasswordResetTokenException("This reset token has already been used");
+            throw new PasswordResetTokenException(PasswordResetTokenException.Reason.TOKEN_INVALID,
+                    "This reset token has already been used");
         }
         this.used = true;
         this.usedAt = now;

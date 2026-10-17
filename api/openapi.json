@@ -397,6 +397,1270 @@
         "tags" : [ "user-command-controller" ]
       }
     },
+    "/api/v1/auth/login" : {
+      "post" : {
+        "description" : "Starts a new session for this device: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session).",
+        "operationId" : "authLogin",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description" : "Signed in; sets the refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "The refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on username or password; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INVALID_CREDENTIALS: unknown phone, wrong password, or an account that may not sign in (one answer for all)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "423" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ACCOUNT_LOCKED: too many wrong passwords; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Sign in with phone number and password (public)",
+        "tags" : [ "Auth session" ]
+      }
+    },
+    "/api/v1/auth/password-reset/complete" : {
+      "post" : {
+        "description" : "Checks the code of the reset token and sets the new password. Ends every session of the account and clears the refresh cookie; no new session is started.",
+        "operationId" : "authPasswordResetComplete",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Password reset; clears the refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "Clears the refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED; CODE_INCORRECT; CODE_ATTEMPTS_EXCEEDED; RESET_TOKEN_INVALID; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ACCOUNT_DISABLED: the account is locked or terminated"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Complete a password reset (public)",
+        "tags" : [ "Auth password reset" ]
+      }
+    },
+    "/api/v1/auth/password-reset/email" : {
+      "post" : {
+        "description" : "E-mails a reset code with its token to a verified account address. The answer is the same whether or not an account exists and never contains the reset token.",
+        "operationId" : "authPasswordResetByEmail",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordForgotRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PasswordResetStartResponse"
+                }
+              }
+            },
+            "description" : "Reset started (or nothing to do; same answer)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on email; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, for example the e-mail hand-off failed"
+          }
+        },
+        "summary" : "Start a password reset by e-mail (public)",
+        "tags" : [ "Auth password reset" ]
+      }
+    },
+    "/api/v1/auth/password-reset/sms" : {
+      "post" : {
+        "description" : "Texts a reset code to the account's phone number. The answer carries a reset token, a decoy one when no account exists or a code was sent moments ago, so it looks the same.",
+        "operationId" : "authPasswordResetBySms",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordForgotSmsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PasswordResetStartResponse"
+                }
+              }
+            },
+            "description" : "Reset started (or nothing to do; same answer)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on phoneNumber; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, for example the SMS hand-off failed"
+          }
+        },
+        "summary" : "Start a password reset by SMS (public)",
+        "tags" : [ "Auth password reset" ]
+      }
+    },
+    "/api/v1/auth/registration" : {
+      "post" : {
+        "description" : "Creates the account with the registration token of the verified phone number and signs it in: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session).",
+        "operationId" : "authRegister",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UserRegisterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description" : "Registered and signed in; sets the refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "The refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (bean validation, or phone, e-mail or ID card in use); REGISTRATION_TOKEN_INVALID; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Register a new account (public)",
+        "tags" : [ "Auth registration" ]
+      }
+    },
+    "/api/v1/auth/registration/phone/send-code" : {
+      "post" : {
+        "description" : "Texts a code that proves the registrant controls this phone number. A number already in use gets no code.",
+        "operationId" : "authRegistrationSendCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegistrationPhoneSendRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CodeSentResponse"
+                }
+              }
+            },
+            "description" : "Code sent"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on phoneNumber, or on username when the number is already in use; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CODE_RESEND_TOO_SOON or CODE_DAILY_LIMIT (the code limits), or RATE_LIMITED (too many requests from this IP address); Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, for example the SMS hand-off failed"
+          }
+        },
+        "summary" : "Send a registration code by SMS (public)",
+        "tags" : [ "Auth registration" ]
+      }
+    },
+    "/api/v1/auth/registration/phone/verify-code" : {
+      "post" : {
+        "description" : "Answers a registration token to send with the registration.",
+        "operationId" : "authRegistrationVerifyCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegistrationPhoneVerifyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegistrationTokenResponse"
+                }
+              }
+            },
+            "description" : "Phone number verified"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on phoneNumber or code; CODE_INCORRECT, CODE_EXPIRED, CODE_ATTEMPTS_EXCEEDED; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Check the registration code (public)",
+        "tags" : [ "Auth registration" ]
+      }
+    },
+    "/api/v1/auth/session/logout" : {
+      "post" : {
+        "description" : "Revokes the session of the refresh cookie and clears the cookie. 204 also without a cookie. A cookie sent twice ends both sessions.",
+        "operationId" : "authSessionLogout",
+        "responses" : {
+          "204" : {
+            "description" : "Signed out; clears the refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "Clears the refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ORIGIN_NOT_ALLOWED: no Origin header, or the API's own origin. A present, not allowed Origin gets the CORS filter's plain-text 403 instead"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "refreshCookie" : [ ]
+        } ],
+        "summary" : "Sign out this device (public, allowed Origin only)",
+        "tags" : [ "Auth session" ]
+      }
+    },
+    "/api/v1/auth/session/refresh" : {
+      "post" : {
+        "description" : "Rotates the refresh token. Called when the access token has expired, so it takes none. Requires an allowed Origin header; a cookie sent twice is refused and nothing is rotated.",
+        "operationId" : "authSessionRefresh",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description" : "A new access token; sets the rotated refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "The rotated refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SESSION_EXPIRED: no, unknown, expired, revoked or reused token, an account that may not sign in, or the cookie sent twice; clears the cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "Clears the refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ORIGIN_NOT_ALLOWED: no Origin header, or the API's own origin. A present, not allowed Origin gets the CORS filter's plain-text 403 instead"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "refreshCookie" : [ ]
+        } ],
+        "summary" : "Refresh the session from the refresh cookie (public, allowed Origin only)",
+        "tags" : [ "Auth session" ]
+      }
+    },
+    "/api/v1/me" : {
+      "get" : {
+        "description" : "Never cached: Cache-Control: no-store.",
+        "operationId" : "getMe",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description" : "The profile"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the account no longer exists"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "The signed-in user's own profile",
+        "tags" : [ "Me" ]
+      }
+    },
+    "/api/v1/me/password/change" : {
+      "post" : {
+        "description" : "Ends every session of the account and starts a new one for this device: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session). A wrong current password is a field error on currentPassword, never a 401.",
+        "operationId" : "meChangePassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PasswordChangeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description" : "Password changed; sets the new refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "The refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (bean validation, a wrong current password on currentPassword, or a new password equal to the current one); MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Change the password",
+        "tags" : [ "Me" ]
+      }
+    },
+    "/api/v1/me/sessions/logout-all" : {
+      "post" : {
+        "description" : "Revokes every session of the account and clears this device's refresh cookie.",
+        "operationId" : "meLogoutAll",
+        "responses" : {
+          "204" : {
+            "description" : "Signed out everywhere; clears the refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "Clears the refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Sign out every device",
+        "tags" : [ "Me" ]
+      }
+    },
+    "/api/v1/me/verification/email/confirm-code" : {
+      "post" : {
+        "description" : "Marks the e-mail address verified.",
+        "operationId" : "meConfirmEmailCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VerificationConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "E-mail verified"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on code; CODE_INCORRECT, CODE_EXPIRED, CODE_ATTEMPTS_EXCEEDED, ALREADY_VERIFIED; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Confirm the e-mail verification code",
+        "tags" : [ "Me" ]
+      }
+    },
+    "/api/v1/me/verification/email/send-code" : {
+      "post" : {
+        "description" : "E-mails a code to the account's e-mail address.",
+        "operationId" : "meSendEmailCode",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CodeSentResponse"
+                }
+              }
+            },
+            "description" : "Code sent"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NO_EMAIL or ALREADY_VERIFIED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CODE_RESEND_TOO_SOON or CODE_DAILY_LIMIT (the code limits), or RATE_LIMITED (too many requests from this IP address); Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, for example the e-mail hand-off failed"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Send an e-mail verification code",
+        "tags" : [ "Me" ]
+      }
+    },
+    "/api/v1/me/verification/phone/confirm-code" : {
+      "post" : {
+        "description" : "Marks the phone number verified; a PENDING account becomes ACTIVE.",
+        "operationId" : "meConfirmPhoneCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VerificationConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Phone number verified"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on code; CODE_INCORRECT, CODE_EXPIRED, CODE_ATTEMPTS_EXCEEDED, ALREADY_VERIFIED; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Confirm the phone verification code",
+        "tags" : [ "Me" ]
+      }
+    },
+    "/api/v1/me/verification/phone/send-code" : {
+      "post" : {
+        "description" : "Texts a code to the account's phone number. A PENDING account becomes ACTIVE once the code is confirmed.",
+        "operationId" : "meSendPhoneCode",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CodeSentResponse"
+                }
+              }
+            },
+            "description" : "Code sent"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ALREADY_VERIFIED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CODE_RESEND_TOO_SOON or CODE_DAILY_LIMIT (the code limits), or RATE_LIMITED (too many requests from this IP address); Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, for example the SMS hand-off failed"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Send a phone verification code by SMS",
+        "tags" : [ "Me" ]
+      }
+    },
     "/api/v1/properties" : {
       "post" : {
         "operationId" : "createProperty",
@@ -1770,6 +3034,32 @@
         },
         "required" : [ "expectedVersion", "toStatus" ]
       },
+      "CodeSentResponse" : {
+        "type" : "object",
+        "description" : "A verification code was sent",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "description" : "PHONE or EMAIL",
+            "example" : "PHONE"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the code stops working"
+          },
+          "resendAvailableAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Earliest time a new code can be asked for"
+          },
+          "sentTo" : {
+            "type" : "string",
+            "description" : "Partly hidden phone or e-mail the code went to",
+            "example" : "091****678"
+          }
+        }
+      },
       "ConsentRequest" : {
         "type" : "object",
         "properties" : {
@@ -1960,6 +3250,45 @@
           },
           "username" : {
             "type" : "string"
+          }
+        }
+      },
+      "MeResponse" : {
+        "type" : "object",
+        "description" : "The signed-in user's own profile",
+        "properties" : {
+          "accountStatus" : {
+            "type" : "string",
+            "description" : "Account status (name of UserStatus)"
+          },
+          "email" : {
+            "type" : [ "string", "null" ],
+            "description" : "E-mail of the account; null when it has none"
+          },
+          "emailVerified" : {
+            "type" : "boolean",
+            "description" : "False when there is no e-mail or it is not confirmed yet"
+          },
+          "fullName" : {
+            "type" : "string",
+            "description" : "Display name of the account"
+          },
+          "kycStatus" : {
+            "type" : "string",
+            "description" : "Identity check status (name of KycStatus)"
+          },
+          "phoneVerified" : {
+            "type" : "boolean",
+            "description" : "Whether the phone number is confirmed"
+          },
+          "profileImageUrl" : {
+            "type" : [ "string", "null" ],
+            "description" : "URL of the profile image; null when there is none"
+          },
+          "username" : {
+            "type" : "string",
+            "description" : "The account's phone number",
+            "example" : "0901234567"
           }
         }
       },
@@ -2335,6 +3664,27 @@
           }
         }
       },
+      "PasswordResetStartResponse" : {
+        "type" : "object",
+        "description" : "A password reset was started; same shape whether or not an account exists",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the code stops working"
+          },
+          "otpExpirationMinutes" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "How many minutes a reset code is valid",
+            "example" : 5
+          },
+          "resetToken" : {
+            "type" : "string",
+            "description" : "SMS flow only: send it back with the SMS code to reset the password; omitted for the e-mail flow"
+          }
+        }
+      },
       "PropertyCreateRequest" : {
         "type" : "object",
         "properties" : {
@@ -2641,6 +3991,70 @@
           }
         }
       },
+      "SessionResponse" : {
+        "type" : "object",
+        "description" : "A started or refreshed session: the access token and the account",
+        "properties" : {
+          "accessToken" : {
+            "type" : "string",
+            "description" : "The JWT to send as Authorization: Bearer ..."
+          },
+          "expiresIn" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Seconds until accessToken expires; refresh shortly before",
+            "example" : 900
+          },
+          "tokenType" : {
+            "type" : "string",
+            "description" : "Always Bearer",
+            "example" : "Bearer"
+          },
+          "user" : {
+            "$ref" : "#/components/schemas/SessionUserResponse",
+            "description" : "The signed-in account"
+          }
+        }
+      },
+      "SessionUserResponse" : {
+        "type" : "object",
+        "description" : "The signed-in account as it is at this moment",
+        "properties" : {
+          "email" : {
+            "type" : [ "string", "null" ],
+            "description" : "E-mail of the account; null when it has none"
+          },
+          "emailVerified" : {
+            "type" : "boolean",
+            "description" : "False when there is no e-mail or it is not confirmed yet"
+          },
+          "fullName" : {
+            "type" : "string",
+            "description" : "Display name of the account"
+          },
+          "phoneVerified" : {
+            "type" : "boolean",
+            "description" : "False right after registration: show the enter-the-SMS-code screen"
+          },
+          "roles" : {
+            "type" : "array",
+            "description" : "Role names, sorted, e.g. CUSTOMER, TENANT",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "userId" : {
+            "type" : "string",
+            "description" : "Opaque ULID of the account",
+            "example" : "01JAXXXXXXXXXXXXXXXXXXXXXX"
+          },
+          "username" : {
+            "type" : "string",
+            "description" : "The account's phone number",
+            "example" : "0901234567"
+          }
+        }
+      },
       "UserProfileInfo" : {
         "type" : "object",
         "properties" : {
@@ -2772,6 +4186,19 @@
             "example" : "WARD"
           }
         }
+      }
+    },
+    "securitySchemes" : {
+      "bearerAuth" : {
+        "bearerFormat" : "JWT",
+        "scheme" : "bearer",
+        "type" : "http"
+      },
+      "refreshCookie" : {
+        "description" : "Refresh-token cookie, sent only to /api/v1/auth/session/**; named __Secure-sv_refresh in prod",
+        "in" : "cookie",
+        "name" : "sv_refresh",
+        "type" : "apiKey"
       }
     }
   }

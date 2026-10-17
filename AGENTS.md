@@ -11,6 +11,14 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   Outside the dev/test profiles these env vars are required (no default in application.yml): MAIL_USERNAME,
   MAIL_PASSWORD, JWT_SECRET (base64). A missing JWT_SECRET or MAIL_USERNAME fails startup; a missing MAIL_PASSWORD
   fails only when mail is sent. The dev profile has a public dev-only JWT_SECRET and empty mail values; env vars win if set.
+- Run on the LAN (phone/tablet testing): set LAN_FE_ORIGIN=http://<LAN-IP>:3000, then
+  ./gradlew :app:bootRun --args='--spring.profiles.active=dev,lan' (refresh cookie not Secure; never with prod).
+  Steps for both repos: ../docs/setup/lan-device-testing.md
+- E2E seed accounts (local DB only; DATABASE_URL is a libpq URL such as postgresql://sunvibe@localhost:5432/sunvibe,
+  not the JDBC DB_URL): scripts/dev/seed-e2e-accounts.sql, run with
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v target=local -v customer_password="$E2E_CUSTOMER_PASSWORD"
+  -v sale_password="$E2E_SALE_PASSWORD" -f scripts/dev/seed-e2e-accounts.sql (re-run resets passwords and roles),
+  then npm run e2e in sunvibe-ui with the same env vars. Never commit the passwords.
 - Export API contract: ./gradlew exportOpenApi -> api/openapi.json (commit it). Swagger UI (local): http://localhost:8081/swagger-ui/index.html
 
 ## Modules
