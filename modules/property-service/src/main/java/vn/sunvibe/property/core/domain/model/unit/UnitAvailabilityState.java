@@ -1,11 +1,11 @@
 package vn.sunvibe.property.core.domain.model.unit;
 
 /**
- * Real-world availability of a unit (brief BR-6). It says nothing about listings or bookings.
+ * Real-world availability of a unit (property-units BR-6). It says nothing about listings or bookings.
  * Stored as text in {@code units.availability_state}.
  */
 public enum UnitAvailabilityState {
-    /** Free. A new unit starts here (BR-8). */
+    /** Free. A new unit starts here (property-units BR-8). */
     AVAILABLE,
     /** Someone lives there: a tenant or the owner. */
     OCCUPIED,

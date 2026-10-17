@@ -25,7 +25,7 @@ import vn.sunvibe.shared.dto.response.error.BaseErrorModel;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 /**
- * Role admin API (wave W6, auth-roles US-4, BR-9..BR-11). ADMIN (and SUPER_ADMIN through the role hierarchy)
+ * Role admin API (auth-roles US-4, BR-9..BR-11). ADMIN (and SUPER_ADMIN through the role hierarchy)
  * reads, grants and revokes OWNER, CUSTOMER, SALE, SALE_LEADER, SALES_MANAGER and LISTING_REVIEWER; only
  * SUPER_ADMIN grants or revokes ADMIN. Nobody changes their own roles, and only SUPER_ADMIN changes an account
  * that holds ADMIN or SUPER_ADMIN (owner clarification Q-8).

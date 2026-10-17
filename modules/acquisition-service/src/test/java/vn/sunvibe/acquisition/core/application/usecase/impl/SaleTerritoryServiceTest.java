@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Ward territories (acquisition-owner-lead-queue spec 5.3, 6; Q9-12, Q9-13; brief BR-5, BR-6, BR-10).
+ * Ward territories (acquisition-owner-lead-queue BR-5, BR-6, BR-10; spec 5.3, 6; Q9-12, Q9-13).
  */
 class SaleTerritoryServiceTest {
 

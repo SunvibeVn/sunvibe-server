@@ -67,7 +67,7 @@ public class PropertyController {
             @ApiResponse(responseCode = "422", description = "Referenced master data is invalid, or the owner is unknown, inactive or staff",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    // auth-roles BR-5 (W6-5): staff only; SUPER_ADMIN passes hasRole('ADMIN') through the role hierarchy
+    // auth-roles BR-5: staff only; SUPER_ADMIN passes hasRole('ADMIN') through the role hierarchy
     @PreAuthorize("hasAnyRole('SALE', 'SALE_LEADER', 'SALES_MANAGER', 'ADMIN')")
     public ResponseEntity<PropertyCreateResponse> createProperty(
             @Valid @RequestBody PropertyCreateRequest request) {

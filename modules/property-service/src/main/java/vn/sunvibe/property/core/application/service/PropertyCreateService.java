@@ -91,15 +91,15 @@ public class PropertyCreateService implements PropertyCreateUseCase {
             addImages(property, command.images(), command.createdBy());
 
             propertyDomainRepository.save(property);
-            // W8 (property-units BR-8, BR-10, BR-12): the canonical unit and the ownership of the named owner are
+            // property-units BR-8, BR-10, BR-12: the canonical unit and the ownership of the named owner are
             // stored with the property, in the same transaction. Both refer to the property by id (foreign keys) and
             // Hibernate inserts in the order of the save calls, so the property goes first
             unitDomainRepository.save(Unit.createCanonical(property));
             propertyOwnershipDomainRepository.save(PropertyOwnership.createUnverifiedOwner(
                     property.getId(), ownerId, property.getCreatedAt().toLocalDate()));
             // Same transaction: if the grant fails, the property, its unit and its ownership are not stored either
-            // (BR-8). The owner is checked again there; one who became ineligible meanwhile rolls everything back
-            // with 422
+            // (auth-roles BR-8). The owner is checked again there; one who became ineligible meanwhile rolls
+            // everything back with 422
             if (!userDirectoryPort.ensureOwnerRole(ownerId, command.actorUserId())) {
                 throw new PropertyOwnerNotFoundException();
             }
@@ -118,7 +118,7 @@ public class PropertyCreateService implements PropertyCreateUseCase {
     }
 
     /**
-     * W6 (auth-roles BR-6, BR-7): every caller names the owner; the caller never becomes the owner by default.
+     * auth-roles BR-6, BR-7: every caller names the owner; the caller never becomes the owner by default.
      * The owner must be able to sign in and hold no staff/admin role, so a staff caller naming themselves fails too.
      */
     private String checkedOwner(String ownerId) {

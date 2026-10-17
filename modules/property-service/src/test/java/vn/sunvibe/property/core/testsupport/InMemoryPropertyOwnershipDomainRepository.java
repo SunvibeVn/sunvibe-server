@@ -6,7 +6,7 @@ import vn.sunvibe.property.core.domain.repository.PropertyOwnershipDomainReposit
 import java.util.ArrayList;
 import java.util.List;
 
-/** Keeps saved ownerships in a list. The repository only declares save in W8. */
+/** Keeps saved ownerships in a list. The repository only declares save. */
 public class InMemoryPropertyOwnershipDomainRepository implements PropertyOwnershipDomainRepository {
 
     private final List<PropertyOwnership> saved = new ArrayList<>();

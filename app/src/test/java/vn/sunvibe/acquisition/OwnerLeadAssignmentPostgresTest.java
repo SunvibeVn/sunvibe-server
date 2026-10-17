@@ -104,7 +104,10 @@ class OwnerLeadAssignmentPostgresTest {
 
 	// ==================== Q9-1: the ward's person gets the lead ====================
 
-	/** Q9-1, US-1 AC-1, BR-3: the SALE of the ward gets the new lead; the system, not a person, made the assignment. */
+	/**
+	 * Q9-1, acquisition-owner-lead-queue US-1 AC-1, BR-3: the SALE of the ward gets the new lead; the system, not a
+	 * person, made the assignment.
+	 */
 	@Test
 	void submit_wardWithEligibleSale_createsAssignedLeadWithAutoAssignedActivity() throws Exception {
 		territory(LIEN_CHIEU, sale);
@@ -126,7 +129,10 @@ class OwnerLeadAssignmentPostgresTest {
 
 	// ==================== Q9-2: nobody who may take it, so NEW ====================
 
-	/** Q9-2, US-1 AC-2, BR-4: a ward nobody looks after leaves the lead NEW, without an assignee. */
+	/**
+	 * Q9-2, acquisition-owner-lead-queue US-1 AC-2, BR-4: a ward nobody looks after leaves the lead NEW, without an
+	 * assignee.
+	 */
 	@Test
 	void submit_wardWithoutHolder_staysNew() throws Exception {
 		String lead = submit(CAM_LE);
@@ -134,7 +140,10 @@ class OwnerLeadAssignmentPostgresTest {
 		assertStaysNew(lead);
 	}
 
-	/** Q9-2, BR-4: the ward's person holds neither SALE nor SALE_LEADER (another role, or none at all). */
+	/**
+	 * Q9-2, acquisition-owner-lead-queue BR-4: the ward's person holds neither SALE nor SALE_LEADER (another role, or
+	 * none at all).
+	 */
 	@Test
 	void submit_holderWithoutRole_staysNew() throws Exception {
 		for (TestUser holder : List.of(created(UserStatus.ACTIVE, "CUSTOMER"), created(UserStatus.ACTIVE, "OWNER"),
@@ -148,7 +157,7 @@ class OwnerLeadAssignmentPostgresTest {
 		}
 	}
 
-	/** Q9-2, BR-4: a locked SALE cannot sign in, so they get no new lead. */
+	/** Q9-2, acquisition-owner-lead-queue BR-4: a locked SALE cannot sign in, so they get no new lead. */
 	@Test
 	void submit_holderLocked_staysNew() throws Exception {
 		territory(LIEN_CHIEU, created(UserStatus.LOCK, "SALE"));
@@ -158,7 +167,10 @@ class OwnerLeadAssignmentPostgresTest {
 		assertStaysNew(lead);
 	}
 
-	/** Q9-2, BR-4: a soft-deleted SALE (the row is kept, deleted_at is set) gets no new lead. */
+	/**
+	 * Q9-2, acquisition-owner-lead-queue BR-4: a soft-deleted SALE (the row is kept, deleted_at is set) gets no new
+	 * lead.
+	 */
 	@Test
 	void submit_holderSoftDeleted_staysNew() throws Exception {
 		TestUser deleted = created(UserStatus.ACTIVE, "SALE");
@@ -173,8 +185,8 @@ class OwnerLeadAssignmentPostgresTest {
 	// ==================== Q9-13: removing a ward's person does not move leads ====================
 
 	/**
-	 * Q9-13, BR-6: once the ward's person is removed (by an ADMIN, through the API) the next leads stay NEW, while the
-	 * lead they already got keeps its assignee, status, version and history.
+	 * Q9-13, acquisition-owner-lead-queue BR-6: once the ward's person is removed (by an ADMIN, through the API) the
+	 * next leads stay NEW, while the lead they already got keeps its assignee, status, version and history.
 	 */
 	@Test
 	void submit_afterTerritoryRemoved_staysNewForNewLeadsOnly() throws Exception {

@@ -74,7 +74,7 @@ class RoleChangeServiceTest {
 
     // ==================== grant ====================
 
-    /** US-4 AC-1: ADMIN grants the six new roles. */
+    /** auth-roles US-4 AC-1: ADMIN grants the six new roles. */
     @ParameterizedTest
     @EnumSource(value = RoleName.class, names = {"OWNER", "CUSTOMER", "SALE", "SALE_LEADER", "SALES_MANAGER",
             "LISTING_REVIEWER"})
@@ -90,7 +90,7 @@ class RoleChangeServiceTest {
         assertNull(audit.last().subject(), "no PII beyond ids");
     }
 
-    /** US-4 AC-2, E-4: only SUPER_ADMIN grants ADMIN. */
+    /** auth-roles US-4 AC-2, E-4: only SUPER_ADMIN grants ADMIN. */
     @Test
     void grant_adminGrantsAdmin_isForbidden() {
         assertThrows(RoleChangeForbiddenException.class, () -> grant.execute(byAdmin("ADMIN")));
@@ -106,7 +106,7 @@ class RoleChangeServiceTest {
         assertEquals(List.of(AuditEventType.ROLE_GRANTED), audit.types());
     }
 
-    /** E-6: SUPER_ADMIN, every old role and unknown names are not grantable, even by SUPER_ADMIN. */
+    /** auth-roles E-6: SUPER_ADMIN, every old role and unknown names are not grantable, even by SUPER_ADMIN. */
     @ParameterizedTest
     @ValueSource(strings = {"SUPER_ADMIN", "LANDLORD", "TENANT", "EMPLOYEE", "MANAGER", "LEADER", "USER", "KING", "sale", ""})
     void grant_roleNotGrantable_isBadRequest(String role) {
@@ -114,21 +114,21 @@ class RoleChangeServiceTest {
         assertEquals(Set.of("CUSTOMER"), target.getUserRoles());
     }
 
-    /** BR-9, E-5, Q-5: no self grant, not even SUPER_ADMIN. */
+    /** auth-roles BR-9, E-5, Q-5: no self grant, not even SUPER_ADMIN. */
     @Test
     void grant_toSelf_isForbidden() {
         assertThrows(RoleChangeForbiddenException.class,
                 () -> grant.execute(new RoleChangeCommand(SUPER_ADMIN_ID, true, SUPER_ADMIN_ID, "SALE")));
     }
 
-    /** E-7: unknown target -> 404. */
+    /** auth-roles E-7: unknown target -> 404. */
     @Test
     void grant_unknownUser_isNotFound() {
         assertThrows(UserNotFoundException.class,
                 () -> grant.execute(new RoleChangeCommand(ADMIN_ID, false, "01NOSUCHUSER00000000000000", "SALE")));
     }
 
-    /** BR-10, E-7: grant only to an account that may sign in. */
+    /** auth-roles BR-10, E-7: grant only to an account that may sign in. */
     @ParameterizedTest
     @EnumSource(value = UserStatus.class, names = {"LOCK", "TERMINATED"})
     void grant_inactiveUser_isUnprocessable(UserStatus status) {
@@ -139,7 +139,7 @@ class RoleChangeServiceTest {
         assertTrue(audit.events.isEmpty());
     }
 
-    /** US-4 AC-3: granting a role already held changes nothing and is not audited. */
+    /** auth-roles US-4 AC-3: granting a role already held changes nothing and is not audited. */
     @Test
     void grant_roleAlreadyHeld_isANoOp() {
         int savesBefore = users.saveCount;
@@ -210,7 +210,7 @@ class RoleChangeServiceTest {
 
     // ==================== revoke ====================
 
-    /** US-4 AC-4, AC-5, BR-11: revoke removes the role, audits and ends every session of the target. */
+    /** auth-roles US-4 AC-4, AC-5, BR-11: revoke removes the role, audits and ends every session of the target. */
     @Test
     void revoke_heldRole_removesItAuditsAndRevokesSessions() {
         target.grantRole(RoleName.SALE);
@@ -223,7 +223,7 @@ class RoleChangeServiceTest {
         assertEquals(List.of("user:" + TARGET_ID + ":ROLE_REVOKED"), refreshTokens.revocations);
     }
 
-    /** US-4 AC-3: revoking a role that is not held changes nothing and keeps the sessions. */
+    /** auth-roles US-4 AC-3: revoking a role that is not held changes nothing and keeps the sessions. */
     @Test
     void revoke_roleNotHeld_isANoOp() {
         revoke.execute(byAdmin("SALE"));

@@ -11,7 +11,7 @@ import java.util.UUID;
 
 /**
  * Table {@code ROLES}: one row per {@code RoleName}, inserted by the Flyway migration
- * {@code V202610160900__seed_roles.sql} (wave W6).
+ * {@code V202610160900__seed_roles.sql}.
  */
 @Getter
 @Setter

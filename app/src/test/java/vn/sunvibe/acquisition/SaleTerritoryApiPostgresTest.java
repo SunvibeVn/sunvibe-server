@@ -209,7 +209,10 @@ class SaleTerritoryApiPostgresTest {
 		assertEquals(List.of(saleLeader.userId()), holders(HOA_XUAN));
 	}
 
-	/** Q9-12, E-4: only someone who can sign in and holds SALE or SALE_LEADER; nothing is stored otherwise. */
+	/**
+	 * Q9-12, acquisition-owner-lead-queue E-4: only someone who can sign in and holds SALE or SALE_LEADER; nothing is
+	 * stored otherwise.
+	 */
 	@Test
 	void put_ineligibleUser_returns422OnUserId() throws Exception {
 		for (String userId : List.of(customer.userId(), lockedSale.userId(), roleless.userId(),

@@ -9,10 +9,10 @@ import java.time.LocalDate;
 /**
  * Domain Model - PropertyOwnership (Aggregate Root)
  * <p>
- * Links a user to a property (brief BR-9). It is a record of its own, not a role: revoking the OWNER role does not
- * touch it (BR-11). In W8 only one kind is written: OWNER, UNVERIFIED, valid from the creation of the property,
- * with no end date (BR-10). The user is held by id only; auth-service owns the user.
- * An ownership is immutable: nothing in W8 changes it after it is created.
+ * Links a user to a property (property-units BR-9). It is a record of its own, not a role: revoking the OWNER role
+ * does not touch it (property-units BR-11). For now only one kind is written: OWNER, UNVERIFIED, valid from the
+ * creation of the property, with no end date (property-units BR-10). The user is held by id only; auth-service owns
+ * the user. An ownership is immutable: for now nothing changes it once it is created.
  */
 public final class PropertyOwnership {
 
@@ -48,7 +48,8 @@ public final class PropertyOwnership {
     // ==================== Factory Methods ====================
 
     /**
-     * The only ownership W8 writes (BR-10): the user is OWNER, UNVERIFIED, valid from the given day, with no end.
+     * The only ownership written for now (property-units BR-10): the user is OWNER, UNVERIFIED, valid from the given
+     * day, with no end.
      */
     public static PropertyOwnership createUnverifiedOwner(PropertyId propertyId, String userId, LocalDate validFrom) {
         return new PropertyOwnership(PropertyOwnershipId.generate(), propertyId, userId,

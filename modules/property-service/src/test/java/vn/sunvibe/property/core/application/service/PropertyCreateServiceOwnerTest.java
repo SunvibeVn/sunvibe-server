@@ -32,10 +32,10 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Owner on property create (wave W6, auth-roles brief BR-6..BR-8): every caller names the owner, the caller never
+ * Owner on property create (auth-roles BR-6..BR-8): every caller names the owner, the caller never
  * becomes the owner, the owner must be eligible, and gets OWNER through the user directory.
  * <p>
- * Wave W8 (property-units brief BR-8, BR-10, W8-10, W8-11): a create also saves the canonical unit and an
+ * property-units BR-8, BR-10 (W8-10, W8-11): a create also saves the canonical unit and an
  * unverified ownership for that owner; a create that fails the owner check saves neither. The in-memory fakes have
  * no transaction, so the rollback itself is proved on PostgreSQL (PropertyCreateRollbackPostgresTest).
  */
@@ -53,7 +53,7 @@ class PropertyCreateServiceOwnerTest {
     private final PropertyCreateService service = new PropertyCreateService(
             properties, new EmptyRuleCategories(), new EmptyAmenityTypes(), users, units, ownerships);
 
-    /** BR-6, BR-8 */
+    /** auth-roles BR-6, BR-8 */
     @Test
     void execute_eligibleOwner_storesThatOwnerAndEnsuresTheOwnerRole() {
         service.execute(command(OWNER_ID));
@@ -63,7 +63,9 @@ class PropertyCreateServiceOwnerTest {
         assertEquals(List.of("eligible?" + OWNER_ID, "ensureOwner:" + OWNER_ID + " by " + CALLER_ID), users.calls);
     }
 
-    /** BR-7: an owner who became staff between the check and the grant -> 422 (the transaction rolls back). */
+    /**
+     * auth-roles BR-7: an owner who became staff between the check and the grant -> 422 (the transaction rolls back).
+     */
     @Test
     void execute_ownerIneligibleAtGrantTime_throwsOwnerNotFound() {
         PropertyCreateService racing = new PropertyCreateService(properties, new EmptyRuleCategories(),
@@ -72,7 +74,7 @@ class PropertyCreateServiceOwnerTest {
         assertThrows(PropertyOwnerNotFoundException.class, () -> racing.execute(command(OWNER_ID)));
     }
 
-    /** BR-6, E-2 */
+    /** auth-roles BR-6, E-2 */
     @Test
     void execute_withoutOwnerId_rejectsOnOwnerIdField() {
         PropertyValidationException e = assertThrows(PropertyValidationException.class,
@@ -83,7 +85,7 @@ class PropertyCreateServiceOwnerTest {
         assertTrue(properties.saved().isEmpty());
     }
 
-    /** BR-6, E-2 */
+    /** auth-roles BR-6, E-2 */
     @Test
     void execute_blankOwnerId_rejectsOnOwnerIdField() {
         PropertyValidationException e = assertThrows(PropertyValidationException.class,
@@ -93,7 +95,9 @@ class PropertyCreateServiceOwnerTest {
         assertTrue(users.calls.isEmpty());
     }
 
-    /** BR-7, E-3: unknown, inactive or staff owner; nothing stored, no role granted, id not in the message. */
+    /**
+     * auth-roles BR-7, E-3: unknown, inactive or staff owner; nothing stored, no role granted, id not in the message.
+     */
     @Test
     void execute_ineligibleOwner_throwsOwnerNotFoundAndGrantsNothing() {
         String ineligible = "01STAFFORUNKNOWN0000000000";
@@ -106,14 +110,17 @@ class PropertyCreateServiceOwnerTest {
         assertTrue(properties.saved().isEmpty());
     }
 
-    /** BR-6: naming yourself is checked like anyone else (a staff caller is never eligible). */
+    /** auth-roles BR-6: naming yourself is checked like anyone else (a staff caller is never eligible). */
     @Test
     void execute_callerNamesThemselves_isCheckedForEligibility() {
         assertThrows(PropertyOwnerNotFoundException.class, () -> service.execute(command(CALLER_ID)));
         assertTrue(properties.saved().isEmpty());
     }
 
-    /** W8-10, BR-4, BR-5, BR-8: the canonical unit copies code, type, rooms and area, and starts AVAILABLE. */
+    /**
+     * W8-10, property-units BR-4, BR-5, BR-8: the canonical unit copies code, type, rooms and area, and starts
+     * AVAILABLE.
+     */
     @Test
     void execute_eligibleOwner_savesOneCanonicalUnitCopiedFromTheProperty() {
         service.execute(command(OWNER_ID));
@@ -130,7 +137,7 @@ class PropertyCreateServiceOwnerTest {
         assertEquals(UnitAvailabilityState.AVAILABLE, unit.getAvailabilityState());
     }
 
-    /** W8-10, BR-10: OWNER, UNVERIFIED, valid from the day the property was created, with no end. */
+    /** W8-10, property-units BR-10: OWNER, UNVERIFIED, valid from the day the property was created, with no end. */
     @Test
     void execute_eligibleOwner_savesOneUnverifiedOwnershipForTheNamedOwner() {
         service.execute(command(OWNER_ID));
@@ -146,7 +153,7 @@ class PropertyCreateServiceOwnerTest {
         assertNull(ownership.getValidTo());
     }
 
-    /** W8-11, BR-12: a create refused at the owner check saves no unit and no ownership either. */
+    /** W8-11, property-units BR-12: a create refused at the owner check saves no unit and no ownership either. */
     @Test
     void execute_ineligibleOwner_savesNoUnitAndNoOwnership() {
         assertThrows(PropertyOwnerNotFoundException.class,
@@ -156,7 +163,9 @@ class PropertyCreateServiceOwnerTest {
         assertTrue(ownerships.saved().isEmpty());
     }
 
-    /** E-1: when the unit cannot be saved the create fails as a service error and no ownership is saved. */
+    /**
+     * property-units E-1: when the unit cannot be saved the create fails as a service error and no ownership is saved.
+     */
     @Test
     void execute_unitSaveFails_throwsPropertyServiceException() {
         UnitDomainRepository failingUnits = unit -> {

@@ -14,7 +14,7 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 
 /**
  * Grants a role (auth-roles US-4, BR-9, BR-10). Only an account that may sign in gets a role (422 otherwise).
- * Granting a role already held changes nothing and is not audited (US-4 AC-3). The audit row is written only
+ * Granting a role already held changes nothing and is not audited (auth-roles US-4 AC-3). The audit row is written only
  * once the grant commits.
  */
 @Service

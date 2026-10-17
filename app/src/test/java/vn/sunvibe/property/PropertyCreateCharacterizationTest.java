@@ -48,14 +48,14 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
 
 /**
- * Characterization tests (wave W2) for {@code POST /api/v1/properties}: they record what the endpoint does
+ * Characterization tests for {@code POST /api/v1/properties}: they record what the endpoint does
  * today, end to end (HTTP, security, mapper, use case, JPA on PostgreSQL), including behavior that later waves change.
- * Since W6 (auth-roles brief BR-5..BR-8, E-1..E-3): only SALE, SALE_LEADER, SALES_MANAGER and ADMIN (and
+ * auth-roles BR-5..BR-8, E-1..E-3: only SALE, SALE_LEADER, SALES_MANAGER and ADMIN (and
  * SUPER_ADMIN through the role hierarchy) may create; every caller names the owner, who must be able to sign in
  * and must not be staff/admin, and gets OWNER (audited, the creator is the actor). The caller is never the owner.
- * Since W8 (property-units brief US-3, BR-8, BR-10..BR-12, E-1): a create also stores the canonical unit and the
+ * property-units US-3, BR-8, BR-10..BR-12, E-1: a create also stores the canonical unit and the
  * ownership of the named owner in the same transaction. The API is unchanged, so the cases of the sections above
- * are untouched; the W8 section below adds three.
+ * are untouched; the units and ownership section below adds three.
  * <p>
  * Users are created through the auth domain repository and log in through {@code POST /api/auth/login},
  * so every request carries a real access token. Tokens and passwords are never printed.
@@ -148,7 +148,7 @@ class PropertyCreateCharacterizationTest {
 		salesManager = logIn(createUser(UserStatus.ACTIVE, "SALES_MANAGER"));
 		manager = logIn(createUser(UserStatus.ACTIVE, "MANAGER"));
 		landlordA = logIn(createUser(UserStatus.ACTIVE, "LANDLORD", "OWNER"));
-		// A self-registered account: TENANT + CUSTOMER (BR-3)
+		// A self-registered account: TENANT + CUSTOMER (auth-roles BR-3)
 		tenant = logIn(createUser(UserStatus.ACTIVE, "TENANT", "CUSTOMER"));
 		landlordB = createUser(UserStatus.ACTIVE, "LANDLORD", "OWNER");
 		unverifiedLandlord = createUser(UserStatus.PENDING, "LANDLORD");
@@ -217,7 +217,7 @@ class PropertyCreateCharacterizationTest {
 
 	@Test
 	void create_validBody_storesNoAvailabilityAndNoPriceRows() throws Exception {
-		// No availability is built any more (the property_availability table is retired, BR-13) and
+		// No availability is built any more (the property_availability table is retired, property-units BR-13) and
 		// PropertyEntityMapper.toEntity maps no price history, so nothing reaches those tables.
 		String code = uniqueCode();
 
@@ -229,9 +229,12 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countWherePropertyId("property_prices", id));
 	}
 
-	// ==================== C2 / C3: who may create (BR-5) and the owner (BR-6..BR-8) ====================
+	// ========== C2 / C3: who may create (auth-roles BR-5) and the owner (auth-roles BR-6..BR-8) ==========
 
-	/** BR-5, BR-8: SALE creates for a customer, who becomes the owner and gets OWNER, audited with SALE as actor. */
+	/**
+	 * auth-roles BR-5, BR-8: SALE creates for a customer, who becomes the owner and gets OWNER, audited with SALE as
+	 * actor.
+	 */
 	@Test
 	void create_saleForACustomer_returns201StoresThatOwnerAndGrantsOwner() throws Exception {
 		TestUser owner = createUser(UserStatus.ACTIVE, "TENANT", "CUSTOMER");
@@ -249,7 +252,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(List.of("role=OWNER;actorUserId=" + sale.userId()), ownerGrantAudit(owner.userId()));
 	}
 
-	/** BR-5 (W6-5): SALE_LEADER, SALES_MANAGER and SUPER_ADMIN (role hierarchy, BR-4) may create too. */
+	/** auth-roles BR-5 (W6-5): SALE_LEADER, SALES_MANAGER and SUPER_ADMIN (role hierarchy, BR-4) may create too. */
 	@Test
 	void create_saleLeaderSalesManagerAndSuperAdmin_return201AndGrantOwner() throws Exception {
 		for (TestUser caller : List.of(saleLeader, salesManager, superAdmin)) {
@@ -264,7 +267,7 @@ class PropertyCreateCharacterizationTest {
 		}
 	}
 
-	/** BR-8: an owner who already holds OWNER is not granted again (no audit row). */
+	/** auth-roles BR-8: an owner who already holds OWNER is not granted again (no audit row). */
 	@Test
 	void create_ownerAlreadyHoldsOwner_returns201WithoutANewGrant() throws Exception {
 		String code = uniqueCode();
@@ -276,7 +279,7 @@ class PropertyCreateCharacterizationTest {
 		assertTrue(ownerGrantAudit(landlordB.userId()).isEmpty());
 	}
 
-	/** BR-5, E-1 (W6-5): LANDLORD lost create access (it was allowed until W6). */
+	/** auth-roles BR-5, E-1 (W6-5): LANDLORD lost create access (it was allowed before). */
 	@Test
 	void create_landlord_returns403AndStoresNothing() throws Exception {
 		String code = uniqueCode();
@@ -288,7 +291,9 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
-	/** BR-5, E-1: MANAGER (old role, not dual-granted to SALES_MANAGER) and TENANT + CUSTOMER cannot create. */
+	/**
+	 * auth-roles BR-5, E-1: MANAGER (old role, not dual-granted to SALES_MANAGER) and TENANT + CUSTOMER cannot create.
+	 */
 	@Test
 	void create_managerOrTenantCustomer_returns403AndStoresNothing() throws Exception {
 		for (TestUser caller : List.of(manager, tenant)) {
@@ -301,7 +306,7 @@ class PropertyCreateCharacterizationTest {
 		}
 	}
 
-	/** BR-6, E-2 (W6-6): every caller must name the owner. */
+	/** auth-roles BR-6, E-2 (W6-6): every caller must name the owner. */
 	@Test
 	void create_saleWithoutOwnerId_returns400AndStoresNothing() throws Exception {
 		String code = uniqueCode();
@@ -316,7 +321,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
-	/** BR-6, E-2 */
+	/** auth-roles BR-6, E-2 */
 	@Test
 	void create_adminWithoutOwnerId_returns400AndStoresNothing() throws Exception {
 		String code = uniqueCode();
@@ -331,7 +336,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
-	/** BR-6, E-2 */
+	/** auth-roles BR-6, E-2 */
 	@Test
 	void create_adminWithBlankOwnerId_returns400AndStoresNothing() throws Exception {
 		String code = uniqueCode();
@@ -344,7 +349,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
-	/** BR-7, E-3: unknown owner -> 422; the id is never echoed. */
+	/** auth-roles BR-7, E-3: unknown owner -> 422; the id is never echoed. */
 	@Test
 	void create_adminWithUnknownOwnerId_returns422AndStoresNothing() throws Exception {
 		String code = uniqueCode();
@@ -359,7 +364,10 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
-	/** BR-7, E-3 (W6-7): a staff owner (here SALE) or a locked owner -> 422, nothing stored, no OWNER granted. */
+	/**
+	 * auth-roles BR-7, E-3 (W6-7): a staff owner (here SALE) or a locked owner -> 422, nothing stored, no OWNER
+	 * granted.
+	 */
 	@Test
 	void create_staffOrLockedOwner_returns422AndGrantsNothing() throws Exception {
 		TestUser staffOwner = createUser(UserStatus.ACTIVE, "SALE");
@@ -377,7 +385,10 @@ class PropertyCreateCharacterizationTest {
 		}
 	}
 
-	/** BR-6, BR-7: a caller who names themselves is checked like anyone else; staff is never an eligible owner. */
+	/**
+	 * auth-roles BR-6, BR-7: a caller who names themselves is checked like anyone else; staff is never an eligible
+	 * owner.
+	 */
 	@Test
 	void create_saleNamesThemselves_returns422() throws Exception {
 		String code = uniqueCode();
@@ -388,7 +399,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
-	/** BR-7: "active" means the account may sign in, so a PENDING account counts (W5 decision kept). */
+	/** auth-roles BR-7: "active" means the account may sign in, so a PENDING account counts. */
 	@Test
 	void create_adminWithOwnerIdOfUnverifiedUser_returns201AndStoresThatOwner() throws Exception {
 		String code = uniqueCode();
@@ -584,11 +595,12 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(400, response.statusCode(), response.body());
 	}
 
-	// ==================== W8: units and ownership ====================
+	// ==================== Units and ownership ====================
 
 	/**
-	 * W8-10 (US-3 AC-1, BR-4, BR-5, BR-8, BR-10, BR-12, BR-14): a successful create also stores exactly one canonical
-	 * unit and one unverified ownership. Their foreign keys to properties only hold if the property is saved first.
+	 * W8-10 (property-units US-3 AC-1, BR-4, BR-5, BR-8, BR-10, BR-12, BR-14): a successful create also stores exactly
+	 * one canonical unit and one unverified ownership. Their foreign keys to properties only hold if the property is
+	 * saved first.
 	 */
 	@Test
 	void create_validBody_storesTheCanonicalUnitAndTheOwnership() throws Exception {
@@ -630,8 +642,9 @@ class PropertyCreateCharacterizationTest {
 	}
 
 	/**
-	 * W8-11 (US-3 AC-3, BR-12, E-1): a create that is refused stores no unit and no ownership. The rollback after the
-	 * property was saved (the owner turns ineligible at grant time) is PropertyCreateRollbackPostgresTest.
+	 * W8-11 (property-units US-3 AC-3, BR-12, E-1): a create that is refused stores no unit and no ownership. The
+	 * rollback after the property was saved (the owner turns ineligible at grant time) is
+	 * PropertyCreateRollbackPostgresTest.
 	 */
 	@Test
 	void create_failingRequests_storeNoUnitAndNoOwnership() throws Exception {
@@ -640,9 +653,9 @@ class PropertyCreateCharacterizationTest {
 		int unitsBefore = countRows("units");
 		int ownershipsBefore = countRows("property_ownerships");
 
-		// 403: LANDLORD may not create (BR-5)
+		// 403: LANDLORD may not create (auth-roles BR-5)
 		assertPostStatus(403, landlordA, validBody(uniqueCode(), landlordB.userId()));
-		// 400: SALE names no owner (BR-6)
+		// 400: SALE names no owner (auth-roles BR-6)
 		Map<String, Object> withoutOwner = validBody(uniqueCode(), null);
 		withoutOwner.remove("ownerId");
 		assertPostStatus(400, sale, withoutOwner);
@@ -652,7 +665,7 @@ class PropertyCreateCharacterizationTest {
 		Map<String, Object> unknownAmenity = validBody(uniqueCode(), landlordA.userId());
 		unknownAmenity.put("amenityTypes", List.of(10, UNKNOWN_MASTER_ID));
 		assertPostStatus(422, admin, unknownAmenity);
-		// 422: a staff account (here SALE) is not an eligible owner (BR-7)
+		// 422: a staff account (here SALE) is not an eligible owner (auth-roles BR-7)
 		assertPostStatus(422, admin, validBody(uniqueCode(), sale.userId()));
 
 		assertEquals(unitsBefore, countRows("units"), "no unit stored by a refused create");
@@ -660,8 +673,8 @@ class PropertyCreateCharacterizationTest {
 	}
 
 	/**
-	 * W8-15 (BR-11, Q-9, auth-roles Q-6): revoking OWNER through the role admin API keeps the ownership row and
-	 * properties.owner_id as they were: the role is a permission to use the system, the ownership a fact.
+	 * W8-15 (property-units BR-11, Q-9, auth-roles Q-6): revoking OWNER through the role admin API keeps the ownership
+	 * row and properties.owner_id as they were: the role is a permission to use the system, the ownership a fact.
 	 */
 	@Test
 	void create_thenOwnerRoleRevoked_keepsTheOwnership() throws Exception {

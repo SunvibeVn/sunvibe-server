@@ -6,8 +6,8 @@ import java.util.Set;
 
 /**
  * Roles a user can hold; granted to Spring Security as {@code ROLE_<name>}.
- * Since wave W6 (auth-roles brief BR-1): the 8 old roles are kept, 6 target roles are added.
- * Self-registration grants exactly {@link #SELF_REGISTRATION} (BR-3).
+ * The 8 old roles are kept and 6 target roles are added (auth-roles BR-1).
+ * Self-registration grants exactly {@link #SELF_REGISTRATION} (auth-roles BR-3).
  */
 public enum RoleName {
 
@@ -36,18 +36,18 @@ public enum RoleName {
     /** Reviews listings (maker-checker). */
     LISTING_REVIEWER;
 
-    /** The roles of a self-registered account (BR-3). */
+    /** The roles of a self-registered account (auth-roles BR-3). */
     public static final Set<RoleName> SELF_REGISTRATION = EnumSet.of(TENANT, CUSTOMER);
 
-    /** Staff and admin roles: an account holding any of them can never be a property owner (BR-7). */
+    /** Staff and admin roles: an account holding any of them can never be a property owner (auth-roles BR-7). */
     public static final Set<RoleName> STAFF = EnumSet.of(SALE, SALE_LEADER, SALES_MANAGER, LISTING_REVIEWER,
             ADMIN, SUPER_ADMIN, EMPLOYEE, MANAGER, LEADER);
 
-    /** Roles an ADMIN may grant or revoke through the role admin API (US-4 AC-1). */
+    /** Roles an ADMIN may grant or revoke through the role admin API (auth-roles US-4 AC-1). */
     public static final Set<RoleName> GRANTABLE_BY_ADMIN = EnumSet.of(OWNER, CUSTOMER, SALE, SALE_LEADER,
             SALES_MANAGER, LISTING_REVIEWER);
 
-    /** Roles a SUPER_ADMIN may grant or revoke: those of ADMIN plus ADMIN itself (US-4 AC-2). */
+    /** Roles a SUPER_ADMIN may grant or revoke: those of ADMIN plus ADMIN itself (auth-roles US-4 AC-2). */
     public static final Set<RoleName> GRANTABLE_BY_SUPER_ADMIN;
 
     static {

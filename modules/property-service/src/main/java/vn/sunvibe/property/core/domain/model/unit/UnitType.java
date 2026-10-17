@@ -3,8 +3,8 @@ package vn.sunvibe.property.core.domain.model.unit;
 import vn.sunvibe.property.core.domain.model.enums.PropertyType;
 
 /**
- * Kind of unit (brief BR-5). Same values as {@link PropertyType}, mapped by name, so the later unit type list
- * (Q-14) does not change the property type (spec A-6). Stored as text in {@code units.unit_type}.
+ * Kind of unit (property-units BR-5). Same values as {@link PropertyType}, mapped by name, so the later unit type list
+ * (property-units Q-14) does not change the property type (property-units spec A-6). Stored as text in {@code units.unit_type}.
  */
 public enum UnitType {
     STUDIO,

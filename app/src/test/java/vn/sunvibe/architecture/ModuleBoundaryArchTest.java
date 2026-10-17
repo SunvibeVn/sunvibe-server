@@ -24,7 +24,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import vn.sunvibe.SunvibeServerApplication;
 
 /**
- * Module boundaries of ADR-003/ADR-009 at the class dependency level (W7d). The Gradle task
+ * Module boundaries of ADR-003/ADR-009 at the class dependency level. The Gradle task
  * {@code checkModuleBoundaries} checks declared project dependencies; this test checks what the compiled main classes
  * of every module actually use. See ../docs/decisions/ADR-009-cross-module-ports.md.
  */

@@ -78,7 +78,7 @@ public class SecurityConfig {
     // ── Beans ────────────────────────────────────────────────
 
     /**
-     * SUPER_ADMIN passes every ADMIN rule (auth-roles BR-4, W6-4). The one hierarchy for both the HTTP rules
+     * SUPER_ADMIN passes every ADMIN rule (auth-roles BR-4). The one hierarchy for both the HTTP rules
      * below (picked up from the context by authorizeHttpRequests) and method security ({@code @PreAuthorize}).
      * Static, like every bean that method security needs early.
      */

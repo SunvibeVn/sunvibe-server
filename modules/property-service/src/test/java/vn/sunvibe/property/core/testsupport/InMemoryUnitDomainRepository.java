@@ -6,7 +6,7 @@ import vn.sunvibe.property.core.domain.repository.UnitDomainRepository;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Keeps saved units in a list. The repository only declares save in W8. */
+/** Keeps saved units in a list. The repository only declares save. */
 public class InMemoryUnitDomainRepository implements UnitDomainRepository {
 
     private final List<Unit> saved = new ArrayList<>();

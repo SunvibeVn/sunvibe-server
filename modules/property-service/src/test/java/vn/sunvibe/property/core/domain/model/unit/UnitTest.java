@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Unit aggregate (wave W8, property-units brief BR-2..BR-8, spec A-6, A-7): the canonical unit copies its property
+ * Unit aggregate (property-units BR-2..BR-8, spec A-6, A-7): the canonical unit copies its property
  * and starts AVAILABLE, and a unit that can never exist (negative rooms, no area, no code) is refused.
  */
 class UnitTest {
@@ -28,7 +28,7 @@ class UnitTest {
     private static final Instant CREATED_AT = Instant.parse("2026-10-16T08:00:00Z");
     private static final Instant UPDATED_AT = Instant.parse("2026-10-17T09:30:00Z");
 
-    /** BR-4, BR-5, BR-8 */
+    /** property-units BR-4, BR-5, BR-8 */
     @Test
     void createCanonical_property_copiesCodeTypeRoomsAndAreaAndStartsAvailable() {
         Property property = property(PropertyType.TWO_BEDROOM, 2, 1, 55.5);
@@ -110,7 +110,7 @@ class UnitTest {
                 () -> assertThrows(IllegalArgumentException.class, () -> unit(1, 1, Double.NaN, "DA-APT-001")));
     }
 
-    /** BR-4, spec A-7 */
+    /** property-units BR-4, spec A-7 */
     @Test
     void load_blankUnitCode_throws() {
         assertAll(
@@ -173,7 +173,10 @@ class UnitTest {
         assertThrows(IllegalArgumentException.class, () -> UnitType.from(null));
     }
 
-    /** BR-6: these names are the values stored in units.availability_state; renaming one breaks stored rows. */
+    /**
+     * property-units BR-6: these names are the values stored in units.availability_state; renaming one breaks stored
+     * rows.
+     */
     @Test
     void availabilityState_values_areTheStoredNames() {
         Set<String> names = Arrays.stream(UnitAvailabilityState.values())

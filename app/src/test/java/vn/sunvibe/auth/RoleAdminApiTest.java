@@ -45,9 +45,9 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
 
 /**
- * Role admin API {@code /api/v1/staff/users/{userId}/roles} end to end on PostgreSQL (wave W6, W6-9; auth-roles
- * brief US-4, US-5, BR-9..BR-11, E-4..E-7), plus self-registration roles (US-1, BR-3) and the SUPER_ADMIN role
- * hierarchy on a method rule and on the HTTP rule {@code /features/admin/**} (US-5, BR-4).
+ * Role admin API {@code /api/v1/staff/users/{userId}/roles} end to end on PostgreSQL (W6-9; auth-roles
+ * US-4, US-5, BR-9..BR-11, E-4..E-7), plus self-registration roles (auth-roles US-1, BR-3) and the SUPER_ADMIN
+ * role hierarchy on a method rule and on the HTTP rule {@code /features/admin/**} (auth-roles US-5, BR-4).
  * Q-5 = 403 for a self change, Q-6 = revoking OWNER allowed, Q-7 = no roles left allowed.
  * <p>
  * The login rate limit is off and registration does not need a phone token, so this class gets its own context
@@ -128,7 +128,7 @@ class RoleAdminApiTest {
 		assertEquals(List.of("CUSTOMER", "TENANT"), strings(result.body().path("roles")));
 	}
 
-	/** US-5, BR-4 (W6-4): SUPER_ADMIN passes the ADMIN method rule through the role hierarchy. */
+	/** auth-roles US-5, BR-4 (W6-4): SUPER_ADMIN passes the ADMIN method rule through the role hierarchy. */
 	@Test
 	void getRoles_superAdmin_returns200() throws Exception {
 		String target = createUser(UserStatus.ACTIVE, "CUSTOMER").userId();
@@ -136,7 +136,7 @@ class RoleAdminApiTest {
 		assertEquals(200, send("GET", superAdmin, rolesPath(target)).status());
 	}
 
-	/** E-7 */
+	/** auth-roles E-7 */
 	@Test
 	void getRoles_unknownUser_returns404() throws Exception {
 		Result result = send("GET", admin, rolesPath(UNKNOWN_USER_ID));
@@ -145,7 +145,7 @@ class RoleAdminApiTest {
 		assertFalse(result.rawBody().contains(UNKNOWN_USER_ID), "the id is not echoed");
 	}
 
-	/** E-4, T-021: a SALE or TENANT caller cannot use the role API. */
+	/** auth-roles E-4, T-021: a SALE or TENANT caller cannot use the role API. */
 	@Test
 	void getRoles_saleOrTenant_returns403() throws Exception {
 		String target = createUser(UserStatus.ACTIVE, "CUSTOMER").userId();
@@ -161,7 +161,7 @@ class RoleAdminApiTest {
 
 	// ==================== PUT (grant) ====================
 
-	/** US-4 AC-1, AC-4: ADMIN grants a new role; audited with actor, target and role. */
+	/** auth-roles US-4 AC-1, AC-4: ADMIN grants a new role; audited with actor, target and role. */
 	@Test
 	void grant_adminGrantsSale_returns204StoresAndAudits() throws Exception {
 		String target = createUser(UserStatus.ACTIVE, "CUSTOMER").userId();
@@ -173,7 +173,7 @@ class RoleAdminApiTest {
 		assertEquals(List.of("role=SALE;actorUserId=" + admin.userId()), auditDetails("ROLE_GRANTED", target));
 	}
 
-	/** US-4 AC-3: idempotent, the repeat is not audited again. */
+	/** auth-roles US-4 AC-3: idempotent, the repeat is not audited again. */
 	@Test
 	void grant_roleAlreadyHeld_returns204AndAuditsOnce() throws Exception {
 		String target = createUser(UserStatus.ACTIVE, "CUSTOMER").userId();
@@ -185,7 +185,7 @@ class RoleAdminApiTest {
 		assertEquals(1, auditDetails("ROLE_GRANTED", target).size());
 	}
 
-	/** US-4 AC-2, E-4 */
+	/** auth-roles US-4 AC-2, E-4 */
 	@Test
 	void grant_adminGrantsAdmin_returns403() throws Exception {
 		String target = createUser(UserStatus.ACTIVE, "CUSTOMER").userId();
@@ -194,7 +194,7 @@ class RoleAdminApiTest {
 		assertEquals(Set.of("CUSTOMER"), dbRoles(target));
 	}
 
-	/** US-4 AC-2 */
+	/** auth-roles US-4 AC-2 */
 	@Test
 	void grant_superAdminGrantsAdmin_returns204() throws Exception {
 		String target = createUser(UserStatus.ACTIVE, "CUSTOMER").userId();
@@ -203,14 +203,14 @@ class RoleAdminApiTest {
 		assertEquals(Set.of("CUSTOMER", "ADMIN"), dbRoles(target));
 	}
 
-	/** BR-9, E-5, Q-5 */
+	/** auth-roles BR-9, E-5, Q-5 */
 	@Test
 	void grant_toSelf_returns403() throws Exception {
 		assertForbidden(send("PUT", admin, rolePath(admin.userId(), "SALE")));
 		assertEquals(Set.of("ADMIN"), dbRoles(admin.userId()));
 	}
 
-	/** E-6: SUPER_ADMIN, old roles and unknown names -> 400 on field role. */
+	/** auth-roles E-6: SUPER_ADMIN, old roles and unknown names -> 400 on field role. */
 	@Test
 	void grant_roleNotGrantable_returns400() throws Exception {
 		String target = createUser(UserStatus.ACTIVE, "CUSTOMER").userId();
@@ -225,13 +225,13 @@ class RoleAdminApiTest {
 		assertEquals(Set.of("CUSTOMER"), dbRoles(target));
 	}
 
-	/** E-7 */
+	/** auth-roles E-7 */
 	@Test
 	void grant_unknownUser_returns404() throws Exception {
 		assertEquals(404, send("PUT", admin, rolePath(UNKNOWN_USER_ID, "SALE")).status());
 	}
 
-	/** BR-10, E-7 */
+	/** auth-roles BR-10, E-7 */
 	@Test
 	void grant_lockedUser_returns422() throws Exception {
 		String target = createUser(UserStatus.LOCK, "CUSTOMER").userId();
@@ -244,7 +244,7 @@ class RoleAdminApiTest {
 		assertEquals(Set.of("CUSTOMER"), dbRoles(target));
 	}
 
-	/** E-4, T-021 */
+	/** auth-roles E-4, T-021 */
 	@Test
 	void grant_saleOrTenantCaller_returns403() throws Exception {
 		String target = createUser(UserStatus.ACTIVE, "CUSTOMER").userId();
@@ -256,7 +256,7 @@ class RoleAdminApiTest {
 
 	// ==================== DELETE (revoke) ====================
 
-	/** US-4 AC-4, AC-5, BR-11: revoke ends every session of the target; the old refresh token is refused. */
+	/** auth-roles US-4 AC-4, AC-5, BR-11: revoke ends every session of the target; the old refresh token is refused. */
 	@Test
 	void revoke_heldRole_returns204AuditsAndEndsTheTargetsSessions() throws Exception {
 		Caller target = logIn(createUser(UserStatus.ACTIVE, "CUSTOMER", "SALE"));
@@ -293,7 +293,7 @@ class RoleAdminApiTest {
 		assertEquals(Set.of("ADMIN", "LISTING_REVIEWER"), dbRoles(otherAdmin));
 	}
 
-	/** US-4 AC-3: nothing to revoke -> 204, no audit, sessions kept. */
+	/** auth-roles US-4 AC-3: nothing to revoke -> 204, no audit, sessions kept. */
 	@Test
 	void revoke_roleNotHeld_returns204AndKeepsSessions() throws Exception {
 		Caller target = logIn(createUser(UserStatus.ACTIVE, "CUSTOMER"));
@@ -312,7 +312,7 @@ class RoleAdminApiTest {
 		assertEquals(Set.of("ADMIN"), dbRoles(target));
 	}
 
-	/** BR-11 with auth BR-3: the revoked role stops working at once, even on an access token issued before. */
+	/** auth-roles BR-11, with roles reloaded from the database on every request: the revoked role stops working at once, even on an access token issued before. */
 	@Test
 	void revoke_superAdminRevokesAdmin_returns204AndTheOldAccessTokenLosesIt() throws Exception {
 		Caller target = logIn(createUser(UserStatus.ACTIVE, "ADMIN"));
@@ -344,7 +344,7 @@ class RoleAdminApiTest {
 
 	// ==================== registration and hierarchy ====================
 
-	/** US-1 AC-1, BR-3 (W6-3) */
+	/** auth-roles US-1 AC-1, BR-3 (W6-3) */
 	@Test
 	void register_newAccount_getsExactlyTenantAndCustomer() throws Exception {
 		String username = nextPhone();
@@ -365,7 +365,7 @@ class RoleAdminApiTest {
 		assertEquals(Set.of("TENANT", "CUSTOMER"), dbRoles(userId));
 	}
 
-	/** US-5, BR-4 (W6-4): SUPER_ADMIN passes the HTTP rule hasRole(ADMIN) on /features/admin/**; TENANT does not. */
+	/** auth-roles US-5, BR-4 (W6-4): SUPER_ADMIN passes the HTTP rule hasRole(ADMIN) on /features/admin/**; TENANT does not. */
 	@Test
 	void adminFeaturePath_superAdminPassesTheHttpRule_tenantDoesNot() throws Exception {
 		int superAdminStatus = send("POST", superAdmin, "/features/admin/w6-check").status();

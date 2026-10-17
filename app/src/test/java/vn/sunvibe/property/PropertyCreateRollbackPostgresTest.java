@@ -26,7 +26,7 @@ import vn.sunvibe.property.core.domain.exception.PropertyOwnerNotFoundException;
 import vn.sunvibe.property.core.domain.model.enums.PropertyType;
 
 /**
- * Wave W8 rollback of property create on a real PostgreSQL (property-units brief BR-12, E-1; W8-11): the property,
+ * Rollback of property create on a real PostgreSQL (property-units BR-12, E-1; W8-11): the property,
  * its canonical unit and its ownership are written in one transaction, so when the owner turns ineligible between the
  * eligibility check and the OWNER grant (auth-roles BR-7) the create throws PropertyOwnerNotFoundException (422 at
  * the API) and none of the three rows stays.
@@ -35,7 +35,7 @@ import vn.sunvibe.property.core.domain.model.enums.PropertyType;
  * this class has a context (and a database) of its own. Needs Docker, like that test.
  * <p>
  * The test passes before the unit and the ownership are written (the property alone was already rolled back); it
- * guards BR-12 for the rows that are added.
+ * guards property-units BR-12 for the rows that are added.
  */
 @SpringBootTest(properties = {
 		"spring.flyway.enabled=true",

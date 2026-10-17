@@ -40,7 +40,7 @@ public record PropertyCreateCommand(
         Integer minRentMonths,
 
         // ==================== Ownership & Audit ====================
-        // The owner named in the request (W6: required for every caller, never the caller by default)
+        // The owner named in the request (auth-roles BR-6: required for every caller, never the caller by default)
         String ownerId,
         // The authenticated caller: user id (actor of the OWNER grant) and username (created_by)
         String actorUserId,
