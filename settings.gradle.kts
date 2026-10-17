@@ -7,6 +7,7 @@ include("app")
 include("modules:auth-service")
 include("modules:listing-service")
 include("modules:property-service")
+include("modules:acquisition-service")
 include("modules:notification-service")
 include("modules:shared-service")
 

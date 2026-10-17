@@ -14,6 +14,7 @@ dependencies {
     implementation(project(":modules:auth-service"))
     implementation(project(":modules:listing-service"))
     implementation(project(":modules:property-service"))
+    implementation(project(":modules:acquisition-service"))
     implementation(project(":modules:notification-service"))
 
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")

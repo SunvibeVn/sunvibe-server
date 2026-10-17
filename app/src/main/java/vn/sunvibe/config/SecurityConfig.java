@@ -59,12 +59,18 @@ public class SecurityConfig {
             "/api/auth/refresh-token",
             // Identifies the session by its refresh-token cookie; must work with an expired access token
             "/api/auth/logout",
+            // Owner intake form (acquisition-owner-intake): an owner without an account asks to be called back;
+            // rate-limited per client IP
+            "/api/v1/public/owner-intake-requests",
     };
 
     private static final String[] PUBLIC_GET_ENDPOINTS = {
             "/actuator/health",
             "/v3/api-docs/**",
-            "/swagger-ui/**"
+            "/swagger-ui/**",
+            // Administrative-area catalog for the owner intake form (acquisition-owner-intake): public data, no login
+            "/api/v1/public/provinces",
+            "/api/v1/public/provinces/*/wards"
     };
 
     private static final String ADMIN_FEATURE_PATH = "/features/admin/**";
