@@ -54,8 +54,15 @@ class FlywayPostgresMigrationTest {
 						"V202610161000__create_units_table.sql", "V202610161001__create_property_ownerships_table.sql",
 						"V202610161002__add_version_to_properties.sql",
 						"V202610161003__backfill_units_and_property_ownerships.sql",
+						"V202610161100__create_administrative_areas.sql",
+						"V202610161101__seed_da_nang_administrative_areas.sql",
+						"V202610161110__create_consent_records_table.sql",
+						"V202610161111__create_owner_leads_tables.sql",
+						"V202610161112__create_owner_lead_activity_tables.sql",
+						"V202610161113__create_owner_intake_idempotency_keys_table.sql",
+						"V202610161114__create_sale_territories_tables.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 9, applied.size()));
+				applied.subList(applied.size() - 16, applied.size()));
 	}
 
 	/** Wave W8 (property-units spec section 4, W8-14): units, ownerships and properties.version come from Flyway. */
@@ -69,6 +76,19 @@ class FlywayPostgresMigrationTest {
 		assertTrue(tables.contains("units"), "missing table units");
 		assertTrue(tables.contains("property_ownerships"), "missing table property_ownerships");
 		assertTrue(propertyColumns.contains("version"), "missing column properties.version");
+	}
+
+	/** Acquisition-owner-intake spec 4.2 and lead-queue spec 4: the acquisition tables come from Flyway only. */
+	@Test
+	void migrate_emptyDatabase_createsTheAcquisitionTables() {
+		List<String> tables = jdbc.queryForList(
+				"SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'", String.class);
+
+		for (String table : List.of("consent_records", "owner_leads", "owner_lead_duplicate_candidates",
+				"owner_lead_activities", "owner_lead_access_logs", "owner_intake_idempotency_keys",
+				"sale_territories", "sale_territory_changes")) {
+			assertTrue(tables.contains(table), () -> "missing table " + table);
+		}
 	}
 
 	/** Roles come from Flyway since W6 (auth-roles BR-1), no longer from RoleDataInitializer. */

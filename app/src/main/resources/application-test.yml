@@ -22,6 +22,9 @@ app:
     # Test-only keys (public, committed); never use for real data.
     id-card-key: bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=
     id-card-index-key: HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=
+  acquisition:
+    # Test-only hash key (public, committed; base64 of a plain phrase); never use for real data.
+    hash-key: ${ACQUISITION_HASH_KEY:ZGV2LW9ubHktZmFrZS1hY3F1aXNpdGlvbi1oYXNoLWtleS1kby1ub3QtdXNl}
   jwt:
     # Test-only key (public, committed); never use for real data.
     secret: 07zN1TVoUqmFylsMFQ4pwPMcHxwqc/2EZhI44H9DjEkoXA5YSbHzostN8CNOIUi6

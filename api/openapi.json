@@ -480,6 +480,830 @@
         "tags" : [ "property-controller" ]
       }
     },
+    "/api/v1/public/owner-intake-requests" : {
+      "post" : {
+        "description" : "202 with the request code, also when the same request is sent again (same Idempotency-Key and body within 24 hours, or the same phone, intent, ward and address within 5 minutes); such a replay adds the header Idempotent-Replayed: true. Body at most 16 KB.",
+        "operationId" : "submit",
+        "parameters" : [ {
+          "description" : "Optional; 8 to 64 letters, digits, '-' or '_' (the client sends a UUID)",
+          "in" : "header",
+          "name" : "Idempotency-Key",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerIntakeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerIntakeResponse"
+                }
+              }
+            },
+            "description" : "Request accepted",
+            "headers" : {
+              "Idempotent-Replayed" : {
+                "description" : "true when an earlier request's code is returned",
+                "schema" : {
+                  "type" : "string",
+                  "enum" : [ "true" ]
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (field errors, also for a bad Idempotency-Key) or MALFORMED_REQUEST (body is not readable JSON)"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "IDEMPOTENCY_KEY_REUSED: the key was used within 24 hours for a different body"
+          },
+          "413" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: body over 16 KB"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this client; see Retry-After"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR: nothing was stored"
+          }
+        },
+        "summary" : "Send the owner intake form (anonymous, rate-limited): creates an owner lead",
+        "tags" : [ "Owner intake" ]
+      }
+    },
+    "/api/v1/public/provinces" : {
+      "get" : {
+        "operationId" : "listProvinces",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ProvinceResponse"
+                  }
+                }
+              }
+            },
+            "description" : "Provinces"
+          }
+        },
+        "summary" : "List the provinces of the catalog (anonymous), sorted by name",
+        "tags" : [ "Administrative areas" ]
+      }
+    },
+    "/api/v1/public/provinces/{provinceCode}/wards" : {
+      "get" : {
+        "operationId" : "listWards",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "provinceCode",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/WardResponse"
+                  }
+                }
+              }
+            },
+            "description" : "Wards of the province"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Unknown province code (code NOT_FOUND)"
+          }
+        },
+        "summary" : "List the wards of a province (anonymous), sorted by name",
+        "tags" : [ "Administrative areas" ]
+      }
+    },
+    "/api/v1/staff/owner-leads" : {
+      "get" : {
+        "description" : "scope=mine (default): leads assigned to the caller; unassigned: status NEW; all: every lead. A SALE may only use mine. The items hold no phone, email, address or coordinates.",
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "scope",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "mine",
+            "enum" : [ "mine", "unassigned", "all" ],
+            "pattern" : "mine|unassigned|all"
+          }
+        }, {
+          "description" : "Keep only these statuses (repeat the parameter); all when left out",
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+            }
+          }
+        }, {
+          "description" : "Keep only leads of this ward",
+          "example" : 20242,
+          "in" : "query",
+          "name" : "wardCode",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          }
+        }, {
+          "description" : "Zero-based page number",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "Leads per page, 1 to 100",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LeadPageResponse"
+                }
+              }
+            },
+            "description" : "One page of leads"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on scope, status, wardCode, page or size"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or a SALE asked for scope unassigned or all"
+          }
+        },
+        "summary" : "List owner leads (SALE, SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Owner leads (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}" : {
+      "get" : {
+        "description" : "Contact data, consent, possible duplicates and history. Every call is recorded in the access log. A lead the caller may not see answers 404 like a lead that does not exist.",
+        "operationId" : "get",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerLeadDetailResponse"
+                }
+              }
+            },
+            "description" : "The lead"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead, or the caller may not see it"
+          }
+        },
+        "summary" : "Open an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Owner leads (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/activities" : {
+      "post" : {
+        "description" : "A note with nextActionAt also updates the lead (new version); without it the lead row is unchanged.",
+        "operationId" : "addNote",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddLeadNoteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LeadNoteResponse"
+                }
+              }
+            },
+            "description" : "The new history entry and the lead after it"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on note or nextActionAt; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead, or the caller may not see it"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INVALID_STATE_TRANSITION (field status): the lead is closed; or CONCURRENT_MODIFICATION (no field): a note with nextActionAt lost to a change saved at the same time"
+          }
+        },
+        "summary" : "Add a note to an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Owner leads (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/assign" : {
+      "post" : {
+        "description" : "The current assignee again changes nothing (200, same version).",
+        "operationId" : "assign_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignLeadRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerLeadSummaryResponse"
+                }
+              }
+            },
+            "description" : "The lead after the assignment"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on assigneeUserId, expectedVersion or note; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not SALE_LEADER, SALES_MANAGER or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION (field expectedVersion) or INVALID_STATE_TRANSITION (field status: the lead is closed)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INELIGIBLE_ASSIGNEE (field assigneeUserId): unknown user, cannot sign in, or neither SALE nor SALE_LEADER"
+          }
+        },
+        "summary" : "Assign an owner lead (SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Owner leads (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/status-changes" : {
+      "post" : {
+        "description" : "Closing (DUPLICATE, REJECTED, WITHDRAWN) needs a reason; DUPLICATE also needs duplicateOfLeadId, a lead the caller can see.",
+        "operationId" : "changeStatus",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeLeadStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerLeadSummaryResponse"
+                }
+              }
+            },
+            "description" : "The lead after the change"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on toStatus, expectedVersion, reason, duplicateOfLeadId or note; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead, or the caller may not see it"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INVALID_STATE_TRANSITION (field toStatus, allowedValues lists the statuses allowed now) or CONCURRENT_MODIFICATION (field expectedVersion)"
+          }
+        },
+        "summary" : "Change the status of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Owner leads (staff)" ]
+      }
+    },
+    "/api/v1/staff/sale-territories" : {
+      "get" : {
+        "operationId" : "list",
+        "parameters" : [ {
+          "description" : "Province code",
+          "example" : 48,
+          "in" : "query",
+          "name" : "provinceCode",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "minLength" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/SaleTerritoryResponse"
+                  }
+                }
+              }
+            },
+            "description" : "Every ward of the province"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on provinceCode"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the province is not in the catalog"
+          }
+        },
+        "summary" : "List the wards of a province and who looks after each (ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Sale territories (staff)" ]
+      }
+    },
+    "/api/v1/staff/sale-territories/{wardCode}" : {
+      "delete" : {
+        "description" : "204 also when nobody looked after the ward. Existing leads keep their assignee.",
+        "operationId" : "unassign",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "wardCode",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Nobody looks after the ward now"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on wardCode"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the ward is not in the catalog"
+          }
+        },
+        "summary" : "Leave a ward without a person (ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Sale territories (staff)" ]
+      },
+      "put" : {
+        "description" : "Replaces whoever had the ward; the same person again changes nothing. Existing leads keep their assignee.",
+        "operationId" : "assign",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "wardCode",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 10,
+            "minLength" : 0
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignTerritoryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SaleTerritoryResponse"
+                }
+              }
+            },
+            "description" : "The ward after the change"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on wardCode or userId; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the ward is not in the catalog"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INELIGIBLE_ASSIGNEE (field userId): unknown user, cannot sign in, or neither SALE nor SALE_LEADER"
+          }
+        },
+        "summary" : "Give a ward to a SALE or SALE_LEADER (ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Sale territories (staff)" ]
+      }
+    },
     "/api/v1/staff/users/{userId}/roles" : {
       "get" : {
         "operationId" : "getRoles",
@@ -686,6 +1510,23 @@
   },
   "components" : {
     "schemas" : {
+      "AddLeadNoteRequest" : {
+        "type" : "object",
+        "description" : "Add a note to an owner lead",
+        "properties" : {
+          "nextActionAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Optional; when the next action on the lead is due (left out keeps the current one), from 1970-01-01T00:00:00Z to the end of year 9999"
+          },
+          "note" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "note" ]
+      },
       "ApiResponseLoginResponse" : {
         "type" : "object",
         "properties" : {
@@ -789,6 +1630,83 @@
           "result" : { }
         }
       },
+      "AskingPriceRequest" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "string",
+            "format" : "int64",
+            "example" : 15000000,
+            "maximum" : 999999999999999,
+            "minimum" : 1
+          },
+          "currency" : {
+            "type" : "string",
+            "enum" : [ "VND" ],
+            "example" : "VND",
+            "pattern" : "VND"
+          },
+          "unit" : {
+            "type" : "string",
+            "enum" : [ "NIGHT", "MONTH", "TOTAL" ]
+          }
+        }
+      },
+      "AskingPriceResponse" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "currency" : {
+            "type" : "string",
+            "example" : "VND"
+          },
+          "unit" : {
+            "type" : "string",
+            "enum" : [ "NIGHT", "MONTH", "TOTAL" ]
+          }
+        }
+      },
+      "AssignLeadRequest" : {
+        "type" : "object",
+        "description" : "Give an owner lead to a SALE or SALE_LEADER",
+        "properties" : {
+          "assigneeUserId" : {
+            "type" : "string",
+            "description" : "User id (ULID) of the new assignee",
+            "maxLength" : 26,
+            "minLength" : 0
+          },
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The lead version the caller last saw",
+            "minimum" : 0
+          },
+          "note" : {
+            "type" : "string",
+            "description" : "Optional; kept in the history entry of the assignment",
+            "maxLength" : 2000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "assigneeUserId", "expectedVersion" ]
+      },
+      "AssignTerritoryRequest" : {
+        "type" : "object",
+        "description" : "Give a ward to a SALE or SALE_LEADER",
+        "properties" : {
+          "userId" : {
+            "type" : "string",
+            "description" : "User id (ULID) of the person who looks after the ward",
+            "maxLength" : 26,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "userId" ]
+      },
       "BaseErrorModel" : {
         "type" : "object",
         "properties" : {
@@ -805,15 +1723,183 @@
           }
         }
       },
+      "ChangeLeadStatusRequest" : {
+        "type" : "object",
+        "description" : "Move an owner lead to another status",
+        "properties" : {
+          "duplicateOfLeadId" : {
+            "type" : "string",
+            "description" : "Required for DUPLICATE: id of the lead this one repeats"
+          },
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The lead version the caller last saw",
+            "minimum" : 0
+          },
+          "nextActionAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Optional; when the next action on the lead is due, from 1970-01-01T00:00:00Z to the end of year 9999"
+          },
+          "note" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "Required to close the lead (DUPLICATE, REJECTED, WITHDRAWN)",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "toStatus" : {
+            "type" : "string",
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+          }
+        },
+        "required" : [ "expectedVersion", "toStatus" ]
+      },
+      "ConsentRequest" : {
+        "type" : "object",
+        "properties" : {
+          "accepted" : {
+            "type" : "boolean",
+            "example" : true
+          },
+          "noticeVersion" : {
+            "type" : "string",
+            "description" : "Version of the consent notice the owner was shown",
+            "example" : "owner-intake-2026-10",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "accepted", "noticeVersion" ]
+      },
+      "ConsentResponse" : {
+        "type" : "object",
+        "properties" : {
+          "acceptedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "noticeVersion" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DuplicateCandidateResponse" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "requestCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+          }
+        }
+      },
       "ErrorResponse" : {
         "type" : "object",
         "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "correlationId" : {
+            "type" : "string"
+          },
           "errors" : {
             "type" : "array",
             "items" : { }
           },
           "message" : {
             "type" : "string"
+          }
+        }
+      },
+      "LeadActivityResponse" : {
+        "type" : "object",
+        "description" : "History entry of an owner lead",
+        "properties" : {
+          "actorUserId" : {
+            "type" : "string",
+            "description" : "User id of the staff member; null for the system or the owner"
+          },
+          "fromAssigneeId" : {
+            "type" : "string"
+          },
+          "fromStatus" : {
+            "type" : "string",
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+          },
+          "nextActionAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "toAssigneeId" : {
+            "type" : "string"
+          },
+          "toStatus" : {
+            "type" : "string",
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED" ]
+          }
+        }
+      },
+      "LeadNoteResponse" : {
+        "type" : "object",
+        "description" : "The new history entry and the lead after the note",
+        "properties" : {
+          "activity" : {
+            "$ref" : "#/components/schemas/LeadActivityResponse"
+          },
+          "lead" : {
+            "$ref" : "#/components/schemas/OwnerLeadSummaryResponse"
+          }
+        }
+      },
+      "LeadPageResponse" : {
+        "type" : "object",
+        "description" : "One page of owner leads, newest first",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerLeadSummaryResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Zero-based page number"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Page size asked for"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Leads over all pages that the caller can see"
           }
         }
       },
@@ -863,6 +1949,284 @@
             "type" : "string"
           },
           "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OwnerIntakeRequest" : {
+        "type" : "object",
+        "description" : "Owner intake form: a property owner asks Sunvibe to call back",
+        "properties" : {
+          "addressDetail" : {
+            "type" : "string",
+            "example" : "12 Bạch Đằng, căn A-1203",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "askingPrice" : {
+            "$ref" : "#/components/schemas/AskingPriceRequest"
+          },
+          "availableFrom" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "2026-11-01"
+          },
+          "consent" : {
+            "$ref" : "#/components/schemas/ConsentRequest"
+          },
+          "contactName" : {
+            "type" : "string",
+            "example" : "Nguyễn Thị Lan",
+            "maxLength" : 100,
+            "minLength" : 1,
+            "pattern" : "\\s*(\\S(.{0,98}\\S)?\\s*)?"
+          },
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "example" : "lan@example.com",
+            "maxLength" : 254,
+            "minLength" : 0,
+            "pattern" : "|[^@]+@[^@.]+(\\.[^@.]+)+"
+          },
+          "intent" : {
+            "type" : "string",
+            "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT", "SALE" ]
+          },
+          "latitude" : {
+            "type" : "number",
+            "description" : "Give both latitude and longitude, or neither",
+            "example" : 16.0678,
+            "maximum" : 90,
+            "minimum" : -90
+          },
+          "longitude" : {
+            "type" : "number",
+            "example" : 108.2208,
+            "maximum" : 180,
+            "minimum" : -180
+          },
+          "notes" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "phone" : {
+            "type" : "string",
+            "description" : "Vietnamese phone number: 0 or +84, then 9 digits; spaces, dots, dashes and parentheses are ignored",
+            "example" : "0909 123 456",
+            "minLength" : 1
+          },
+          "preferredCallbackTime" : {
+            "type" : "string",
+            "example" : "Buổi tối",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "propertyType" : {
+            "type" : "string",
+            "enum" : [ "STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX", "PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER" ]
+          },
+          "provinceCode" : {
+            "type" : "string",
+            "example" : "48",
+            "minLength" : 1
+          },
+          "wardCode" : {
+            "type" : "string",
+            "example" : "20242",
+            "minLength" : 1
+          }
+        },
+        "required" : [ "addressDetail", "consent", "contactName", "intent", "phone", "provinceCode", "wardCode" ]
+      },
+      "OwnerIntakeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "requestCode" : {
+            "type" : "string",
+            "description" : "Public code of the request: SV-XXXX-XXXX",
+            "example" : "SV-7K3M-Q9TX"
+          }
+        }
+      },
+      "OwnerLeadDetailResponse" : {
+        "type" : "object",
+        "description" : "Owner lead with contact data, consent, possible duplicates and history",
+        "properties" : {
+          "activities" : {
+            "type" : "array",
+            "description" : "History, oldest first",
+            "items" : {
+              "$ref" : "#/components/schemas/LeadActivityResponse"
+            }
+          },
+          "addressDetail" : {
+            "type" : "string"
+          },
+          "askingPrice" : {
+            "$ref" : "#/components/schemas/AskingPriceResponse",
+            "description" : "Null when the owner gave no price"
+          },
+          "assignedUserId" : {
+            "type" : "string",
+            "description" : "User id of the assignee; null when nobody holds the lead"
+          },
+          "availableFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "closeReason" : {
+            "type" : "string"
+          },
+          "consent" : {
+            "$ref" : "#/components/schemas/ConsentResponse"
+          },
+          "contactName" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "duplicateCandidates" : {
+            "type" : "array",
+            "description" : "Possible duplicates the caller can see, in either direction",
+            "items" : {
+              "$ref" : "#/components/schemas/DuplicateCandidateResponse"
+            }
+          },
+          "duplicateOfLeadId" : {
+            "type" : "string",
+            "description" : "Lead this one repeats; null unless the caller can see that lead"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "intent" : {
+            "type" : "string",
+            "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT", "SALE" ]
+          },
+          "latitude" : {
+            "type" : "number",
+            "description" : "Null when the owner gave no position"
+          },
+          "longitude" : {
+            "type" : "number",
+            "description" : "Null when the owner gave no position"
+          },
+          "nextActionAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "notes" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string",
+            "description" : "Normalized phone number",
+            "example" : "0909123456"
+          },
+          "possibleDuplicate" : {
+            "type" : "boolean",
+            "description" : "True when the lead has at least one possible duplicate the caller can see"
+          },
+          "preferredCallbackTime" : {
+            "type" : "string"
+          },
+          "propertyType" : {
+            "type" : "string",
+            "enum" : [ "STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX", "PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER" ]
+          },
+          "provinceCode" : {
+            "type" : "string",
+            "example" : "48"
+          },
+          "requestCode" : {
+            "type" : "string",
+            "example" : "SV-7K3M-Q9TX"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "WEB", "REFERRAL", "OUTBOUND", "PARTNER", "STAFF_ENTRY" ]
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Send it back as expectedVersion with the next change"
+          },
+          "wardCode" : {
+            "type" : "string",
+            "example" : "20242"
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OwnerLeadSummaryResponse" : {
+        "type" : "object",
+        "description" : "Owner lead in the staff queue (no phone, email, address or coordinates)",
+        "properties" : {
+          "assignedUserId" : {
+            "type" : "string",
+            "description" : "User id of the assignee; null when nobody holds the lead"
+          },
+          "contactName" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "intent" : {
+            "type" : "string",
+            "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT", "SALE" ]
+          },
+          "nextActionAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "possibleDuplicate" : {
+            "type" : "boolean",
+            "description" : "True when the lead has at least one possible duplicate the caller can see"
+          },
+          "propertyType" : {
+            "type" : "string",
+            "enum" : [ "STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX", "PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER" ]
+          },
+          "provinceCode" : {
+            "type" : "string",
+            "example" : "48"
+          },
+          "requestCode" : {
+            "type" : "string",
+            "example" : "SV-7K3M-Q9TX"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Send it back as expectedVersion with the next change"
+          },
+          "wardCode" : {
+            "type" : "string",
+            "example" : "20242"
+          },
+          "wardName" : {
             "type" : "string"
           }
         }
@@ -1169,6 +2533,22 @@
         },
         "required" : [ "imageUrl" ]
       },
+      "ProvinceResponse" : {
+        "type" : "object",
+        "description" : "A province or centrally run city of the official catalog",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "Official code",
+            "example" : "48"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name",
+            "example" : "Đà Nẵng"
+          }
+        }
+      },
       "RegistrationPhoneSendRequest" : {
         "type" : "object",
         "properties" : {
@@ -1203,6 +2583,51 @@
           },
           "registrationToken" : {
             "type" : "string"
+          }
+        }
+      },
+      "SaleTerritoryResponse" : {
+        "type" : "object",
+        "description" : "Ward and the staff member who looks after it",
+        "properties" : {
+          "assignedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Null when nobody looks after the ward"
+          },
+          "userId" : {
+            "type" : "string",
+            "description" : "User id of the person; null when nobody looks after the ward"
+          },
+          "wardCode" : {
+            "type" : "string",
+            "example" : "20242"
+          },
+          "wardName" : {
+            "type" : "string"
+          },
+          "wardType" : {
+            "type" : "string",
+            "description" : "As in the catalog",
+            "enum" : [ "WARD", "COMMUNE", "SPECIAL_ZONE" ]
+          }
+        }
+      },
+      "SecurityError" : {
+        "type" : "object",
+        "description" : "401/403 body written by Spring Security",
+        "properties" : {
+          "error" : {
+            "type" : "string",
+            "example" : "Forbidden"
+          },
+          "message" : {
+            "type" : "string",
+            "example" : "You do not have permission to access this resource."
+          },
+          "path" : {
+            "type" : "string",
+            "example" : "/api/v1/staff/owner-leads"
           }
         }
       },
@@ -1313,6 +2738,28 @@
           },
           "sentTo" : {
             "type" : "string"
+          }
+        }
+      },
+      "WardResponse" : {
+        "type" : "object",
+        "description" : "A ward, commune or special zone of a province",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "Official code",
+            "example" : "20242"
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "Name",
+            "example" : "Hải Châu"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "WARD (Phường), COMMUNE (Xã) or SPECIAL_ZONE (Đặc khu)",
+            "enum" : [ "WARD", "COMMUNE", "SPECIAL_ZONE" ],
+            "example" : "WARD"
           }
         }
       }

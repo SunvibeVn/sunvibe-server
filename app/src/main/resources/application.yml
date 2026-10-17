@@ -37,6 +37,10 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+      data-source-properties:
+        # PostgreSQL error messages leave out the failing row and key values, so a constraint violation never
+        # writes personal data (name, phone, email, address) to the logs; the constraint name is still logged
+        logServerErrorDetail: false
 management:
   endpoints:
     web:
@@ -47,6 +51,9 @@ management:
       show-details: always
 
 logging:
+  pattern:
+    # Puts the request correlation id (ADR-010) in front of every log message
+    correlation: "[%X{correlationId:-}] "
   level:
     vn.sunvibe: DEBUG
     org.springframework.security: INFO
@@ -123,6 +130,8 @@ app:
         - { method: POST, path: /api/auth/reset-password, limit: 10, window: 15m }
         - { method: POST, path: /api/auth/refresh-token, limit: 30, window: 1m }
         - { method: POST, path: /api/auth/change-password, limit: 10, window: 15m }
+        # Public owner intake form (acquisition-owner-intake): 10 submissions per client IP per hour
+        - { method: POST, path: /api/v1/public/owner-intake-requests, limit: 10, window: 1h }
   sms:
     # SMS provider for OTPs. No default on purpose: without one the app does not start.
     # Only "log" exists so far (dev/test profiles; prints OTPs to the log, never use in prod).
@@ -133,3 +142,8 @@ app:
     # in application-dev.yml / application-test.yml and must never be used in prod.
     id-card-key: ${ID_CARD_CRYPTO_KEY}
     id-card-index-key: ${ID_CARD_CRYPTO_INDEX_KEY}
+  acquisition:
+    # No default on purpose: startup fails unless it is set. A base64-encoded key of at least 32 bytes that
+    # signs the IP and user agent hashes kept as consent proof. The dev/test value lives in
+    # application-dev.yml / application-test.yml and must never be used in prod.
+    hash-key: ${ACQUISITION_HASH_KEY}

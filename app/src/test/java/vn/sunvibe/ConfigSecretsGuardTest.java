@@ -32,11 +32,13 @@ class ConfigSecretsGuardTest {
 	private static final String MAIL_USERNAME = "spring.mail.username";
 	private static final String MAIL_PASSWORD = "spring.mail.password";
 	private static final String JWT_SECRET = "app.jwt.secret";
+	private static final String ACQUISITION_HASH_KEY = "app.acquisition.hash-key";
 
 	private static final Map<String, String> BASE_PLACEHOLDERS = Map.of(
 			MAIL_USERNAME, "${MAIL_USERNAME}",
 			MAIL_PASSWORD, "${MAIL_PASSWORD}",
-			JWT_SECRET, "${JWT_SECRET}");
+			JWT_SECRET, "${JWT_SECRET}",
+			ACQUISITION_HASH_KEY, "${ACQUISITION_HASH_KEY}");
 
 	@Test
 	void baseProfile_defaultServerPort_is8081() throws IOException {
@@ -85,7 +87,8 @@ class ConfigSecretsGuardTest {
 			assertNotNull(value, key + " must be set in the test profile");
 			assertFalse(value.isBlank(), key + " must not be blank in the test profile");
 		});
-		assertBase64(resolver.getProperty(JWT_SECRET), "test");
+		assertBase64(JWT_SECRET, resolver.getProperty(JWT_SECRET), "test");
+		assertBase64(ACQUISITION_HASH_KEY, resolver.getProperty(ACQUISITION_HASH_KEY), "test");
 	}
 
 	@Test
@@ -97,20 +100,21 @@ class ConfigSecretsGuardTest {
 		// No committed mailbox: dev mail credentials come only from env vars
 		assertTrue(resolver.getProperty(MAIL_USERNAME).isEmpty(), MAIL_USERNAME + " must default to empty in dev");
 		assertTrue(resolver.getProperty(MAIL_PASSWORD).isEmpty(), MAIL_PASSWORD + " must default to empty in dev");
-		assertBase64(resolver.getProperty(JWT_SECRET), "dev");
+		assertBase64(JWT_SECRET, resolver.getProperty(JWT_SECRET), "dev");
+		assertBase64(ACQUISITION_HASH_KEY, resolver.getProperty(ACQUISITION_HASH_KEY), "dev");
 	}
 
-	/** JWTProvider base64-decodes the secret; HS256 needs at least 256 bits. */
-	private static void assertBase64(String secret, String profile) {
-		assertNotNull(secret, JWT_SECRET + " must be set in the " + profile + " profile");
+	/** The secret is base64-decoded by its consumer (JWT HS256, the consent hasher) and needs at least 256 bits. */
+	private static void assertBase64(String name, String secret, String profile) {
+		assertNotNull(secret, name + " must be set in the " + profile + " profile");
 		byte[] key;
 		try {
 			key = Base64.getDecoder().decode(secret);
 		} catch (IllegalArgumentException e) {
 			// The decoder message would quote part of the key
-			key = fail(JWT_SECRET + " must be base64 in the " + profile + " profile");
+			key = fail(name + " must be base64 in the " + profile + " profile");
 		}
-		assertTrue(key.length >= 32, JWT_SECRET + " must be at least 256 bits in the " + profile + " profile");
+		assertTrue(key.length >= 32, name + " must be at least 256 bits in the " + profile + " profile");
 	}
 
 	private static List<PropertySource<?>> load(String name) throws IOException {
