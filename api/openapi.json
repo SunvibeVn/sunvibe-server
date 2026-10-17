@@ -534,6 +534,16 @@
             },
             "description" : "VALIDATION_FAILED (field errors, also for a bad Idempotency-Key) or MALFORMED_REQUEST (body is not readable JSON)"
           },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the form is switched off on this server (app.acquisition.owner-intake.enabled); nothing was read or stored"
+          },
           "409" : {
             "content" : {
               "*/*" : {
