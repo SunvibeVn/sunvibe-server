@@ -33,7 +33,8 @@ import java.util.regex.Pattern;
 
 /**
  * The public owner intake form (acquisition-owner-intake US-1). Anonymous on purpose: the path is a public POST
- * endpoint in SecurityConfig, rate-limited per client IP, and the answer is only the request code.
+ * endpoint in SecurityConfig, rate-limited per client IP, and the answer is only the request code. While the form is
+ * switched off, OwnerIntakeEnabledFilter answers 404 before this controller runs (acquisition-owner-intake BR-15).
  */
 @RestController
 @RequestMapping(OwnerIntakeController.PATH)
@@ -68,6 +69,9 @@ public class OwnerIntakeController {
                     content = @Content(schema = @Schema(implementation = OwnerIntakeResponse.class))),
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (field errors, also for a bad "
                     + "Idempotency-Key) or MALFORMED_REQUEST (body is not readable JSON)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the form is switched off on this server "
+                    + "(app.acquisition.owner-intake.enabled); nothing was read or stored",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "IDEMPOTENCY_KEY_REUSED: the key was used within 24 "
                     + "hours for a different body",

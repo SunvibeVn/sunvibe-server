@@ -147,3 +147,8 @@ app:
     # signs the IP and user agent hashes kept as consent proof. The dev/test value lives in
     # application-dev.yml / application-test.yml and must never be used in prod.
     hash-key: ${ACQUISITION_HASH_KEY}
+    owner-intake:
+      # Off by default: the public intake form must not take real owners' data before the staff queue UI exists
+      # and the consent text has passed legal review (acquisition-owner-intake BR-15, Q-11). While off, the POST
+      # answers 404; the ward catalog stays open. Turn on per environment with ACQUISITION_OWNER_INTAKE_ENABLED=true.
+      enabled: ${ACQUISITION_OWNER_INTAKE_ENABLED:false}

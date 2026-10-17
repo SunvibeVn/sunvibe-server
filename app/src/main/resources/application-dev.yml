@@ -11,6 +11,9 @@ app:
     # Local-development hash key only (base64 of a plain phrase). It is committed to git, so it is public:
     # never use it for real data. The env var wins if set.
     hash-key: ${ACQUISITION_HASH_KEY:ZGV2LW9ubHktZmFrZS1hY3F1aXNpdGlvbi1oYXNoLWtleS1kby1ub3QtdXNl}
+    # The intake form is on for local development (off by default elsewhere); the env var wins if set.
+    owner-intake:
+      enabled: ${ACQUISITION_OWNER_INTAKE_ENABLED:true}
   jwt:
     # Local-development JWT signing key only. It is committed to git, so it is public:
     # never use it for real data. The env var wins if set.

@@ -79,7 +79,8 @@ public class AcquisitionExceptionHandler {
     static final String INTERNAL_ERROR_MESSAGE = "Unexpected server error.";
     private static final String INVALID_VALUE_MESSAGE = "Value is not valid for this field.";
     static final String LEAD_NOT_FOUND_MESSAGE = "Owner lead not found.";
-    static final String NOT_FOUND_MESSAGE = "Resource not found.";
+    /** Also the message of the 404 that OwnerIntakeEnabledFilter gives while the intake form is switched off. */
+    public static final String NOT_FOUND_MESSAGE = "Resource not found.";
     static final String INVALID_TRANSITION_MESSAGE = "The lead's status does not allow this change.";
     static final String STATUS_CHANGE_NOT_ALLOWED_MESSAGE =
             "This status change is not allowed from the current status.";

@@ -25,6 +25,9 @@ app:
   acquisition:
     # Test-only hash key (public, committed; base64 of a plain phrase); never use for real data.
     hash-key: ${ACQUISITION_HASH_KEY:ZGV2LW9ubHktZmFrZS1hY3F1aXNpdGlvbi1oYXNoLWtleS1kby1ub3QtdXNl}
+    # The intake form is on for the test suite (off by default elsewhere).
+    owner-intake:
+      enabled: ${ACQUISITION_OWNER_INTAKE_ENABLED:true}
   jwt:
     # Test-only key (public, committed); never use for real data.
     secret: 07zN1TVoUqmFylsMFQ4pwPMcHxwqc/2EZhI44H9DjEkoXA5YSbHzostN8CNOIUi6
