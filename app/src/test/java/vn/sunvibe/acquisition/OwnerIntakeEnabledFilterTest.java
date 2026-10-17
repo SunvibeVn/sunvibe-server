@@ -59,6 +59,37 @@ class OwnerIntakeEnabledFilterTest {
 		assertEquals(CORRELATION_ID, body.path("correlationId").asString());
 	}
 
+	/**
+	 * Spring MVC and Spring Security decode the path as UTF-8 whatever charset the client names, so the switch must
+	 * too: an encoded letter with a UTF-16 body charset still reaches the controller and must still get the 404.
+	 */
+	@Test
+	void doFilter_switchOffEncodedPathWithOtherCharset_answers404() throws Exception {
+		MockHttpServletRequest request = intakeRequest("POST", "{}");
+		request.setRequestURI("/api/v1/public/owner-intake-request%73");
+		request.setCharacterEncoding("UTF-16");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		MockFilterChain chain = new MockFilterChain();
+
+		new OwnerIntakeEnabledFilter(JSON, false).doFilter(request, response, chain);
+
+		assertNull(chain.getRequest(), "the request must not reach the application");
+		assertEquals(404, response.getStatus());
+	}
+
+	@Test
+	void doFilter_switchOffPathWithMatrixParameter_answers404() throws Exception {
+		MockHttpServletRequest request = intakeRequest("POST", "{}");
+		request.setRequestURI(OwnerIntakeController.PATH + ";x=1");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		MockFilterChain chain = new MockFilterChain();
+
+		new OwnerIntakeEnabledFilter(JSON, false).doFilter(request, response, chain);
+
+		assertNull(chain.getRequest(), "the request must not reach the application");
+		assertEquals(404, response.getStatus());
+	}
+
 	@Test
 	void doFilter_switchOn_passesTheRequestOn() throws Exception {
 		MockHttpServletRequest request = intakeRequest("POST", "{}");

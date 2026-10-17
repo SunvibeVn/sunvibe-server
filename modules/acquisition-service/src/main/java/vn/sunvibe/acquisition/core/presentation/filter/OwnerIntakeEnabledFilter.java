@@ -9,9 +9,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.server.RequestPath;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.UrlPathHelper;
+import org.springframework.web.util.pattern.PathPattern;
+import org.springframework.web.util.pattern.PathPatternParser;
 import tools.jackson.databind.ObjectMapper;
 import vn.sunvibe.acquisition.core.presentation.controller.OwnerIntakeController;
 import vn.sunvibe.acquisition.core.presentation.exception.AcquisitionExceptionHandler;
@@ -25,16 +27,19 @@ import java.util.List;
 /**
  * The server switch of the public intake form (acquisition-owner-intake BR-15, spec C-7): the form is not open to
  * real owners until the staff queue UI exists and the consent text has passed legal review (brief Q-11). While
- * {@code app.acquisition.owner-intake.enabled} is false (the default) every request to the form path is answered 404
- * before the body is read, so no personal data is accepted; the ward catalog stays open. The page flag of the web
- * app only hides the page.
+ * {@code app.acquisition.owner-intake.enabled} is false (the default) every request to the form path that reaches
+ * this filter (Spring Security lets only the POST through anonymously) is answered 404 before it reaches the
+ * application, so no personal data is accepted or stored; the ward catalog stays open. The page flag of the web app
+ * only hides the page.
  * <p>
- * Runs after the correlation id filter, the rate limiter and Spring Security, so the 404 carries the correlation id
- * and the CORS headers, and before the body limit filter.
+ * Runs after the correlation id filter, the rate limiter (which still counts these requests, so a burst gets its 429)
+ * and Spring Security, so the 404 carries the correlation id and the CORS headers, and before the body limit filter.
  */
 @Component
 @Order(-1)
 public class OwnerIntakeEnabledFilter extends OncePerRequestFilter {
+
+    private static final PathPattern INTAKE_PATH = PathPatternParser.defaultInstance.parse(OwnerIntakeController.PATH);
 
     private final ObjectMapper objectMapper;
     private final boolean enabled;
@@ -45,11 +50,15 @@ public class OwnerIntakeEnabledFilter extends OncePerRequestFilter {
         this.enabled = enabled;
     }
 
-    /** Decoded, normalised path, the way Spring MVC routes it (like the rate limiter). */
+    /**
+     * Matched the way Spring MVC and Spring Security match it: path segments decoded as UTF-8 and matrix parameters
+     * dropped. The request's character encoding comes from the client and is not used, so no charset can make the
+     * filter see another path than the controller does.
+     */
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
-        return enabled
-                || !OwnerIntakeController.PATH.equals(UrlPathHelper.defaultInstance.getPathWithinApplication(request));
+        return enabled || !INTAKE_PATH.matches(
+                RequestPath.parse(request.getRequestURI(), request.getContextPath()).pathWithinApplication());
     }
 
     @Override

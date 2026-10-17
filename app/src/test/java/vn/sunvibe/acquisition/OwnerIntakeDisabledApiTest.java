@@ -7,6 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ import vn.sunvibe.shared.logging.CorrelationId;
 /**
  * With the intake switch off (acquisition-owner-intake BR-15, spec C-7) the anonymous POST answers 404 through the
  * whole filter chain, even for a body that would fail validation, and a browser on an allowed origin can still read
- * the answer and its correlation id.
+ * the answer and its correlation id. The ward catalog stays open.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
 		properties = "app.acquisition.owner-intake.enabled=false")
@@ -57,5 +58,32 @@ class OwnerIntakeDisabledApiTest {
 		assertEquals(ORIGIN, response.headers().firstValue("Access-Control-Allow-Origin").orElse(null));
 		assertTrue(response.headers().firstValue("Access-Control-Expose-Headers").orElse("")
 				.contains(CorrelationId.HEADER));
+	}
+
+	@Test
+	void post_switchOffEncodedPathWithOtherCharset_answers404() throws Exception {
+		HttpRequest request = HttpRequest.newBuilder(
+						URI.create("http://localhost:" + port + "/api/v1/public/owner-intake-request%73"))
+				.timeout(Duration.ofSeconds(30))
+				.header("Content-Type", "application/json; charset=UTF-16")
+				.POST(HttpRequest.BodyPublishers.ofString("{}", StandardCharsets.UTF_16))
+				.build();
+
+		HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+		assertEquals(404, response.statusCode(), response.body());
+		assertEquals("NOT_FOUND", JSON.readTree(response.body()).path("code").asString());
+	}
+
+	@Test
+	void getProvinces_switchOff_answers200() throws Exception {
+		HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/public/provinces"))
+				.timeout(Duration.ofSeconds(30))
+				.GET()
+				.build();
+
+		HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+		assertEquals(200, response.statusCode(), response.body());
 	}
 }
