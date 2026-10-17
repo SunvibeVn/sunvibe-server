@@ -57,7 +57,7 @@ public class Property {
     private LocalDateTime updatedAt;
     private String createdBy;
     private String updatedBy;
-    private Long version;                    // Optimistic lock: null for a new property; set when loaded from the database (BR-14)
+    private Long version;                    // Optimistic lock: null for a new property; set when loaded from the database (property-units BR-14)
 
     // ==================== REFACTORED Relationships ====================
 

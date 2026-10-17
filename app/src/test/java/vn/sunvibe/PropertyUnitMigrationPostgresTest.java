@@ -28,8 +28,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Wave W8 unit and ownership migrations on a real PostgreSQL (property-units brief US-1, US-2, BR-7, BR-10, BR-13,
- * BR-14, E-2, E-3; spec section 4, W8-1..W8-9). The database is migrated to the last version before W8 and filled the
+ * The unit and ownership migrations on a real PostgreSQL (property-units US-1, US-2, BR-7, BR-10, BR-13, BR-14,
+ * E-2, E-3; spec section 4, W8-1..W8-9). The database is migrated to the last version before them and filled the
  * way property create left it: one property per legacy status, one with an unknown status, one whose owner id matches
  * no account, one created late in the evening, one with 0 bedrooms and 0 bathrooms, and one property_availability
  * row. It is then migrated to the latest version. Needs Docker, like {@link FlywayPostgresMigrationTest}.
@@ -44,7 +44,7 @@ class PropertyUnitMigrationPostgresTest {
 
 	private static final String OWNER_A = "01OWNERA000000000000000001";
 	private static final String OWNER_B = "01OWNERB000000000000000001";
-	/** A 36-character owner id from before W5 (a UUID); no account has it. */
+	/** A 36-character owner id in the old format (a UUID); no account has it. */
 	private static final String OWNER_WITHOUT_ACCOUNT = "7f9c2b1e-3d4a-4c5b-9e6f-0a1b2c3d4e5f";
 
 	private static final String INSERT_PROPERTY = "INSERT INTO properties (id, property_code, title, street, ward,"
@@ -53,7 +53,7 @@ class PropertyUnitMigrationPostgresTest {
 			+ " VALUES (?, ?, 'W8 migration', '1 Bạch Đằng', 'Thạch Thang', 'Hải Châu', 'Đà Nẵng', ?, ?, ?, ?,"
 			+ " 5000000, 5000000, 6, ?, ?, ?, ?, '0900000001', '0900000001')";
 
-	/** A property as it was stored before W8. */
+	/** A property as it was stored before the unit and ownership migrations. */
 	private record LegacyProperty(String code, String status, String propertyType, int bedrooms, int bathrooms,
 			double squareMeters, String ownerId, LocalDateTime createdAt, LocalDateTime updatedAt) {
 
@@ -84,7 +84,7 @@ class PropertyUnitMigrationPostgresTest {
 			new LegacyProperty("WT-MIG-009", "AVAILABLE", "STUDIO", 0, 0, 25.0, OWNER_WITHOUT_ACCOUNT,
 					LocalDateTime.of(2026, 3, 23, 8, 0)));
 
-	/** Property code -> availability state of its unit (BR-7). */
+	/** Property code -> availability state of its unit (property-units BR-7). */
 	private static final Map<String, String> EXPECTED_STATE = Map.of(
 			"WT-MIG-001", "AVAILABLE",
 			"WT-MIG-002", "AVAILABLE",
@@ -112,7 +112,7 @@ class PropertyUnitMigrationPostgresTest {
 		Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
 				.target(LAST_VERSION_BEFORE_W8).load().migrate();
 
-		// What property create left before W8: properties without a unit or an ownership, no version column
+		// What property create left before the unit and ownership migrations: properties without a unit or an ownership, no version column
 		for (LegacyProperty p : PROPERTIES) {
 			jdbc.update(INSERT_PROPERTY, UUID.randomUUID().toString(), p.code(), p.propertyType(), p.bedrooms(),
 					p.bathrooms(), p.squareMeters(), p.status(), p.ownerId(), p.createdAt(), p.updatedAt());
@@ -132,14 +132,14 @@ class PropertyUnitMigrationPostgresTest {
 		postgres.stop();
 	}
 
-	/** US-1 AC-1, BR-3 (W8-1) */
+	/** property-units US-1 AC-1, BR-3 (W8-1) */
 	@Test
 	void migrate_existingProperties_createsOneUnitPerProperty() {
 		assertEquals(PROPERTIES.size(), count("units"));
 		assertEquals(0, propertiesWithoutExactlyOneRowIn("units"));
 	}
 
-	/** US-1 AC-2, BR-4, BR-5 (W8-2): the canonical unit copies code, type, rooms and area; 0 rooms are allowed. */
+	/** property-units US-1 AC-2, BR-4, BR-5 (W8-2): the canonical unit copies code, type, rooms and area; 0 rooms are allowed. */
 	@Test
 	void migrate_existingProperties_unitCopiesCodeTypeRoomsAndArea() {
 		for (LegacyProperty p : PROPERTIES) {
@@ -159,7 +159,7 @@ class PropertyUnitMigrationPostgresTest {
 				+ " OR u.bathrooms <> p.bathrooms OR u.area_sqm <> p.square_meters", Integer.class));
 	}
 
-	/** US-1 AC-3, BR-7, E-2 (W8-3): the legacy status decides the state; an unknown status gives BLOCKED. */
+	/** property-units US-1 AC-3, BR-7, E-2 (W8-3): the legacy status decides the state; an unknown status gives BLOCKED. */
 	@Test
 	void migrate_legacyStatus_mapsToTheAvailabilityState() {
 		for (LegacyProperty p : PROPERTIES) {
@@ -169,7 +169,7 @@ class PropertyUnitMigrationPostgresTest {
 	}
 
 	/**
-	 * US-2 AC-1, AC-2, BR-10, C-14 (W8-4): the owner is linked from the property's creation date (never its update
+	 * property-units US-2 AC-1, AC-2, BR-10, C-14 (W8-4): the owner is linked from the property's creation date (never its update
 	 * date), with no end.
 	 */
 	@Test
@@ -195,13 +195,13 @@ class PropertyUnitMigrationPostgresTest {
 				+ " JOIN properties p ON p.id = o.property_id WHERE p.property_code = 'WT-MIG-001'", LocalDate.class));
 	}
 
-	/** E-3 (W8-5): an owner_id that matches no account, 36 characters long, is copied as is. */
+	/** property-units E-3 (W8-5): an owner_id that matches no account, 36 characters long, is copied as is. */
 	@Test
 	void migrate_ownerWithoutAccount_copiesTheOwnerIdAsIs() {
 		assertEquals("7f9c2b1e-3d4a-4c5b-9e6f-0a1b2c3d4e5f", ownershipOf("WT-MIG-009").get("user_id"));
 	}
 
-	/** US-1 AC-4, BR-13 (W8-6): legacy columns and property_availability rows are as they were; version is new. */
+	/** property-units US-1 AC-4, BR-13 (W8-6): legacy columns and property_availability rows are as they were; version is new. */
 	@Test
 	void migrate_existingProperties_leavesLegacyDataUnchanged() {
 		List<Map<String, Object>> propertiesAfter = jdbc.queryForList("SELECT * FROM properties ORDER BY id");
@@ -211,7 +211,7 @@ class PropertyUnitMigrationPostgresTest {
 		assertEquals(availabilityBefore, jdbc.queryForList("SELECT * FROM property_availability ORDER BY id"));
 	}
 
-	/** BR-14 (W8-7) */
+	/** property-units BR-14 (W8-7) */
 	@Test
 	void migrate_existingProperties_startsVersionsAtZero() {
 		assertEquals(List.of(0L), jdbc.queryForList("SELECT DISTINCT version FROM properties", Long.class));

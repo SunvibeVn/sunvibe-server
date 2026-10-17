@@ -23,8 +23,8 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * Wave W6 role migrations on a real PostgreSQL (auth-roles brief BR-1, BR-2, US-2; owner decisions W6-1, W6-2).
- * The database is migrated to the last version before W6, filled the way {@code RoleDataInitializer} and real
+ * The role migrations on a real PostgreSQL (auth-roles BR-1, BR-2, US-2; owner decisions W6-1, W6-2).
+ * The database is migrated to the last version before them, filled the way {@code RoleDataInitializer} and real
  * accounts left it (the 8 old roles, users holding them), then migrated to the latest version.
  * Needs Docker, like {@link FlywayPostgresMigrationTest}.
  */
@@ -41,7 +41,7 @@ class RoleMigrationPostgresTest {
 			"SUPER_ADMIN", "ADMIN", "MANAGER", "LANDLORD", "TENANT", "LEADER", "EMPLOYEE", "USER",
 			"OWNER", "CUSTOMER", "SALE", "SALE_LEADER", "SALES_MANAGER", "LISTING_REVIEWER");
 
-	/** user id -> roles before W6. */
+	/** user id -> roles before the role migrations. */
 	private static final Map<String, List<String>> USERS_BEFORE = Map.of(
 			"01LANDLORD0000000000000001", List.of("LANDLORD"),
 			"01LANDLORD0000000000000002", List.of("LANDLORD"),
@@ -68,7 +68,7 @@ class RoleMigrationPostgresTest {
 		Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
 				.target(LAST_VERSION_BEFORE_W6).load().migrate();
 
-		// What RoleDataInitializer seeded before W6: one row per old role, random ids
+		// What RoleDataInitializer seeded before the role migrations: one row per old role, random ids
 		for (String role : OLD_ROLES) {
 			jdbc.update("INSERT INTO roles (id, name, description) VALUES (?, ?, ?)", UUID.randomUUID(), role,
 					role + " role");
@@ -93,7 +93,7 @@ class RoleMigrationPostgresTest {
 		postgres.stop();
 	}
 
-	/** BR-1 (W6-1) */
+	/** auth-roles BR-1 (W6-1) */
 	@Test
 	void migrate_existingDatabase_hasTheFourteenRolesOnce() {
 		List<String> names = jdbc.queryForList("SELECT name FROM roles", String.class);
@@ -102,7 +102,7 @@ class RoleMigrationPostgresTest {
 		assertEquals(14, names.size());
 	}
 
-	/** BR-2, US-2 AC-1 (W6-2): LANDLORD -> OWNER, TENANT -> CUSTOMER, EMPLOYEE -> SALE; old roles kept. */
+	/** auth-roles BR-2, US-2 AC-1 (W6-2): LANDLORD -> OWNER, TENANT -> CUSTOMER, EMPLOYEE -> SALE; old roles kept. */
 	@Test
 	void migrate_existingDatabase_dualGrantsTheMappedRoles() {
 		assertEquals(Set.of("LANDLORD", "OWNER"), roles("01LANDLORD0000000000000001"));
@@ -112,7 +112,7 @@ class RoleMigrationPostgresTest {
 		assertEquals(Set.of("LANDLORD", "OWNER", "TENANT", "CUSTOMER"), roles("01LANDLORDTENANT0000000001"));
 	}
 
-	/** US-2 AC-2: as many holders of each new role as of the old one. */
+	/** auth-roles US-2 AC-2: as many holders of each new role as of the old one. */
 	@Test
 	void migrate_existingDatabase_newRoleCountsMatchOldRoleCounts() {
 		assertEquals(holders("LANDLORD"), holders("OWNER"));
@@ -121,7 +121,7 @@ class RoleMigrationPostgresTest {
 		assertEquals(3, holders("OWNER"));
 	}
 
-	/** US-2 AC-3: MANAGER, LEADER, USER, ADMIN and SUPER_ADMIN accounts are untouched; nobody gets the other new roles. */
+	/** auth-roles US-2 AC-3: MANAGER, LEADER, USER, ADMIN and SUPER_ADMIN accounts are untouched; nobody gets the other new roles. */
 	@Test
 	void migrate_existingDatabase_leavesOtherAccountsAlone() {
 		assertEquals(Set.of("MANAGER"), roles("01MANAGER00000000000000001"));

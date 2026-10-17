@@ -24,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Role changes are single-row writes on {@code user_roles}, so two concurrent changes, or a role change and an
- * unrelated save of a stale aggregate (login, phone verification), cannot undo each other (wave W6, auth-roles
- * BR-9..BR-11). Only the roles in the {@code roles} table exist; a missing one fails instead of being dropped.
+ * unrelated save of a stale aggregate (login, phone verification), cannot undo each other (auth-roles BR-9..BR-11).
+ * Only the roles in the {@code roles} table exist; a missing one fails instead of being dropped.
  */
 @DataJpaTest
 @Import({AesGcmCryptoService.class, UserRepositoryAdapter.class, UserMapperImpl.class, UserVOMapperImpl.class})

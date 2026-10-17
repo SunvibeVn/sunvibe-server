@@ -113,8 +113,8 @@ class OwnerLeadConcurrencyPostgresTest {
 	}
 
 	/**
-	 * Q9-10, E-5: a leader gives one NEW lead to sale1 and to sale2 at the same moment, both on the version they read:
-	 * one 200, one 409, one assignment entry, and the lead belongs to the winner.
+	 * Q9-10, acquisition-owner-lead-queue E-5: a leader gives one NEW lead to sale1 and to sale2 at the same moment,
+	 * both on the version they read: one 200, one 409, one assignment entry, and the lead belongs to the winner.
 	 */
 	@Test
 	void assign_twoConcurrentOnTheSameVersion_oneOkOneConflict() throws Exception {
@@ -143,8 +143,8 @@ class OwnerLeadConcurrencyPostgresTest {
 	}
 
 	/**
-	 * Q9-10, BR-9: two status changes of one ASSIGNED lead on the same version: one 200, one 409, one STATUS_CHANGED
-	 * entry, and the lead has the winner's status.
+	 * Q9-10, acquisition-owner-lead-queue BR-9: two status changes of one ASSIGNED lead on the same version: one 200,
+	 * one 409, one STATUS_CHANGED entry, and the lead has the winner's status.
 	 */
 	@Test
 	void statusChange_twoConcurrentOnTheSameVersion_oneOkOneConflict() throws Exception {
@@ -172,9 +172,9 @@ class OwnerLeadConcurrencyPostgresTest {
 	}
 
 	/**
-	 * Q9-12, BR-5: an ADMIN gives a ward nobody holds to sale1 and to sale2 at the same moment: both inserts meet on
-	 * the primary key, the native upsert turns the second into an update, so both answer 200, one row remains (the
-	 * person of the change committed last) and each change of person wrote its change row.
+	 * Q9-12, acquisition-owner-lead-queue BR-5: an ADMIN gives a ward nobody holds to sale1 and to sale2 at the same
+	 * moment: both inserts meet on the primary key, the native upsert turns the second into an update, so both answer
+	 * 200, one row remains (the person of the change committed last) and each change of person wrote its change row.
 	 */
 	@Test
 	void put_territory_twoConcurrentOnNewWard_bothSucceedOneRowRemains() throws Exception {

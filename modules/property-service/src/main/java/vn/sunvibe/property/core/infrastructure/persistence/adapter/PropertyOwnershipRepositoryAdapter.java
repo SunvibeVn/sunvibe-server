@@ -11,7 +11,7 @@ import vn.sunvibe.property.core.infrastructure.persistence.repository.PropertyOw
  * Repository Implementation - PropertyOwnershipRepositoryAdapter
  * <p>
  * Implements the domain PropertyOwnershipDomainRepository: maps the PropertyOwnership domain model to
- * PropertyOwnershipEntity and saves it. Only save is needed in W8.
+ * PropertyOwnershipEntity and saves it. Only save is needed so far.
  */
 @Service
 @RequiredArgsConstructor

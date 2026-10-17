@@ -5,7 +5,7 @@ import vn.sunvibe.property.core.domain.model.unit.Unit;
 /**
  * Domain Repository Interface - UnitDomainRepository
  * <p>
- * Implementation lives in the Infrastructure layer. Only what W8 uses is declared.
+ * Implementation lives in the Infrastructure layer. Only what property create uses is declared.
  */
 public interface UnitDomainRepository {
 

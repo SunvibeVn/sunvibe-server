@@ -14,7 +14,7 @@ import java.time.LocalDate;
  * Table: property_ownerships
  * <p>
  * The property and the user are plain id columns, not associations. user_id has no foreign key either:
- * auth-service owns the users (like properties.owner_id). Nothing updates an ownership in W8, so no version.
+ * auth-service owns the users (like properties.owner_id). Nothing updates an ownership yet, so no version.
  */
 @Entity
 @Table(name = "property_ownerships", indexes = {

@@ -18,7 +18,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 /**
  * Builds the schema with Flyway only, on a real PostgreSQL 17 (Testcontainers), and lets Hibernate validate it
- * (ADR-002, wave W3). The context only starts if every entity table and column exists with a compatible type,
+ * (ADR-002). The context only starts if every entity table and column exists with a compatible type,
  * so a missing migration fails here; nullability, lengths, indexes and constraints are not checked by Hibernate.
  * Needs Docker; it is not skipped without it, on purpose: a silent skip in CI would hide a broken migration.
  */
@@ -30,7 +30,7 @@ import org.springframework.test.context.ActiveProfiles;
 @Import(PostgresContainerConfig.class)
 class FlywayPostgresMigrationTest {
 
-	/** Tables that only Hibernate created before W3. */
+	/** Tables that only Hibernate created before they moved to Flyway (ADR-002). */
 	private static final List<String> BASELINE_TABLES = List.of(
 			"permission", "role_permission",
 			"properties", "property_images", "property_amenity", "property_rules", "property_document",
@@ -65,7 +65,7 @@ class FlywayPostgresMigrationTest {
 				applied.subList(applied.size() - 16, applied.size()));
 	}
 
-	/** Wave W8 (property-units spec section 4, W8-14): units, ownerships and properties.version come from Flyway. */
+	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */
 	@Test
 	void migrate_emptyDatabase_createsTheW8TablesAndVersionColumn() {
 		List<String> tables = jdbc.queryForList(
@@ -91,7 +91,7 @@ class FlywayPostgresMigrationTest {
 		}
 	}
 
-	/** Roles come from Flyway since W6 (auth-roles BR-1), no longer from RoleDataInitializer. */
+	/** Roles come from Flyway (auth-roles BR-1), no longer from RoleDataInitializer. */
 	@Test
 	void migrate_emptyDatabase_seedsTheFourteenRoles() {
 		assertEquals(List.of("ADMIN", "CUSTOMER", "EMPLOYEE", "LANDLORD", "LEADER", "LISTING_REVIEWER", "MANAGER",
@@ -126,7 +126,7 @@ class FlywayPostgresMigrationTest {
 				jdbc.queryForObject("SELECT renewal_frequency_days FROM document_types WHERE id = 5", Integer.class));
 	}
 
-	/** Wave W8 (property-units BR-13, C-13): the table stays, but no entity maps it any more. */
+	/** property-units BR-13, C-13: the table stays, but no entity maps it any more. */
 	@Test
 	void context_noEntityMapsPropertyAvailability() {
 		List<String> mappedTables = entityManagerFactory.getMetamodel().getEntities().stream()

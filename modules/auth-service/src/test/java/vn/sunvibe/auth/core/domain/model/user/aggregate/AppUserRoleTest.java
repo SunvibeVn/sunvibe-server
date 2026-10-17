@@ -25,7 +25,7 @@ class AppUserRoleTest {
                 Instant.parse("2026-01-01T00:00:00Z"));
     }
 
-    /** BR-1 (W6-1): 8 old roles kept, 6 new ones added. */
+    /** auth-roles BR-1 (W6-1): 8 old roles kept, 6 new ones added. */
     @Test
     void roleName_hasTheFourteenRolesOfW6() {
         assertEquals(Set.of("SUPER_ADMIN", "ADMIN", "MANAGER", "LANDLORD", "TENANT", "LEADER", "EMPLOYEE", "USER",
@@ -33,7 +33,7 @@ class AppUserRoleTest {
                 Set.copyOf(java.util.Arrays.stream(RoleName.values()).map(Enum::name).toList()));
     }
 
-    /** BR-3 (W6-3): self-registration may only assign TENANT and CUSTOMER. */
+    /** auth-roles BR-3 (W6-3): self-registration may only assign TENANT and CUSTOMER. */
     @ParameterizedTest
     @EnumSource(value = RoleName.class, names = {"TENANT", "CUSTOMER"})
     void assignRole_selfRegistrationRole_isAdded(RoleName role) {
@@ -44,7 +44,7 @@ class AppUserRoleTest {
         assertEquals(Set.of(role.name()), user.getUserRoles());
     }
 
-    /** BR-3 (W6-3): every other role is refused at self-registration. */
+    /** auth-roles BR-3 (W6-3): every other role is refused at self-registration. */
     @ParameterizedTest
     @EnumSource(value = RoleName.class, names = {"TENANT", "CUSTOMER"}, mode = EnumSource.Mode.EXCLUDE)
     void assignRole_anyOtherRole_isRejected(RoleName role) {
@@ -103,7 +103,7 @@ class AppUserRoleTest {
         assertFalse(user.revokeRole(RoleName.SALE));
     }
 
-    /** BR-7 (W6-7): the staff/admin group. */
+    /** auth-roles BR-7 (W6-7): the staff/admin group. */
     @ParameterizedTest
     @EnumSource(value = RoleName.class, names = {"SALE", "SALE_LEADER", "SALES_MANAGER", "LISTING_REVIEWER", "ADMIN",
             "SUPER_ADMIN", "EMPLOYEE", "MANAGER", "LEADER"})

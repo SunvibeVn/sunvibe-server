@@ -44,8 +44,8 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 
 /**
- * What the server logs while it handles intake submissions (W9-19; acquisition BR-2, spec 7): the console output of
- * a successful submission, of a 500 caused by a constraint violation whose message quotes the phone, and of a
+ * What the server logs while it handles intake submissions (W9-19; acquisition module brief BR-2, spec 7): the console
+ * output of a successful submission, of a 500 caused by a constraint violation whose message quotes the phone, and of a
  * rate-limited submission holds no contact name, phone, email, address, coordinates or client IP. The calls go to
  * 127.0.0.1, so the client IP the server sees is known. Only the output written during the test is checked. Each
  * context is its own (the rate-limited one has the limiter on), with its own PostgreSQL. Needs Docker.

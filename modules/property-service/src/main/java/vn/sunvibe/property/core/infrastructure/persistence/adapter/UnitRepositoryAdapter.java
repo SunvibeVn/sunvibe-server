@@ -11,7 +11,7 @@ import vn.sunvibe.property.core.infrastructure.persistence.repository.UnitJpaRep
  * Repository Implementation - UnitRepositoryAdapter
  * <p>
  * Implements the domain UnitDomainRepository: maps the Unit domain model to UnitEntity and saves it.
- * Only save is needed in W8.
+ * Only save is needed so far.
  */
 @Service
 @RequiredArgsConstructor

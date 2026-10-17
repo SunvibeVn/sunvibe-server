@@ -1,7 +1,8 @@
 package vn.sunvibe.property.core.domain.model.ownership;
 
 /**
- * How a user relates to a property (brief BR-9). W8 writes only {@link #OWNER} (BR-10).
+ * How a user relates to a property (property-units BR-9). Only {@link #OWNER} is written for now
+ * (property-units BR-10).
  * Stored as text in {@code property_ownerships.relation_type}.
  */
 public enum OwnershipRelationType {

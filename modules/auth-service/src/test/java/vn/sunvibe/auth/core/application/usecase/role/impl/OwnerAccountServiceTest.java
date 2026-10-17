@@ -63,7 +63,7 @@ class OwnerAccountServiceTest {
         assertFalse(service.isEligibleOwner(OWNER_ID));
     }
 
-    /** BR-7: staff/admin can never be the owner. */
+    /** auth-roles BR-7: staff/admin can never be the owner. */
     @ParameterizedTest
     @EnumSource(value = RoleName.class, names = {"SALE", "SALE_LEADER", "SALES_MANAGER", "LISTING_REVIEWER", "ADMIN",
             "SUPER_ADMIN", "EMPLOYEE", "MANAGER", "LEADER"})
@@ -73,7 +73,7 @@ class OwnerAccountServiceTest {
         assertFalse(service.isEligibleOwner(OWNER_ID));
     }
 
-    /** BR-8: OWNER is granted if missing, audited with the creator as actor. */
+    /** auth-roles BR-8: OWNER is granted if missing, audited with the creator as actor. */
     @Test
     void ensureOwnerRole_missing_grantsAndAuditsWithTheCreator() {
         AppUser owner = store(UserStatus.ACTIVE, RoleName.CUSTOMER);

@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * PropertyOwnership aggregate (wave W8, property-units brief BR-9, BR-10, spec section 5): W8 writes one
+ * PropertyOwnership aggregate (property-units BR-9, BR-10, spec section 5): property create writes one
  * OWNER / UNVERIFIED relation without an end date, and a relation that cannot exist is refused.
  */
 class PropertyOwnershipTest {
@@ -22,12 +22,12 @@ class PropertyOwnershipTest {
     private static final String ULID = "^[0-9A-HJKMNP-TV-Z]{26}$";
     private static final PropertyId PROPERTY_ID = PropertyId.of("3f2b8c1e-6d4a-4b7e-9a10-5c8d2e7f4a61");
     private static final String USER_ID = "01OWNER0000000000000000000";
-    /** A 36-character owner id from before W5 (spec E-3): it must be accepted and kept as is. */
+    /** A 36-character owner id from older data (property-units E-3): it must be accepted and kept as is. */
     private static final String LEGACY_USER_ID = "7c9e6679-7425-40de-944b-e07fc1f90ae7";
     private static final LocalDate VALID_FROM = LocalDate.of(2026, 3, 15);
     private static final Instant CREATED_AT = Instant.parse("2026-10-16T08:00:00Z");
 
-    /** BR-10 */
+    /** property-units BR-10 */
     @Test
     void createUnverifiedOwner_values_isOwnerUnverifiedWithoutEnd() {
         Instant before = Instant.now();
@@ -56,7 +56,7 @@ class PropertyOwnershipTest {
         assertNotEquals(first.getId().getValue(), second.getId().getValue());
     }
 
-    /** BR-9: the relation links a user, so an empty user id is refused. */
+    /** property-units BR-9: the relation links a user, so an empty user id is refused. */
     @Test
     void createUnverifiedOwner_blankUserId_throws() {
         assertAll(
@@ -66,14 +66,14 @@ class PropertyOwnershipTest {
                         () -> PropertyOwnership.createUnverifiedOwner(PROPERTY_ID, "", VALID_FROM)));
     }
 
-    /** BR-9: valid_to is empty or not before valid_from. */
+    /** property-units BR-9: valid_to is empty or not before valid_from. */
     @Test
     void load_validToBeforeValidFrom_throws() {
         assertThrows(IllegalArgumentException.class,
                 () -> load(VALID_FROM, VALID_FROM.minusDays(1)));
     }
 
-    /** BR-9: a relation that ends on the day it starts is valid (the end is not before the start). */
+    /** property-units BR-9: a relation that ends on the day it starts is valid (the end is not before the start). */
     @Test
     void load_validToSameDayAsValidFrom_isAccepted() {
         PropertyOwnership ownership = load(VALID_FROM, VALID_FROM);
@@ -119,7 +119,9 @@ class PropertyOwnershipTest {
         assertEquals(CREATED_AT, ownership.getCreatedAt());
     }
 
-    /** BR-9: these names are the values stored in property_ownerships; renaming one breaks stored rows. */
+    /**
+     * property-units BR-9: these names are the values stored in property_ownerships; renaming one breaks stored rows.
+     */
     @Test
     void relationAndVerificationValues_areTheStoredNames() {
         assertAll(

@@ -21,7 +21,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * The administrative-area catalog migrations on a real PostgreSQL (acquisition-owner-intake spec 4.1, brief BR-6;
+ * The administrative-area catalog migrations on a real PostgreSQL (acquisition-owner-intake BR-6, spec 4.1;
  * W9-15): one province and the sixteen wards of the brief, a seed that can run again, and the constraints of the
  * tables. Needs Docker, like {@link FlywayPostgresMigrationTest}.
  */

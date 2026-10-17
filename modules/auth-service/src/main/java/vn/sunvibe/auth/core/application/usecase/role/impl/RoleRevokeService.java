@@ -16,8 +16,8 @@ import vn.sunvibe.shared.time.AppClock;
 
 /**
  * Revokes a role and ends every session of the account (auth-roles US-4 AC-5, BR-11): its refresh tokens are
- * revoked, and its access tokens lose the role on the next request because roles are reloaded each time (auth BR-3).
- * Revoking a role that is not held changes nothing and keeps the sessions (US-4 AC-3).
+ * revoked, and its access tokens lose the role on the next request because roles are reloaded from the database on
+ * every request. Revoking a role that is not held changes nothing and keeps the sessions (auth-roles US-4 AC-3).
  */
 @Service
 @RequiredArgsConstructor

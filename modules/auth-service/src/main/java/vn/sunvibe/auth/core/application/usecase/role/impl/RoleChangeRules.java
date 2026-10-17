@@ -37,7 +37,7 @@ final class RoleChangeRules {
         return role;
     }
 
-    /** Q-8: an ADMIN cannot change (and so cannot end the sessions of) another ADMIN or a SUPER_ADMIN. */
+    /** auth-roles Q-8: an ADMIN cannot change (and so cannot end the sessions of) another ADMIN or a SUPER_ADMIN. */
     static void checkAdminAccount(RoleChangeCommand command, AppUser target) {
         boolean adminAccount = target.getUserRoles().contains(RoleName.ADMIN.name())
                 || target.getUserRoles().contains(RoleName.SUPER_ADMIN.name());
@@ -53,7 +53,7 @@ final class RoleChangeRules {
         return users.findById(UserId.from(userId)).orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND));
     }
 
-    /** Ids and the role name only, no PII (auth BR-8). */
+    /** Ids and the role name only: no PII or secret goes into the audit log. */
     static AuthAuditEvent auditEvent(AuditEventType type, AppUser target, RoleName role, String actorUserId) {
         return AuthAuditEvent.of(type, target.getId().getValue(), null,
                 "role=" + role.name() + ";actorUserId=" + actorUserId);

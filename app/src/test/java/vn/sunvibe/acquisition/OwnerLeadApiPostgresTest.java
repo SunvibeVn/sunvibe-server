@@ -155,7 +155,10 @@ class OwnerLeadApiPostgresTest {
 		}
 	}
 
-	/** Q9-3, US-2 AC-1: a SALE asking for the unassigned leads or the whole queue gets the security 403. */
+	/**
+	 * Q9-3, acquisition-owner-lead-queue US-2 AC-1: a SALE asking for the unassigned leads or the whole queue gets the
+	 * security 403.
+	 */
 	@Test
 	void list_sale_unassignedOrAll_returns403() throws Exception {
 		assertSecurityBody(api.get(sale1, LEADS + "?scope=unassigned"), 403);
@@ -493,7 +496,10 @@ class OwnerLeadApiPostgresTest {
 		assertTrue(ids(okList(sale2, "?size=100")).contains(lead));
 	}
 
-	/** Q9-6, E-4: a user without SALE or SALE_LEADER, a locked one or an unknown id is a 422; the lead stays. */
+	/**
+	 * Q9-6, acquisition-owner-lead-queue E-4: a user without SALE or SALE_LEADER, a locked one or an unknown id is a
+	 * 422; the lead stays.
+	 */
 	@Test
 	void assign_toUserWithoutSaleRoleOrLocked_returns422OnAssigneeUserId() throws Exception {
 		String lead = submit(AN_HAI);
@@ -560,7 +566,7 @@ class OwnerLeadApiPostgresTest {
 		assertEquals(2, activityCount(lead));
 	}
 
-	/** Q9-10, BR-9: a version that is not the current one is refused; nothing changes. */
+	/** Q9-10, acquisition-owner-lead-queue BR-9: a version that is not the current one is refused; nothing changes. */
 	@Test
 	void assign_staleExpectedVersion_returns409ConcurrentModification() throws Exception {
 		String lead = submit(AN_HAI);
@@ -691,7 +697,9 @@ class OwnerLeadApiPostgresTest {
 		assertEquals(List.of("ASSIGNED>CONTACTED", "CONTACTED>ON_HOLD", "ON_HOLD>CONTACTED"), moves);
 	}
 
-	/** Q9-7: a move outside acquisition BR-3 is 409 on toStatus listing exactly the statuses allowed now. */
+	/**
+	 * Q9-7: a move outside acquisition module brief BR-3 is 409 on toStatus listing exactly the statuses allowed now.
+	 */
 	@Test
 	void statusChange_forbiddenPairs_return409WithAllowedValues() throws Exception {
 		String assigned = submit(SON_TRA);
@@ -713,7 +721,10 @@ class OwnerLeadApiPostgresTest {
 		assertEquals(freshVersion, version(fresh));
 	}
 
-	/** Q9-7, E-2: a closed lead refuses every status change (nothing allowed) and every note (field status). */
+	/**
+	 * Q9-7, acquisition-owner-lead-queue E-2: a closed lead refuses every status change (nothing allowed) and every
+	 * note (field status).
+	 */
 	@Test
 	void statusChange_closedLead_rejectsEveryChangeAndNote() throws Exception {
 		String lead = submit(SON_TRA);
@@ -743,7 +754,10 @@ class OwnerLeadApiPostgresTest {
 		assertEquals(activities, activityCount(lead));
 	}
 
-	/** Q9-8, E-3: closing needs a reason of 1..500 characters, DUPLICATE also the lead it repeats; closing clears the next action. */
+	/**
+	 * Q9-8, acquisition-owner-lead-queue E-3: closing needs a reason of 1..500 characters, DUPLICATE also the lead it
+	 * repeats; closing clears the next action.
+	 */
 	@Test
 	void statusChange_closing_requiresReasonAndDuplicateOf() throws Exception {
 		String lead = submit(SON_TRA);
@@ -809,7 +823,10 @@ class OwnerLeadApiPostgresTest {
 				lead));
 	}
 
-	/** Q9-9, BR-8: a note with a next action time also sets it on the lead, which gets a new version. */
+	/**
+	 * Q9-9, acquisition-owner-lead-queue BR-8: a note with a next action time also sets it on the lead, which gets a
+	 * new version.
+	 */
 	@Test
 	void note_withNextAction_updatesNextActionAtAndBumpsVersion() throws Exception {
 		String lead = submit(SON_TRA);

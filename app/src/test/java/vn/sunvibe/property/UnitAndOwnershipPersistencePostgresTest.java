@@ -42,17 +42,17 @@ import vn.sunvibe.property.core.infrastructure.persistence.repository.PropertyOw
 import vn.sunvibe.property.core.infrastructure.persistence.repository.UnitJpaRepository;
 
 /**
- * Wave W8 persistence of the new aggregates on a real PostgreSQL 17 (property-units spec section 5, W8-10 columns,
- * W8-14): a property, a unit and an ownership are saved through their domain repositories and read back with plain
- * SQL, so a column that is not mapped, or mapped to the wrong name, fails here. The schema comes from Flyway only and
- * Hibernate validates it; the annotations are those of {@link vn.sunvibe.FlywayPostgresMigrationTest}, so both share
- * one context. Needs Docker, like that test.
+ * Persistence of the unit and ownership aggregates on a real PostgreSQL 17 (property-units spec section 5, W8-10
+ * columns, W8-14): a property, a unit and an ownership are saved through their domain repositories and read back with
+ * plain SQL, so a column that is not mapped, or mapped to the wrong name, fails here. The schema comes from Flyway only
+ * and Hibernate validates it; the annotations are those of {@link vn.sunvibe.FlywayPostgresMigrationTest}, so both
+ * share one context. Needs Docker, like that test.
  * <p>
  * Every test uses its own property code: the database lives as long as the shared context.
  * <p>
  * The first three tests are the write side (domain repositories, plain SQL). The last three read back: the property
  * through its domain repository, the unit and the ownership through the JPA repository and the mapper, because their
- * adapters only save in W8. The unit and the ownership use values that differ from each other (2 bedrooms,
+ * adapters only save. The unit and the ownership use values that differ from each other (2 bedrooms,
  * 1 bathroom, CO_OWNER, ...), so that a swapped or hard-coded field fails. The stored row of the unit is also read
  * with plain SQL (bedrooms, bathrooms, created_at, updated_at), so a swapped {@code @Column} name in the entity fails
  * even when the round trip through the entity would still agree with itself.
@@ -98,7 +98,7 @@ class UnitAndOwnershipPersistencePostgresTest {
 	@Autowired
 	private JdbcTemplate jdbc;
 
-	/** BR-14: a new property starts at version 0. */
+	/** property-units BR-14: a new property starts at version 0. */
 	@Test
 	void save_newProperty_storesVersionZero() {
 		Property property = saveProperty("WT-PER-001");
@@ -107,7 +107,9 @@ class UnitAndOwnershipPersistencePostgresTest {
 				"SELECT version FROM properties WHERE id = ?", Long.class, property.getId().getValue()));
 	}
 
-	/** BR-4, BR-5, BR-8, BR-14: the canonical unit copies its property and starts AVAILABLE at version 0. */
+	/**
+	 * property-units BR-4, BR-5, BR-8, BR-14: the canonical unit copies its property and starts AVAILABLE at version 0.
+	 */
 	@Test
 	void save_canonicalUnit_writesEveryColumn() {
 		Property property = saveProperty("WT-PER-002");
@@ -128,7 +130,10 @@ class UnitAndOwnershipPersistencePostgresTest {
 		assertNotNull(row.get("updated_at"));
 	}
 
-	/** BR-10: the ownership W8 writes is OWNER, UNVERIFIED, valid from the given day, with no end. */
+	/**
+	 * property-units BR-10: the ownership property create writes is OWNER, UNVERIFIED, valid from the given day, with
+	 * no end.
+	 */
 	@Test
 	void save_unverifiedOwnership_writesEveryColumn() {
 		Property property = saveProperty("WT-PER-003");
@@ -149,7 +154,10 @@ class UnitAndOwnershipPersistencePostgresTest {
 		assertNotNull(row.get("created_at"));
 	}
 
-	/** BR-14: a property read back carries the stored version, the lock that a later update must pass back. */
+	/**
+	 * property-units BR-14: a property read back carries the stored version, the lock that a later update must pass
+	 * back.
+	 */
 	@Test
 	void findById_savedProperty_loadsVersionZero() {
 		Property saved = saveProperty("WT-PER-004");

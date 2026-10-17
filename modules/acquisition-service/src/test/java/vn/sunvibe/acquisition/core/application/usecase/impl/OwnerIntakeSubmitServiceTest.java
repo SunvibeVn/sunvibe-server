@@ -53,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Submit use case of the public owner intake (acquisition-owner-intake spec 5.1 order of operations; W9-1 core,
- * W9-4..W9-11 logic; brief BR-5, BR-9, BR-10, US-4; lead-queue Q9-1, Q9-2 auto-assignment).
+ * W9-4..W9-11 logic; acquisition-owner-intake BR-5, BR-9, BR-10, US-4; lead-queue Q9-1, Q9-2 auto-assignment).
  */
 class OwnerIntakeSubmitServiceTest {
 

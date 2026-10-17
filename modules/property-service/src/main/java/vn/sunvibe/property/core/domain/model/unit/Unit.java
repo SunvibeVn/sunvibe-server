@@ -9,9 +9,9 @@ import java.time.Instant;
 /**
  * Domain Model - Unit (Aggregate Root)
  * <p>
- * The part of a property that is let or sold (brief BR-2). In W8 every property has exactly one unit, the canonical
- * (default) unit (BR-3); later features add more. A unit refers to its property by id only.
- * A unit is immutable: nothing in W8 changes it after it is created.
+ * The part of a property that is let or sold (property-units BR-2). For now every property has exactly one unit,
+ * the canonical (default) unit (property-units BR-3); later features add more. A unit refers to its property by id
+ * only. A unit is immutable: for now nothing changes it once it is created.
  */
 public final class Unit {
 
@@ -25,9 +25,9 @@ public final class Unit {
     private final UnitAvailabilityState availabilityState;
     private final Instant createdAt;
     private final Instant updatedAt;
-    private final Long version;             // null until stored; optimistic lock (BR-14)
+    private final Long version;             // null until stored; optimistic lock (property-units BR-14)
 
-    // Invariants (spec A-7): reference fields set, code not blank, rooms >= 0, area > 0. Version may be null.
+    // Invariants (property-units spec A-7): reference fields set, code not blank, rooms >= 0, area > 0. Version may be null.
     private Unit(UnitId id, PropertyId propertyId, String unitCode, UnitType unitType, int bedrooms, int bathrooms,
                  double areaSqm, UnitAvailabilityState availabilityState, Instant createdAt, Instant updatedAt,
                  Long version) {
@@ -59,8 +59,8 @@ public final class Unit {
     // ==================== Factory Methods ====================
 
     /**
-     * The canonical unit of a new property (BR-4, BR-5, BR-8): it takes the property's code, type, rooms and area,
-     * starts AVAILABLE and has no version until it is stored.
+     * The canonical unit of a new property (property-units BR-4, BR-5, BR-8): it takes the property's code, type,
+     * rooms and area, starts AVAILABLE and has no version until it is stored.
      */
     public static Unit createCanonical(Property property) {
         required(property, "Property");

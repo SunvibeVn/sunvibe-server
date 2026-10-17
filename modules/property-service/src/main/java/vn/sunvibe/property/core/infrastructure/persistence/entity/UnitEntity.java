@@ -62,7 +62,7 @@ public class UnitEntity {
     private Instant updatedAt;
 
     // ==================== Optimistic Locking ====================
-    // Hibernate writes 0 on insert and adds 1 on every update; a stale update then fails (BR-14).
+    // Hibernate writes 0 on insert and adds 1 on every update; a stale update then fails (property-units BR-14).
     @Version
     @Column(name = "version", nullable = false)
     private Long version;

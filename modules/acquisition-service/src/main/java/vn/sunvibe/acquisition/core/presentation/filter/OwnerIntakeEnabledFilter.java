@@ -26,7 +26,7 @@ import java.util.List;
 
 /**
  * The server switch of the public intake form (acquisition-owner-intake BR-15, spec C-7): the form is not open to
- * real owners until the staff queue UI exists and the consent text has passed legal review (brief Q-11). While
+ * real owners until the staff queue UI exists and the consent text has passed legal review (acquisition-owner-intake Q-11). While
  * {@code app.acquisition.owner-intake.enabled} is false (the default) every request to the form path that reaches
  * this filter (Spring Security lets only the POST through anonymously) is answered 404 before it reaches the
  * application, so no personal data is accepted or stored; the ward catalog stays open. The page flag of the web app

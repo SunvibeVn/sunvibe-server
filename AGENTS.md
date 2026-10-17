@@ -35,6 +35,11 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - Full guide: docs/architecture/backend-architecture.md (overview, package tree, dependency rules)
   and docs/architecture/layer-guide.md (per-layer rules with examples). Cross-repo: ../docs/architecture.md
 
+## Comments (../docs/rebuild/implementation/2026-10-14-g2-target-decisions.md D-42)
+- No wave tags (W6, W8, W9a ...) in main code, config or new migrations; history is in git and the as-built docs.
+- A rule id always names its feature (`property-units BR-12`, `auth-roles BR-8`, `rebuild BR-001`), never a bare
+  `BR-8`, and the comment states the rule in words. Tests keep feature-prefixed AC/BR ids and spec ACs (`W9-7`).
+
 ## Hard rules
 - NEVER edit a committed Flyway migration. Add a new one (see .claude/rules/flyway.md).
 - NEVER read or print .env, secrets, or JWT signing keys.
