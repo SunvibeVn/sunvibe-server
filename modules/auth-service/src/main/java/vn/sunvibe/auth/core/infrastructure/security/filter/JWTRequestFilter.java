@@ -43,8 +43,11 @@ public class JWTRequestFilter extends OncePerRequestFilter {
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
-    /** Paths the filter skips: they never need an access token. */
-    public static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/logout", "/api/auth/refresh-token", "/api/users/command/register", "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**");
+    /**
+     * Paths the filter skips: they never need an access token. Nothing under {@code /api/v1/auth/**} takes one
+     * (auth-browser-session spec §3.9).
+     */
+    public static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/logout", "/api/auth/refresh-token", "/api/users/command/register", "/api/v1/auth/**", "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**");
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {

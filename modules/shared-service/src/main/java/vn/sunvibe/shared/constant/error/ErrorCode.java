@@ -33,5 +33,47 @@ public final class ErrorCode {
     /** An unexpected server error; the details are only in the server log, found by the correlation id. */
     public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
 
+    /** Sign-in refused: unknown phone number, wrong password, or an account that may not sign in. */
+    public static final String INVALID_CREDENTIALS = "INVALID_CREDENTIALS";
+
+    /** Sign-in is temporarily blocked after too many wrong passwords; retry after the given time. */
+    public static final String ACCOUNT_LOCKED = "ACCOUNT_LOCKED";
+
+    /** The account is locked or terminated, so the requested action is refused. */
+    public static final String ACCOUNT_DISABLED = "ACCOUNT_DISABLED";
+
+    /** The browser session cannot be refreshed (missing, unknown, expired, revoked or reused refresh token). */
+    public static final String SESSION_EXPIRED = "SESSION_EXPIRED";
+
+    /** The request has no Origin header or comes from an origin that may not use the session endpoints. */
+    public static final String ORIGIN_NOT_ALLOWED = "ORIGIN_NOT_ALLOWED";
+
+    /** The verification code is wrong; the caller may try again. */
+    public static final String CODE_INCORRECT = "CODE_INCORRECT";
+
+    /** There is no usable verification code (none sent, expired or replaced); a new one must be requested. */
+    public static final String CODE_EXPIRED = "CODE_EXPIRED";
+
+    /** The verification code was burned after too many wrong tries; a new one must be requested. */
+    public static final String CODE_ATTEMPTS_EXCEEDED = "CODE_ATTEMPTS_EXCEEDED";
+
+    /** The contact (phone or e-mail) is already verified. */
+    public static final String ALREADY_VERIFIED = "ALREADY_VERIFIED";
+
+    /** E-mail verification was asked for an account that has no e-mail. */
+    public static final String NO_EMAIL = "NO_EMAIL";
+
+    /** The registration token is missing, used, expired or issued for another phone number. */
+    public static final String REGISTRATION_TOKEN_INVALID = "REGISTRATION_TOKEN_INVALID";
+
+    /** The password-reset token is unknown, expired or already used. */
+    public static final String RESET_TOKEN_INVALID = "RESET_TOKEN_INVALID";
+
+    /** A new code was asked for inside the resend cooldown; retry after the given time. */
+    public static final String CODE_RESEND_TOO_SOON = "CODE_RESEND_TOO_SOON";
+
+    /** The daily number of codes was already sent; retry after the given time. */
+    public static final String CODE_DAILY_LIMIT = "CODE_DAILY_LIMIT";
+
     private ErrorCode() {}
 }

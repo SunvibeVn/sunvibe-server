@@ -76,11 +76,13 @@ public class RegistrationPhoneVerificationService implements RegistrationPhoneVe
         if (latest.isPresent()) {
             Instant resendAt = latest.get().getCreatedAt().plus(policy.getResendCooldown());
             if (now.isBefore(resendAt)) {
-                throw new VerificationThrottledException(TOO_SOON, Duration.between(now, resendAt));
+                throw new VerificationThrottledException(VerificationThrottledException.Reason.RESEND_TOO_SOON, TOO_SOON,
+                        Duration.between(now, resendAt));
             }
         }
         if (challengeRepository.countIssuedSince(phone, now.minus(Duration.ofDays(1))) >= policy.getMaxCodesPerDay()) {
-            throw new VerificationThrottledException(DAILY_LIMIT, Duration.ofHours(1));
+            throw new VerificationThrottledException(VerificationThrottledException.Reason.DAILY_LIMIT, DAILY_LIMIT,
+                    Duration.ofHours(1));
         }
 
         challengeRepository.invalidateActive(phone, now);
@@ -106,7 +108,7 @@ public class RegistrationPhoneVerificationService implements RegistrationPhoneVe
         Optional<RegistrationPhoneChallenge> latest = challengeRepository.findLatestForUpdate(phone);
         if (latest.isEmpty() || !latest.get().isUsable(now)) {
             fail(phone, "NO_USABLE_CODE");
-            throw new VerificationException(INVALID_CODE);
+            throw new VerificationException(VerificationException.Reason.CODE_EXPIRED, INVALID_CODE);
         }
 
         RegistrationPhoneChallenge challenge = latest.get();
@@ -114,7 +116,9 @@ public class RegistrationPhoneVerificationService implements RegistrationPhoneVe
             boolean burned = challenge.registerFailedAttempt(policy.getMaxAttempts(), now);
             challengeRepository.save(challenge);
             fail(phone, burned ? "BURNED" : "WRONG_CODE attempt=" + challenge.getFailedAttempts());
-            throw new VerificationException(burned ? TOO_MANY_ATTEMPTS : WRONG_CODE);
+            throw burned
+                    ? new VerificationException(VerificationException.Reason.CODE_ATTEMPTS_EXCEEDED, TOO_MANY_ATTEMPTS)
+                    : new VerificationException(VerificationException.Reason.CODE_INCORRECT, WRONG_CODE);
         }
 
         String token = newToken();
@@ -137,7 +141,7 @@ public class RegistrationPhoneVerificationService implements RegistrationPhoneVe
                 : challengeRepository.findByTokenHashForUpdate(RegistrationPhoneChallenge.hashToken(registrationToken));
         if (found.isEmpty() || !found.get().isTokenUsable(now) || !found.get().getPhone().equals(phone)) {
             fail(phone, "TOKEN_REJECTED");
-            throw new VerificationException(INVALID_TOKEN);
+            throw new VerificationException(VerificationException.Reason.REGISTRATION_TOKEN_INVALID, INVALID_TOKEN);
         }
 
         RegistrationPhoneChallenge challenge = found.get();

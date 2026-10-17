@@ -241,4 +241,75 @@ class RegistrationPhoneVerificationServiceTest {
         assertEquals(AuditEventType.REGISTRATION_VERIFICATION_FAILED, audit.last().type());
         assertEquals(PHONE, audit.last().subject());
     }
+
+    @Test
+    void register_usedToken_carriesReasonRegistrationTokenInvalid() {
+        String token = service.verifyCode(PHONE, sendAndReadCode()).registrationToken();
+        service.consumeRegistrationToken(token, PHONE);
+
+        VerificationException reused = assertThrows(VerificationException.class,
+                () -> service.consumeRegistrationToken(token, PHONE));
+
+        assertEquals(VerificationException.Reason.REGISTRATION_TOKEN_INVALID, reused.getReason());
+        assertEquals(RegistrationPhoneVerificationService.INVALID_TOKEN, reused.getMessage());
+    }
+
+    @Test
+    void verifyCode_wrongCode_carriesReasonCodeIncorrect() {
+        String wrongCode = wrongCodeFor(sendAndReadCode());
+
+        VerificationException wrong = assertThrows(VerificationException.class,
+                () -> service.verifyCode(PHONE, wrongCode));
+
+        assertEquals(VerificationException.Reason.CODE_INCORRECT, wrong.getReason());
+        assertEquals(RegistrationPhoneVerificationService.WRONG_CODE, wrong.getMessage());
+    }
+
+    @Test
+    void verifyCode_noCode_carriesReasonCodeExpired() {
+        VerificationException exception = assertThrows(VerificationException.class,
+                () -> service.verifyCode(PHONE, "123456"));
+
+        assertEquals(VerificationException.Reason.CODE_EXPIRED, exception.getReason());
+        assertEquals(RegistrationPhoneVerificationService.INVALID_CODE, exception.getMessage());
+    }
+
+    @Test
+    void verifyCode_fifthWrongCode_carriesReasonAttemptsExceeded() {
+        String wrongCode = wrongCodeFor(sendAndReadCode());
+        for (int i = 0; i < 4; i++) {
+            assertThrows(VerificationException.class, () -> service.verifyCode(PHONE, wrongCode));
+        }
+
+        VerificationException burned = assertThrows(VerificationException.class,
+                () -> service.verifyCode(PHONE, wrongCode));
+
+        assertEquals(VerificationException.Reason.CODE_ATTEMPTS_EXCEEDED, burned.getReason());
+        assertEquals(RegistrationPhoneVerificationService.TOO_MANY_ATTEMPTS, burned.getMessage());
+    }
+
+    @Test
+    void sendCode_withinCooldown_carriesReasonResendTooSoon() {
+        service.sendCode(PHONE);
+
+        VerificationThrottledException throttled = assertThrows(VerificationThrottledException.class,
+                () -> service.sendCode(PHONE));
+
+        assertEquals(VerificationThrottledException.Reason.RESEND_TOO_SOON, throttled.getReason());
+        assertEquals(RegistrationPhoneVerificationService.TOO_SOON, throttled.getMessage());
+    }
+
+    @Test
+    void sendCode_overDailyCap_carriesReasonDailyLimit() {
+        for (int i = 0; i < 3; i++) {
+            service.sendCode(PHONE);
+            passCooldown();
+        }
+
+        VerificationThrottledException throttled = assertThrows(VerificationThrottledException.class,
+                () -> service.sendCode(PHONE));
+
+        assertEquals(VerificationThrottledException.Reason.DAILY_LIMIT, throttled.getReason());
+        assertEquals(RegistrationPhoneVerificationService.DAILY_LIMIT, throttled.getMessage());
+    }
 }

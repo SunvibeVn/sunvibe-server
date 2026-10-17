@@ -1,6 +1,7 @@
 package vn.sunvibe.auth.core.infrastructure.security.ratelimit;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import java.time.Duration;
@@ -24,14 +25,35 @@ public record RateLimitProperties(@DefaultValue("true") boolean enabled, List<Ru
      * At most {@code limit} requests per {@code window} from one IP to
      * {@code method path}. Short bursts are allowed up to {@code limit}; the
      * allowance then refills evenly over the window (token bucket).
+     * <p>
+     * Rules with the same {@code bucket} share one allowance per IP: while a legacy
+     * auth path and its {@code /api/v1/} pair both exist, calling either one uses the
+     * same budget, so the move does not double it (auth-browser-session spec §3.8).
+     * Without a bucket the rule has its own allowance.
+     *
+     * @param path   the path as Spring MVC routes it (a {@code PathPattern})
+     * @param bucket optional name of the shared allowance; null when the rule has its own
      */
-    public record Rule(String method, String path, int limit, Duration window) {
+    public record Rule(String method, String path, int limit, Duration window, String bucket) {
 
+        /** Bound from configuration; with a second constructor Spring Boot needs to be told which one. */
+        @ConstructorBinding
         public Rule {
-            if (method == null || path == null || limit < 1 || window == null || window.isNegative() || window.isZero()) {
+            if (method == null || path == null || limit < 1 || window == null || window.isNegative() || window.isZero()
+                    || (bucket != null && bucket.isBlank())) {
                 throw new IllegalArgumentException("Invalid rate limit rule: " + method + " " + path
-                        + " limit=" + limit + " window=" + window);
+                        + " limit=" + limit + " window=" + window + " bucket=" + bucket);
             }
+        }
+
+        /** A rule with its own allowance. */
+        public Rule(String method, String path, int limit, Duration window) {
+            this(method, path, limit, window, null);
+        }
+
+        /** The key of this rule's allowance, before the client IP is appended. */
+        public String bucketKey() {
+            return bucket != null ? bucket : method + " " + path;
         }
     }
 }

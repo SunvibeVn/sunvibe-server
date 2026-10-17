@@ -12,12 +12,14 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.server.RequestPath;
 import org.springframework.stereotype.Component;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.DefaultCorsProcessor;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.UrlPathHelper;
+import org.springframework.web.util.pattern.PathPattern;
+import org.springframework.web.util.pattern.PathPatternParser;
 import tools.jackson.databind.ObjectMapper;
 import vn.sunvibe.shared.constant.error.ErrorCode;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -27,6 +29,7 @@ import vn.sunvibe.shared.time.AppClock;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Answers 429 Too Many Requests when one client IP calls a sensitive endpoint
@@ -47,7 +50,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /** Paths under it use the ADR-010 error body and never log the client IP; older paths keep their legacy shape. */
     private static final String VERSIONED_API_PREFIX = "/api/v1/";
 
+    private static final Pattern DUPLICATE_SLASHES = Pattern.compile("/{2,}");
+
     private final RateLimitProperties properties;
+    private final List<MatchedRule> rules;
     private final TokenBucketRateLimiter rateLimiter;
     private final ObjectMapper objectMapper;
     private final CorsConfigurationSource corsConfigurationSource;
@@ -56,6 +62,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     public RateLimitFilter(RateLimitProperties properties, TokenBucketRateLimiter rateLimiter, ObjectMapper objectMapper,
                            @Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource) {
         this.properties = properties;
+        this.rules = properties.rules().stream()
+                .map(rule -> new MatchedRule(rule, PathPatternParser.defaultInstance.parse(rule.path())))
+                .toList();
         this.rateLimiter = rateLimiter;
         this.objectMapper = objectMapper;
         this.corsConfigurationSource = corsConfigurationSource;
@@ -71,7 +80,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         RateLimitProperties.Rule rule = matchingRule(request).orElseThrow();
         String clientIp = request.getRemoteAddr();
-        long retryAfterSeconds = rateLimiter.tryConsume(rule.method() + " " + rule.path() + "|" + clientIp,
+        long retryAfterSeconds = rateLimiter.tryConsume(rule.bucketKey() + "|" + clientIp,
                 rule.limit(), rule.window(), AppClock.currentUTC());
 
         if (retryAfterSeconds == 0) {
@@ -114,14 +123,23 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Matches on the decoded, normalised path (percent-escapes resolved, {@code ;...}
-     * parameters and duplicate slashes removed), the way Spring MVC routes it.
-     * Matching the raw URI would let {@code /api/auth/log%69n} skip the limit.
+     * Matches the way Spring MVC and Spring Security route: a {@link PathPattern} on the
+     * parsed path, with segments decoded as UTF-8 and {@code ;...} parameters dropped.
+     * Matching the raw URI would let {@code /api/auth/log%69n} skip the limit, and the
+     * request's character encoding comes from the client, so it is never used.
+     * Duplicate slashes are merged first, so {@code /api//auth/login} is counted too
+     * (the firewall refuses it anyway; counting more is the safe side).
      */
     private Optional<RateLimitProperties.Rule> matchingRule(HttpServletRequest request) {
-        String path = UrlPathHelper.defaultInstance.getPathWithinApplication(request);
-        return properties.rules().stream()
-                .filter(rule -> rule.method().equalsIgnoreCase(request.getMethod()) && rule.path().equals(path))
+        RequestPath path = RequestPath.parse(DUPLICATE_SLASHES.matcher(request.getRequestURI()).replaceAll("/"),
+                request.getContextPath());
+        return rules.stream()
+                .filter(matched -> matched.rule().method().equalsIgnoreCase(request.getMethod())
+                        && matched.pattern().matches(path.pathWithinApplication()))
+                .map(MatchedRule::rule)
                 .findFirst();
+    }
+
+    private record MatchedRule(RateLimitProperties.Rule rule, PathPattern pattern) {
     }
 }

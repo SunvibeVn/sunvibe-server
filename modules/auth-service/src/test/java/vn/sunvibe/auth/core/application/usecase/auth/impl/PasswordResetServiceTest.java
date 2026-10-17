@@ -6,6 +6,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import vn.sunvibe.auth.core.application.command.auth.PasswordResetCommand;
+import vn.sunvibe.auth.core.application.exception.auth.AccountDisabledException;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
@@ -208,5 +209,52 @@ class PasswordResetServiceTest {
         service.verifyOtpAndResetPassword(request(OTP));
 
         assertThrows(PasswordResetTokenException.class, () -> service.verifyOtpAndResetPassword(request(OTP)));
+    }
+
+    @Test
+    void reset_unknownToken_carriesReasonTokenInvalid() {
+        PasswordResetCommand unknown = new PasswordResetCommand("forged", OTP, "N3wP@ssw0rd!");
+
+        PasswordResetTokenException exception = assertThrows(PasswordResetTokenException.class,
+                () -> service.verifyOtpAndResetPassword(unknown));
+
+        assertEquals(PasswordResetTokenException.Reason.TOKEN_INVALID, exception.getReason());
+        assertEquals(PasswordResetService.INVALID_RESET_CODE, exception.getMessage());
+    }
+
+    @Test
+    void reset_usedToken_carriesReasonTokenInvalid() {
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        PasswordResetTokenException exception = assertThrows(PasswordResetTokenException.class,
+                () -> service.verifyOtpAndResetPassword(request(OTP)));
+
+        assertEquals(PasswordResetTokenException.Reason.TOKEN_INVALID, exception.getReason());
+        assertEquals(PasswordResetService.INVALID_RESET_CODE, exception.getMessage());
+    }
+
+    @Test
+    void reset_burnedToken_carriesReasonAttemptsExceeded() {
+        for (int i = 0; i < 4; i++) {
+            assertThrows(InvalidOtpException.class, () -> service.verifyOtpAndResetPassword(request("000000")));
+        }
+
+        PasswordResetTokenException burned = assertThrows(PasswordResetTokenException.class,
+                () -> service.verifyOtpAndResetPassword(request("000000")));
+
+        assertEquals(PasswordResetTokenException.Reason.ATTEMPTS_EXCEEDED, burned.getReason());
+        assertEquals(PasswordResetService.TOO_MANY_ATTEMPTS, burned.getMessage());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = UserStatus.class, names = {"LOCK", "TERMINATED"})
+    void reset_lockedAccount_throwsAccountDisabled(UserStatus status) {
+        user.setUserStatus(status);
+
+        AccountDisabledException exception = assertThrows(AccountDisabledException.class,
+                () -> service.verifyOtpAndResetPassword(request(OTP)));
+
+        assertInstanceOf(AuthenticationFailedException.class, exception);
+        assertEquals("Account is locked or disabled.", exception.getMessage());
     }
 }

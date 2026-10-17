@@ -83,13 +83,13 @@ public class ContactVerificationService implements ContactVerificationUseCase {
         Instant now = AppClock.currentUTC();
         String userId = user.getId().getValue();
         if (isVerified(user, channel)) {
-            throw new VerificationException(ALREADY_VERIFIED);
+            throw new VerificationException(VerificationException.Reason.ALREADY_VERIFIED, ALREADY_VERIFIED);
         }
 
         Optional<VerificationCode> latest = codeRepository.findLatestForUpdate(userId, channel);
         if (latest.isEmpty() || !latest.get().isUsable(now) || !latest.get().getDestination().equals(destination(user, channel))) {
             fail(user, channel, "NO_USABLE_CODE");
-            throw new VerificationException(INVALID_CODE);
+            throw new VerificationException(VerificationException.Reason.CODE_EXPIRED, INVALID_CODE);
         }
 
         VerificationCode verificationCode = latest.get();
@@ -97,7 +97,9 @@ public class ContactVerificationService implements ContactVerificationUseCase {
             boolean burned = verificationCode.registerFailedAttempt(policy.getMaxAttempts(), now);
             codeRepository.save(verificationCode);
             fail(user, channel, burned ? "BURNED" : "WRONG_CODE attempt=" + verificationCode.getFailedAttempts());
-            throw new VerificationException(burned ? TOO_MANY_ATTEMPTS : WRONG_CODE);
+            throw burned
+                    ? new VerificationException(VerificationException.Reason.CODE_ATTEMPTS_EXCEEDED, TOO_MANY_ATTEMPTS)
+                    : new VerificationException(VerificationException.Reason.CODE_INCORRECT, WRONG_CODE);
         }
 
         verificationCode.consume(now);
@@ -118,21 +120,23 @@ public class ContactVerificationService implements ContactVerificationUseCase {
         String userId = user.getId().getValue();
         String destination = destination(user, channel);
         if (destination == null) {
-            throw new VerificationException(NO_EMAIL);
+            throw new VerificationException(VerificationException.Reason.NO_EMAIL, NO_EMAIL);
         }
         if (isVerified(user, channel)) {
-            throw new VerificationException(ALREADY_VERIFIED);
+            throw new VerificationException(VerificationException.Reason.ALREADY_VERIFIED, ALREADY_VERIFIED);
         }
 
         Optional<VerificationCode> latest = codeRepository.findLatestForUpdate(userId, channel);
         if (latest.isPresent()) {
             Instant resendAt = latest.get().getCreatedAt().plus(policy.getResendCooldown());
             if (now.isBefore(resendAt)) {
-                throw new VerificationThrottledException(TOO_SOON, Duration.between(now, resendAt));
+                throw new VerificationThrottledException(VerificationThrottledException.Reason.RESEND_TOO_SOON, TOO_SOON,
+                        Duration.between(now, resendAt));
             }
         }
         if (codeRepository.countIssuedSince(userId, channel, now.minus(Duration.ofDays(1))) >= policy.getMaxCodesPerDay()) {
-            throw new VerificationThrottledException(DAILY_LIMIT, Duration.ofHours(1));
+            throw new VerificationThrottledException(VerificationThrottledException.Reason.DAILY_LIMIT, DAILY_LIMIT,
+                    Duration.ofHours(1));
         }
 
         codeRepository.invalidateActive(userId, channel, now);

@@ -13,9 +13,11 @@ import java.util.Set;
  * @param email         null when the account has no e-mail
  * @param phoneVerified false right after registration
  * @param emailVerified false when there is no e-mail or it is not confirmed yet
+ * @param userId        opaque ULID of the account
+ * @param fullName      display name of the account
  */
 public record AuthResult(String accessToken, String refreshToken, String username, String email, Set<String> roles,
-                         boolean phoneVerified, boolean emailVerified) {
+                         boolean phoneVerified, boolean emailVerified, String userId, String fullName) {
 
     public static AuthResult of(AppUser user, String accessToken, String refreshToken) {
         return new AuthResult(
@@ -25,6 +27,16 @@ public record AuthResult(String accessToken, String refreshToken, String usernam
                 user.getEmail() != null ? user.getEmail().getValue() : null,
                 user.getUserRoles() != null ? Set.copyOf(user.getUserRoles()) : Set.of(),
                 user.isPhoneVerified(),
-                user.isEmailVerified());
+                user.isEmailVerified(),
+                user.getId().getValue(),
+                user.getFullName());
+    }
+
+    /** Both tokens stay out of logs. */
+    @Override
+    public String toString() {
+        return "AuthResult[accessToken=[hidden], refreshToken=[hidden], username=" + username + ", email=" + email
+                + ", roles=" + roles + ", phoneVerified=" + phoneVerified + ", emailVerified=" + emailVerified
+                + ", userId=" + userId + ", fullName=" + fullName + "]";
     }
 }

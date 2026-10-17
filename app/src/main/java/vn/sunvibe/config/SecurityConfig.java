@@ -3,6 +3,7 @@ package vn.sunvibe.config;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.aopalliance.intercept.MethodInvocation;
@@ -24,6 +25,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.infrastructure.security.filter.JWTRequestFilter;
 
@@ -62,6 +64,24 @@ public class SecurityConfig {
             // Owner intake form (acquisition-owner-intake): an owner without an account asks to be called back;
             // rate-limited per client IP
             "/api/v1/public/owner-intake-requests",
+    };
+
+    /**
+     * The browser-session auth endpoints (auth-browser-session spec §3.1 rows 1-9): actions for visitors without a
+     * session, so none takes an access token. Listed one by one, POST only; anything else under
+     * {@code /api/v1/auth/**} still requires authentication. Refresh and logout identify the session by the refresh
+     * cookie and check the Origin themselves.
+     */
+    private static final String[] PUBLIC_V1_AUTH_POST_ENDPOINTS = {
+            "/api/v1/auth/login",
+            "/api/v1/auth/session/refresh",
+            "/api/v1/auth/session/logout",
+            "/api/v1/auth/registration/phone/send-code",
+            "/api/v1/auth/registration/phone/verify-code",
+            "/api/v1/auth/registration",
+            "/api/v1/auth/password-reset/email",
+            "/api/v1/auth/password-reset/sms",
+            "/api/v1/auth/password-reset/complete",
     };
 
     private static final String[] PUBLIC_GET_ENDPOINTS = {
@@ -144,15 +164,28 @@ public class SecurityConfig {
         };
     }
 
+    /**
+     * CORS runs first in the chain with the {@code app.cors.allowed-origins} allow-list (CorsConfig), so preflights
+     * are answered before authentication, a not allowed {@code Origin} is refused with 403 before any controller runs,
+     * and the chain's 401/403 and every error body carry the CORS headers for an allowed origin (without them the
+     * browser reports a 401 as a network error and the web app never refreshes; auth-browser-session spec §3.7).
+     * The source is named explicitly: Spring MVC publishes another {@code CorsConfigurationSource} bean.
+     */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+            @Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource) throws Exception {
         http
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+
                 .csrf(AbstractHttpConfigurer::disable)
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, PUBLIC_POST_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.POST, PUBLIC_V1_AUTH_POST_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.POST, ADMIN_FEATURE_PATH).hasRole(RoleName.ADMIN.name())
+                        // The signed-in user's own account: every /api/v1/me operation needs a valid access token.
+                        .requestMatchers("/api/v1/me/**").authenticated()
                         .anyRequest().authenticated()
                 )
 

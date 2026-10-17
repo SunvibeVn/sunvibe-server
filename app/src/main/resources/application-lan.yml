@@ -1,0 +1,10 @@
+# Phone and tablet testing on the local network (auth-browser-session US-5). Run with
+# --spring.profiles.active=dev,lan and LAN_FE_ORIGIN=http://<LAN-IP>:3000. LAN_FE_ORIGIN has no default on purpose:
+# the profile does not start without it. Never combine with prod (LanProfileGuard refuses to start).
+app:
+  cors:
+    allowed-origins: http://localhost:3000,${LAN_FE_ORIGIN}
+  auth:
+    refresh-cookie:
+      # The LAN origin is plain HTTP, where a browser drops a Secure cookie
+      secure: false

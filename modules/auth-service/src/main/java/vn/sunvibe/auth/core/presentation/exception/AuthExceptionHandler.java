@@ -32,7 +32,7 @@ import java.util.List;
  * which would otherwise answer these exceptions with a 500.
  */
 @RestControllerAdvice
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Order(Ordered.HIGHEST_PRECEDENCE + 1)
 @RequiredArgsConstructor
 public class AuthExceptionHandler {
 
