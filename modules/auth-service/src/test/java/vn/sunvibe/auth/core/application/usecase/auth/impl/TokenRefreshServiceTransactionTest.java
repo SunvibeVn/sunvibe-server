@@ -107,6 +107,8 @@ class TokenRefreshServiceTransactionTest {
                 public Optional<AppUser> findById(UserId userId) { throw new AssertionError("User lookup not expected"); }
                 @Override public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
                 @Override public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
+                @Override public java.util.List<vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow> findSignInAbleByAnyRole(java.util.Set<String> roleNames, int limit) { throw new UnsupportedOperationException(); }
+                @Override public java.util.Map<String, String> findFullNamesByIds(java.util.Collection<String> ids) { throw new UnsupportedOperationException(); }
             };
         }
     }

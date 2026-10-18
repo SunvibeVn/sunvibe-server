@@ -38,6 +38,7 @@ import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryConsentRecordRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryDuplicateCandidateRepository;
+import vn.sunvibe.acquisition.core.testsupport.InMemoryLeadAssigneeDirectory;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadAccessLogRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadActivityRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadRepository;
@@ -191,7 +192,7 @@ class AcquisitionExceptionHandlerStaffTest {
         OwnerLeadQueryService queries = new OwnerLeadQueryService(leads, new InMemoryOwnerLeadActivityRepository(),
                 new InMemoryOwnerLeadAccessLogRepository(), new InMemoryDuplicateCandidateRepository(leads),
                 new InMemoryConsentRecordRepository(), new LeadVisibility(leads),
-                new AtomicLong(5_000L)::incrementAndGet);
+                new InMemoryLeadAssigneeDirectory(), new AtomicLong(5_000L)::incrementAndGet);
         OwnerLead heldByOther = OwnerLeadFixture.newLead(OwnerLeadStatus.ASSIGNED, OTHER_SALE, "20194",
                 OwnerLeadFixture.LONG_AGO);
         leads.save(heldByOther);

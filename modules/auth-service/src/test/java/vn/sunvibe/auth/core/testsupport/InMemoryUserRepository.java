@@ -7,13 +7,16 @@ import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.repository.user.PendingAccountRepository;
+import vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserLoginAttemptRepository;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
 
@@ -25,6 +28,7 @@ public class InMemoryUserRepository implements UserDomainRepository, UserLoginAt
 
     private final Map<String, AppUser> users = new LinkedHashMap<>();
     public int saveCount;
+    public int findFullNamesByIdsCalls;
 
     public InMemoryUserRepository with(AppUser user) {
         users.put(user.getUsername().getValue(), user);
@@ -106,5 +110,44 @@ public class InMemoryUserRepository implements UserDomainRepository, UserLoginAt
                 .limit(limit)
                 .map(AppUser::getId)
                 .toList();
+    }
+
+    @Override
+    public List<StaffAccountRow> findSignInAbleByAnyRole(Set<String> roleNames, int limit) {
+        List<StaffAccountRow> rows = new java.util.ArrayList<>();
+        for (AppUser user : users.values()) {
+            if (user.getDeletedAt() != null || AppUser.SIGN_IN_BLOCKED_STATUSES.contains(user.getUserStatus())) {
+                continue;
+            }
+            for (String role : user.getUserRoles()) {
+                if (roleNames.contains(role)) {
+                    rows.add(new StaffAccountRow(user.getId().getValue(), user.getFullName(), role));
+                }
+            }
+        }
+        // like the adapter: order by name, keep the first `limit` accounts
+        rows.sort(StaffAccountRow.nameOrder());
+        Set<String> kept = new java.util.LinkedHashSet<>();
+        List<StaffAccountRow> result = new java.util.ArrayList<>();
+        for (StaffAccountRow row : rows) {
+            if (kept.contains(row.userId()) || kept.size() < limit) {
+                kept.add(row.userId());
+                result.add(row);
+            }
+        }
+        return result;
+    }
+
+    /** Names of every stored account, soft-deleted or not (no filter, like the real query). */
+    @Override
+    public Map<String, String> findFullNamesByIds(Collection<String> ids) {
+        findFullNamesByIdsCalls++;
+        Map<String, String> names = new LinkedHashMap<>();
+        for (AppUser user : users.values()) {
+            if (ids.contains(user.getId().getValue())) {
+                names.put(user.getId().getValue(), user.getFullName());
+            }
+        }
+        return names;
     }
 }

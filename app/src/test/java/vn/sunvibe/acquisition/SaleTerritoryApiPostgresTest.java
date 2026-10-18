@@ -142,7 +142,7 @@ class SaleTerritoryApiPostgresTest {
 		List<String> names = new ArrayList<>();
 		for (JsonNode territory : list) {
 			names.add(territory.path("wardName").asString());
-			assertEquals(List.of("wardCode", "wardName", "wardType", "userId", "assignedAt"),
+			assertEquals(List.of("wardCode", "wardName", "wardType", "userId", "userName", "assignedAt"),
 					AcquisitionApiTestSupport.fieldNames(territory));
 			String ward = territory.path("wardCode").asString();
 			if (ward.equals(HOA_CUONG) || ward.equals(THANH_KHE)) {
@@ -158,6 +158,34 @@ class SaleTerritoryApiPostgresTest {
 		sorted.sort(Collator.getInstance(Locale.forLanguageTag("vi")));
 		assertEquals(sorted, names);
 		assertTrue(names.contains("Hòa Cường") && names.contains("Hoàng Sa"), names.toString());
+	}
+
+	/** W11-5: the PUT answer and the list carry the holder's full name next to the id; free wards have null. */
+	@Test
+	void territoryPutAndListCarryUserName() throws Exception {
+		TestUser holder = api.createUser("Nguyễn Văn Ánh", UserStatus.ACTIVE, "SALE");
+		userIds.add(holder.userId());
+
+		Result put = assign(admin, HOA_XUAN, holder);
+
+		assertEquals(200, put.status(), put.rawBody());
+		assertEquals(holder.userId(), put.body().path("userId").asString());
+		assertEquals("Nguyễn Văn Ánh", put.body().path("userName").asString());
+		Result again = assign(admin, HOA_XUAN, holder);
+		assertEquals("Nguyễn Văn Ánh", again.body().path("userName").asString());
+
+		JsonNode list = api.get(admin, PATH + "?provinceCode=48").body();
+		int named = 0;
+		for (JsonNode territory : list) {
+			if (territory.path("wardCode").asString().equals(HOA_XUAN)) {
+				assertEquals(holder.userId(), territory.path("userId").asString());
+				assertEquals("Nguyễn Văn Ánh", territory.path("userName").asString());
+				named++;
+			} else if (territory.path("userId").isNull()) {
+				assertTrue(territory.has("userName") && territory.path("userName").isNull(), territory.toString());
+			}
+		}
+		assertEquals(1, named);
 	}
 
 	@Test

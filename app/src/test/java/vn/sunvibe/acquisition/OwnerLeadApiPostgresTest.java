@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -64,7 +65,7 @@ class OwnerLeadApiPostgresTest {
 	private static final String AN_HAI = "20275";
 	private static final String HOA_KHANH = "20200";
 	private static final List<String> SUMMARY_FIELDS = List.of("id", "requestCode", "status", "intent", "contactName",
-			"provinceCode", "wardCode", "wardName", "propertyType", "assignedUserId", "nextActionAt",
+			"provinceCode", "wardCode", "wardName", "propertyType", "assignedUserId", "assignedUserName", "nextActionAt",
 			"possibleDuplicate", "createdAt", "version");
 	private static final Set<String> OPEN_MOVES_OF_ASSIGNED =
 			Set.of("CONTACTED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN");
@@ -881,7 +882,293 @@ class OwnerLeadApiPostgresTest {
 		assertEquals(0, count("select count(*) from sale_territories where ward_code = ?", AN_HAI));
 	}
 
+	// ==================== acquisition-owner-lead-queue-ui: staff names (W11-4) ====================
+
+	/** W11-4: list items and detail carry the assignee's full name next to the id; an unassigned lead has null. */
+	@Test
+	void listAndDetailCarryAssigneeName() throws Exception {
+		TestUser leader = namedLoggedIn("Lê Thị Trưởng Nhóm", UserStatus.ACTIVE, "SALE_LEADER");
+		TestUser holder = namedLoggedIn("Nguyễn Văn Ánh", UserStatus.ACTIVE, "SALE");
+		String assigned = submit(AN_HAI);
+		String free = submit(AN_HAI);
+		assignTo(leader, assigned, holder);
+
+		JsonNode leaderItem = item(okList(leader, "?scope=all&size=100"), assigned);
+		assertEquals(holder.userId(), leaderItem.path("assignedUserId").asString());
+		assertEquals("Nguyễn Văn Ánh", leaderItem.path("assignedUserName").asString());
+		JsonNode ownItem = item(okList(holder, "?scope=mine&size=100"), assigned);
+		assertEquals("Nguyễn Văn Ánh", ownItem.path("assignedUserName").asString());
+		JsonNode freeItem = item(okList(leader, "?scope=all&size=100"), free);
+		assertTrue(freeItem.has("assignedUserName"), "the property is present, with a null value");
+		assertTrue(freeItem.path("assignedUserName").isNull());
+		JsonNode detail = okDetail(holder, assigned);
+		assertEquals(holder.userId(), detail.path("assignedUserId").asString());
+		assertEquals("Nguyễn Văn Ánh", detail.path("assignedUserName").asString());
+		assertTrue(okDetail(leader, free).path("assignedUserName").isNull());
+	}
+
+	/** W11-4: a REASSIGNED row names actor L, from A and to B; ids stay in the answer. */
+	@Test
+	void activitiesCarryActorAndAssigneeNames() throws Exception {
+		TestUser leader = namedLoggedIn("Lê Thị Trưởng Nhóm", UserStatus.ACTIVE, "SALE_LEADER");
+		TestUser a = namedLoggedIn("Nguyễn Văn A", UserStatus.ACTIVE, "SALE");
+		TestUser b = namedLoggedIn("Trần Thị B", UserStatus.ACTIVE, "SALE");
+		String lead = submit(AN_HAI);
+		assignTo(leader, lead, a);
+		assignTo(leader, lead, b);
+
+		JsonNode history = okDetail(leader, lead).path("activities");
+
+		assertEquals(List.of("SUBMITTED", "ASSIGNED", "REASSIGNED"), types(history));
+		JsonNode first = history.get(1);
+		assertEquals("Lê Thị Trưởng Nhóm", first.path("actorName").asString());
+		assertTrue(first.path("fromAssigneeName").isNull());
+		assertEquals("Nguyễn Văn A", first.path("toAssigneeName").asString());
+		JsonNode move = history.get(2);
+		assertEquals(leader.userId(), move.path("actorUserId").asString());
+		assertEquals("Lê Thị Trưởng Nhóm", move.path("actorName").asString());
+		assertEquals(a.userId(), move.path("fromAssigneeId").asString());
+		assertEquals("Nguyễn Văn A", move.path("fromAssigneeName").asString());
+		assertEquals(b.userId(), move.path("toAssigneeId").asString());
+		assertEquals("Trần Thị B", move.path("toAssigneeName").asString());
+		assertEquals("Trần Thị B", okDetail(leader, lead).path("assignedUserName").asString());
+	}
+
+	/** W11-4: assign, status-change and note answers carry the names; the note's activity names its actor. */
+	@Test
+	void commandResponsesCarryNames() throws Exception {
+		TestUser leader = namedLoggedIn("Lê Thị Trưởng Nhóm", UserStatus.ACTIVE, "SALE_LEADER");
+		TestUser holder = namedLoggedIn("Nguyễn Văn Ánh", UserStatus.ACTIVE, "SALE");
+		String lead = submit(AN_HAI);
+
+		Result assigned = assignTo(leader, lead, holder);
+		assertEquals(holder.userId(), assigned.body().path("assignedUserId").asString());
+		assertEquals("Nguyễn Văn Ánh", assigned.body().path("assignedUserName").asString());
+
+		Result changed = api.post(holder, LEADS + "/" + lead + "/status-changes",
+				Map.of("toStatus", "CONTACTED", "expectedVersion", version(lead)));
+		assertEquals(200, changed.status(), changed.rawBody());
+		assertEquals("Nguyễn Văn Ánh", changed.body().path("assignedUserName").asString());
+
+		Result note = api.post(holder, LEADS + "/" + lead + "/activities", Map.of("note", "Đã gọi"));
+		assertEquals(201, note.status(), note.rawBody());
+		JsonNode activity = note.body().path("activity");
+		assertEquals(holder.userId(), activity.path("actorUserId").asString());
+		assertEquals("Nguyễn Văn Ánh", activity.path("actorName").asString());
+		assertTrue(activity.has("fromAssigneeName") && activity.path("fromAssigneeName").isNull());
+		assertTrue(activity.has("toAssigneeName") && activity.path("toAssigneeName").isNull());
+		assertEquals("Nguyễn Văn Ánh", note.body().path("lead").path("assignedUserName").asString());
+	}
+
+	/** W11-4, acquisition-owner-lead-queue-ui C-35: a person who lost SALE, was locked or soft-deleted keeps the name in old leads and history. */
+	@Test
+	void namesSurviveRoleLossLockAndSoftDelete() throws Exception {
+		TestUser leader = namedLoggedIn("Lê Thị Trưởng Nhóm", UserStatus.ACTIVE, "SALE_LEADER");
+		TestUser a = namedLoggedIn("Nguyễn Văn Cũ", UserStatus.ACTIVE, "SALE");
+		String lead = submit(AN_HAI);
+		assignTo(leader, lead, a);
+		assertNamesStay(leader, lead, a);
+
+		assertEquals(1, jdbc.update("delete from user_roles where user_id = ? "
+				+ "and role_id = (select id from roles where name = 'SALE')", a.userId()));
+		assertNamesStay(leader, lead, a);
+
+		assertEquals(1, jdbc.update("update users set user_status = 'LOCK' where id = ?", a.userId()));
+		assertNamesStay(leader, lead, a);
+
+		assertEquals(1, jdbc.update("update users set deleted_at = now() where id = ?", a.userId()));
+		assertNamesStay(leader, lead, a);
+	}
+
+	/** W11-4: an id with no users row gives a null name; the id is still in the answer. */
+	@Test
+	void unknownIdGivesNullName() throws Exception {
+		TestUser leader = namedLoggedIn("Lê Thị Trưởng Nhóm", UserStatus.ACTIVE, "SALE_LEADER");
+		String lead = submit(AN_HAI);
+		String ghost = ulidGenerator.generateId();
+		assertEquals(1, jdbc.update("update owner_leads set assigned_user_id = ?, status = 'ASSIGNED' where id = ?",
+				ghost, lead));
+
+		JsonNode detail = okDetail(leader, lead);
+		JsonNode item = item(okList(leader, "?scope=all&size=100"), lead);
+
+		assertEquals(ghost, detail.path("assignedUserId").asString());
+		assertTrue(detail.has("assignedUserName") && detail.path("assignedUserName").isNull());
+		assertEquals(ghost, item.path("assignedUserId").asString());
+		assertTrue(item.has("assignedUserName") && item.path("assignedUserName").isNull());
+	}
+
+	/** W11-4: the owner (SUBMITTED) and the system (AUTO_ASSIGNED) have no actor name; the new holder is named. */
+	@Test
+	void systemAndSubmitterActorNull() throws Exception {
+		TestUser leader = namedLoggedIn("Lê Thị Trưởng Nhóm", UserStatus.ACTIVE, "SALE_LEADER");
+		String lead = submit(SON_TRA);
+
+		JsonNode history = okDetail(leader, lead).path("activities");
+
+		assertEquals(List.of("SUBMITTED", "AUTO_ASSIGNED"), types(history));
+		for (JsonNode activity : history) {
+			assertTrue(activity.path("actorUserId").isNull(), activity.toString());
+			assertTrue(activity.has("actorName") && activity.path("actorName").isNull(), activity.toString());
+		}
+		assertTrue(history.get(0).path("toAssigneeName").isNull());
+		assertEquals(sale1.userId(), history.get(1).path("toAssigneeId").asString());
+		assertEquals("W9 SALE", history.get(1).path("toAssigneeName").asString());
+	}
+
+	private Result assignTo(TestUser leader, String lead, TestUser holder) throws Exception {
+		Result assigned = api.post(leader, LEADS + "/" + lead + "/assign",
+				Map.of("assigneeUserId", holder.userId(), "expectedVersion", version(lead)));
+		assertEquals(200, assigned.status(), assigned.rawBody());
+		return assigned;
+	}
+
+	/** The name of the assignee is the same in the list item, the detail and the history row of the assignment. */
+	private void assertNamesStay(TestUser leader, String lead, TestUser a) throws Exception {
+		JsonNode detail = okDetail(leader, lead);
+		assertEquals(a.userId(), detail.path("assignedUserId").asString());
+		assertEquals("Nguyễn Văn Cũ", detail.path("assignedUserName").asString());
+		assertEquals("Nguyễn Văn Cũ", detail.path("activities").get(1).path("toAssigneeName").asString());
+		assertEquals("Nguyễn Văn Cũ",
+				item(okList(leader, "?scope=all&size=100"), lead).path("assignedUserName").asString());
+	}
+
+	// ==================== list filters requestCode and assigneeUserId (W11-7, W11-8) ====================
+
+	/**
+	 * W11-7, acquisition-owner-lead-queue-ui C-21: the code is found whatever its case and outer spaces, in every
+	 * scope, and only when the lead is in that scope for the caller.
+	 */
+	@Test
+	void requestCodeFindsVisibleLead() throws Exception {
+		String lead = submit(SON_TRA);
+		submit(SON_TRA);
+		String code = requestCode(lead);
+
+		Result typed = okList(saleLeader, "?scope=all&requestCode=%20" + code.toLowerCase(Locale.ROOT) + "%20");
+		assertEquals(List.of(lead), ids(typed));
+		assertEquals(1, typed.body().path("totalElements").asInt());
+		assertEquals(List.of(lead), ids(okList(sale1, "?requestCode=" + code)));
+		assertEquals(List.of(lead), ids(okList(sale1, "?scope=mine&requestCode=" + code)));
+		// the scope still applies: the lead is sale1's, so it is not in the leader's own or the unassigned list
+		assertEquals(List.of(), ids(okList(saleLeader, "?scope=mine&requestCode=" + code)));
+		assertEquals(List.of(), ids(okList(saleLeader, "?scope=unassigned&requestCode=" + code)));
+		String unassigned = submit(AN_HAI);
+		assertEquals(List.of(unassigned),
+				ids(okList(saleLeader, "?scope=unassigned&requestCode=" + requestCode(unassigned))));
+	}
+
+	/**
+	 * W11-7, acquisition-owner-lead-queue BR-2: a SALE asking for another person's code gets exactly the page of a code
+	 * nobody has, so the answer never tells that the hidden lead exists.
+	 */
+	@Test
+	void requestCodeOfHiddenLeadLooksUnknown() throws Exception {
+		// sale1 holds a lead, so a 0-item answer can only come from the code filter, not from an empty "mine" scope
+		String own = submit(SON_TRA);
+		assertTrue(ids(okList(sale1, "?scope=mine&size=100")).contains(own));
+		String others = submit(NGU_HANH_SON);
+		String unused = "SV-ZZZZ-ZZZZ";
+		assertEquals(0, count("select count(*) from owner_leads where request_code = ?", unused));
+
+		Result hidden = okList(sale1, "?scope=mine&requestCode=" + requestCode(others));
+		Result unknown = okList(sale1, "?scope=mine&requestCode=" + unused);
+
+		assertEquals(0, hidden.body().path("totalElements").asInt(), hidden.rawBody());
+		assertEquals(List.of(), ids(hidden));
+		assertEquals(unknown.rawBody(), hidden.rawBody());
+	}
+
+	/** W11-7: a code that is not SV-XXXX-XXXX in the request-code alphabet (no 0, O, 1, I) or has inner spaces is 400;
+	 * so is an empty or blank value (clients omit the parameter). */
+	@Test
+	void requestCodeBadFormat() throws Exception {
+		for (String bad : List.of("SV-ABCD", "SV-AB%20CD-EFGH", "SV-0000-0000", "SV-ABCD-EFGHI", "XX-ABCD-EFGH",
+				"SV-ABCD-EFG1", "", "%20")) {
+			assertValidationError(api.get(saleLeader, LEADS + "?scope=all&requestCode=" + bad), "requestCode");
+			assertValidationError(api.get(sale1, LEADS + "?requestCode=" + bad), "requestCode");
+		}
+	}
+
+	/** Check order: the format of requestCode is checked (400) before the SALE scope rule (403). */
+	@Test
+	void saleWithScopeAllAndBadRequestCode400() throws Exception {
+		assertValidationError(api.get(sale1, LEADS + "?scope=all&requestCode=SV-ABCD"), "requestCode");
+		assertValidationError(api.get(sale1, LEADS + "?scope=unassigned&requestCode=SV-0000-0000"), "requestCode");
+	}
+
+	/** W11-8, acquisition-owner-lead-queue-ui C-27: with scope=all only that person's leads come back. */
+	@Test
+	void assigneeFilterWithScopeAll() throws Exception {
+		String ofSale1 = submit(SON_TRA);
+		String ofSale2 = submit(NGU_HANH_SON);
+		String unassigned = submit(AN_HAI);
+
+		for (TestUser caller : List.of(saleLeader, salesManager, admin, superAdmin)) {
+			Result result = okList(caller, "?scope=all&size=100&assigneeUserId=" + sale1.userId());
+			List<String> found = ids(result);
+			assertTrue(found.contains(ofSale1), caller.toString());
+			assertFalse(found.contains(ofSale2) || found.contains(unassigned), caller.toString());
+			result.body().path("items").forEach(item ->
+					assertEquals(sale1.userId(), item.path("assignedUserId").asString()));
+		}
+		// it combines with the other filters, and an id nobody holds gives an empty page
+		assertEquals(List.of(), ids(okList(saleLeader,
+				"?scope=all&assigneeUserId=" + sale1.userId() + "&requestCode=" + requestCode(ofSale2))));
+		assertEquals(List.of(ofSale1), ids(okList(saleLeader,
+				"?scope=all&assigneeUserId=" + sale1.userId() + "&requestCode=" + requestCode(ofSale1))));
+		Result ghost = okList(saleLeader, "?scope=all&assigneeUserId=" + ulidGenerator.generateId());
+		assertEquals(0, ghost.body().path("totalElements").asInt(), ghost.rawBody());
+	}
+
+	/** W11-8: assigneeUserId means nothing outside scope=all (mine is the default scope). */
+	@Test
+	void assigneeFilterRejectedOutsideAll() throws Exception {
+		for (TestUser caller : List.of(saleLeader, admin)) {
+			assertValidationError(api.get(caller, LEADS + "?assigneeUserId=" + sale1.userId()), "assigneeUserId");
+			assertValidationError(api.get(caller, LEADS + "?scope=mine&assigneeUserId=" + sale1.userId()),
+					"assigneeUserId");
+			assertValidationError(api.get(caller, LEADS + "?scope=unassigned&assigneeUserId=" + sale1.userId()),
+					"assigneeUserId");
+		}
+	}
+
+	/** W11-8: a SALE is refused the scope first (403), so the leaders-only parameter is never looked at. */
+	@Test
+	void saleWithScopeAllAndAssignee403() throws Exception {
+		assertSecurityBody(api.get(sale1, LEADS + "?scope=all&assigneeUserId=" + sale2.userId()), 403);
+		assertSecurityBody(api.get(sale1, LEADS + "?scope=unassigned&assigneeUserId=x"), 403);
+	}
+
+	/** W11-8: a SALE inside its own scope who sends assigneeUserId gets the 400 on that parameter. */
+	@Test
+	void saleWithScopeMineAndAssignee400() throws Exception {
+		assertValidationError(api.get(sale1, LEADS + "?scope=mine&assigneeUserId=" + sale2.userId()),
+				"assigneeUserId");
+		assertValidationError(api.get(sale1, LEADS + "?assigneeUserId=" + sale1.userId()), "assigneeUserId");
+	}
+
+	/** W11-8: 1 to 26 characters; the length is a format error, checked before the SALE scope rule. */
+	@Test
+	void assigneeTooLong400() throws Exception {
+		String tooLong = "A".repeat(27);
+		assertValidationError(api.get(saleLeader, LEADS + "?scope=all&assigneeUserId=" + tooLong), "assigneeUserId");
+		assertValidationError(api.get(sale1, LEADS + "?scope=all&assigneeUserId=" + tooLong), "assigneeUserId");
+		assertValidationError(api.get(saleLeader, LEADS + "?scope=all&assigneeUserId="), "assigneeUserId");
+		assertEquals(200, api.get(saleLeader, LEADS + "?scope=all&assigneeUserId=" + "A".repeat(26)).status());
+	}
+
+	private String requestCode(String leadId) {
+		return jdbc.queryForObject("select request_code from owner_leads where id = ?", String.class, leadId);
+	}
+
 	// ==================== Helpers ====================
+
+	private TestUser namedLoggedIn(String fullName, UserStatus status, String... roles) throws Exception {
+		TestUser user = api.createUser(fullName, status, roles);
+		userIds.add(user.userId());
+		return api.logIn(user);
+	}
 
 	private TestUser loggedIn(String role) throws Exception {
 		return api.logIn(created(UserStatus.ACTIVE, role));

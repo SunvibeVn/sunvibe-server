@@ -1527,6 +1527,49 @@
         "tags" : [ "Administrative areas" ]
       }
     },
+    "/api/v1/staff/owner-lead-assignees" : {
+      "get" : {
+        "description" : "Accounts that exist, may sign in and hold SALE or SALE_LEADER, sorted by name (Vietnamese order), then id; at most 500. Each item holds the user id, the full name and the assignee roles, nothing else. Not paged.",
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LeadAssigneeResponse"
+                  }
+                }
+              }
+            },
+            "description" : "The people who may hold a lead"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not SALE_LEADER, SALES_MANAGER or ADMIN"
+          }
+        },
+        "summary" : "List the staff an owner lead may be assigned to (SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Owner leads (staff)" ]
+      }
+    },
     "/api/v1/staff/owner-leads" : {
       "get" : {
         "description" : "scope=mine (default): leads assigned to the caller; unassigned: status NEW; all: every lead. A SALE may only use mine. The items hold no phone, email, address or coordinates.",
@@ -1563,6 +1606,25 @@
             "type" : "string",
             "maxLength" : 10,
             "minLength" : 0
+          }
+        }, {
+          "description" : "Find one lead by its request code, SV-XXXX-XXXX. Case and outer spaces are ignored. Works with every scope and returns the lead only when the caller may see it in that scope; a code that is unknown and a code the caller may not see give the same empty page. A value that is not SV-XXXX-XXXX in the request-code alphabet gives 400 VALIDATION_FAILED on field requestCode. An empty value also gives 400, so clients omit the parameter",
+          "example" : "SV-AB2C-DE3F",
+          "in" : "query",
+          "name" : "requestCode",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Keep only the leads assigned to this user. Only with scope=all (SALE_LEADER, SALES_MANAGER, ADMIN); another scope gives 400. An id nobody holds gives an empty page. An empty value gives 400, so clients omit the parameter",
+          "in" : "query",
+          "name" : "assigneeUserId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 1
           }
         }, {
           "description" : "Zero-based page number",
@@ -2638,12 +2700,20 @@
         "type" : "object",
         "description" : "History entry of an owner lead",
         "properties" : {
+          "actorName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Full name of the staff member; null for the system or the owner, or when the id has no user row"
+          },
           "actorUserId" : {
             "type" : "string",
             "description" : "User id of the staff member; null for the system or the owner"
           },
           "fromAssigneeId" : {
             "type" : "string"
+          },
+          "fromAssigneeName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Full name of the previous assignee; null when there was none or the id has no user row"
           },
           "fromStatus" : {
             "type" : "string",
@@ -2663,6 +2733,10 @@
           "toAssigneeId" : {
             "type" : "string"
           },
+          "toAssigneeName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Full name of the new assignee; null when there is none or the id has no user row"
+          },
           "toStatus" : {
             "type" : "string",
             "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
@@ -2670,6 +2744,31 @@
           "type" : {
             "type" : "string",
             "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED" ]
+          }
+        }
+      },
+      "LeadAssigneeResponse" : {
+        "type" : "object",
+        "description" : "A staff member an owner lead may be assigned to",
+        "properties" : {
+          "fullName" : {
+            "type" : "string",
+            "description" : "Full name",
+            "example" : "Nguyễn Văn An"
+          },
+          "roles" : {
+            "type" : "array",
+            "description" : "Assignee roles the person holds, SALE before SALE_LEADER; never empty",
+            "items" : {
+              "type" : "string",
+              "description" : "A role that makes a person eligible for an owner lead",
+              "enum" : [ "SALE", "SALE_LEADER" ]
+            }
+          },
+          "userId" : {
+            "type" : "string",
+            "description" : "User id; the value to send as assigneeUserId",
+            "example" : "01J9Z3K8M2Q4R5T6V7W8X9Y0ZA"
           }
         }
       },
@@ -2883,6 +2982,10 @@
             "type" : "string",
             "description" : "User id of the assignee; null when nobody holds the lead"
           },
+          "assignedUserName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Full name of the assignee; null when nobody holds the lead or the id has no user row"
+          },
           "availableFrom" : {
             "type" : "string",
             "format" : "date"
@@ -2989,6 +3092,10 @@
           "assignedUserId" : {
             "type" : "string",
             "description" : "User id of the assignee; null when nobody holds the lead"
+          },
+          "assignedUserName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Full name of the assignee; null when nobody holds the lead or the id has no user row"
           },
           "contactName" : {
             "type" : "string"
@@ -3399,6 +3506,10 @@
           "userId" : {
             "type" : "string",
             "description" : "User id of the person; null when nobody looks after the ward"
+          },
+          "userName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Full name of the person; null when nobody looks after the ward or the id has no user row"
           },
           "wardCode" : {
             "type" : "string",

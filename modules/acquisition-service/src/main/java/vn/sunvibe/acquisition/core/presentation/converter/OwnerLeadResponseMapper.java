@@ -21,7 +21,8 @@ import vn.sunvibe.acquisition.core.presentation.dto.response.SaleTerritoryRespon
  * Converter - OwnerLeadResponseMapper
  * <p>
  * Lead and territory views -> response DTOs, field by field. The views already leave out what staff may not see
- * (hashes, the submission snapshot, leads the caller cannot see); nothing is added here.
+ * (hashes, the submission snapshot, leads the caller cannot see); nothing is added here. The staff names are
+ * already in the views (acquisition-owner-lead-queue-ui C-18): the mapper only copies them.
  */
 @Component
 public class OwnerLeadResponseMapper {
@@ -34,16 +35,17 @@ public class OwnerLeadResponseMapper {
     public OwnerLeadSummaryResponse toSummary(OwnerLeadSummary lead) {
         return new OwnerLeadSummaryResponse(lead.id(), lead.requestCode(), lead.status(), lead.intent(),
                 lead.contactName(), lead.provinceCode(), lead.wardCode(), lead.wardName(), lead.propertyType(),
-                lead.assignedUserId(), lead.nextActionAt(), lead.possibleDuplicate(), lead.createdAt(),
-                lead.version());
+                lead.assignedUserId(), lead.assignedUserName(), lead.nextActionAt(), lead.possibleDuplicate(),
+                lead.createdAt(), lead.version());
     }
 
     public OwnerLeadDetailResponse toDetail(OwnerLeadDetail lead) {
         OwnerLeadDetail.AskingPriceView price = lead.askingPrice();
         return new OwnerLeadDetailResponse(lead.id(), lead.requestCode(), lead.status(), lead.intent(),
                 lead.contactName(), lead.provinceCode(), lead.wardCode(), lead.wardName(), lead.propertyType(),
-                lead.assignedUserId(), lead.nextActionAt(), lead.possibleDuplicate(), lead.createdAt(),
-                lead.version(), lead.phone(), lead.email(), lead.addressDetail(), lead.latitude(), lead.longitude(),
+                lead.assignedUserId(), lead.assignedUserName(), lead.nextActionAt(), lead.possibleDuplicate(),
+                lead.createdAt(), lead.version(), lead.phone(), lead.email(), lead.addressDetail(), lead.latitude(),
+                lead.longitude(),
                 price == null ? null : new AskingPriceResponse(price.amount(), price.currency(), price.unit()),
                 lead.availableFrom(), lead.notes(), lead.preferredCallbackTime(), lead.source(),
                 lead.duplicateOfLeadId(), lead.closeReason(),
@@ -57,9 +59,10 @@ public class OwnerLeadResponseMapper {
     }
 
     public LeadActivityResponse toActivity(LeadActivityView activity) {
-        return new LeadActivityResponse(activity.type(), activity.actorUserId(), activity.fromStatus(),
-                activity.toStatus(), activity.fromAssigneeId(), activity.toAssigneeId(), activity.note(),
-                activity.nextActionAt(), activity.occurredAt());
+        return new LeadActivityResponse(activity.type(), activity.actorUserId(), activity.actorName(),
+                activity.fromStatus(), activity.toStatus(), activity.fromAssigneeId(), activity.fromAssigneeName(),
+                activity.toAssigneeId(), activity.toAssigneeName(), activity.note(), activity.nextActionAt(),
+                activity.occurredAt());
     }
 
     public LeadNoteResponse toNote(LeadNoteResult result) {
@@ -68,6 +71,6 @@ public class OwnerLeadResponseMapper {
 
     public SaleTerritoryResponse toTerritory(SaleTerritoryView territory) {
         return new SaleTerritoryResponse(territory.wardCode(), territory.wardName(), territory.wardType(),
-                territory.userId(), territory.assignedAt());
+                territory.userId(), territory.userName(), territory.assignedAt());
     }
 }

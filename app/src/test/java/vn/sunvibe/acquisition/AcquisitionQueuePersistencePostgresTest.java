@@ -230,6 +230,24 @@ class AcquisitionQueuePersistencePostgresTest {
 		assertEquals(0, none.totalElements());
 	}
 
+	/** acquisition-owner-lead-queue-ui C-21: the code is an exact match and combines with the other filters by AND. */
+	@Test
+	void search_byRequestCode_returnsOnlyThatLeadAndCombinesWithAnd() {
+		Dataset data = searchDataset();
+		String code = data.middle().getRequestCode().getValue();
+
+		PageResult<OwnerLead> found = leads.search(criteria(null, Set.of(), null, code), 0, 10);
+		PageResult<OwnerLead> ofItsHolder = leads.search(criteria(SALE_A, Set.of(), WARD_2, code), 0, 10);
+		PageResult<OwnerLead> ofSomeoneElse = leads.search(criteria(SALE_B, Set.of(), null, code), 0, 10);
+		PageResult<OwnerLead> unknown = leads.search(criteria(null, Set.of(), null, "SV-ZZZZ-ZZZZ"), 0, 10);
+
+		assertEquals(ids(data.middle()), ids(found));
+		assertEquals(1, found.totalElements());
+		assertEquals(ids(data.middle()), ids(ofItsHolder));
+		assertEquals(0, ofSomeoneElse.totalElements());
+		assertEquals(0, unknown.totalElements());
+	}
+
 	@Test
 	void search_paging_returnsTheFirstMiddleAndLastPagesAndAnEmptyPageBeyond() {
 		Dataset data = searchDataset();
@@ -436,7 +454,13 @@ class AcquisitionQueuePersistencePostgresTest {
 	}
 
 	private static LeadSearchCriteria criteria(String assignedUserId, Set<OwnerLeadStatus> statuses, String wardCode) {
-		return new LeadSearchCriteria(Optional.ofNullable(assignedUserId), statuses, Optional.ofNullable(wardCode));
+		return criteria(assignedUserId, statuses, wardCode, null);
+	}
+
+	private static LeadSearchCriteria criteria(String assignedUserId, Set<OwnerLeadStatus> statuses, String wardCode,
+			String requestCode) {
+		return new LeadSearchCriteria(Optional.ofNullable(assignedUserId), statuses, Optional.ofNullable(wardCode),
+				Optional.ofNullable(requestCode));
 	}
 
 	private static List<String> ids(OwnerLead... leads) {

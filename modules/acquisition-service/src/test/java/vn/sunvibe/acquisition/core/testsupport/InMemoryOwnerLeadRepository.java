@@ -94,6 +94,8 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
                 .filter(lead -> criteria.assignedUserId().map(user -> user.equals(lead.getAssignedUserId())).orElse(true))
                 .filter(lead -> criteria.statuses().isEmpty() || criteria.statuses().contains(lead.getStatus()))
                 .filter(lead -> criteria.wardCode().map(ward -> ward.equals(lead.getWardCode())).orElse(true))
+                .filter(lead -> criteria.requestCode()
+                        .map(code -> code.equals(lead.getRequestCode().getValue())).orElse(true))
                 .sorted(Comparator.comparing(OwnerLead::getCreatedAt).reversed()
                         .thenComparing(lead -> lead.getId().getValue(), Comparator.reverseOrder()))
                 .toList();

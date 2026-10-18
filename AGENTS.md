@@ -17,8 +17,15 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - E2E seed accounts (local DB only; DATABASE_URL is a libpq URL such as postgresql://sunvibe@localhost:5432/sunvibe,
   not the JDBC DB_URL): scripts/dev/seed-e2e-accounts.sql, run with
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v target=local -v customer_password="$E2E_CUSTOMER_PASSWORD"
-  -v sale_password="$E2E_SALE_PASSWORD" -f scripts/dev/seed-e2e-accounts.sql (re-run resets passwords and roles),
-  then npm run e2e in sunvibe-ui with the same env vars. Never commit the passwords.
+  -v sale_password="$E2E_SALE_PASSWORD" -v leader_password="$E2E_LEADER_PASSWORD"
+  -v admin_password="$E2E_ADMIN_PASSWORD" -f scripts/dev/seed-e2e-accounts.sql (re-run resets passwords and roles;
+  creates the CUSTOMER, SALE, SALE_LEADER 0900000103 and ADMIN 0900000104 accounts),
+  then npm run e2e in sunvibe-ui with the same env vars. Never commit the passwords. Both seed scripts refuse a
+  server that is not on this machine (psql host other than localhost, 127.0.0.1, ::1 or a socket), even with target=local.
+- E2E lead fixtures (local DB only; run AFTER the accounts seed, which it needs): ten owner leads, one territory,
+  fixed ids: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v target=local -f scripts/dev/seed-e2e-owner-leads.sql
+  (idempotent: deletes and re-inserts only its own fixture rows). `npm run e2e:workspace` in sunvibe-ui (the lead
+  queue workspace) uses both seeds.
 - Export API contract: ./gradlew exportOpenApi -> api/openapi.json (commit it). Swagger UI (local): http://localhost:8081/swagger-ui/index.html
 
 ## Modules

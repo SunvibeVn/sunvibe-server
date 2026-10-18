@@ -6,11 +6,16 @@ import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Persistence of user accounts. Every lookup ignores soft-deleted accounts, so
- * their phone number, e-mail and ID card number can be registered again.
+ * their phone number, e-mail and ID card number can be registered again, except
+ * {@link #findFullNamesByIds} (acquisition-owner-lead-queue-ui C-35), which keeps the names of staff who left.
  */
 public interface UserDomainRepository {
 
@@ -53,4 +58,18 @@ public interface UserDomainRepository {
      * @return true if the role was removed, false if the account did not hold it
      */
     boolean removeRole(UserId userId, RoleName role);
+
+    /**
+     * Accounts that may sign in (not soft-deleted, status not in {@code AppUser.SIGN_IN_BLOCKED_STATUSES}) and hold at
+     * least one of the given roles: one row per account and matching role, so an account with two matching roles
+     * appears twice. Only the matching roles are listed, never the account's others. The accounts are ordered by
+     * {@link StaffAccountRow#nameOrder()} and cut to the first {@code limit} accounts (not rows).
+     */
+    List<StaffAccountRow> findSignInAbleByAnyRole(Set<String> roleNames, int limit);
+
+    /**
+     * The full name of each account with one of these ids, including soft-deleted, locked and role-less accounts.
+     * Unknown ids are absent. Empty input returns an empty map without a query.
+     */
+    Map<String, String> findFullNamesByIds(Collection<String> ids);
 }

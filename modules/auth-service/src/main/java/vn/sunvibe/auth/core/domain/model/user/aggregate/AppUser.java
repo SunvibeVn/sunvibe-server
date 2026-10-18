@@ -10,6 +10,8 @@ import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
 
@@ -231,13 +233,19 @@ public class AppUser {
     }
 
     /**
+     * Statuses that stop an account from signing in or being issued credentials. Shared with the staff queries
+     * (e.g. the owner lead assignee list), so a list and {@link #canAuthenticate()} cannot disagree.
+     * An {@code EnumSet} view: {@code contains(null)} is false, as the old comparison chain was.
+     */
+    public static final Set<UserStatus> SIGN_IN_BLOCKED_STATUSES =
+            Collections.unmodifiableSet(EnumSet.of(UserStatus.LOCK, UserStatus.TERMINATED, UserStatus.DELETED));
+
+    /**
      * Whether this account may sign in or be issued credentials.
      * A locked, terminated or deleted account may not; any other status may.
      */
     public boolean canAuthenticate() {
-        return userStatus != UserStatus.LOCK
-                && userStatus != UserStatus.TERMINATED
-                && userStatus != UserStatus.DELETED;
+        return !SIGN_IN_BLOCKED_STATUSES.contains(userStatus);
     }
 
     /** Soft-deletes the account. */

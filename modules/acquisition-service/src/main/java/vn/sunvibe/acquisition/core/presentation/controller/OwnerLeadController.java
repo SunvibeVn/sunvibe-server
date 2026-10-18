@@ -30,9 +30,11 @@ import vn.sunvibe.acquisition.core.application.query.LeadListQuery;
 import vn.sunvibe.acquisition.core.application.query.LeadScope;
 import vn.sunvibe.acquisition.core.application.usecase.OwnerLeadCommandUseCase;
 import vn.sunvibe.acquisition.core.application.usecase.OwnerLeadQueryUseCase;
+import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
+import vn.sunvibe.acquisition.core.domain.model.lead.RequestCode;
 import vn.sunvibe.acquisition.core.presentation.converter.LeadViewerConverter;
 import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadRequestMapper;
 import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseMapper;
@@ -107,6 +109,19 @@ public class OwnerLeadController {
                     schema = @Schema(maxLength = 10))
             @RequestParam(name = "wardCode", required = false)
             @Size(max = 10, message = "Ward code must be at most 10 characters.") String wardCode,
+            @Parameter(description = "Find one lead by its request code, SV-XXXX-XXXX. Case and outer spaces are "
+                    + "ignored. Works with every scope and returns the lead only when the caller may see it in that "
+                    + "scope; a code that is unknown and a code the caller may not see give the same empty page. A "
+                    + "value that is not SV-XXXX-XXXX in the request-code alphabet gives 400 VALIDATION_FAILED on "
+                    + "field requestCode. An empty value also gives 400, so clients omit the parameter",
+                    example = "SV-AB2C-DE3F")
+            @RequestParam(name = "requestCode", required = false) String requestCode,
+            @Parameter(description = "Keep only the leads assigned to this user. Only with scope=all (SALE_LEADER, "
+                    + "SALES_MANAGER, ADMIN); another scope gives 400. An id nobody holds gives an empty page. "
+                    + "An empty value gives 400, so clients omit the parameter",
+                    schema = @Schema(minLength = 1, maxLength = 26))
+            @RequestParam(name = "assigneeUserId", required = false)
+            @Size(min = 1, max = 26, message = "Assignee must be 1 to 26 characters.") String assigneeUserId,
             @Parameter(description = "Zero-based page number")
             @RequestParam(name = "page", defaultValue = "0")
             @Min(value = 0, message = "Page must be 0 or more.") int page,
@@ -115,6 +130,13 @@ public class OwnerLeadController {
             @Min(value = 1, message = "Size must be from 1 to 100.")
             @Max(value = 100, message = "Size must be from 1 to 100.") int size) {
 
+        // Check order of this call (acquisition-owner-lead-queue-ui spec 4.3): the format of every parameter first
+        // (400, the annotations above and the request code here), then the SALE scope rule (403), then the
+        // assignee (400)
+        // A malformed request code throws InvalidIntakeValueException (field requestCode): the intake value handler
+        // of AcquisitionExceptionHandler answers the 400, not the lead command handler.
+        String canonicalRequestCode = requestCode == null ? null
+                : RequestCode.of(requestCode.strip().toUpperCase(Locale.ROOT)).getValue();
         LeadViewer viewer = viewer();
         LeadScope leadScope = LeadScope.valueOf(scope.toUpperCase(Locale.ROOT));
         // acquisition-owner-lead-queue US-2 AC-1: a SALE works only the leads assigned to them, so asking for the
@@ -122,11 +144,17 @@ public class OwnerLeadController {
         if (viewer.access() == LeadAccess.OWN && leadScope != LeadScope.MINE) {
             throw new AccessDeniedException("A SALE may only list the leads assigned to them.");
         }
+        // acquisition-owner-lead-queue-ui C-27: picking an assignee is a view of the whole queue, so any other scope
+        // refuses it
+        if (assigneeUserId != null && leadScope != LeadScope.ALL) {
+            throw new InvalidLeadCommandException("assigneeUserId", "Assignee can only be used with scope all.");
+        }
         // An empty status parameter converts to null: it filters nothing
         Set<OwnerLeadStatus> statuses = status == null ? Set.of()
                 : status.stream().filter(Objects::nonNull).collect(Collectors.toSet());
 
-        LeadListQuery query = new LeadListQuery(leadScope, statuses, wardCode, page, size);
+        LeadListQuery query = new LeadListQuery(leadScope, statuses, wardCode, canonicalRequestCode, assigneeUserId,
+                page, size);
         return ResponseEntity.ok(responseMapper.toPage(queryUseCase.list(viewer, query)));
     }
 

@@ -15,16 +15,18 @@ import java.util.List;
  * One lead as a staff member who may see it opens it (acquisition-owner-lead-queue spec 6): the summary fields plus
  * the contact data, address, position, price and the rest of the form, the consent (no hashes), the duplicate
  * candidates the viewer can see and the history oldest first. {@code duplicateOfLeadId} is null unless the viewer can
- * see that lead; position and price are null when the owner gave none. Never the submission snapshot or a hash.
+ * see that lead; position and price are null when the owner gave none; {@code assignedUserName} is null when
+ * nobody holds the lead or the id has no user row. Never the submission snapshot or a hash.
  */
 public record OwnerLeadDetail(String id, String requestCode, OwnerLeadStatus status, OwnerLeadIntent intent,
                               String contactName, String provinceCode, String wardCode, String wardName,
-                              OwnerLeadPropertyType propertyType, String assignedUserId, Instant nextActionAt,
-                              boolean possibleDuplicate, Instant createdAt, long version, String phone, String email,
-                              String addressDetail, BigDecimal latitude, BigDecimal longitude,
-                              AskingPriceView askingPrice, LocalDate availableFrom, String notes,
-                              String preferredCallbackTime, OwnerLeadSource source, String duplicateOfLeadId,
-                              String closeReason, ConsentView consent,
+                              OwnerLeadPropertyType propertyType, String assignedUserId,
+                              String assignedUserName, Instant nextActionAt, boolean possibleDuplicate,
+                              Instant createdAt, long version, String phone, String email, String addressDetail,
+                              BigDecimal latitude, BigDecimal longitude, AskingPriceView askingPrice,
+                              LocalDate availableFrom, String notes, String preferredCallbackTime,
+                              OwnerLeadSource source, String duplicateOfLeadId, String closeReason,
+                              ConsentView consent,
                               List<DuplicateCandidateView> duplicateCandidates, List<LeadActivityView> activities) {
 
     /** The price the owner hopes to get, in whole VND per unit. */

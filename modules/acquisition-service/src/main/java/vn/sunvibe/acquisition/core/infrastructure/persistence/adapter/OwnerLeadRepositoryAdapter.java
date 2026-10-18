@@ -87,6 +87,10 @@ public class OwnerLeadRepositoryAdapter implements OwnerLeadDomainRepository {
             String wardCode = criteria.wardCode().get();
             filters = filters.and((root, query, cb) -> cb.equal(root.get("wardCode"), wardCode));
         }
+        if (criteria.requestCode().isPresent()) {
+            String requestCode = criteria.requestCode().get();
+            filters = filters.and((root, query, cb) -> cb.equal(root.get("requestCode"), requestCode));
+        }
         // The id breaks the tie between leads created at the same instant, so the pages never overlap
         Page<OwnerLeadEntity> found = jpaRepository.findAll(filters,
                 PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))));

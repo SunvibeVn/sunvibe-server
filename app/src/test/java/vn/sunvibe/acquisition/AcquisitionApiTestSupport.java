@@ -102,13 +102,18 @@ final class AcquisitionApiTestSupport {
 
 	/** Saved through the auth repository; PENDING keeps the phone unverified. The password is kept for logIn. */
 	TestUser createUser(UserStatus status, String... roles) {
+		return createUser("W9 " + String.join(" ", roles), status, roles);
+	}
+
+	/** Same, with the full name the staff views will show. */
+	TestUser createUser(String fullName, UserStatus status, String... roles) {
 		String username = "08" + String.format("%08d", USERNAME_SEQUENCE.getAndIncrement());
 		String password = UUID.randomUUID().toString();
 		Instant now = AppClock.currentUTC();
 
 		AppUser user = AppUser.create(
 				UserId.create(ulidGenerator.generateId()),
-				"W9 " + String.join(" ", roles),
+				fullName,
 				Username.create(username),
 				null,
 				Password.create(passwordEncoder.encode(password)),
