@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * Builds, clears and reads the refresh cookie of the browser session. It is HttpOnly (not readable by scripts),
  * SameSite=Strict, host-only (no Domain, so no sibling host receives it) and only sent to
- * {@link #PATH}. The legacy token cookies stay with {@link CookieService}.
+ * {@link #PATH}.
  */
 @Service
 public class SessionCookieService {

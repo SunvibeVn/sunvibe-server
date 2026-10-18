@@ -8,7 +8,7 @@ import vn.sunvibe.auth.core.presentation.validation.user.constraint.ConfirmPassw
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
 
 /**
- * Body of {@code POST /api/users/command/register}.
+ * Body of {@code POST /api/v1/auth/registration}.
  */
 @Builder
 @ConfirmPasswordMatch(
@@ -47,7 +47,7 @@ public record UserRegisterRequest(
         @NotNull(message = "Confirm password is mandatory.")
         String confirmPassword,
 
-        // Issued by POST /api/auth/registration/phone/verify; proves the phone number belongs to the registrant.
+        // Issued by POST /api/v1/auth/registration/phone/verify-code; proves the phone number belongs to the registrant.
         @Size(max = 100, message = "At most 100 characters in length.")
         String registrationToken
 

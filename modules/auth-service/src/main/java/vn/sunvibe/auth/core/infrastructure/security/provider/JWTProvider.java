@@ -6,15 +6,12 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.WebUtils;
 import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
@@ -46,20 +43,16 @@ public class JWTProvider implements AccessTokenIssuerPort {
 
     private final SecretKey signingKey;
     private final Duration lifetime;
-    private final String jwtCookie;
 
     /**
      * @param jwtSecretKey          base64-encoded HMAC key, at least 256 bits
      * @param jwtExpirationMinutes  lifetime of an access token
-     * @param jwtCookie             name of the HttpOnly cookie that may carry the token
      */
     public JWTProvider(@Value("${app.jwt.secret}") String jwtSecretKey,
-                       @Value("${app.jwt.expiration.minutes}") long jwtExpirationMinutes,
-                       @Value("${app.jwt.jwtCookieName}") String jwtCookie) {
+                       @Value("${app.jwt.expiration.minutes}") long jwtExpirationMinutes) {
         // Always HS256, whatever the key length
         this.signingKey = new SecretKeySpec(Decoders.BASE64.decode(jwtSecretKey), "HmacSHA256");
         this.lifetime = Duration.ofMinutes(jwtExpirationMinutes);
-        this.jwtCookie = jwtCookie;
     }
 
     /**
@@ -112,12 +105,6 @@ public class JWTProvider implements AccessTokenIssuerPort {
             log.warn("Rejected invalid access token: {}", exception.getMessage());
         }
         return Optional.empty();
-    }
-
-    /** The access token from its HttpOnly cookie, or null. */
-    public String getJwtFromCookies(HttpServletRequest request) {
-        Cookie cookie = WebUtils.getCookie(request, jwtCookie);
-        return cookie != null ? cookie.getValue() : null;
     }
 
 }

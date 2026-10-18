@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 /**
- * Body of {@code POST /api/auth/forgot-password/sms}.
+ * Body of {@code POST /api/v1/auth/password-reset/sms}.
  */
 public record PasswordForgotSmsRequest(
         @NotBlank(message = "Phone number is required.")

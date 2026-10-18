@@ -125,7 +125,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     /**
      * Matches the way Spring MVC and Spring Security route: a {@link PathPattern} on the
      * parsed path, with segments decoded as UTF-8 and {@code ;...} parameters dropped.
-     * Matching the raw URI would let {@code /api/auth/log%69n} skip the limit, and the
+     * Matching the raw URI would let {@code /api/v1/auth/log%69n} skip the limit, and the
      * request's character encoding comes from the client, so it is never used.
      * Duplicate slashes are merged first, so {@code /api//auth/login} is counted too
      * (the firewall refuses it anyway; counting more is the safe side).

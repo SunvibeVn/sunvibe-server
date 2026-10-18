@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 /**
- * Body of {@code POST /api/auth/registration/phone/send}.
+ * Body of {@code POST /api/v1/auth/registration/phone/send-code}.
  */
 public record RegistrationPhoneSendRequest(
         @NotNull(message = "Phone numbers is mandatory.")

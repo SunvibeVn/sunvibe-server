@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 
 /**
- * Body of {@code POST /api/auth/verification/{phone|email}/confirm}.
+ * Body of {@code POST /api/v1/me/verification/{phone|email}/confirm-code}.
  */
 public record VerificationConfirmRequest(
         @NotBlank(message = "Verification code is required.")

@@ -57,7 +57,7 @@ import vn.sunvibe.shared.time.AppClock;
  * ownership of the named owner in the same transaction. The API is unchanged, so the cases of the sections above
  * are untouched; the units and ownership section below adds three.
  * <p>
- * Users are created through the auth domain repository and log in through {@code POST /api/auth/login},
+ * Users are created through the auth domain repository and log in through {@code POST /api/v1/auth/login},
  * so every request carries a real access token. Tokens and passwords are never printed.
  * <p>
  * Every 500 answers the same {@code INTERNAL_ERROR} body, so those tests also check the server log for the
@@ -140,7 +140,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, countIds("rule_categories", List.of(UNKNOWN_MASTER_ID)));
 		assertEquals(0, countIds("amenity_types", List.of(UNKNOWN_MASTER_ID)));
 
-		// 8 logins + 2 in the login_* tests: within the 10 per minute per IP limit on POST /api/auth/login
+		// 8 logins + 2 in the login_* tests: within the 10 per minute per IP limit on POST /api/v1/auth/login
 		admin = logIn(createUser(UserStatus.ACTIVE, "ADMIN"));
 		superAdmin = logIn(createUser(UserStatus.ACTIVE, "SUPER_ADMIN"));
 		sale = logIn(createUser(UserStatus.ACTIVE, "SALE"));
@@ -567,7 +567,7 @@ class PropertyCreateCharacterizationTest {
 	@Test
 	void login_missingCredentials_returns400ValidationEnvelope() throws Exception {
 		HttpResponse<String> response = http.send(
-				HttpRequest.newBuilder(uri("/api/auth/login"))
+				HttpRequest.newBuilder(uri("/api/v1/auth/login"))
 						.timeout(REQUEST_TIMEOUT)
 						.header("Content-Type", "application/json")
 						.POST(HttpRequest.BodyPublishers.ofString("{}"))
@@ -585,7 +585,7 @@ class PropertyCreateCharacterizationTest {
 	@Test
 	void login_malformedJson_returns400() throws Exception {
 		HttpResponse<String> response = http.send(
-				HttpRequest.newBuilder(uri("/api/auth/login"))
+				HttpRequest.newBuilder(uri("/api/v1/auth/login"))
 						.timeout(REQUEST_TIMEOUT)
 						.header("Content-Type", "application/json")
 						.POST(HttpRequest.BodyPublishers.ofString("{"))
@@ -740,7 +740,7 @@ class PropertyCreateCharacterizationTest {
 	/** The same user with an access token in place of the password. */
 	private TestUser logIn(TestUser user) throws Exception {
 		HttpResponse<String> login = http.send(
-				HttpRequest.newBuilder(uri("/api/auth/login"))
+				HttpRequest.newBuilder(uri("/api/v1/auth/login"))
 						.timeout(REQUEST_TIMEOUT)
 						.header("Content-Type", "application/json")
 						.POST(HttpRequest.BodyPublishers.ofString(
@@ -749,7 +749,7 @@ class PropertyCreateCharacterizationTest {
 				HttpResponse.BodyHandlers.ofString());
 		// The login body holds the token, so it is never put in the failure message
 		assertEquals(200, login.statusCode(), "login failed for " + user + ", status " + login.statusCode());
-		String accessToken = json.readTree(login.body()).path("result").path("accessToken").asString();
+		String accessToken = json.readTree(login.body()).path("accessToken").asString();
 		assertFalse(accessToken.isBlank(), "login returned no access token for " + user);
 
 		return new TestUser(user.userId(), user.username(), accessToken);

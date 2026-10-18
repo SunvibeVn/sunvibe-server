@@ -4,8 +4,8 @@ package vn.sunvibe.auth.core.presentation.controller.v1;
 final class AuthV1ApiDocs {
 
     /**
-     * The per-IP limit of the rate limiter (auth-browser-session spec §3.8): each rate-limited operation shares the
-     * limit of its legacy pair; the limiter answers before the controller runs.
+     * The per-IP limit of the rate limiter (auth-browser-session spec §3.8): each rate-limited operation has its own
+     * rule in {@code app.security.rate-limit.rules}; the limiter answers before the controller runs.
      */
     static final String RATE_LIMITED = "RATE_LIMITED: too many requests from this IP address; "
             + "Retry-After gives the seconds to wait";

@@ -4,8 +4,8 @@ import java.io.Serial;
 
 /**
  * The account is locked or terminated, so the action (a password reset) is
- * refused. A kind of {@link AuthenticationFailedException}, so legacy handlers
- * keep answering it with the same 401.
+ * refused. A kind of {@link AuthenticationFailedException}; the v1 auth handler answers it with its own
+ * ACCOUNT_DISABLED 401.
  */
 public class AccountDisabledException extends AuthenticationFailedException {
 

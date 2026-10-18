@@ -28,8 +28,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Authenticates a request from its access token ({@code Authorization: Bearer}
- * header or HttpOnly cookie). A missing or invalid token simply leaves the
+ * Authenticates a request from its access token, read only from the
+ * {@code Authorization: Bearer} header (auth-browser-session BR-5: the API neither sets nor reads an
+ * access-token cookie). A missing or invalid token simply leaves the
  * request anonymous; Spring Security then decides whether the endpoint allows it.
  * Public paths ({@link #PUBLIC_PATHS}) are skipped.
  */
@@ -47,7 +48,7 @@ public class JWTRequestFilter extends OncePerRequestFilter {
      * Paths the filter skips: they never need an access token. Nothing under {@code /api/v1/auth/**} takes one
      * (auth-browser-session spec §3.9).
      */
-    public static final Set<String> PUBLIC_PATHS = Set.of("/api/auth/login", "/api/auth/logout", "/api/auth/refresh-token", "/api/users/command/register", "/api/v1/auth/**", "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**");
+    public static final Set<String> PUBLIC_PATHS = Set.of("/api/v1/auth/**", "/actuator/**", "/swagger-ui/**", "/v3/api-docs/**");
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
@@ -120,17 +121,13 @@ public class JWTRequestFilter extends OncePerRequestFilter {
         return Optional.of(new UsernamePasswordAuthenticationToken(principal, null, user.getAuthorities()));
     }
 
-    /**
-     * The access token from {@code Authorization: Bearer ...} (SPA/mobile), or
-     * else from the HttpOnly access-token cookie set at login/refresh (browser).
-     */
+    /** The access token from {@code Authorization: Bearer ...}; a cookie never carries it. */
     Optional<String> getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(JWTProvider.TOKEN_PREFIX)) {
             return Optional.of(bearerToken.substring(JWTProvider.TOKEN_PREFIX.length()));
         }
-        String cookieToken = jwtProvider.getJwtFromCookies(request);
-        return StringUtils.hasText(cookieToken) ? Optional.of(cookieToken) : Optional.empty();
+        return Optional.empty();
     }
 
 }

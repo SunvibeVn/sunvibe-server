@@ -63,8 +63,8 @@ import java.util.Set;
 /**
  * ADR-010 error bodies of the v1 auth endpoints (auth-browser-session spec §3.4): every body has a stable code, a fixed
  * English message that never quotes a submitted value or an exception message, the failing fields ({@code []} when
- * none) and the correlation id. The legacy {@link AuthExceptionHandler} comes right after this one and keeps answering
- * the legacy controllers. Spring Security exceptions are rethrown so the chain's 401/403 bodies stay.
+ * none) and the correlation id. {@link AuthExceptionHandler} comes right after this one and answers the role admin
+ * API. Spring Security exceptions are rethrown so the chain's 401/403 bodies stay.
  */
 @RestControllerAdvice(basePackages = "vn.sunvibe.auth.core.presentation.controller.v1")
 @Order(Ordered.HIGHEST_PRECEDENCE)

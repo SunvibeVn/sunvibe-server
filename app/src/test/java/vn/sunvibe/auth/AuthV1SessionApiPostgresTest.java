@@ -389,22 +389,6 @@ class AuthV1SessionApiPostgresTest {
 				"the user's session has ended");
 	}
 
-	// ==================== legacy ====================
-
-	/** W10-1: the old FE keeps working; the legacy body is unchanged. */
-	@Test
-	void legacyLogin_wrongPassword_keepsTheOldBody() throws Exception {
-		Created user = api.createUser(UserStatus.ACTIVE, "CUSTOMER");
-
-		HttpResponse<String> response = api.post("/api/auth/login", null, null, null,
-				api.loginBody(user.username(), "Wrong-password-1"));
-
-		assertEquals(401, response.statusCode());
-		JsonNode body = api.body(response);
-		assertEquals(401, body.path("code").asInt(), response.body());
-		assertTrue(body.has("errorTime"), response.body());
-	}
-
 	// ==================== Helpers ====================
 
 	private HttpResponse<String> refreshQuietly(String cookie) {

@@ -44,45 +44,47 @@ class RateLimitRulesConfigTest {
 	}
 
 	/**
-	 * Auth-browser-session spec §3.1 rate-limit column and §3.8 (W10-11): each v1 path has the limit and window of its
-	 * legacy pair and shares its bucket. Columns: bucket, legacy path, v1 path, limit, window.
+	 * Auth-browser-session spec §3.1 rate-limit column and §3.8 (W10-11): each v1 path keeps the limit, window and bucket
+	 * it had while its legacy pair existed. Columns: bucket, v1 path, limit, window.
 	 */
-	private static final List<List<String>> AUTH_PAIRS = List.of(
-			List.of("login", "/api/auth/login", "/api/v1/auth/login", "10", "1m"),
-			List.of("refresh", "/api/auth/refresh-token", "/api/v1/auth/session/refresh", "30", "1m"),
-			List.of("registration-send-code", "/api/auth/registration/phone/send",
-					"/api/v1/auth/registration/phone/send-code", "5", "1h"),
-			List.of("registration-verify-code", "/api/auth/registration/phone/verify",
-					"/api/v1/auth/registration/phone/verify-code", "10", "15m"),
-			List.of("registration", "/api/users/command/register", "/api/v1/auth/registration", "5", "1h"),
-			List.of("reset-email", "/api/auth/forgot-password", "/api/v1/auth/password-reset/email", "5", "1h"),
-			List.of("reset-sms", "/api/auth/forgot-password/sms", "/api/v1/auth/password-reset/sms", "5", "1h"),
-			List.of("reset-complete", "/api/auth/reset-password", "/api/v1/auth/password-reset/complete", "10", "15m"),
-			List.of("verify-phone-send", "/api/auth/verification/phone/send",
-					"/api/v1/me/verification/phone/send-code", "5", "1h"),
-			List.of("verify-email-send", "/api/auth/verification/email/send",
-					"/api/v1/me/verification/email/send-code", "5", "1h"),
-			List.of("verify-phone-confirm", "/api/auth/verification/phone/confirm",
-					"/api/v1/me/verification/phone/confirm-code", "10", "15m"),
-			List.of("verify-email-confirm", "/api/auth/verification/email/confirm",
-					"/api/v1/me/verification/email/confirm-code", "10", "15m"),
-			List.of("password-change", "/api/auth/change-password", "/api/v1/me/password/change", "10", "15m"));
+	private static final List<List<String>> AUTH_RULES = List.of(
+			List.of("login", "/api/v1/auth/login", "10", "1m"),
+			List.of("refresh", "/api/v1/auth/session/refresh", "30", "1m"),
+			List.of("registration-send-code", "/api/v1/auth/registration/phone/send-code", "5", "1h"),
+			List.of("registration-verify-code", "/api/v1/auth/registration/phone/verify-code", "10", "15m"),
+			List.of("registration", "/api/v1/auth/registration", "5", "1h"),
+			List.of("reset-email", "/api/v1/auth/password-reset/email", "5", "1h"),
+			List.of("reset-sms", "/api/v1/auth/password-reset/sms", "5", "1h"),
+			List.of("reset-complete", "/api/v1/auth/password-reset/complete", "10", "15m"),
+			List.of("verify-phone-send", "/api/v1/me/verification/phone/send-code", "5", "1h"),
+			List.of("verify-email-send", "/api/v1/me/verification/email/send-code", "5", "1h"),
+			List.of("verify-phone-confirm", "/api/v1/me/verification/phone/confirm-code", "10", "15m"),
+			List.of("verify-email-confirm", "/api/v1/me/verification/email/confirm-code", "10", "15m"),
+			List.of("password-change", "/api/v1/me/password/change", "10", "15m"));
 
 	/** W10-11 */
 	@Test
-	void v1AuthRules_matchTheirLegacyPairs() throws IOException {
+	void v1AuthRules_keepTheirLimitsAndBuckets() throws IOException {
 		List<String> rules = rulesWithBucket(load("application.yml"));
 
-		for (List<String> pair : AUTH_PAIRS) {
-			String bucket = pair.get(0);
-			String expectedLegacy = "POST " + pair.get(1) + " " + pair.get(3) + " " + pair.get(4) + " " + bucket;
-			String expectedV1 = "POST " + pair.get(2) + " " + pair.get(3) + " " + pair.get(4) + " " + bucket;
-			assertTrue(rules.contains(expectedLegacy), expectedLegacy + " in " + rules);
-			assertTrue(rules.contains(expectedV1), expectedV1 + " in " + rules);
-			assertEquals(2, rules.stream().filter(rule -> rule.endsWith(" " + bucket)).count(),
-					"bucket " + bucket + " is shared by exactly its pair");
-			assertEquals(1, rules.stream().filter(rule -> rule.contains(" " + pair.get(2) + " ")).count(),
-					pair.get(2) + " is declared once");
+		for (List<String> rule : AUTH_RULES) {
+			String bucket = rule.get(0);
+			String expected = "POST " + rule.get(1) + " " + rule.get(2) + " " + rule.get(3) + " " + bucket;
+			assertTrue(rules.contains(expected), expected + " in " + rules);
+			assertEquals(1, rules.stream().filter(r -> r.endsWith(" " + bucket)).count(),
+					"bucket " + bucket + " is used by its v1 path only");
+			assertEquals(1, rules.stream().filter(r -> r.contains(" " + rule.get(1) + " ")).count(),
+					rule.get(1) + " is declared once");
+		}
+	}
+
+	/** W10-60: the legacy auth paths are gone, and so are their rules. */
+	@Test
+	void legacyAuthPaths_haveNoRule() throws IOException {
+		List<String> rules = rulesWithBucket(load("application.yml"));
+
+		for (String prefix : List.of("/api/auth/", "/api/users/command/", "/api/user/query/")) {
+			assertTrue(rules.stream().noneMatch(rule -> rule.split(" ")[1].startsWith(prefix)), prefix + " in " + rules);
 		}
 	}
 
@@ -91,8 +93,7 @@ class RateLimitRulesConfigTest {
 	void logoutLogoutAllAndMe_haveNoRule() throws IOException {
 		List<String> rules = rulesWithBucket(load("application.yml"));
 
-		for (String path : List.of("/api/v1/auth/session/logout", "/api/v1/me/sessions/logout-all", "/api/v1/me",
-				"/api/auth/logout", "/api/auth/logout-all")) {
+		for (String path : List.of("/api/v1/auth/session/logout", "/api/v1/me/sessions/logout-all", "/api/v1/me")) {
 			assertTrue(rules.stream().noneMatch(rule -> rule.split(" ")[1].equals(path)), path + " in " + rules);
 		}
 	}
