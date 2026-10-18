@@ -71,10 +71,8 @@ app:
   jwt:
     secret: ${JWT_SECRET}
     expiration:
-      # Short-lived on purpose: clients renew it silently via POST /api/auth/refresh-token
+      # Short-lived on purpose: clients renew it silently via POST /api/v1/auth/session/refresh
       minutes: 15
-    jwtCookieName: cookie-jwt
-    jwtRefreshCookieName: cookie-jwt-rf
     # Refresh token idle lifetime (7 days): unused this long, the session ends. Each refresh restarts it.
     jwtRefreshExpirationMs: 604800000
     # Absolute session lifetime (30 days) after login, however active the user is
@@ -122,35 +120,21 @@ app:
       # Per client IP (in-memory: per application instance). Behind a reverse proxy,
       # set server.forward-headers-strategy so the real client IP is used.
       enabled: true
-      # A legacy auth path and its /api/v1/ pair name the same bucket and share one allowance per IP while both
-      # exist, so the move does not double anyone's budget (auth-browser-session spec 3.8). Logout, logout-all and
-      # GET /api/v1/me have no limit, as before.
+      # Each auth rule names its bucket (auth-browser-session spec 3.8). Logout, logout-all and GET /api/v1/me
+      # have no limit.
       rules:
-        - { method: POST, path: /api/auth/login, limit: 10, window: 1m, bucket: login }
         - { method: POST, path: /api/v1/auth/login, limit: 10, window: 1m, bucket: login }
-        - { method: POST, path: /api/users/command/register, limit: 5, window: 1h, bucket: registration }
         - { method: POST, path: /api/v1/auth/registration, limit: 5, window: 1h, bucket: registration }
-        - { method: POST, path: /api/auth/forgot-password, limit: 5, window: 1h, bucket: reset-email }
         - { method: POST, path: /api/v1/auth/password-reset/email, limit: 5, window: 1h, bucket: reset-email }
-        - { method: POST, path: /api/auth/forgot-password/sms, limit: 5, window: 1h, bucket: reset-sms }
         - { method: POST, path: /api/v1/auth/password-reset/sms, limit: 5, window: 1h, bucket: reset-sms }
-        - { method: POST, path: /api/auth/registration/phone/send, limit: 5, window: 1h, bucket: registration-send-code }
         - { method: POST, path: /api/v1/auth/registration/phone/send-code, limit: 5, window: 1h, bucket: registration-send-code }
-        - { method: POST, path: /api/auth/registration/phone/verify, limit: 10, window: 15m, bucket: registration-verify-code }
         - { method: POST, path: /api/v1/auth/registration/phone/verify-code, limit: 10, window: 15m, bucket: registration-verify-code }
-        - { method: POST, path: /api/auth/verification/phone/send, limit: 5, window: 1h, bucket: verify-phone-send }
         - { method: POST, path: /api/v1/me/verification/phone/send-code, limit: 5, window: 1h, bucket: verify-phone-send }
-        - { method: POST, path: /api/auth/verification/email/send, limit: 5, window: 1h, bucket: verify-email-send }
         - { method: POST, path: /api/v1/me/verification/email/send-code, limit: 5, window: 1h, bucket: verify-email-send }
-        - { method: POST, path: /api/auth/verification/phone/confirm, limit: 10, window: 15m, bucket: verify-phone-confirm }
         - { method: POST, path: /api/v1/me/verification/phone/confirm-code, limit: 10, window: 15m, bucket: verify-phone-confirm }
-        - { method: POST, path: /api/auth/verification/email/confirm, limit: 10, window: 15m, bucket: verify-email-confirm }
         - { method: POST, path: /api/v1/me/verification/email/confirm-code, limit: 10, window: 15m, bucket: verify-email-confirm }
-        - { method: POST, path: /api/auth/reset-password, limit: 10, window: 15m, bucket: reset-complete }
         - { method: POST, path: /api/v1/auth/password-reset/complete, limit: 10, window: 15m, bucket: reset-complete }
-        - { method: POST, path: /api/auth/refresh-token, limit: 30, window: 1m, bucket: refresh }
         - { method: POST, path: /api/v1/auth/session/refresh, limit: 30, window: 1m, bucket: refresh }
-        - { method: POST, path: /api/auth/change-password, limit: 10, window: 15m, bucket: password-change }
         - { method: POST, path: /api/v1/me/password/change, limit: 10, window: 15m, bucket: password-change }
         # Public owner intake form (acquisition-owner-intake): 10 submissions per client IP per hour
         - { method: POST, path: /api/v1/public/owner-intake-requests, limit: 10, window: 1h }

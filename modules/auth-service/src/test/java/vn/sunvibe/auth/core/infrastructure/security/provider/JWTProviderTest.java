@@ -19,7 +19,7 @@ class JWTProviderTest {
 
     private static final String SECRET = "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=";
 
-    private final JWTProvider provider = new JWTProvider(SECRET, 60, "cookie-jwt");
+    private final JWTProvider provider = new JWTProvider(SECRET, 60);
 
     private static AppUser user(UserStatus status, Email email) {
         AppUser user = AppUser.create(UserId.create("id"), "Nguyen Van A", Username.create("0912345678"), email,
@@ -71,7 +71,7 @@ class JWTProviderTest {
 
     @Test
     void validateTokenAndGetJws_rejectsTokenSignedWithAnotherKey() {
-        JWTProvider other = new JWTProvider("HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=", 60, "cookie-jwt");
+        JWTProvider other = new JWTProvider("HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=", 60);
 
         assertTrue(provider.validateTokenAndGetJws(other.issue(user(UserStatus.ACTIVE, null))).isEmpty());
     }

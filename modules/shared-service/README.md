@@ -10,7 +10,6 @@ No business entities and no repositories here.
 |---|---|
 | `exception` | Base exceptions: `DomainException` (+ `BusinessRuleViolationException`, `ResourceNotFoundException`, `ValidationException`), `ApplicationException`, `BaseBusinessException`. Global HTTP mapping for `ApplicationException`, `ValidationException` and `BaseBusinessException` is in `vn.sunvibe.config.GlobalServerExceptionHandler` (`app`); module `*ExceptionHandler`s map the rest |
 | `dto.response.error` | Shared error format: `ErrorResponse`, `BaseErrorModel`, `ValidationError` |
-| `response` | `ApiResponse` (success envelope of the auth endpoints) |
 | `constant`, `constant.error` | `Status`, `SystemErrorMessage` string constants |
 | `crypto` | `CryptoService` (field encryption + blind index), `AesGcmCryptoService` (AES-256-GCM, HMAC-SHA256) |
 | `generator.id` | `IdGenerator` with `SnowflakeIdGenerator`, `UlidGenerator`, `UuidGenerator` (`@Qualifier` `Snowflake`, `Ulid`, `Uuid`) |

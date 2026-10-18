@@ -26,10 +26,9 @@ public record RateLimitProperties(@DefaultValue("true") boolean enabled, List<Ru
      * {@code method path}. Short bursts are allowed up to {@code limit}; the
      * allowance then refills evenly over the window (token bucket).
      * <p>
-     * Rules with the same {@code bucket} share one allowance per IP: while a legacy
-     * auth path and its {@code /api/v1/} pair both exist, calling either one uses the
-     * same budget, so the move does not double it (auth-browser-session spec §3.8).
-     * Without a bucket the rule has its own allowance.
+     * Rules with the same {@code bucket} share one allowance per IP: calling any of
+     * them uses the same budget (auth-browser-session spec §3.8). Without a bucket
+     * the rule has its own allowance.
      *
      * @param path   the path as Spring MVC routes it (a {@code PathPattern})
      * @param bucket optional name of the shared allowance; null when the rule has its own

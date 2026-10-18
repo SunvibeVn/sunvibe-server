@@ -31,15 +31,14 @@ import vn.sunvibe.auth.core.presentation.dto.request.auth.VerificationConfirmReq
 import vn.sunvibe.auth.core.presentation.dto.response.v1.CodeSentResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.MeResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.SessionResponse;
-import vn.sunvibe.auth.core.shared.service.CookieService;
 import vn.sunvibe.auth.core.shared.service.SessionCookieService;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 /**
  * The signed-in user's own account (auth-browser-session spec §3.1 rows 10-16): profile, phone and e-mail
  * verification, password change and signing out every device. Every endpoint needs the access token as
- * {@code Authorization: Bearer}; the security chain answers 401/403 itself with its own body. Each one calls the use
- * case of its legacy pair, which reads the current user from the security context.
+ * {@code Authorization: Bearer}; the security chain answers 401/403 itself with its own body. Each one calls a use
+ * case that reads the current user from the security context.
  */
 @RestController
 @RequestMapping("/api/v1/me")
@@ -57,7 +56,6 @@ public class MeController {
     private final AuthConverter authConverter;
     private final AuthV1Converter authV1Converter;
     private final SessionCookieService sessionCookies;
-    private final CookieService cookieService;
 
     /**
      * GET /api/v1/me
@@ -242,7 +240,7 @@ public class MeController {
         AuthResult result = passwordChangeUseCase.execute(authConverter.toPasswordChangeCommand(request, httpRequest));
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, sessionCookies.build(result.refreshToken()).toString())
-                .body(authV1Converter.toSessionResponse(result, cookieService.accessTokenTtl()));
+                .body(authV1Converter.toSessionResponse(result, authV1Converter.accessTokenTtl()));
     }
 
     /**

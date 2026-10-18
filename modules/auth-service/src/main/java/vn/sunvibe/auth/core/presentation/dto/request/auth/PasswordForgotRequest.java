@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
 
 /**
- * Body of {@code POST /api/auth/forgot-password}.
+ * Body of {@code POST /api/v1/auth/password-reset/email}.
  */
 @Builder
 public record PasswordForgotRequest(

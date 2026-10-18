@@ -3,8 +3,7 @@ package vn.sunvibe.auth.core.presentation.dto.response.auth;
 import java.time.Instant;
 
 /**
- * The phone number was proven; present the token to {@code POST /api/users/command/register} (legacy) or
- * {@code POST /api/v1/auth/registration}. The JSON body is the same on both paths.
+ * The phone number was proven; present the token to {@code POST /api/v1/auth/registration}.
  *
  * @param registrationToken single-use token bound to the verified phone number
  * @param expiresAt         when the token stops being accepted

@@ -6,7 +6,7 @@ import vn.sunvibe.auth.core.presentation.validation.user.constraint.ConfirmPassw
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
 
 /**
- * Body of {@code POST /api/auth/change-password}.
+ * Body of {@code POST /api/v1/me/password/change}.
  */
 @Builder
 @ConfirmPasswordMatch(

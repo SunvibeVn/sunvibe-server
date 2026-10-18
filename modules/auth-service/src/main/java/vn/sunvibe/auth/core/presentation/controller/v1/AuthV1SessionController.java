@@ -28,7 +28,6 @@ import vn.sunvibe.auth.core.presentation.converter.v1.AuthV1Converter;
 import vn.sunvibe.auth.core.presentation.dto.request.auth.LoginRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.SessionResponse;
 import vn.sunvibe.auth.core.shared.constant.AuthMessage;
-import vn.sunvibe.auth.core.shared.service.CookieService;
 import vn.sunvibe.auth.core.shared.service.RefreshOriginGuard;
 import vn.sunvibe.auth.core.shared.service.SessionCookieService;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -39,8 +38,8 @@ import java.util.List;
 /**
  * The browser session (auth-browser-session spec §3.1 rows 1-3): password login, refresh and logout. The access token
  * is returned in the body and sent back as {@code Authorization: Bearer}; the refresh token travels only in the
- * HttpOnly refresh cookie, which the browser sends to {@code /api/v1/auth/session} and nowhere else. The legacy
- * access-token cookie is never set here (ADR-001).
+ * HttpOnly refresh cookie, which the browser sends to {@code /api/v1/auth/session} and nowhere else. The access token
+ * is returned only in the response body, never in a cookie (ADR-001).
  * <p>
  * All three are public. Refresh and logout identify the session by the cookie alone, so they also require an allowed
  * {@code Origin} ({@link RefreshOriginGuard}), checked before anything is rotated or revoked.
@@ -58,7 +57,6 @@ public class AuthV1SessionController {
     private final AuthConverter authConverter;
     private final AuthV1Converter authV1Converter;
     private final SessionCookieService sessionCookies;
-    private final CookieService cookieService;
     private final RefreshOriginGuard originGuard;
 
     /**
@@ -179,6 +177,6 @@ public class AuthV1SessionController {
     private ResponseEntity<SessionResponse> withSession(AuthResult result) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, sessionCookies.build(result.refreshToken()).toString())
-                .body(authV1Converter.toSessionResponse(result, cookieService.accessTokenTtl()));
+                .body(authV1Converter.toSessionResponse(result, authV1Converter.accessTokenTtl()));
     }
 }

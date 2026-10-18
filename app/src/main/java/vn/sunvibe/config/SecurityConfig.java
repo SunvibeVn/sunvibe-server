@@ -49,18 +49,6 @@ public class SecurityConfig {
 
     // ── Public Endpoints ────────────────────────────────────────────
     private static final String[] PUBLIC_POST_ENDPOINTS = {
-            "/api/users/command/register",
-            // Phone verification before registration: the person has no account (and no token) yet
-            "/api/auth/registration/phone/send",
-            "/api/auth/registration/phone/verify",
-            "/api/auth/forgot-password",
-            "/api/auth/forgot-password/sms",
-            "/api/auth/reset-password",
-            "/api/auth/login",
-            // Called when the access token has expired, so it cannot require one
-            "/api/auth/refresh-token",
-            // Identifies the session by its refresh-token cookie; must work with an expired access token
-            "/api/auth/logout",
             // Owner intake form (acquisition-owner-intake): an owner without an account asks to be called back;
             // rate-limited per client IP
             "/api/v1/public/owner-intake-requests",
@@ -200,7 +188,7 @@ public class SecurityConfig {
 
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
 
-                // Logout is a regular endpoint (AuthController) that revokes the session's refresh tokens
+                // Logout is a regular endpoint (AuthV1SessionController) that revokes the session's refresh tokens
                 .logout(AbstractHttpConfigurer::disable);
 
         return http.build();

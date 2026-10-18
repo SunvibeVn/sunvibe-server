@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.presentation.converter.v1;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.query.auth.PasswordForgotResult;
@@ -22,6 +23,14 @@ public class AuthV1Converter {
 
     /** Value of {@link SessionResponse#tokenType()}. */
     static final String TOKEN_TYPE = "Bearer";
+
+    @Value("${app.jwt.expiration.minutes}")
+    private long accessTokenExpirationMinutes;
+
+    /** How long an access token stays valid: the {@code expiresIn} of every session body. */
+    public Duration accessTokenTtl() {
+        return Duration.ofMinutes(accessTokenExpirationMinutes);
+    }
 
     /**
      * Body of every v1 response that starts or refreshes a session: roles sorted by name, and never the

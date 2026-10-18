@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
 
 /**
- * Body of {@code POST /api/auth/reset-password}. The no-args constructor is
+ * Body of {@code POST /api/v1/auth/password-reset/complete}. The no-args constructor is
  * needed by Jackson to read the request body.
  */
 @Data

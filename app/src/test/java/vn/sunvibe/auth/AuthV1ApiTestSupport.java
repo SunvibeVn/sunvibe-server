@@ -31,7 +31,7 @@ import vn.sunvibe.shared.time.AppClock;
 
 /**
  * HTTP helpers for the {@code /api/v1/auth} and {@code /api/v1/me} end-to-end tests (auth-browser-session spec §10.1).
- * The user and login helpers are copied from {@link RoleAdminApiTest}, which stays as it is.
+ * The user and login helpers mirror those of {@link RoleAdminApiTest}.
  * <p>
  * Cookies are parsed from {@code Set-Cookie} and sent in a {@code Cookie} header by the test itself:
  * {@code java.net.CookieManager} never sends a Secure cookie to the plain-HTTP test server. Tokens, cookie values and

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static vn.sunvibe.auth.AuthV1ApiTestSupport.ORIGIN;
+import static vn.sunvibe.auth.AuthV1ApiTestSupport.REFRESH_COOKIE;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -351,7 +353,7 @@ class RoleAdminApiTest {
 		// StrongPassword: letters, digits and @$!%*?& only, upper, lower, digit and symbol
 		String password = "Aa1!" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
 		HttpResponse<String> response = http.send(
-				HttpRequest.newBuilder(uri("/api/users/command/register"))
+				HttpRequest.newBuilder(uri("/api/v1/auth/registration"))
 						.timeout(REQUEST_TIMEOUT)
 						.header("Content-Type", "application/json")
 						.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(Map.of(
@@ -360,7 +362,7 @@ class RoleAdminApiTest {
 						.build(),
 				HttpResponse.BodyHandlers.ofString());
 
-		assertEquals(200, response.statusCode(), "status " + response.statusCode());
+		assertEquals(201, response.statusCode(), "status " + response.statusCode());
 		String userId = jdbc.queryForObject("SELECT id FROM users WHERE username = ?", String.class, username);
 		assertEquals(Set.of("TENANT", "CUSTOMER"), dbRoles(userId));
 	}
@@ -422,7 +424,7 @@ class RoleAdminApiTest {
 
 	private Caller logIn(Created user) throws Exception {
 		HttpResponse<String> login = http.send(
-				HttpRequest.newBuilder(uri("/api/auth/login"))
+				HttpRequest.newBuilder(uri("/api/v1/auth/login"))
 						.timeout(REQUEST_TIMEOUT)
 						.header("Content-Type", "application/json")
 						.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(
@@ -430,18 +432,20 @@ class RoleAdminApiTest {
 						.build(),
 				HttpResponse.BodyHandlers.ofString());
 		assertEquals(200, login.statusCode(), "login failed, status " + login.statusCode());
-		String accessToken = json.readTree(login.body()).path("result").path("accessToken").asString();
+		String accessToken = json.readTree(login.body()).path("accessToken").asString();
 		String refreshCookie = login.headers().allValues("Set-Cookie").stream()
-				.filter(c -> c.startsWith("cookie-jwt-rf="))
+				.filter(c -> c.startsWith(REFRESH_COOKIE + "="))
 				.map(c -> c.substring(0, c.indexOf(';')))
 				.findFirst().orElseThrow();
 		return new Caller(user.userId(), user.username(), accessToken, refreshCookie);
 	}
 
+	/** Refresh checks the Origin (auth-browser-session spec §3.6), so the allowed one is sent. */
 	private Result refresh(Caller caller) throws Exception {
 		HttpResponse<String> response = http.send(
-				HttpRequest.newBuilder(uri("/api/auth/refresh-token"))
+				HttpRequest.newBuilder(uri("/api/v1/auth/session/refresh"))
 						.timeout(REQUEST_TIMEOUT)
+						.header("Origin", ORIGIN)
 						.header("Cookie", caller.refreshCookie())
 						.POST(HttpRequest.BodyPublishers.noBody())
 						.build(),

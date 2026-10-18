@@ -38,7 +38,7 @@ import vn.sunvibe.shared.time.AppClock;
 /**
  * Shared helpers of the acquisition API tests (end to end: {@code RANDOM_PORT}, {@link HttpClient}, real security
  * chain). The user helpers are copies of those of {@code PropertyCreateCharacterizationTest}: users are saved through
- * the auth domain repository and log in through {@code POST /api/auth/login}, so a staff call carries a real access
+ * the auth domain repository and log in through {@code POST /api/v1/auth/login}, so a staff call carries a real access
  * token. Tokens and passwords are never printed.
  */
 final class AcquisitionApiTestSupport {
@@ -127,7 +127,7 @@ final class AcquisitionApiTestSupport {
 	/** The same user with an access token in place of the password. */
 	TestUser logIn(TestUser user) throws Exception {
 		HttpResponse<String> login = http.send(
-				HttpRequest.newBuilder(uri("/api/auth/login"))
+				HttpRequest.newBuilder(uri("/api/v1/auth/login"))
 						.timeout(REQUEST_TIMEOUT)
 						.header("Content-Type", "application/json")
 						.POST(HttpRequest.BodyPublishers.ofString(
@@ -136,7 +136,7 @@ final class AcquisitionApiTestSupport {
 				HttpResponse.BodyHandlers.ofString());
 		// The login body holds the token, so it is never put in the failure message
 		assertEquals(200, login.statusCode(), "login failed for " + user + ", status " + login.statusCode());
-		String accessToken = json.readTree(login.body()).path("result").path("accessToken").asString();
+		String accessToken = json.readTree(login.body()).path("accessToken").asString();
 		assertFalse(accessToken.isBlank(), "login returned no access token for " + user);
 
 		return new TestUser(user.userId(), user.username(), accessToken);

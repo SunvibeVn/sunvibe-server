@@ -155,21 +155,17 @@ class AuthV1OpenApiTest {
 		}
 	}
 
-	/**
-	 * Additive-only contract (spec §3.11): the legacy operationIds keep their names, so springdoc must not dedup them
-	 * against the v1 handler names; every v1 operation carries its own explicit, unique operationId.
-	 */
+	/** W10-60: the legacy auth paths are absent from the contract. */
 	@Test
-	void openApi_legacyOperationIds_areUnchanged() {
-		Map<String, String> legacy = Map.of(
-				"post /api/auth/change-password", "changePassword",
-				"post /api/auth/login", "login",
-				"post /api/auth/logout", "logout",
-				"post /api/auth/logout-all", "logoutAll",
-				"post /api/auth/verification/email/send", "sendEmailCode",
-				"post /api/auth/verification/phone/send", "sendPhoneCode",
-				"post /api/users/command/register", "register");
-		legacy.forEach((key, id) -> assertEquals(id, operation(key).path("operationId").asString(), key));
+	void openApi_legacyAuthPaths_areAbsent() {
+		for (String prefix : List.of("/api/auth", "/api/users/command", "/api/user/query")) {
+			assertTrue(operationsUnder(prefix).isEmpty(), prefix + " still documented");
+		}
+	}
+
+	/** Spec §3.11: every v1 operation carries its own explicit, unique operationId. */
+	@Test
+	void openApi_v1OperationIds_areUnchanged() {
 
 		Map<String, String> v1 = new java.util.LinkedHashMap<>();
 		v1.put("post /api/v1/auth/login", "authLogin");

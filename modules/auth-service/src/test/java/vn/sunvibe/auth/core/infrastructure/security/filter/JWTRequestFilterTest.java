@@ -49,6 +49,7 @@ class JWTRequestFilterTest {
     private static final String SECRET = "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=";
     private static final String USERNAME = "0912345678";
     private static final String USER_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    /** The legacy access-token cookie; the filter no longer reads it (W10-60). */
     private static final String ACCESS_COOKIE = "cookie-jwt";
 
     /** Current state of the user store, as the filter will see it. */
@@ -67,7 +68,7 @@ class JWTRequestFilterTest {
 
     @BeforeEach
     void setUp() {
-        jwtProvider = new JWTProvider(SECRET, 60, ACCESS_COOKIE);
+        jwtProvider = new JWTProvider(SECRET, 60);
         filter = new JWTRequestFilter(jwtProvider, userDetailsService);
         SecurityContextHolder.clearContext();
     }
@@ -189,28 +190,31 @@ class JWTRequestFilterTest {
         assertNull(filterWith(tokenWithoutUid));
     }
 
-    /** Browser clients send the access token only as its HttpOnly cookie. */
+    /** W10-60: a valid token sent only in the legacy access-token cookie leaves the request anonymous. */
     @Test
-    void tokenInAccessCookie_isAuthenticatedWithoutAuthorizationHeader() throws Exception {
+    void tokenInAccessCookie_isNotAuthenticated() throws Exception {
         String token = issueTokenForActiveUser();
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/users/query/me");
         request.setServletPath("/api/users/query/me");
         request.setCookies(new Cookie(ACCESS_COOKIE, token));
+        MockFilterChain chain = new MockFilterChain();
 
-        filter.doFilter(request, new MockHttpServletResponse(), new MockFilterChain());
+        filter.doFilter(request, new MockHttpServletResponse(), chain);
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        assertNotNull(authentication);
-        assertEquals(USERNAME, authentication.getName());
+        assertNotNull(chain.getRequest(), "filter chain must always continue");
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
 
     @Test
-    void authorizationHeaderWinsOverAccessCookie() {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/users/query/me");
-        request.addHeader(HttpHeaders.AUTHORIZATION, JWTProvider.TOKEN_PREFIX + "header-token");
-        request.setCookies(new Cookie(ACCESS_COOKIE, "cookie-token"));
+    void getJwtFromRequest_readsOnlyTheAuthorizationHeader() {
+        MockHttpServletRequest cookieOnly = new MockHttpServletRequest("GET", "/api/users/query/me");
+        cookieOnly.setCookies(new Cookie(ACCESS_COOKIE, "cookie-token"));
+        MockHttpServletRequest both = new MockHttpServletRequest("GET", "/api/users/query/me");
+        both.addHeader(HttpHeaders.AUTHORIZATION, JWTProvider.TOKEN_PREFIX + "header-token");
+        both.setCookies(new Cookie(ACCESS_COOKIE, "cookie-token"));
 
-        assertEquals("header-token", filter.getJwtFromRequest(request).orElseThrow());
+        assertTrue(filter.getJwtFromRequest(cookieOnly).isEmpty());
+        assertEquals("header-token", filter.getJwtFromRequest(both).orElseThrow());
     }
 
     @Test
@@ -230,9 +234,21 @@ class JWTRequestFilterTest {
 
     @Test
     void refreshEndpoint_isNotFiltered() {
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/auth/refresh-token");
-        request.setServletPath("/api/auth/refresh-token");
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/session/refresh");
+        request.setServletPath("/api/v1/auth/session/refresh");
 
         assertTrue(filter.shouldNotFilter(request));
+    }
+
+    /** W10-60: the removed legacy paths are no longer on the skip list. */
+    @Test
+    void legacyAuthPaths_areFiltered() {
+        for (String path : List.of("/api/auth/login", "/api/auth/logout", "/api/auth/refresh-token",
+                "/api/users/command/register")) {
+            MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
+            request.setServletPath(path);
+
+            assertFalse(filter.shouldNotFilter(request), path);
+        }
     }
 }

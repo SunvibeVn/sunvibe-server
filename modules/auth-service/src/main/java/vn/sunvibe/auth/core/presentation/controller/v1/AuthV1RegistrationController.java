@@ -30,7 +30,6 @@ import vn.sunvibe.auth.core.presentation.dto.request.user.UserRegisterRequest;
 import vn.sunvibe.auth.core.presentation.dto.response.auth.RegistrationTokenResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.CodeSentResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.SessionResponse;
-import vn.sunvibe.auth.core.shared.service.CookieService;
 import vn.sunvibe.auth.core.shared.service.SessionCookieService;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
@@ -52,7 +51,6 @@ public class AuthV1RegistrationController {
     private final AuthConverter authConverter;
     private final AuthV1Converter authV1Converter;
     private final SessionCookieService sessionCookies;
-    private final CookieService cookieService;
 
     /**
      * POST /api/v1/auth/registration/phone/send-code
@@ -145,6 +143,6 @@ public class AuthV1RegistrationController {
                 userConverter.toUserRegisterCommand(request, authConverter.toClientInfo(httpRequest)));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .header(HttpHeaders.SET_COOKIE, sessionCookies.build(result.refreshToken()).toString())
-                .body(authV1Converter.toSessionResponse(result, cookieService.accessTokenTtl()));
+                .body(authV1Converter.toSessionResponse(result, authV1Converter.accessTokenTtl()));
     }
 }
