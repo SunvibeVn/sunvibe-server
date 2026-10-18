@@ -11,7 +11,10 @@ import vn.sunvibe.acquisition.core.application.query.LeadScope;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadDetail;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
+import vn.sunvibe.acquisition.core.application.shared.StaffNames;
+import vn.sunvibe.acquisition.core.application.shared.external.staff.LeadAssigneeDirectoryPort;
 import vn.sunvibe.acquisition.core.application.usecase.OwnerLeadQueryUseCase;
+import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentRecord;
 import vn.sunvibe.acquisition.core.domain.model.lead.GeoPoint;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
@@ -29,7 +32,9 @@ import vn.sunvibe.acquisition.core.domain.repository.PageResult;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -38,7 +43,8 @@ import java.util.Set;
  * <p>
  * Lists and opens owner leads for staff. Every lookup goes through {@link LeadVisibility}; duplicate candidates are
  * counted and shown only when the viewer can see them (acquisition-owner-lead-queue C-17). Opening a lead writes one
- * access-log row in the same transaction (acquisition-owner-lead-queue BR-7); listing writes nothing.
+ * access-log row in the same transaction (acquisition-owner-lead-queue BR-7); listing writes nothing. Staff names
+ * (acquisition-owner-lead-queue-ui C-18) are looked up once per answer, only for ids of rows the viewer may see.
  */
 @Service
 @Transactional
@@ -50,12 +56,14 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
     private final DuplicateCandidateDomainRepository duplicateCandidates;
     private final ConsentRecordDomainRepository consents;
     private final LeadVisibility visibility;
+    private final StaffNames staffNames;
     private final IdGenerator<Long> idGenerator;
 
     public OwnerLeadQueryService(OwnerLeadDomainRepository leads, OwnerLeadActivityDomainRepository activities,
                                  OwnerLeadAccessLogDomainRepository accessLogs,
                                  DuplicateCandidateDomainRepository duplicateCandidates,
                                  ConsentRecordDomainRepository consents, LeadVisibility visibility,
+                                 LeadAssigneeDirectoryPort assigneeDirectory,
                                  @Qualifier("Snowflake") IdGenerator<Long> idGenerator) {
         this.leads = leads;
         this.activities = activities;
@@ -63,16 +71,24 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
         this.duplicateCandidates = duplicateCandidates;
         this.consents = consents;
         this.visibility = visibility;
+        this.staffNames = new StaffNames(assigneeDirectory);
         this.idGenerator = idGenerator;
     }
 
     @Override
     @Transactional(readOnly = true)
     public PageResult<OwnerLeadSummary> list(LeadViewer viewer, LeadListQuery query) {
-        // acquisition-owner-lead-queue BR-1: a SALE sees only the leads assigned to them, whatever scope was asked for
-        Optional<String> assignee = viewer.access() == LeadAccess.OWN || query.scope() == LeadScope.MINE
-                ? Optional.of(viewer.userId())
-                : Optional.empty();
+        // acquisition-owner-lead-queue BR-1: a SALE sees only the leads assigned to them, whatever scope was asked for.
+        // acquisition-owner-lead-queue-ui C-27: only a viewer of everything, asking for scope all, may pick the
+        // assignee; the value of the request never replaces the own id of a SALE.
+        Optional<String> assignee;
+        if (viewer.access() == LeadAccess.OWN || query.scope() == LeadScope.MINE) {
+            assignee = Optional.of(viewer.userId());
+        } else if (query.scope() == LeadScope.ALL) {
+            assignee = Optional.ofNullable(query.assigneeUserIdOrNull());
+        } else {
+            assignee = Optional.empty();
+        }
         Set<OwnerLeadStatus> statuses = query.statuses();
         if (query.scope() == LeadScope.UNASSIGNED) {
             // Unassigned means status NEW; a status filter without NEW leaves nothing to show
@@ -82,14 +98,18 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
             statuses = Set.of(OwnerLeadStatus.NEW);
         }
         PageResult<OwnerLead> page = leads.search(
-                new LeadSearchCriteria(assignee, statuses, Optional.ofNullable(query.wardCodeOrNull())),
+                new LeadSearchCriteria(assignee, statuses, Optional.ofNullable(query.wardCodeOrNull()),
+                        Optional.ofNullable(query.requestCodeOrNull())),
                 query.page(), query.size());
 
         List<String> ids = page.items().stream().map(lead -> lead.getId().getValue()).toList();
         Set<String> withCandidate = ids.isEmpty() ? Set.of()
                 : duplicateCandidates.leadIdsWithVisibleCandidate(ids, LeadVisibility.candidateViewer(viewer));
+        // One name lookup for the whole page, only for assignees of leads the viewer already sees
+        Map<String, String> names = staffNames
+                .lookup(page.items().stream().map(OwnerLead::getAssignedUserId).toList());
         List<OwnerLeadSummary> items = page.items().stream()
-                .map(lead -> OwnerLeadSummary.of(lead, withCandidate.contains(lead.getId().getValue())))
+                .map(lead -> OwnerLeadSummary.of(lead, withCandidate.contains(lead.getId().getValue()), names))
                 .toList();
         return new PageResult<>(items, page.page(), page.size(), page.totalElements());
     }
@@ -111,23 +131,28 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
                         .orElse(null);
         ConsentRecord consent = consents.findById(lead.getConsentRecordId())
                 .orElseThrow(() -> new IllegalStateException("The consent record of a lead is missing."));
-        List<LeadActivityView> history = activities.findByLeadIdOrderByOccurredAt(lead.getId()).stream()
-                .map(LeadActivityView::of)
-                .toList();
-        return detail(lead, candidates, duplicateOf, consent, history);
+        List<OwnerLeadActivity> rows = activities.findByLeadIdOrderByOccurredAt(lead.getId());
+        // One name lookup for the assignee and every id of the history
+        List<String> staffIds = new ArrayList<>();
+        staffIds.add(lead.getAssignedUserId());
+        rows.forEach(row -> staffIds.addAll(StaffNames.idsOf(row)));
+        Map<String, String> names = staffNames.lookup(staffIds);
+        List<LeadActivityView> history = rows.stream().map(row -> LeadActivityView.of(row, names)).toList();
+        return detail(lead, candidates, duplicateOf, consent, history, names);
     }
 
     private static OwnerLeadDetail detail(OwnerLead lead, List<DuplicateCandidateView> candidates,
                                           String duplicateOf, ConsentRecord consent,
-                                          List<LeadActivityView> history) {
-        OwnerLeadSummary summary = OwnerLeadSummary.of(lead, !candidates.isEmpty());
+                                          List<LeadActivityView> history, Map<String, String> names) {
+        OwnerLeadSummary summary = OwnerLeadSummary.of(lead, !candidates.isEmpty(), names);
         OwnerLeadDetail.AskingPriceView price = lead.getAskingPrice()
                 .map(p -> new OwnerLeadDetail.AskingPriceView(p.getAmount(), p.getCurrency(), p.getUnit()))
                 .orElse(null);
         return new OwnerLeadDetail(summary.id(), summary.requestCode(), summary.status(), summary.intent(),
                 summary.contactName(), summary.provinceCode(), summary.wardCode(), summary.wardName(),
-                summary.propertyType(), summary.assignedUserId(), summary.nextActionAt(), summary.possibleDuplicate(),
-                summary.createdAt(), summary.version(), lead.getPhone().getValue(), lead.getEmail(),
+                summary.propertyType(), summary.assignedUserId(), summary.assignedUserName(), summary.nextActionAt(),
+                summary.possibleDuplicate(), summary.createdAt(), summary.version(), lead.getPhone().getValue(),
+                lead.getEmail(),
                 lead.getAddressDetail(), lead.getGeoPoint().map(GeoPoint::getLatitude).orElse(null),
                 lead.getGeoPoint().map(GeoPoint::getLongitude).orElse(null), price, lead.getAvailableFrom(),
                 lead.getNotes(), lead.getPreferredCallbackTime(), lead.getSource(), duplicateOf,

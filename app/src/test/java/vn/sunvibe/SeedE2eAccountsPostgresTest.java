@@ -56,6 +56,10 @@ class SeedE2eAccountsPostgresTest {
 	private static final String SALE_ID = "01JE2EACCT0000000000000002";
 	private static final String CUSTOMER_PHONE = "0900000101";
 	private static final String SALE_PHONE = "0900000102";
+	private static final String LEADER_ID = "01JE2EACCT0000000000000003";
+	private static final String ADMIN_ID = "01JE2EACCT0000000000000004";
+	private static final String LEADER_PHONE = "0900000103";
+	private static final String ADMIN_PHONE = "0900000104";
 
 	@Value("${local.server.port}")
 	private int port;
@@ -74,7 +78,7 @@ class SeedE2eAccountsPostgresTest {
 
 	@AfterEach
 	void removeSeededAccounts() {
-		jdbc.update("DELETE FROM users WHERE id IN (?, ?)", CUSTOMER_ID, SALE_ID);
+		jdbc.update("DELETE FROM users WHERE id IN (?, ?, ?, ?)", CUSTOMER_ID, SALE_ID, LEADER_ID, ADMIN_ID);
 	}
 
 	@AfterAll
@@ -192,8 +196,12 @@ class SeedE2eAccountsPostgresTest {
 		String customerPassword = randomPassword();
 		String salePassword = randomPassword();
 
+		String leaderPassword = randomPassword();
+		String adminPassword = randomPassword();
+
 		ExecResult result = execPsql(List.of("-e", "-v", "target=local", "-v", "customer_password=" + customerPassword,
-				"-v", "sale_password=" + salePassword));
+				"-v", "sale_password=" + salePassword, "-v", "leader_password=" + leaderPassword,
+				"-v", "admin_password=" + adminPassword));
 
 		assertEquals(0, result.getExitCode(), "seed failed");
 		String echoed = result.getStdout();
@@ -202,7 +210,96 @@ class SeedE2eAccountsPostgresTest {
 		String statement = echoed.substring(insert, echoed.indexOf(';', insert));
 		assertFalse(statement.contains(customerPassword), "no plaintext customer password in the INSERT");
 		assertFalse(statement.contains(salePassword), "no plaintext sale password in the INSERT");
+		assertFalse(statement.contains(leaderPassword), "no plaintext leader password in the INSERT");
+		assertFalse(statement.contains(adminPassword), "no plaintext admin password in the INSERT");
 		assertTrue(statement.contains("$2a$10$"), "the INSERT carries the bcrypt hashes");
+	}
+
+	/** The lead queue staff accounts: the SALE_LEADER and the ADMIN sign in with their own passwords and roles. */
+	@Test
+	void seed_leaderAndAdmin_signInWithTheirRolesAndNames() throws Exception {
+		String leaderPassword = randomPassword();
+		String adminPassword = randomPassword();
+		ExecResult first = runSeed("local", randomPassword(), randomPassword(), randomPassword(), randomPassword());
+		assertEquals(0, first.getExitCode(), "first run failed: " + first.getStderr());
+		// a role granted by hand between the runs is removed by the re-run
+		jdbc.update("INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE name = 'SALES_MANAGER'",
+				LEADER_ID);
+		ExecResult second = runSeed("local", randomPassword(), randomPassword(), leaderPassword, adminPassword);
+		assertEquals(0, second.getExitCode(), "second run failed: " + second.getStderr());
+
+		assertEquals(4, jdbc.queryForObject("SELECT count(*) FROM users WHERE id IN (?, ?, ?, ?)", Integer.class,
+				CUSTOMER_ID, SALE_ID, LEADER_ID, ADMIN_ID));
+		JsonNode leader = logIn(LEADER_PHONE, leaderPassword);
+		assertEquals(LEADER_ID, leader.path("user").path("userId").asString());
+		assertEquals("E2E Trưởng nhóm", leader.path("user").path("fullName").asString());
+		assertEquals(List.of("SALE_LEADER"), strings(leader.path("user").path("roles")));
+		assertTrue(leader.path("user").path("phoneVerified").asBoolean());
+
+		JsonNode admin = logIn(ADMIN_PHONE, adminPassword);
+		assertEquals(ADMIN_ID, admin.path("user").path("userId").asString());
+		assertEquals("E2E Admin", admin.path("user").path("fullName").asString());
+		assertEquals(List.of("ADMIN"), strings(admin.path("user").path("roles")));
+		assertTrue(admin.path("user").path("phoneVerified").asBoolean());
+		assertEquals(5, jdbc.queryForObject("SELECT count(*) FROM user_roles WHERE user_id IN (?, ?, ?, ?)",
+				Integer.class, CUSTOMER_ID, SALE_ID, LEADER_ID, ADMIN_ID), "TENANT, CUSTOMER, SALE, SALE_LEADER, ADMIN");
+	}
+
+	/** Each of the two new passwords is required and at least 8 characters; the refusal comes before any change. */
+	@Test
+	void seed_missingOrShortLeaderOrAdminPassword_failsAndChangesNothing() throws Exception {
+		ExecResult noLeader = execPsql(List.of("-v", "target=local", "-v", "customer_password=" + randomPassword(),
+				"-v", "sale_password=" + randomPassword(), "-v", "admin_password=" + randomPassword()));
+		assertNotEquals(0, noLeader.getExitCode(), "a missing leader_password must fail");
+		assertTrue(noLeader.getStderr().contains("-v leader_password"), "the refusal names the missing variable");
+		assertFalse(noLeader.getStderr().contains("admin_password"), "and only that variable");
+
+		ExecResult noAdmin = execPsql(List.of("-v", "target=local", "-v", "customer_password=" + randomPassword(),
+				"-v", "sale_password=" + randomPassword(), "-v", "leader_password=" + randomPassword()));
+		assertNotEquals(0, noAdmin.getExitCode(), "a missing admin_password must fail");
+		assertTrue(noAdmin.getStderr().contains("-v admin_password"), "the refusal names the missing variable");
+		assertFalse(noAdmin.getStderr().contains("leader_password"), "and only that variable");
+
+		ExecResult shortLeader = runSeed("local", randomPassword(), randomPassword(),
+				randomPassword().substring(0, 7), randomPassword());
+		assertNotEquals(0, shortLeader.getExitCode(), "a 7-character leader password must fail");
+		assertTrue(shortLeader.getStderr().contains("at least 8 characters"), "the refusal names the rule");
+
+		ExecResult shortAdmin = runSeed("local", randomPassword(), randomPassword(),
+				randomPassword(), randomPassword().substring(0, 7));
+		assertNotEquals(0, shortAdmin.getExitCode(), "a 7-character admin password must fail");
+		assertTrue(shortAdmin.getStderr().contains("at least 8 characters"), "the refusal names the rule");
+
+		assertNothingSeeded();
+		assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM users WHERE id IN (?, ?)", Integer.class,
+				LEADER_ID, ADMIN_ID));
+		assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM user_roles WHERE user_id IN (?, ?)",
+				Integer.class, LEADER_ID, ADMIN_ID));
+	}
+
+	/** The phone guard covers 0900000103 and 0900000104 too: another account holding one fails before any change. */
+	@Test
+	void seed_leaderOrAdminPhoneTakenByAnotherAccount_failsAndChangesNothing() throws Exception {
+		for (String phone : List.of(LEADER_PHONE, ADMIN_PHONE)) {
+			String otherId = "01JE2EOTHER000000000000002";
+			jdbc.update("INSERT INTO users (id, full_name, username, password, user_status, failed_login_attempts, "
+					+ "created_date, last_update) VALUES (?, 'Someone else', ?, 'not-a-hash', 'ACTIVE', 0, now(), now())",
+					otherId, phone);
+			try {
+				ExecResult result = runSeed("local", randomPassword(), randomPassword());
+
+				assertNotEquals(0, result.getExitCode(), phone + " taken must fail");
+				assertTrue(result.getStderr().contains("0900000103 or 0900000104 already belongs to another account"),
+						"the refusal names the conflict");
+				assertNothingSeeded();
+				assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM users WHERE id IN (?, ?)", Integer.class,
+						LEADER_ID, ADMIN_ID));
+				assertEquals("Someone else", jdbc.queryForObject("SELECT full_name FROM users WHERE id = ?",
+						String.class, otherId), "the other account is untouched");
+			} finally {
+				jdbc.update("DELETE FROM users WHERE id = ?", otherId);
+			}
+		}
 	}
 
 	private void assertNothingSeeded() {
@@ -213,8 +310,14 @@ class SeedE2eAccountsPostgresTest {
 	}
 
 	private ExecResult runSeed(String target, String customerPassword, String salePassword) throws Exception {
+		return runSeed(target, customerPassword, salePassword, randomPassword(), randomPassword());
+	}
+
+	private ExecResult runSeed(String target, String customerPassword, String salePassword, String leaderPassword,
+			String adminPassword) throws Exception {
 		return execPsql(List.of("-v", "target=" + target, "-v", "customer_password=" + customerPassword,
-				"-v", "sale_password=" + salePassword));
+				"-v", "sale_password=" + salePassword, "-v", "leader_password=" + leaderPassword,
+				"-v", "admin_password=" + adminPassword));
 	}
 
 	private ExecResult execPsql(List<String> variables) throws Exception {

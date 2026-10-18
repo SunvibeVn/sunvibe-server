@@ -16,5 +16,8 @@ public record SaleTerritoryResponse(
         @Schema(description = "As in the catalog", allowableValues = {"WARD", "COMMUNE", "SPECIAL_ZONE"})
         String wardType,
         @Schema(description = "User id of the person; null when nobody looks after the ward") String userId,
+        @Schema(description = "Full name of the person; null when nobody looks after the ward "
+                + "or the id has no user row", nullable = true)
+        String userName,
         @Schema(description = "Null when nobody looks after the ward") Instant assignedAt) {
 }

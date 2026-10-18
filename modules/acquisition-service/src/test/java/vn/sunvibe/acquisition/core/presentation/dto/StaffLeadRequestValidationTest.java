@@ -126,9 +126,25 @@ class StaffLeadRequestValidationTest {
         Method list = method(OwnerLeadController.class, "list");
 
         assertEquals(Set.of(), violatedParameters(controller, list,
-                new Object[]{"mine", List.<OwnerLeadStatus>of(), "1234567890", 0, 20}));
+                new Object[]{"mine", List.<OwnerLeadStatus>of(), "1234567890", null, null, 0, 20}));
         assertEquals(Set.of(2), violatedParameters(controller, list,
-                new Object[]{"mine", List.<OwnerLeadStatus>of(), "12345678901", 0, 20}));
+                new Object[]{"mine", List.<OwnerLeadStatus>of(), "12345678901", null, null, 0, 20}));
+    }
+
+    /** acquisition-owner-lead-queue-ui C-27: the assignee of a list call is 1 to 26 characters. */
+    @Test
+    void validateParameters_listAssigneeUserIdLength_reportsAssigneeUserId() throws Exception {
+        OwnerLeadController controller = new OwnerLeadController(null, null, null, null, null, null);
+        Method list = method(OwnerLeadController.class, "list");
+
+        assertEquals(Set.of(), violatedParameters(controller, list,
+                new Object[]{"all", List.<OwnerLeadStatus>of(), null, null, "A", 0, 20}));
+        assertEquals(Set.of(), violatedParameters(controller, list,
+                new Object[]{"all", List.<OwnerLeadStatus>of(), null, null, "A".repeat(26), 0, 20}));
+        assertEquals(Set.of(4), violatedParameters(controller, list,
+                new Object[]{"all", List.<OwnerLeadStatus>of(), null, null, "A".repeat(27), 0, 20}));
+        assertEquals(Set.of(4), violatedParameters(controller, list,
+                new Object[]{"all", List.<OwnerLeadStatus>of(), null, null, "", 0, 20}));
     }
 
     @Test

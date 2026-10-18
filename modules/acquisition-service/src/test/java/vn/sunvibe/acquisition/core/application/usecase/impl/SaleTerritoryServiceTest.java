@@ -86,6 +86,46 @@ class SaleTerritoryServiceTest {
         assertEquals(14, views.stream().filter(v -> v.userId() == null).count());
     }
 
+    /** W11-5, W11-6: holders carry their name from one lookup; free wards and unknown users have none. */
+    @Test
+    void territoryListCarriesUserName() {
+        directory.withName(SALE_A, "Nguyen An").withName(SALE_B, "Tran Binh");
+        territories.with(SaleTerritory.load(wardCode(1), SALE_A, ADMIN, T0));
+        territories.with(SaleTerritory.load(wardCode(2), SALE_B, ADMIN, T0));
+        territories.with(SaleTerritory.load(wardCode(3), SALE_A, ADMIN, T0));
+        territories.with(SaleTerritory.load(wardCode(4), "01JGHOSTAAAAAAAAAAAAAAAAAA", ADMIN, T0));
+
+        List<SaleTerritoryView> views = service.list("48");
+
+        assertEquals(1, directory.nameLookups());
+        assertEquals("Nguyen An", view(views, wardCode(1)).userName());
+        assertEquals("Tran Binh", view(views, wardCode(2)).userName());
+        assertEquals("Nguyen An", view(views, wardCode(3)).userName());
+        assertNull(view(views, wardCode(4)).userName());
+        assertEquals("01JGHOSTAAAAAAAAAAAAAAAAAA", view(views, wardCode(4)).userId());
+        assertNull(view(views, wardCode(0)).userName());
+    }
+
+    @Test
+    void list_noHolders_makesNoNameLookup() {
+        service.list("48");
+
+        assertEquals(0, directory.nameLookups());
+    }
+
+    /** The PUT answer names the new holder, also when the ward already was theirs. */
+    @Test
+    void assign_answerCarriesTheNewHoldersName() {
+        directory.withName(SALE_B, "Tran Binh");
+
+        SaleTerritoryView first = service.assign(wardCode(1), SALE_B, ADMIN);
+        SaleTerritoryView again = service.assign(wardCode(1), SALE_B, ADMIN);
+
+        assertEquals("Tran Binh", first.userName());
+        assertEquals("Tran Binh", again.userName());
+        assertEquals(2, directory.nameLookups());
+    }
+
     @Test
     void list_unknownProvince_throwsNotFound() {
         assertThrows(ResourceNotFoundException.class, () -> service.list("99"));

@@ -26,6 +26,7 @@ import vn.sunvibe.acquisition.core.domain.model.log.OwnerLeadAccessLog;
 import vn.sunvibe.acquisition.core.domain.repository.PageResult;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryConsentRecordRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryDuplicateCandidateRepository;
+import vn.sunvibe.acquisition.core.testsupport.InMemoryLeadAssigneeDirectory;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadAccessLogRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadActivityRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadRepository;
@@ -61,6 +62,7 @@ class OwnerLeadQueryServiceTest {
     private InMemoryOwnerLeadAccessLogRepository accessLogs;
     private InMemoryDuplicateCandidateRepository candidates;
     private InMemoryConsentRecordRepository consents;
+    private InMemoryLeadAssigneeDirectory directory;
     private OwnerLeadQueryService service;
     private int minutes;
 
@@ -72,8 +74,10 @@ class OwnerLeadQueryServiceTest {
         candidates = new InMemoryDuplicateCandidateRepository(leads);
         consents = new InMemoryConsentRecordRepository();
         IdGenerator<Long> ids = new AtomicLong(5_000L)::incrementAndGet;
+        directory = new InMemoryLeadAssigneeDirectory().withName(SALE_A, "Nguyen An").withName(SALE_B, "Tran Binh")
+                .withName(LEADER, "Le Cuong");
         service = new OwnerLeadQueryService(leads, activities, accessLogs, candidates, consents,
-                new LeadVisibility(leads), ids);
+                new LeadVisibility(leads), directory, ids);
     }
 
     // ==================== list ====================
@@ -175,9 +179,9 @@ class OwnerLeadQueryServiceTest {
         OwnerLead newest = stored(OwnerLeadStatus.NEW, null, WARD_X);
 
         PageResult<OwnerLeadSummary> first = service.list(ALL_LEADER, new LeadListQuery(LeadScope.ALL, Set.of(),
-                null, 0, 2));
+                null, null, null, 0, 2));
         PageResult<OwnerLeadSummary> second = service.list(ALL_LEADER, new LeadListQuery(LeadScope.ALL, Set.of(),
-                null, 1, 2));
+                null, null, null, 1, 2));
 
         assertEquals(List.of(newest.getId().getValue(), middle.getId().getValue()), ids(first));
         assertEquals(List.of(oldest.getId().getValue()), ids(second));
@@ -372,6 +376,145 @@ class OwnerLeadQueryServiceTest {
                 printed);
     }
 
+    // ==================== filters requestCode and assigneeUserId (acquisition-owner-lead-queue-ui C-21, C-27) ====
+
+    /** W11-8: a leader asking for scope all and an assignee gets only that person's leads. */
+    @Test
+    void list_allViewerScopeAllWithAssignee_keepsOnlyThatAssignee() {
+        stored(OwnerLeadStatus.ASSIGNED, SALE_A, WARD_X);
+        OwnerLead ofB = stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
+        stored(OwnerLeadStatus.NEW, null, WARD_X);
+
+        assertEquals(List.of(ofB.getId().getValue()), ids(service.list(ALL_LEADER, filtered(LeadScope.ALL, null, SALE_B))));
+        assertEquals(List.of(), ids(service.list(ALL_LEADER, filtered(LeadScope.ALL, null, "01JNOBODYAAAAAAAAAAAAAAAAA"))));
+    }
+
+    /** W11-8: the assignee of the request never replaces the own id of a SALE, whatever the query says. */
+    @Test
+    void assigneeFilterReplacesNothingForSale() {
+        OwnerLead own = stored(OwnerLeadStatus.ASSIGNED, SALE_A, WARD_X);
+        stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
+
+        assertEquals(List.of(own.getId().getValue()), ids(service.list(OWN_A, filtered(LeadScope.ALL, null, SALE_B))));
+        assertEquals(List.of(own.getId().getValue()), ids(service.list(OWN_A, filtered(LeadScope.MINE, null, SALE_B))));
+    }
+
+    /** The assignee filter belongs to scope all only; the other scopes keep their own rules. */
+    @Test
+    void list_assigneeIgnoredOutsideScopeAll() {
+        OwnerLead leaders = stored(OwnerLeadStatus.ASSIGNED, LEADER, WARD_X);
+        OwnerLead open = stored(OwnerLeadStatus.NEW, null, WARD_X);
+        stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
+
+        assertEquals(List.of(leaders.getId().getValue()),
+                ids(service.list(ALL_LEADER, filtered(LeadScope.MINE, null, SALE_B))));
+        assertEquals(List.of(open.getId().getValue()),
+                ids(service.list(ALL_LEADER, filtered(LeadScope.UNASSIGNED, null, SALE_B))));
+    }
+
+    /** W11-7: a code is found only inside the scope the viewer asked for and may see. */
+    @Test
+    void list_requestCode_findsOnlyWhatTheViewerMaySeeInThatScope() {
+        OwnerLead ofA = stored(OwnerLeadStatus.ASSIGNED, SALE_A, WARD_X);
+        OwnerLead ofB = stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
+        OwnerLead open = stored(OwnerLeadStatus.NEW, null, WARD_X);
+        String codeA = ofA.getRequestCode().getValue();
+
+        assertEquals(List.of(ofA.getId().getValue()), ids(service.list(OWN_A, filtered(LeadScope.MINE, codeA, null))));
+        assertEquals(List.of(ofA.getId().getValue()), ids(service.list(ALL_LEADER, filtered(LeadScope.ALL, codeA, null))));
+        assertEquals(List.of(open.getId().getValue()),
+                ids(service.list(ALL_LEADER, filtered(LeadScope.UNASSIGNED, open.getRequestCode().getValue(), null))));
+        assertEquals(List.of(), ids(service.list(ALL_LEADER, filtered(LeadScope.MINE, codeA, null))));
+        assertEquals(List.of(), ids(service.list(ALL_LEADER, filtered(LeadScope.UNASSIGNED, codeA, null))));
+        assertEquals(List.of(), ids(service.list(ALL_LEADER,
+                filtered(LeadScope.ALL, codeA, SALE_B))));
+        // a SALE asking for B's code gets the very page of an unknown code
+        PageResult<OwnerLeadSummary> hidden = service.list(OWN_A, filtered(LeadScope.MINE, ofB.getRequestCode().getValue(), null));
+        PageResult<OwnerLeadSummary> unknown = service.list(OWN_A, filtered(LeadScope.MINE, "SV-ZZZZ-ZZZZ", null));
+        assertEquals(unknown, hidden);
+        assertEquals(0, hidden.totalElements());
+    }
+
+    // ==================== staff names (acquisition-owner-lead-queue-ui C-18, C-35, W11-6) ====================
+
+    /** W11-6: three items with two different assignees make exactly one name lookup, and each item has its name. */
+    @Test
+    void listMakesOneNameLookupPerPage() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A, WARD_X);
+        OwnerLead second = stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
+        OwnerLead third = stored(OwnerLeadStatus.CONTACTED, SALE_A, WARD_X);
+
+        PageResult<OwnerLeadSummary> page = service.list(ALL_LEADER, query(LeadScope.ALL, Set.of(), null));
+
+        assertEquals(1, directory.nameLookups());
+        assertEquals("Nguyen An", summaryOf(page, first).assignedUserName());
+        assertEquals("Tran Binh", summaryOf(page, second).assignedUserName());
+        assertEquals("Nguyen An", summaryOf(page, third).assignedUserName());
+    }
+
+    /** No assignee, no lookup; an assignee without a users row gives a null name. */
+    @Test
+    void listWithoutAssigneesMakesNoLookup_andUnknownAssigneeHasNullName() {
+        stored(OwnerLeadStatus.NEW, null, WARD_X);
+
+        PageResult<OwnerLeadSummary> onlyNew = service.list(ALL_LEADER, query(LeadScope.ALL, Set.of(), null));
+
+        assertEquals(0, directory.nameLookups());
+        assertNull(onlyNew.items().get(0).assignedUserName());
+
+        OwnerLead ghost = stored(OwnerLeadStatus.ASSIGNED, "01JGHOSTAAAAAAAAAAAAAAAAAA", WARD_X);
+        PageResult<OwnerLeadSummary> withGhost = service.list(ALL_LEADER, query(LeadScope.ALL, Set.of(), null));
+
+        assertEquals(1, directory.nameLookups());
+        assertNull(summaryOf(withGhost, ghost).assignedUserName());
+    }
+
+    @Test
+    void list_emptyPage_makesNoNameLookup() {
+        service.list(ALL_LEADER, query(LeadScope.ALL, Set.of(), null));
+
+        assertEquals(0, directory.nameLookups());
+    }
+
+    /** The detail names the assignee and every id of the history with one lookup; system and owner have no name. */
+    @Test
+    void detailMakesOneNameLookup() {
+        OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
+        activities.save(OwnerLeadActivity.load(1L, lead.getId(), OwnerLeadActivityType.SUBMITTED, null, null,
+                OwnerLeadStatus.NEW, null, null, null, null, T0));
+        activities.save(OwnerLeadActivity.load(2L, lead.getId(), OwnerLeadActivityType.AUTO_ASSIGNED, null,
+                OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, null, SALE_A, null, null, T0.plusSeconds(1)));
+        activities.save(OwnerLeadActivity.load(3L, lead.getId(), OwnerLeadActivityType.REASSIGNED, LEADER,
+                OwnerLeadStatus.ASSIGNED, OwnerLeadStatus.ASSIGNED, SALE_A, SALE_B, null, null, T0.plusSeconds(2)));
+
+        OwnerLeadDetail detail = service.get(ALL_LEADER, lead.getId().getValue());
+
+        assertEquals(1, directory.nameLookups());
+        // exactly the assignee and every actor, from and to id of the history: nobody else is looked up
+        assertEquals(Set.of(SALE_A, SALE_B, LEADER), directory.lastNameLookup());
+        assertEquals("Tran Binh", detail.assignedUserName());
+        List<LeadActivityView> history = detail.activities();
+        assertNull(history.get(0).actorName());
+        assertNull(history.get(0).fromAssigneeName());
+        assertNull(history.get(0).toAssigneeName());
+        assertNull(history.get(1).actorName());
+        assertEquals("Nguyen An", history.get(1).toAssigneeName());
+        assertEquals("Le Cuong", history.get(2).actorName());
+        assertEquals("Nguyen An", history.get(2).fromAssigneeName());
+        assertEquals("Tran Binh", history.get(2).toAssigneeName());
+        assertEquals(SALE_A, history.get(2).fromAssigneeId());
+    }
+
+    /** A hidden lead is still a 404 and looks nobody up. */
+    @Test
+    void get_invisibleLead_makesNoNameLookup() {
+        OwnerLead others = stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
+
+        assertThrows(OwnerLeadNotFoundException.class, () -> service.get(OWN_A, others.getId().getValue()));
+
+        assertEquals(0, directory.nameLookups());
+    }
+
     // ==================== helpers ====================
 
     /** A lead stored in the fake repository (version 0), one minute newer than the previous one. */
@@ -384,7 +527,11 @@ class OwnerLeadQueryServiceTest {
     }
 
     private static LeadListQuery query(LeadScope scope, Set<OwnerLeadStatus> statuses, String wardCode) {
-        return new LeadListQuery(scope, statuses, wardCode, 0, 20);
+        return new LeadListQuery(scope, statuses, wardCode, null, null, 0, 20);
+    }
+
+    private static LeadListQuery filtered(LeadScope scope, String requestCode, String assigneeUserId) {
+        return new LeadListQuery(scope, Set.of(), null, requestCode, assigneeUserId, 0, 20);
     }
 
     private static List<String> ids(PageResult<OwnerLeadSummary> page) {

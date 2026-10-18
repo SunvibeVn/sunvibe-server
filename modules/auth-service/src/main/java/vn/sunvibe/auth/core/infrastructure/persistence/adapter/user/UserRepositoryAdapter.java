@@ -7,6 +7,7 @@ import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
+import vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapper;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
@@ -16,7 +17,13 @@ import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserRoleJ
 import vn.sunvibe.auth.core.shared.constant.UserMessage;
 import vn.sunvibe.shared.crypto.CryptoService;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -110,6 +117,38 @@ public class UserRepositoryAdapter implements UserDomainRepository {
     /** The only place the ID card number's blind index (lookup hash) is derived. */
     private String idCardNumberHash(IdCardNumber idCardNumber) {
         return cryptoService.blindIndex(idCardNumber.getValue());
+    }
+
+    @Override
+    public List<StaffAccountRow> findSignInAbleByAnyRole(Set<String> roleNames, int limit) {
+        if (roleNames.isEmpty() || limit <= 0) {
+            return List.of();
+        }
+        List<StaffAccountRow> rows = userJpaRepository
+                .findSignInAbleStaffRows(roleNames, AppUser.SIGN_IN_BLOCKED_STATUSES)
+                .stream().sorted(StaffAccountRow.nameOrder()).toList();
+        // Keep the first `limit` accounts in the same order the service sorts with, so the cut agrees with it.
+        Set<String> kept = new LinkedHashSet<>();
+        List<StaffAccountRow> result = new ArrayList<>();
+        for (StaffAccountRow row : rows) {
+            if (kept.contains(row.userId()) || kept.size() < limit) {
+                kept.add(row.userId());
+                result.add(row);
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public Map<String, String> findFullNamesByIds(Collection<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> names = new HashMap<>();
+        for (UserJpaRepository.UserName row : userJpaRepository.findNamesByIds(new LinkedHashSet<>(ids))) {
+            names.put(row.id(), row.fullName());
+        }
+        return names;
     }
 
 }

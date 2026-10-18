@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.persistence.EntityManager;
@@ -34,6 +35,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
+import vn.sunvibe.acquisition.core.application.shared.external.staff.EligibleAssignee;
 import vn.sunvibe.acquisition.core.application.shared.external.staff.LeadAssigneeDirectoryPort;
 import vn.sunvibe.acquisition.core.domain.model.idempotency.IdempotencyRecord;
 import vn.sunvibe.acquisition.core.domain.repository.IdempotencyKeyDomainRepository;
@@ -78,7 +80,22 @@ class OwnerIntakeRollbackPostgresTest {
 		@Bean
 		@Primary
 		LeadAssigneeDirectoryPort everyoneEligible() {
-			return userId -> true;
+			return new LeadAssigneeDirectoryPort() {
+				@Override
+				public boolean isEligibleAssignee(String userId) {
+					return true;
+				}
+
+				@Override
+				public List<EligibleAssignee> listEligibleAssignees() {
+					return List.of();
+				}
+
+				@Override
+				public Map<String, String> findDisplayNames(Set<String> userIds) {
+					return Map.of();
+				}
+			};
 		}
 
 		/**

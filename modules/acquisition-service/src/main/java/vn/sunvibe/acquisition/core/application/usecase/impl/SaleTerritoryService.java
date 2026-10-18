@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.acquisition.core.application.exception.AdministrativeAreaNotFoundException;
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
 import vn.sunvibe.acquisition.core.application.query.SaleTerritoryView;
+import vn.sunvibe.acquisition.core.application.shared.StaffNames;
 import vn.sunvibe.acquisition.core.application.shared.external.area.AdministrativeAreaPort;
 import vn.sunvibe.acquisition.core.application.shared.external.area.AdministrativeWard;
 import vn.sunvibe.acquisition.core.application.shared.external.staff.LeadAssigneeDirectoryPort;
@@ -33,6 +34,8 @@ import java.util.stream.Collectors;
  * every change of person (acquisition-owner-lead-queue BR-10). Wards come from the administrative-area catalog.
  * Existing leads never move when a ward changes hands (acquisition-owner-lead-queue BR-6): this service does not
  * touch leads.
+ * The answers name the person of each ward (acquisition-owner-lead-queue-ui C-18, one lookup per answer, only for
+ * the people of the wards listed or changed).
  * The upsert clears the persistence context, so the answer is built from the domain objects, not from entities
  * loaded earlier in the transaction.
  */
@@ -44,6 +47,7 @@ public class SaleTerritoryService implements SaleTerritoryUseCase {
     private final SaleTerritoryDomainRepository territories;
     private final SaleTerritoryChangeDomainRepository changes;
     private final LeadAssigneeDirectoryPort assigneeDirectory;
+    private final StaffNames staffNames;
     private final IdGenerator<Long> idGenerator;
 
     public SaleTerritoryService(AdministrativeAreaPort administrativeAreas, SaleTerritoryDomainRepository territories,
@@ -54,6 +58,7 @@ public class SaleTerritoryService implements SaleTerritoryUseCase {
         this.territories = territories;
         this.changes = changes;
         this.assigneeDirectory = assigneeDirectory;
+        this.staffNames = new StaffNames(assigneeDirectory);
         this.idGenerator = idGenerator;
     }
 
@@ -65,9 +70,11 @@ public class SaleTerritoryService implements SaleTerritoryUseCase {
         Map<String, SaleTerritory> byWard = territories
                 .findByWardCodes(wards.stream().map(AdministrativeWard::code).toList()).stream()
                 .collect(Collectors.toMap(SaleTerritory::getWardCode, Function.identity()));
+        Map<String, String> names = staffNames
+                .lookup(byWard.values().stream().map(SaleTerritory::getUserId).toList());
         return wards.stream()
                 .sorted(byName())
-                .map(ward -> view(ward, Optional.ofNullable(byWard.get(ward.code()))))
+                .map(ward -> view(ward, Optional.ofNullable(byWard.get(ward.code())), names))
                 .toList();
     }
 
@@ -77,7 +84,7 @@ public class SaleTerritoryService implements SaleTerritoryUseCase {
         Optional<SaleTerritory> current = territories.findByWard(wardCode);
         // Giving the ward to the person who has it changes nothing and records nothing
         if (current.isPresent() && current.get().getUserId().equals(userId)) {
-            return view(ward, current);
+            return view(ward, current, staffNames.lookup(List.of(current.get().getUserId())));
         }
         if (!assigneeDirectory.isEligibleAssignee(userId)) {
             throw new IneligibleAssigneeException("userId");
@@ -86,7 +93,7 @@ public class SaleTerritoryService implements SaleTerritoryUseCase {
         territories.upsert(territory);
         changes.save(SaleTerritoryChange.create(idGenerator.generateId(), ward.code(),
                 current.map(SaleTerritory::getUserId).orElse(null), userId, actorId, territory.getAssignedAt()));
-        return view(ward, Optional.of(territory));
+        return view(ward, Optional.of(territory), staffNames.lookup(List.of(territory.getUserId())));
     }
 
     @Override
@@ -105,9 +112,11 @@ public class SaleTerritoryService implements SaleTerritoryUseCase {
         return administrativeAreas.findWard(wardCode).orElseThrow(AdministrativeAreaNotFoundException::ward);
     }
 
-    private static SaleTerritoryView view(AdministrativeWard ward, Optional<SaleTerritory> territory) {
-        return new SaleTerritoryView(ward.code(), ward.name(), ward.type(),
-                territory.map(SaleTerritory::getUserId).orElse(null),
+    private static SaleTerritoryView view(AdministrativeWard ward, Optional<SaleTerritory> territory,
+                                          Map<String, String> names) {
+        String userId = territory.map(SaleTerritory::getUserId).orElse(null);
+        return new SaleTerritoryView(ward.code(), ward.name(), ward.type(), userId,
+                StaffNames.nameOf(names, userId),
                 territory.map(SaleTerritory::getAssignedAt).orElse(null));
     }
 

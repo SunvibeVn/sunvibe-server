@@ -7,15 +7,17 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
+import vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 /**
  * Spring Data access to {@link UserEntity}. Every lookup skips soft-deleted
- * rows ({@code deletedAt IS NULL}).
+ * rows ({@code deletedAt IS NULL}), except findNamesByIds (acquisition-owner-lead-queue-ui C-35).
  */
 @Repository
 public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
@@ -58,5 +60,25 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE UserEntity u SET u.lockedUntil = :until WHERE u.id = :id")
     int lockLoginUntil(@Param("id") String id, @Param("until") Instant until);
+
+    /**
+     * One row per account and matching role, as scalars: the role collection of the entity is never loaded here
+     * (it cascades ALL, so a filtered JOIN FETCH could cut it on the next save). No SQL limit: an account with
+     * several roles gives several rows, so the caller cuts by account.
+     */
+    @Query("SELECT new vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow(u.id, u.fullName, r.name) " +
+            "FROM UserEntity u JOIN u.userRoles r " +
+            "WHERE r.name IN :roles AND u.deletedAt IS NULL AND u.userStatus NOT IN :blocked")
+    List<StaffAccountRow> findSignInAbleStaffRows(@Param("roles") Collection<String> roles,
+                                                  @Param("blocked") Collection<UserStatus> blocked);
+
+    /** Deliberately no {@code deletedAt} filter: names stay readable for soft-deleted and locked accounts. */
+    @Query("SELECT new vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository$UserName(" +
+            "u.id, u.fullName) FROM UserEntity u WHERE u.id IN :ids")
+    List<UserName> findNamesByIds(@Param("ids") Collection<String> ids);
+
+    /** Id and full name of one account. */
+    record UserName(String id, String fullName) {
+    }
 
 }

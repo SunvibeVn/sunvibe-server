@@ -177,7 +177,11 @@ public class AcquisitionExceptionHandler {
 
     // ==================== Staff lead and territory endpoints ====================
 
-    /** A value of a lead command breaks a domain rule: a missing close reason, a bad duplicate target, ... */
+    /**
+     * A value of a lead command or list parameter breaks a domain rule: a missing close reason, a bad duplicate
+     * target, the assignee filter outside scope all, ... (a malformed request code is an intake value, see
+     * {@code handleRefusedValue}).
+     */
     @ExceptionHandler(InvalidLeadCommandException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleInvalidLeadCommand(InvalidLeadCommandException e) {
         return validationFailed(List.of(ValidationError.of(e.getField(), e.getMessage())));

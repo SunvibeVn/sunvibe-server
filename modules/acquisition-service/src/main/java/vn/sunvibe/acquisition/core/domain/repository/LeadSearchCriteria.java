@@ -10,7 +10,7 @@ import java.util.Set;
  * matches the status filter when it is in any of the statuses.
  */
 public record LeadSearchCriteria(Optional<String> assignedUserId, Set<OwnerLeadStatus> statuses,
-                                 Optional<String> wardCode) {
+                                 Optional<String> wardCode, Optional<String> requestCode) {
 
     public LeadSearchCriteria {
         statuses = Set.copyOf(statuses);

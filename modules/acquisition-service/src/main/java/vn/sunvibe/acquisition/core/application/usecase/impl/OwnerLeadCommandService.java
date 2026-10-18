@@ -13,6 +13,7 @@ import vn.sunvibe.acquisition.core.application.query.LeadActivityView;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
+import vn.sunvibe.acquisition.core.application.shared.StaffNames;
 import vn.sunvibe.acquisition.core.application.shared.external.staff.LeadAssigneeDirectoryPort;
 import vn.sunvibe.acquisition.core.application.usecase.OwnerLeadCommandUseCase;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
@@ -29,7 +30,10 @@ import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Use Case Implementation - OwnerLeadCommandService
@@ -38,8 +42,9 @@ import java.util.List;
  * (acquisition-owner-lead-queue spec 5.3): the request values (400), that the viewer can see the lead (404, the same
  * answer as an unknown lead), the version the caller saw (409), the lead's status (409), the assignee (422). The
  * lead and its history entry are saved in the same transaction, and every answer carries the version the saved lead
- * now has. An optimistic locking failure on save is left to the exception handler, except for a note, whose request
- * has no version to name.
+ * now has, and names the lead's assignee; a note answer also names the people of its history entry
+ * (acquisition-owner-lead-queue-ui C-18, one lookup per answer). An optimistic locking failure on save is left to
+ * the exception handler, except for a note, whose request has no version to name.
  */
 @Service
 @Transactional
@@ -50,6 +55,7 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
     private final DuplicateCandidateDomainRepository duplicateCandidates;
     private final LeadVisibility visibility;
     private final LeadAssigneeDirectoryPort assigneeDirectory;
+    private final StaffNames staffNames;
     private final IdGenerator<Long> idGenerator;
 
     public OwnerLeadCommandService(OwnerLeadDomainRepository leads, OwnerLeadActivityDomainRepository activities,
@@ -61,6 +67,7 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         this.duplicateCandidates = duplicateCandidates;
         this.visibility = visibility;
         this.assigneeDirectory = assigneeDirectory;
+        this.staffNames = new StaffNames(assigneeDirectory);
         this.idGenerator = idGenerator;
     }
 
@@ -74,14 +81,14 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         }
         // Giving the lead to the person who holds it changes nothing, so their eligibility is not asked again
         if (command.assigneeUserId().equals(lead.getAssignedUserId())) {
-            return summary(viewer, lead);
+            return summary(viewer, lead, assigneeNames(lead));
         }
         if (!assigneeDirectory.isEligibleAssignee(command.assigneeUserId())) {
             throw new IneligibleAssigneeException("assigneeUserId");
         }
         LeadChange change = lead.assignTo(command.assigneeUserId(), command.note()).orElseThrow();
         save(viewer, lead, change);
-        return summary(viewer, lead);
+        return summary(viewer, lead, assigneeNames(lead));
     }
 
     @Override
@@ -98,7 +105,7 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         LeadChange change = lead.changeStatus(command.toStatus(), command.reason(), duplicateOf, command.note(),
                 command.nextActionAt());
         save(viewer, lead, change);
-        return summary(viewer, lead);
+        return summary(viewer, lead, assigneeNames(lead));
     }
 
     @Override
@@ -112,7 +119,10 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         }
         OwnerLeadActivity activity = activity(viewer, lead, change);
         activities.save(activity);
-        return new LeadNoteResult(LeadActivityView.of(activity), summary(viewer, lead));
+        List<String> staffIds = new ArrayList<>(StaffNames.idsOf(activity));
+        staffIds.add(lead.getAssignedUserId());
+        Map<String, String> names = staffNames.lookup(staffIds);
+        return new LeadNoteResult(LeadActivityView.of(activity, names), summary(viewer, lead, names));
     }
 
     /**
@@ -164,11 +174,16 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
                 AppClock.currentUTC());
     }
 
-    private OwnerLeadSummary summary(LeadViewer viewer, OwnerLead lead) {
+    /** One lookup for the name of the lead's assignee (none when nobody holds the lead). */
+    private Map<String, String> assigneeNames(OwnerLead lead) {
+        return staffNames.lookup(Collections.singletonList(lead.getAssignedUserId()));
+    }
+
+    private OwnerLeadSummary summary(LeadViewer viewer, OwnerLead lead, Map<String, String> names) {
         String id = lead.getId().getValue();
         boolean possibleDuplicate = duplicateCandidates
                 .leadIdsWithVisibleCandidate(List.of(id), LeadVisibility.candidateViewer(viewer))
                 .contains(id);
-        return OwnerLeadSummary.of(lead, possibleDuplicate);
+        return OwnerLeadSummary.of(lead, possibleDuplicate, names);
     }
 }

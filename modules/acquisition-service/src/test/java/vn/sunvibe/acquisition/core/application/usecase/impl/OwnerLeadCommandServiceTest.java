@@ -12,6 +12,8 @@ import vn.sunvibe.acquisition.core.application.exception.OwnerLeadNotFoundExcept
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
+import vn.sunvibe.acquisition.core.application.shared.external.staff.EligibleAssignee;
+import vn.sunvibe.acquisition.core.application.shared.external.staff.LeadAssigneeDirectoryPort;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadTransitionException;
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
@@ -21,7 +23,6 @@ import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
-import vn.sunvibe.acquisition.core.application.shared.external.staff.LeadAssigneeDirectoryPort;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryDuplicateCandidateRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadActivityRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadRepository;
@@ -30,8 +31,10 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -96,6 +99,18 @@ class OwnerLeadCommandServiceTest {
         assertEquals(SALE_A, activity.getToAssigneeId());
         assertEquals("Please call today", activity.getNote());
         assertEquals(lead.getId(), activity.getLeadId());
+    }
+
+    /** acquisition-owner-lead-queue-ui C-18: the answer names the assignee, with one lookup. */
+    @Test
+    void assign_answerCarriesTheAssigneeNameFromOneLookup() {
+        directory.withName(SALE_A, "Nguyen An");
+        OwnerLead lead = stored(OwnerLeadStatus.NEW, null);
+
+        OwnerLeadSummary summary = service.assign(ALL_LEADER, new AssignLeadCommand(id(lead), SALE_A, 0L, null));
+
+        assertEquals("Nguyen An", summary.assignedUserName());
+        assertEquals(1, directory.nameLookups);
     }
 
     @Test
@@ -173,6 +188,18 @@ class OwnerLeadCommandServiceTest {
         assertEquals(0, directory.calls);
     }
 
+    /** acquisition-owner-lead-queue-ui C-35: a lead the caller may not see is refused before any name is looked up. */
+    @Test
+    void assign_invisibleLead_makesNoNameLookup() {
+        directory.withName(SALE_A, "Nguyen An");
+        OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        assertThrows(OwnerLeadNotFoundException.class, () -> service.assign(OWN_B,
+                new AssignLeadCommand(id(lead), SALE_B, 0L, null)));
+
+        assertEquals(0, directory.nameLookups);
+    }
+
     @Test
     void assign_blankAssignee_isBadRequestBeforeVisibility() {
         InvalidLeadCommandException ex = assertThrows(InvalidLeadCommandException.class,
@@ -240,6 +267,18 @@ class OwnerLeadCommandServiceTest {
         assertEquals(OwnerLeadStatus.CONTACTED, activity.getToStatus());
         assertEquals("Owner answered", activity.getNote());
         assertEquals(NEXT, activity.getNextActionAt());
+    }
+
+    /** acquisition-owner-lead-queue-ui C-18: the status-change answer names the assignee with one lookup. */
+    @Test
+    void changeStatus_answerCarriesNameFromOneLookup() {
+        directory.withName(SALE_A, "Nguyen An");
+        OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        OwnerLeadSummary summary = service.changeStatus(OWN_A, statusChange(lead, OwnerLeadStatus.CONTACTED, 0L));
+
+        assertEquals("Nguyen An", summary.assignedUserName());
+        assertEquals(1, directory.nameLookups);
     }
 
     @Test
@@ -418,6 +457,21 @@ class OwnerLeadCommandServiceTest {
         assertEquals(lead.getId(), stored.getLeadId());
     }
 
+    /** The note answer names the actor and the assignee with one lookup; an unknown id gives a null name. */
+    @Test
+    void addNote_answerCarriesActorAndAssigneeNamesFromOneLookup() {
+        directory.withName(SALE_A, "Nguyen An");
+        OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        LeadNoteResult result = service.addNote(OWN_A, new AddLeadNoteCommand(id(lead), "Called", null));
+
+        assertEquals("Nguyen An", result.activity().actorName());
+        assertNull(result.activity().fromAssigneeName());
+        assertNull(result.activity().toAssigneeName());
+        assertEquals("Nguyen An", result.lead().assignedUserName());
+        assertEquals(1, directory.nameLookups);
+    }
+
     @Test
     void addNote_withNextAction_updatesLeadAndBumpsVersion() {
         OwnerLead lead = stored(OwnerLeadStatus.CONTACTED, SALE_A);
@@ -528,7 +582,14 @@ class OwnerLeadCommandServiceTest {
     private static final class CountingDirectory implements LeadAssigneeDirectoryPort {
 
         private final Set<String> eligible = new HashSet<>();
+        private final Map<String, String> names = new HashMap<>();
         private int calls;
+        private int nameLookups;
+
+        CountingDirectory withName(String userId, String fullName) {
+            names.put(userId, fullName);
+            return this;
+        }
 
         CountingDirectory withEligible(String userId) {
             eligible.add(userId);
@@ -539,6 +600,19 @@ class OwnerLeadCommandServiceTest {
         public boolean isEligibleAssignee(String userId) {
             calls++;
             return eligible.contains(userId);
+        }
+
+        @Override
+        public List<EligibleAssignee> listEligibleAssignees() {
+            return List.of();
+        }
+
+        @Override
+        public Map<String, String> findDisplayNames(Set<String> userIds) {
+            nameLookups++;
+            Map<String, String> found = new HashMap<>();
+            userIds.stream().filter(names::containsKey).forEach(id -> found.put(id, names.get(id)));
+            return found;
         }
     }
 }
