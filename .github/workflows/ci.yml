@@ -21,3 +21,34 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v6   # Gradle cache
       - run: ./gradlew build --no-daemon
+      # The checked-in contract must equal what the code exports (H2 test profile, no database needed).
+      - name: API contract is fresh (exportOpenApi output equals api/openapi.json)
+        run: |
+          ./gradlew exportOpenApi --no-daemon
+          git diff --exit-code -- api/openapi.json || {
+            echo "::error file=api/openapi.json::api/openapi.json is stale: run ./gradlew exportOpenApi and commit it."
+            exit 1
+          }
+
+  migration-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # the base branch and the fork point are needed
+      - name: Committed Flyway migrations are unchanged
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: bash scripts/ci/check-migration-history.sh "$BASE"
+
+  tooling-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      # Claude/Codex hooks and CI scripts (temporary Git repos only).
+      - run: node --test "scripts/tests/*.test.mjs"

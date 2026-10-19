@@ -21,17 +21,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/format.sh\""
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
@@ -42,7 +31,7 @@
           },
           {
             "type": "command",
-            "command": "f=\"$CLAUDE_PROJECT_DIR/../scripts/claude-hooks/docs-reminder.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; fi"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/hub-hook.sh\" docs-reminder.sh"
           }
         ]
       }

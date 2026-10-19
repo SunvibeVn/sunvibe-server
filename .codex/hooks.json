@@ -6,18 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash 'D:\\aa_sunvibe\\sunvibe-hub\\sunvibe-server\\.codex\\hooks\\protect-migrations.sh'"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash 'D:\\aa_sunvibe\\sunvibe-hub\\sunvibe-server\\.codex\\hooks\\format.sh'"
+            "command": "r=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; bash \"$r/.claude/hooks/protect-migrations.sh\""
           }
         ]
       }
@@ -27,12 +16,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash 'D:\\aa_sunvibe\\sunvibe-hub\\sunvibe-server\\.codex\\hooks\\verify-build.sh'",
+            "command": "r=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; bash \"$r/.claude/hooks/verify-build.sh\"",
             "timeout": 600
           },
           {
             "type": "command",
-            "command": "f=\"$CLAUDE_PROJECT_DIR/../scripts/claude-hooks/docs-reminder.sh\"; if [ -f \"$f\" ]; then bash \"$f\"; fi"
+            "command": "r=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; bash \"$r/.claude/hooks/hub-hook.sh\" docs-reminder.sh"
           }
         ]
       }
