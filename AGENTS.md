@@ -11,6 +11,9 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   Outside the dev/test profiles these env vars are required (no default in application.yml): MAIL_USERNAME,
   MAIL_PASSWORD, JWT_SECRET (base64). A missing JWT_SECRET or MAIL_USERNAME fails startup; a missing MAIL_PASSWORD
   fails only when mail is sent. The dev profile has a public dev-only JWT_SECRET and empty mail values; env vars win if set.
+  Also required outside dev/test: ID_CARD_CRYPTO_KEY and ID_CARD_CRYPTO_INDEX_KEY (two different base64 32-byte keys),
+  ACQUISITION_HASH_KEY (base64, at least 32 bytes) and SMS_PROVIDER (only `log` exists, for dev/test); each fails
+  startup when missing. The dev profile has dev-only values for them.
 - Run on the LAN (phone/tablet testing): set LAN_FE_ORIGIN=http://<LAN-IP>:3000, then
   ./gradlew :app:bootRun --args='--spring.profiles.active=dev,lan' (refresh cookie not Secure; never with prod).
   Steps for both repos: ../docs/setup/lan-device-testing.md
@@ -26,13 +29,19 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   fixed ids: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v target=local -f scripts/dev/seed-e2e-owner-leads.sql
   (idempotent: deletes and re-inserts only its own fixture rows). `npm run e2e:workspace` in sunvibe-ui (the lead
   queue workspace) uses both seeds.
-- Export API contract: ./gradlew exportOpenApi -> api/openapi.json (commit it). Swagger UI (local): http://localhost:8081/swagger-ui/index.html
+- Export API contract: ./gradlew exportOpenApi -> api/openapi.json (commit it; CI fails when the export differs from
+  the committed file). Swagger UI (local): http://localhost:8081/swagger-ui/index.html
+- Migration history: bash scripts/ci/check-migration-history.sh origin/main --include-worktree (CI job
+  migration-history fails a PR that changes a migration of its base branch).
+- Tooling tests (Claude/Codex hooks, CI scripts; temporary Git repos only): node --test "scripts/tests/*.test.mjs"
 
 ## Modules
 - app: Spring Boot entry point (vn.sunvibe.SunvibeServerApplication) and the single SecurityFilterChain (app/.../config/SecurityConfig.java).
 - modules/shared-service: shared exceptions, ErrorResponse, crypto, ID generators, AppClock (package vn.sunvibe.shared).
 - modules/auth-service: login, refresh-token rotation, registration, contact verification, password reset, audit, rate limit.
-- modules/property-service: properties (prices, images, amenities, rules, documents, availability).
+- modules/property-service: properties (prices, images, amenities, rules, documents, availability), units and
+  ownership, the province/ward catalog.
+- modules/acquisition-service: owner intake (public form), owner leads, ward territories and the staff lead queue.
 - modules/listing-service, modules/notification-service: empty placeholders (target names, ADR-003). A new module must be added to settings.gradle.kts and app/build.gradle.kts.
 
 ## Architecture
@@ -61,19 +70,30 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - NEVER commit a secret: CI gitleaks-scans new commits (.github/workflows/secret-scan.yml). A false positive goes
   into .gitleaksignore as a fingerprint (never the value), only after owner review.
 - Every new endpoint: OpenAPI annotations (springdoc, io.swagger.v3.oas.annotations) + explicit authorization rule + test.
-- Errors use the shared format: vn.sunvibe.shared.dto.response.error.ErrorResponse(message, errors),
-  produced by vn.sunvibe.config.GlobalServerExceptionHandler (app) or a module *ExceptionHandler. Never leak stack traces.
-- New endpoints go under /api/v1/<resource>. Existing auth paths (/api/auth, /api/users/command, /api/user/query) are legacy.
+- Errors use the shared format: vn.sunvibe.shared.dto.response.error.ErrorResponse (code, message, errors,
+  correlationId; ../docs/decisions/ADR-010-error-envelope-and-correlation-id.md). New errors are built with
+  ErrorResponse.of(code, message, errors) and carry a stable code. They come from
+  vn.sunvibe.config.GlobalServerExceptionHandler (app) or a module *ExceptionHandler. Never leak stack traces.
+- New endpoints go under /api/v1/<resource>. The legacy auth paths (/api/auth, /api/users/command, /api/user/query)
+  were removed in W10c (auth-browser-session); never re-add them.
 - CORS: explicit origin allow-list from config (app.cors.allowed-origins), allowCredentials=true. Never "*".
   See ../docs/decisions/ADR-001-direct-browser-api.md
 - Schema changes go through Flyway only (modules/<module>/src/main/resources/db/migration). Do not rely on ddl-auto.
 
 ## Before saying "done"
-1. ./gradlew test passes
-2. api/openapi.json regenerated if the API changed
-3. Run /update-docs <feature> in this session when the feature or fix is finished (it edits ../docs;
-   the hub is loaded via --add-dir). A Stop hook reminds you once per session on feature/* and fix/* branches.
-   Then remind the owner to commit the hub docs.
+Each step is its own evidence; a passing compile (the Claude Stop hook) is not a passing build.
+1. ./gradlew build passes: unit and API tests, the PostgreSQL tests on Testcontainers (Docker must run), ArchUnit
+   and checkModuleBoundaries.
+2. API changed: ./gradlew exportOpenApi and commit api/openapi.json; a second export leaves it unchanged.
+3. No migration of the base branch changed: bash scripts/ci/check-migration-history.sh origin/main --include-worktree
+   (it compares with the fork point; a migration committed earlier on this branch is protected only by review).
+4. Independent review without open Blocker or Major findings, against ../docs/setup/checklists/be-review.md
+   (Claude: code-reviewer, plus security-reviewer / migration-specialist when their triggers apply).
+5. Docs: run /update-docs <module>/<feature> in this session when the feature or fix is finished (it edits ../docs;
+   the hub is loaded via --add-dir), unless a flow run (hub scripts/flow) does it in its docs stage. A Stop hook
+   reminds you once per session on feature/*, fix/* and rebuild/* branches. Then remind the owner to commit the hub docs.
+CI runs the build, the contract freshness check, migration-history and the tooling tests; whether a red check blocks
+a merge depends on GitHub branch protection, which is not assumed here.
 
 ## Context
 - Feature docs: ../docs/features/INDEX.md, then ../docs/features/<module>/<feature>/ (brief = business truth, read
