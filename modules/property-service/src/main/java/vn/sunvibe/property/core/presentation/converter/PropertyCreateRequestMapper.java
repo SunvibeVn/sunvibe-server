@@ -5,7 +5,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.shared.security.AuthenticatedUser;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
-import vn.sunvibe.property.core.application.exception.PropertyValidationException;
+import vn.sunvibe.property.core.domain.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;
 import vn.sunvibe.property.core.domain.model.enums.PropertyType;
 import vn.sunvibe.property.core.presentation.dto.request.PropertyCreateRequest;

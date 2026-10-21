@@ -1,8 +1,8 @@
 package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 
 import org.springframework.stereotype.Component;
-import vn.sunvibe.property.core.domain.model.amenity.AmenityType;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
+import vn.sunvibe.property.core.domain.model.vo.AmenityTypeRef;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.PropertyAmenityEntity;
 
@@ -12,43 +12,32 @@ public class PropertyAmenityEntityMapper {
     public PropertyAmenityApply toDomain(PropertyAmenityEntity entity) {
         if (entity == null) return null;
 
-        // Reconstitution path: use no-args + setters to bypass constructor validation.
-        // The constructor enforces invariants for new objects only.
-        AmenityType categoryStub = new AmenityType();
-        categoryStub.setAmenityName(entity.getCategory());
-
-        AmenityType amenityType = new AmenityType();
-        amenityType.setId(entity.getAmenityTypeId());
-        amenityType.setAmenityName(entity.getAmenityName());
-        amenityType.setAmenityType(categoryStub);
-        amenityType.setDescription(entity.getDescription());
-        amenityType.setLevelOfNeed(entity.getLevelOfNeed());
-
-        PropertyAmenityApply domain = new PropertyAmenityApply();
-        domain.setId(entity.getId());
-        domain.setPropertyId(PropertyId.of(entity.getPropertyId()));
-        domain.setAmenityTypeId(entity.getAmenityTypeId());
-        domain.setAmenityType(amenityType);
-        domain.setIncluded(Boolean.TRUE.equals(entity.getIsIncluded()));
-        domain.setLevelOfNeed(entity.getLevelOfNeed());
-        domain.setCustomNote(entity.getCustomNote());
-        domain.setCreatedAt(entity.getCreatedAt());
-        return domain;
+        // The amenity row keeps the type's names; they are rebuilt as a reference, not as master data
+        AmenityTypeRef amenityType = AmenityTypeRef.of(entity.getAmenityTypeId(), entity.getAmenityName(),
+                entity.getCategory(), entity.getDescription());
+        return PropertyAmenityApply.load(
+                entity.getId(),
+                PropertyId.of(entity.getPropertyId()),
+                amenityType,
+                Boolean.TRUE.equals(entity.getIsIncluded()),
+                entity.getLevelOfNeed(),
+                entity.getCustomNote(),
+                entity.getCreatedAt()
+        );
     }
 
     public PropertyAmenityEntity toEntity(PropertyAmenityApply domain) {
         if (domain == null) return null;
 
-        AmenityType amenityType = domain.getAmenityType();
-        AmenityType category = amenityType != null ? amenityType.getAmenityType() : null;
+        AmenityTypeRef amenityType = domain.getAmenityType();
 
         return PropertyAmenityEntity.builder()
                 .id(domain.getId())
                 .propertyId(domain.getPropertyId().getValue())
                 .amenityTypeId(domain.getAmenityTypeId())
-                .amenityName(amenityType != null ? amenityType.getAmenityName() : null)
-                .category(category != null ? category.getAmenityName() : null)
-                .description(amenityType != null ? amenityType.getDescription() : null)
+                .amenityName(amenityType.getName())
+                .category(amenityType.getCategoryName())
+                .description(amenityType.getDescription())
                 .isIncluded(domain.isIncluded())
                 .levelOfNeed(domain.getLevelOfNeed())
                 .customNote(domain.getCustomNote())

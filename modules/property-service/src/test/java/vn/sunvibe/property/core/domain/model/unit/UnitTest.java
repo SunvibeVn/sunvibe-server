@@ -159,6 +159,20 @@ class UnitTest {
         assertEquals(4L, unit.getVersion());
     }
 
+    /** property-units BR-14: the repository hands back the saved version; it never goes back and is never null. */
+    @Test
+    void markPersisted_savedVersion_isKeptAndNeverGoesBack() {
+        Unit unit = Unit.createCanonical(property(PropertyType.STUDIO, 1, 1, 30.0));
+
+        unit.markPersisted(0L);
+        unit.markPersisted(1L);
+
+        assertEquals(1L, unit.getVersion());
+        assertThrows(IllegalArgumentException.class, () -> unit.markPersisted(0L));
+        assertThrows(IllegalArgumentException.class, () -> unit.markPersisted(null));
+        assertEquals(1L, unit.getVersion());
+    }
+
     /** Spec A-6: the unit type list is mapped from the property type by name, so the two lists cannot drift. */
     @Test
     void from_everyPropertyType_mapsToTheSameName() {

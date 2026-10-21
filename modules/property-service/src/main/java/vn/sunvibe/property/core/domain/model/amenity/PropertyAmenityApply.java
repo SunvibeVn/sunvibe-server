@@ -1,9 +1,8 @@
 package vn.sunvibe.property.core.domain.model.amenity;
 
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import vn.sunvibe.shared.time.AppClock;
+import vn.sunvibe.property.core.domain.model.vo.AmenityTypeRef;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 
 import java.time.LocalDateTime;
@@ -18,45 +17,34 @@ import java.util.UUID;
  * <p>
  * Relationship: Property (1) ──M── PropertyAmenityApply ──N── AmenityType
  */
-@Data
-@NoArgsConstructor
 public class PropertyAmenityApply {
 
-    private String id;                     // Unique ID for this relationship
-    private PropertyId propertyId;         // FK to property
-    private Integer amenityTypeId;         // FK to amenity type (master)
+    private String id;                           // Unique ID for this relationship
+    private final PropertyId propertyId;         // FK to property
+    private final AmenityTypeRef amenityType;    // The amenity type (master), with the names this row keeps
 
-    private AmenityType amenityType;       // Reference to master (loaded separately)
-
-    private boolean isIncluded;            // Whether this amenity is included
-    private String levelOfNeed;            // Level of need: STANDARD, PREMIUM, OPTIONAL
-    private String customNote;             // Custom note for this amenity
+    private boolean isIncluded;                  // Whether this amenity is included
+    private String levelOfNeed;                  // Level of need: STANDARD, PREMIUM, OPTIONAL
+    private String customNote;                   // Custom note for this amenity
 
     private LocalDateTime createdAt;
 
     // ==================== Constructor ====================
 
-    public PropertyAmenityApply(PropertyId propertyId, Integer amenityTypeId,
-                                AmenityType amenityType, boolean isIncluded) {
+    private PropertyAmenityApply(PropertyId propertyId, AmenityTypeRef amenityType, boolean isIncluded,
+                                 String levelOfNeed) {
         if (propertyId == null) {
             throw new IllegalArgumentException("PropertyId cannot be null");
-        }
-        if (amenityTypeId == null || amenityTypeId <= 0) {
-            throw new IllegalArgumentException("AmenityTypeId must be > 0");
         }
         if (amenityType == null) {
             throw new IllegalArgumentException("AmenityType cannot be null");
         }
-        if (!amenityTypeId.equals(amenityType.getId())) {
-            throw new IllegalArgumentException("AmenityTypeId does not match AmenityType.id");
-        }
 
         this.id = UUID.randomUUID().toString();
         this.propertyId = propertyId;
-        this.amenityTypeId = amenityTypeId;
         this.amenityType = amenityType;
         this.isIncluded = isIncluded;
-        this.levelOfNeed = amenityType.getLevelOfNeed();  // Default from master
+        this.levelOfNeed = levelOfNeed;
         this.createdAt = AppClock.currentLocalTime();
     }
 
@@ -65,35 +53,40 @@ public class PropertyAmenityApply {
     /**
      * Create amenity apply - NOT included.
      */
-    public static PropertyAmenityApply notIncluded(PropertyId propertyId,
-                                                   AmenityType amenityType) {
-        return new PropertyAmenityApply(propertyId, amenityType.getId(), amenityType, false);
+    public static PropertyAmenityApply notIncluded(PropertyId propertyId, AmenityType amenityType) {
+        return fromMaster(propertyId, amenityType, false);
     }
 
     /**
      * Create amenity apply - included.
      */
-    public static PropertyAmenityApply included(PropertyId propertyId,
-                                                AmenityType amenityType) {
-        return new PropertyAmenityApply(propertyId, amenityType.getId(), amenityType, true);
+    public static PropertyAmenityApply included(PropertyId propertyId, AmenityType amenityType) {
+        return fromMaster(propertyId, amenityType, true);
     }
 
     /**
      * Load from database (reconstruct).
      */
-    public static PropertyAmenityApply load(String id, PropertyId propertyId,
-                                            Integer amenityTypeId,
-                                            AmenityType amenityType,
-                                            boolean isIncluded,
-                                            String levelOfNeed,
-                                            String customNote,
+    public static PropertyAmenityApply load(String id, PropertyId propertyId, AmenityTypeRef amenityType,
+                                            boolean isIncluded, String levelOfNeed, String customNote,
                                             LocalDateTime createdAt) {
-        PropertyAmenityApply apply = new PropertyAmenityApply(propertyId, amenityTypeId, amenityType, isIncluded);
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("Id cannot be blank");
+        PropertyAmenityApply apply = new PropertyAmenityApply(propertyId, amenityType, isIncluded, levelOfNeed);
         apply.id = id;
-        apply.levelOfNeed = levelOfNeed;
         apply.customNote = customNote;
         apply.createdAt = createdAt;
         return apply;
+    }
+
+    /** The level of need starts as the master's. */
+    private static PropertyAmenityApply fromMaster(PropertyId propertyId, AmenityType amenityType,
+                                                   boolean isIncluded) {
+        if (amenityType == null) {
+            throw new IllegalArgumentException("AmenityType cannot be null");
+        }
+        AmenityTypeRef reference = AmenityTypeRef.of(amenityType.getId(), amenityType.getAmenityName(),
+                amenityType.getCategoryName(), amenityType.getDescription());
+        return new PropertyAmenityApply(propertyId, reference, isIncluded, amenityType.getLevelOfNeed());
     }
 
     // ==================== Business Methods ====================
@@ -130,6 +123,39 @@ public class PropertyAmenityApply {
         }
     }
 
+    // ==================== Getters ====================
+
+    public String getId() {
+        return id;
+    }
+
+    public PropertyId getPropertyId() {
+        return propertyId;
+    }
+
+    public Integer getAmenityTypeId() {
+        return amenityType.getId();
+    }
+
+    public AmenityTypeRef getAmenityType() {
+        return amenityType;
+    }
+
+    public boolean isIncluded() {
+        return isIncluded;
+    }
+
+    public String getLevelOfNeed() {
+        return levelOfNeed;
+    }
+
+    public String getCustomNote() {
+        return customNote;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -149,8 +175,8 @@ public class PropertyAmenityApply {
         return "PropertyAmenityApply{" +
                 "id='" + id + '\'' +
                 ", propertyId=" + propertyId +
-                ", amenityTypeId=" + amenityTypeId +
-                ", amenityName='" + amenityType.getAmenityName() + '\'' +
+                ", amenityTypeId=" + amenityType.getId() +
+                ", amenityName='" + amenityType.getName() + '\'' +
                 ", isIncluded=" + isIncluded +
                 '}';
     }

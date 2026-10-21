@@ -1,18 +1,28 @@
 package vn.sunvibe.property.core.testsupport;
 
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import vn.sunvibe.property.core.domain.exception.PropertyAlreadyExistsException;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;
 import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 import vn.sunvibe.property.core.domain.repository.PropertyDomainRepository;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
-/** Keeps saved properties in a list. Only the operations the create flow uses are supported. */
+/**
+ * Keeps saved properties in a list. Like the real adapter, a save hands the saved version back to the property (0 for
+ * a new one, one more for a stored one), refuses a stale version with {@link ObjectOptimisticLockingFailureException}
+ * and a taken property code with {@link PropertyAlreadyExistsException}. Unlike the database it bumps the version on
+ * every update, changed or not.
+ */
 public class InMemoryPropertyDomainRepository implements PropertyDomainRepository {
 
     private final List<Property> saved = new ArrayList<>();
+    private final Map<PropertyId, Long> storedVersions = new HashMap<>();
 
     public List<Property> saved() {
         return saved;
@@ -20,7 +30,23 @@ public class InMemoryPropertyDomainRepository implements PropertyDomainRepositor
 
     @Override
     public void save(Property property) {
+        Long stored = storedVersions.get(property.getId());
+        if (stored == null) {
+            if (existsByCode(property.getPropertyCode())) {
+                throw new PropertyAlreadyExistsException("Property code already exists.");
+            }
+            saved.add(property);
+            storedVersions.put(property.getId(), 0L);
+            property.markPersisted(0L);
+            return;
+        }
+        if (!stored.equals(property.getVersion())) {
+            throw new ObjectOptimisticLockingFailureException(Property.class, property.getId().getValue());
+        }
+        saved.removeIf(p -> p.getId().equals(property.getId()));
         saved.add(property);
+        storedVersions.put(property.getId(), stored + 1);
+        property.markPersisted(stored + 1);
     }
 
     @Override
@@ -31,70 +57,5 @@ public class InMemoryPropertyDomainRepository implements PropertyDomainRepositor
     @Override
     public Optional<Property> findById(PropertyId id) {
         return saved.stream().filter(p -> p.getId().equals(id)).findFirst();
-    }
-
-    @Override
-    public void saveAll(List<Property> properties) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Optional<Property> findByCode(PropertyCode code) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<Property> findByOwnerId(String ownerId) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<Property> findByStatus(String status) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<Property> findAvailableByDistrict(String district) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<Property> findByPriceRange(long minPrice, long maxPrice) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<Property> findByBedrooms(Integer bedrooms) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void deleteById(PropertyId id) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean existsById(PropertyId id) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<Property> findAll() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long count() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long countByOwnerId(String ownerId) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public long countByStatus(String status) {
-        throw new UnsupportedOperationException();
     }
 }

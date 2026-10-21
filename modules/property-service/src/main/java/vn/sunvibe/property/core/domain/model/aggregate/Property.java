@@ -1,11 +1,8 @@
 package vn.sunvibe.property.core.domain.model.aggregate;
 
 
-import lombok.Data;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
 import vn.sunvibe.shared.time.AppClock;
-import vn.sunvibe.property.core.application.exception.PropertyValidationException;
+import vn.sunvibe.property.core.domain.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
 import vn.sunvibe.property.core.domain.model.document.PropertyDocument;
 import vn.sunvibe.property.core.domain.model.enums.PropertyStatus;
@@ -20,6 +17,7 @@ import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -31,10 +29,10 @@ import java.util.Objects;
  * - amenities: List<PropertyAmenityApply> (N:M via AmenityType)
  * - documents: List<PropertyDocument> (1:M, ref to DocumentType master)
  * - images, prices: unchanged (1:M direct)
+ * <p>
+ * Built only through {@link #create} and {@link #load}; fields change only through the business methods, and the
+ * related lists are read-only views (add through applyRule, applyAmenity, addDocument, addImage, addPriceRecord).
  */
-
-@Data
-@NoArgsConstructor
 public class Property {
 
     private PropertyId id;
@@ -57,27 +55,27 @@ public class Property {
     private LocalDateTime updatedAt;
     private String createdBy;
     private String updatedBy;
-    private Long version;                    // Optimistic lock: null for a new property; set when loaded from the database (property-units BR-14)
+    private Long version;                    // Optimistic lock: null for a new property; set when loaded or saved (property-units BR-14)
 
     // ==================== REFACTORED Relationships ====================
 
     // M:N via RuleCategory (master)
-    private List<PropertyRuleApply> appliedRules = new ArrayList<>();
+    private final List<PropertyRuleApply> appliedRules = new ArrayList<>();
 
     // M:N via AmenityType (master)
-    private List<PropertyAmenityApply> amenities = new ArrayList<>();
+    private final List<PropertyAmenityApply> amenities = new ArrayList<>();
 
     // 1:M direct (unchanged)
-    private List<PropertyImage> images = new ArrayList<>();
-    private List<PropertyDocument> documents = new ArrayList<>();
-    private List<PropertyPrice> priceHistories = new ArrayList<>();
+    private final List<PropertyImage> images = new ArrayList<>();
+    private final List<PropertyDocument> documents = new ArrayList<>();
+    private final List<PropertyPrice> priceHistories = new ArrayList<>();
 
     // ==================== Constructor ====================
 
-    public Property(PropertyId id, PropertyCode propertyCode, String title, String description,
-                    Location location, PropertyType type, Integer bedrooms, Integer bathrooms,
-                    Double squareMeters, Money monthlyPrice, Money depositPrice,
-                    Integer minRentMonths, String ownerId, String createdBy) {
+    private Property(PropertyId id, PropertyCode propertyCode, String title, String description,
+                     Location location, PropertyType type, Integer bedrooms, Integer bathrooms,
+                     Double squareMeters, Money monthlyPrice, Money depositPrice,
+                     Integer minRentMonths, String ownerId, String createdBy) {
 
         if (id == null) throw new PropertyValidationException(FieldName.PROPERTY_ID, "PropertyId is required.");
         if (propertyCode == null)
@@ -156,10 +154,26 @@ public class Property {
         return property;
     }
 
+    /**
+     * Record the version the repository gave this property when it saved it (0 for a new property, one more after
+     * each update), so the next save of the same object is an update guarded by that version (property-units BR-14).
+     * The version never goes back and is never null. Only the repository adapter calls it.
+     */
+    public void markPersisted(Long persistedVersion) {
+        if (persistedVersion == null) {
+            throw new IllegalArgumentException("persistedVersion is required.");
+        }
+        if (version != null && persistedVersion < version) {
+            throw new IllegalArgumentException("persistedVersion cannot go back.");
+        }
+        this.version = persistedVersion;
+    }
+
     // ==================== Business Methods ====================
 
     /**
-     * Update basic property information.
+     * Update basic property information. Not used by an endpoint yet: an edit feature specs its own rules first.
+     * The legacy status and price columns have no update method (property-units BR-13, ADR-005: listings own them).
      */
     public void updateBasicInfo(String title, String description, Integer bedrooms,
                                 Integer bathrooms, Double squareMeters, String updatedBy) {
@@ -169,32 +183,6 @@ public class Property {
         if (bathrooms != null && bathrooms > 0) this.bathrooms = bathrooms;
         if (squareMeters != null && squareMeters > 0) this.squareMeters = squareMeters;
 
-        this.updatedAt = AppClock.currentLocalTime();
-        this.updatedBy = updatedBy;
-    }
-
-    /**
-     * Update the rental price.
-     */
-    public void updatePrice(Money monthlyPrice, Money depositPrice, String updatedBy) {
-        if (monthlyPrice != null && monthlyPrice.isPositive()) {
-            this.monthlyPrice = monthlyPrice;
-        }
-        if (depositPrice != null && depositPrice.isPositive()) {
-            this.depositPrice = depositPrice;
-        }
-        this.updatedAt = AppClock.currentLocalTime();
-        this.updatedBy = updatedBy;
-    }
-
-    /**
-     * Change the property status.
-     */
-    public void changeStatus(PropertyStatus newStatus, String updatedBy) {
-        if (!isValidStatus(newStatus.toString())) {
-            throw new PropertyValidationException(FieldName.STATUS, "Status " + newStatus + " is invalid.");
-        }
-        this.status = newStatus;
         this.updatedAt = AppClock.currentLocalTime();
         this.updatedBy = updatedBy;
     }
@@ -226,7 +214,7 @@ public class Property {
      */
     public PropertyRuleApply getRuleApply(Integer ruleCategoryId) {
         return appliedRules.stream()
-                .filter(r -> r.getRuleCategoryId().equals(ruleCategoryId))
+                .filter(r -> Objects.equals(r.getRuleCategoryId(), ruleCategoryId))
                 .findFirst()
                 .orElse(null);
     }
@@ -236,7 +224,7 @@ public class Property {
      */
     public boolean hasRule(Integer ruleCategoryId) {
         return appliedRules.stream()
-                .anyMatch(r -> r.getRuleCategoryId().equals(ruleCategoryId));
+                .anyMatch(r -> Objects.equals(r.getRuleCategoryId(), ruleCategoryId));
     }
 
     // ==================== REFACTORED: Amenity Management ====================
@@ -266,7 +254,7 @@ public class Property {
      */
     public PropertyAmenityApply getAmenityApply(Integer amenityTypeId) {
         return amenities.stream()
-                .filter(a -> a.getAmenityTypeId().equals(amenityTypeId))
+                .filter(a -> Objects.equals(a.getAmenityTypeId(), amenityTypeId))
                 .findFirst()
                 .orElse(null);
     }
@@ -276,7 +264,7 @@ public class Property {
      */
     public boolean hasAmenity(Integer amenityTypeId) {
         return amenities.stream()
-                .anyMatch(a -> a.getAmenityTypeId().equals(amenityTypeId));
+                .anyMatch(a -> Objects.equals(a.getAmenityTypeId(), amenityTypeId));
     }
 
     /**
@@ -297,6 +285,9 @@ public class Property {
         if (document == null) {
             throw new PropertyValidationException(FieldName.DOCUMENTS, "Document is required.");
         }
+        if (!document.getPropertyId().equals(this.id)) {
+            throw new PropertyValidationException(FieldName.DOCUMENTS, "Document must belong to this property");
+        }
         documents.add(document);
     }
 
@@ -312,7 +303,7 @@ public class Property {
      */
     public List<PropertyDocument> getDocumentsByType(Integer documentTypeId) {
         return documents.stream()
-                .filter(d -> d.getDocumentTypeId().equals(documentTypeId))
+                .filter(d -> Objects.equals(d.getDocumentTypeId(), documentTypeId))
                 .toList();
     }
 
@@ -341,6 +332,9 @@ public class Property {
      */
     public void addImage(PropertyImage image) {
         if (image == null) throw new PropertyValidationException(FieldName.IMAGES, "Image is required.");
+        if (!image.getPropertyId().equals(this.id)) {
+            throw new PropertyValidationException(FieldName.IMAGES, "Image must belong to this property");
+        }
         images.add(image);
     }
 
@@ -361,6 +355,9 @@ public class Property {
      */
     public void addPriceRecord(PropertyPrice price) {
         if (price == null) throw new PropertyValidationException(FieldName.PRICE_HISTORIES, "Price is required.");
+        if (!price.getPropertyId().equals(this.id)) {
+            throw new PropertyValidationException(FieldName.PRICE_HISTORIES, "Price must belong to this property");
+        }
         priceHistories.add(price);
     }
 
@@ -374,20 +371,105 @@ public class Property {
                 .orElse(null);
     }
 
-    // ==================== Helper Methods ====================
+    // ==================== Getters ====================
 
-    private boolean isValidStatus(String status) {
-        if (status == null) {
-            return false;
-        }
-        try {
-            PropertyStatus.valueOf(status);
-            return true;
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
+    public PropertyId getId() {
+        return id;
     }
 
+    public PropertyCode getPropertyCode() {
+        return propertyCode;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public Location getLocation() {
+        return location;
+    }
+
+    public PropertyType getType() {
+        return type;
+    }
+
+    public Integer getBedrooms() {
+        return bedrooms;
+    }
+
+    public Integer getBathrooms() {
+        return bathrooms;
+    }
+
+    public Double getSquareMeters() {
+        return squareMeters;
+    }
+
+    public PropertyStatus getStatus() {
+        return status;
+    }
+
+    public String getOwnerId() {
+        return ownerId;
+    }
+
+    public Money getMonthlyPrice() {
+        return monthlyPrice;
+    }
+
+    public Money getDepositPrice() {
+        return depositPrice;
+    }
+
+    public Integer getMinRentMonths() {
+        return minRentMonths;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public String getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    public List<PropertyRuleApply> getAppliedRules() {
+        return Collections.unmodifiableList(appliedRules);
+    }
+
+    public List<PropertyAmenityApply> getAmenities() {
+        return Collections.unmodifiableList(amenities);
+    }
+
+    public List<PropertyImage> getImages() {
+        return Collections.unmodifiableList(images);
+    }
+
+    public List<PropertyDocument> getDocuments() {
+        return Collections.unmodifiableList(documents);
+    }
+
+    public List<PropertyPrice> getPriceHistories() {
+        return Collections.unmodifiableList(priceHistories);
+    }
+
+    // ==================== Helper Methods ====================
 
     @Override
     public boolean equals(Object o) {
@@ -416,7 +498,6 @@ public class Property {
                 '}';
     }
 
-    @Getter
     public enum FieldName {
 
         /*────────── PROPERTY ──────────*/
@@ -448,13 +529,20 @@ public class Property {
         DOCUMENTS("documents", "Documents"),
         PRICE_HISTORIES("priceHistories", "Price Histories");
 
-        // Getters
         private final String fieldName;      // Database/JSON field name
         private final String displayName;    // User-friendly name
 
         FieldName(String fieldName, String displayName) {
             this.fieldName = fieldName;
             this.displayName = displayName;
+        }
+
+        public String getFieldName() {
+            return fieldName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
         }
 
     }

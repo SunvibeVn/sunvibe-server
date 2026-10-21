@@ -1,9 +1,5 @@
 package vn.sunvibe.property.core.domain.model.rule;
 
-
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.Objects;
 
 /**
@@ -11,22 +7,20 @@ import java.util.Objects;
  * Represents a rule type shared across multiple properties.
  * Example: PETS, SMOKING, NOISE, GUESTS, PARTIES, etc
  */
-@Data
-@NoArgsConstructor
 public class RuleCategory {
 
-    private Integer id;  // Database ID (not UUID for master data)
-    private String categoryName;        // Category name: "PETS", "SMOKING", etc
-    private String description;        // Description: e.g. "No pets allowed"
-    private RuleSeverity defaultSeverity;  // Default severity level
-    private boolean isNegotiable;      // Can this rule be negotiated?
-    private String icon;               // Icon for UI
+    private final Integer id;  // Database ID (not UUID for master data)
+    private final String categoryName;        // Category name: "PETS", "SMOKING", etc
+    private final String description;        // Description: e.g. "No pets allowed"
+    private final RuleSeverity defaultSeverity;  // Default severity level
+    private final boolean isNegotiable;      // Can this rule be negotiated?
+    private final String icon;               // Icon for UI
 
     // ==================== Constructor ====================
 
-    public RuleCategory(Integer id, String categoryName, String description,
-                        RuleSeverity defaultSeverity, boolean isNegotiable,
-                        String icon) {
+    private RuleCategory(Integer id, String categoryName, String description,
+                         RuleSeverity defaultSeverity, boolean isNegotiable,
+                         String icon) {
         if (id == null || id <= 0) {
             throw new IllegalArgumentException("RuleCategory ID must be > 0");
         }
@@ -58,6 +52,32 @@ public class RuleCategory {
                                     String icon) {
         return new RuleCategory(id, categoryName, description, defaultSeverity,
                 isNegotiable, icon);
+    }
+
+    // ==================== Getters ====================
+
+    public Integer getId() {
+        return id;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public RuleSeverity getDefaultSeverity() {
+        return defaultSeverity;
+    }
+
+    public boolean isNegotiable() {
+        return isNegotiable;
+    }
+
+    public String getIcon() {
+        return icon;
     }
 
     @Override

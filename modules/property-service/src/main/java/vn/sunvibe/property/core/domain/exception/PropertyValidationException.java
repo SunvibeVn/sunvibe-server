@@ -1,12 +1,14 @@
-package vn.sunvibe.property.core.application.exception;
+package vn.sunvibe.property.core.domain.exception;
 
-import lombok.Getter;
 import vn.sunvibe.shared.exception.BusinessRuleViolationException;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;
 
 import java.io.Serial;
 
-@Getter
+/**
+ * A property value breaks a rule. {@link #getMessage()} is the plain message the API returns on
+ * {@link #getFieldName()}, without the field's display name the superclass message starts with.
+ */
 public class PropertyValidationException extends BusinessRuleViolationException {
 
     @Serial
@@ -23,6 +25,15 @@ public class PropertyValidationException extends BusinessRuleViolationException 
 
     private static String buildErrorMessage(Property.FieldName field, String message) {
         return String.format("[%s] %s", field.getDisplayName(), message);
+    }
+
+    public Property.FieldName getField() {
+        return field;
+    }
+
+    @Override
+    public String getMessage() {
+        return message;
     }
 
     public String getFieldName() {

@@ -1,4 +1,4 @@
-package vn.sunvibe.property.core.application.exception;
+package vn.sunvibe.property.core.domain.exception;
 
 public class PropertyAlreadyExistsException extends RuntimeException {
     public PropertyAlreadyExistsException(String message) {

@@ -25,11 +25,16 @@ import java.util.List;
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class AuthExceptionHandler {
 
-    /** Role admin API: the account named in the path does not exist (404). */
+    private static final String USER_NOT_FOUND = "User not found.";
+
+    /**
+     * Role admin API: the account named in the path does not exist (404). The message is fixed: a lookup by username
+     * or email puts the phone number or the address in the exception message.
+     */
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<BaseErrorModel> handleUserNotFound(UserNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new BaseErrorModel(HttpStatus.NOT_FOUND.value(), e.getMessage(), AppClock.currentUTC()));
+                .body(new BaseErrorModel(HttpStatus.NOT_FOUND.value(), USER_NOT_FOUND, AppClock.currentUTC()));
     }
 
     /** Role admin API: SUPER_ADMIN, an old role or an unknown name (auth-roles E-6). */

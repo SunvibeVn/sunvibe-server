@@ -1,12 +1,9 @@
 package vn.sunvibe.property.core.domain.model.enums;
 
 
-import lombok.Getter;
-
 /**
  * Enum representing the property type.
  */
-@Getter
 public enum PropertyType {
     STUDIO("Studio", 0),
     ONE_BEDROOM("1 Bedroom", 1),
@@ -22,6 +19,14 @@ public enum PropertyType {
     PropertyType(String displayName, int bedroomCount) {
         this.displayName = displayName;
         this.bedroomCount = bedroomCount;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public int getBedroomCount() {
+        return bedroomCount;
     }
 
     public static PropertyType fromDisplayName(String displayName) {

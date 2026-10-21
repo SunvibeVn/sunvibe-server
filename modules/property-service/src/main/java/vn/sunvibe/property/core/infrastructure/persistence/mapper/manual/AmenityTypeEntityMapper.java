@@ -10,33 +10,27 @@ public class AmenityTypeEntityMapper {
     public AmenityType toDomain(AmenityTypeEntity entity) {
         if (entity == null) return null;
 
-        // AmenityType uses itself as its category (parent reference).
-        // Reconstruct via setters to bypass constructor validation on the reconstitution path.
-        AmenityType category = new AmenityType();
-        category.setId(entity.getCategoryId());
-        category.setAmenityName(entity.getCategoryName());
-
-        AmenityType domain = new AmenityType();
-        domain.setId(entity.getId());
-        domain.setAmenityName(entity.getAmenityName());
-        domain.setAmenityType(category);
-        domain.setDescription(entity.getDescription());
-        domain.setStandard(Boolean.TRUE.equals(entity.getIsStandard()));
-        domain.setLevelOfNeed(entity.getLevelOfNeed());
-        domain.setEstimatedPrice(entity.getEstimatedPrice());
-        domain.setIcon(entity.getIcon());
-        return domain;
+        return AmenityType.load(
+                entity.getId(),
+                entity.getAmenityName(),
+                entity.getCategoryId(),
+                entity.getCategoryName(),
+                entity.getDescription(),
+                Boolean.TRUE.equals(entity.getIsStandard()),
+                entity.getLevelOfNeed(),
+                entity.getEstimatedPrice(),
+                entity.getIcon()
+        );
     }
 
     public AmenityTypeEntity toEntity(AmenityType domain) {
         if (domain == null) return null;
 
-        AmenityType category = domain.getAmenityType();
         return AmenityTypeEntity.builder()
                 .id(domain.getId())
                 .amenityName(domain.getAmenityName())
-                .categoryId(category != null ? category.getId() : null)
-                .categoryName(category != null ? category.getAmenityName() : null)
+                .categoryId(domain.getCategoryId())
+                .categoryName(domain.getCategoryName())
                 .description(domain.getDescription())
                 .isStandard(domain.isStandard())
                 .levelOfNeed(domain.getLevelOfNeed())

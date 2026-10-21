@@ -1,9 +1,5 @@
 package vn.sunvibe.property.core.domain.model.vo;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-
 import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -13,17 +9,14 @@ import java.util.Objects;
  * Value Object representing Money (monetary value).
  * Uses BigDecimal to avoid currency rounding errors.
  */
-@EqualsAndHashCode(callSuper = true)
-@Data
-@NoArgsConstructor
 public class Money extends ValueObject<Money> implements Serializable, Comparable<Money> {
     @Serial
     private static final long serialVersionUID = 1L;
 
     public static final String CURRENCY_VND = "VND";
 
-    private BigDecimal amount;
-    private String currency;
+    private final BigDecimal amount;
+    private final String currency;
 
     private Money(BigDecimal amount, String currency) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
@@ -35,6 +28,14 @@ public class Money extends ValueObject<Money> implements Serializable, Comparabl
 
         this.amount = amount.setScale(0, java.math.RoundingMode.HALF_UP);
         this.currency = currency.toUpperCase();
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getCurrency() {
+        return currency;
     }
 
     /**
