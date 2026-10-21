@@ -57,7 +57,7 @@ class OwnerIntakeRequestValidationTest {
         body.provinceCode = "48";
         body.wardCode = "20242";
         body.addressDetail = "1 Bạch Đằng";
-        body.consent = new ConsentRequest(true, "owner-intake-2026-10");
+        body.consent = new ConsentRequest(true, "owner-intake-2026-10-21");
 
         assertEquals(Set.of(), fields(body.build()));
     }
@@ -296,13 +296,13 @@ class OwnerIntakeRequestValidationTest {
     @Test
     void validate_consentNotAccepted_reportsConsentAccepted() {
         assertViolationOn("consent.accepted", b -> b.with(x -> x.consent =
-                new ConsentRequest(false, "owner-intake-2026-10")));
+                new ConsentRequest(false, "owner-intake-2026-10-21")));
     }
 
     @Test
     void validate_consentAcceptedMissing_reportsConsentAccepted() {
         assertViolationOn("consent.accepted", b -> b.with(x -> x.consent =
-                new ConsentRequest(null, "owner-intake-2026-10")));
+                new ConsentRequest(null, "owner-intake-2026-10-21")));
     }
 
     @Test
@@ -382,7 +382,7 @@ class OwnerIntakeRequestValidationTest {
         body.availableFrom = LocalDate.parse("2026-11-01");
         body.notes = "Có nội thất";
         body.preferredCallbackTime = "Buổi tối";
-        body.consent = new ConsentRequest(true, "owner-intake-2026-10");
+        body.consent = new ConsentRequest(true, "owner-intake-2026-10-21");
         return body;
     }
 

@@ -66,7 +66,9 @@ class OwnerIntakeApiPostgresTest {
 	private static final String ENDPOINT = "/api/v1/public/owner-intake-requests";
 	private static final String REQUEST_CODE = "^SV-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$";
 	private static final String HEX_64 = "^[0-9a-f]{64}$";
-	private static final String NOTICE_VERSION = "owner-intake-2026-10";
+	private static final String NOTICE_VERSION = "owner-intake-2026-10-21";
+	/** The notice that still named "bán" (acquisition-owner-intake BR-9); stored leads keep it, new ones are refused. */
+	private static final String PREVIOUS_NOTICE_VERSION = "owner-intake-2026-10";
 	private static final String HAI_CHAU = "20242";
 	private static final String HOANG_SA = "20333";
 	/** app.cors.allowed-origins of application.yml. */
@@ -249,6 +251,36 @@ class OwnerIntakeApiPostgresTest {
 		assertValidationError(post(oldNotice), "consent.noticeVersion");
 
 		assertEquals(before, intakeRowCounts());
+	}
+
+	/** acquisition-owner-intake BR-9: the previous notice (it still named "bán") is refused like any unknown version. */
+	@Test
+	void post_previousNoticeVersion_returns400OnNoticeVersionAndStoresNothing() throws Exception {
+		Map<String, Integer> before = intakeRowCounts();
+		Map<String, Object> body = validBody(nextPhone(), nextAddress());
+		body.put("consent", Map.of("accepted", true, "noticeVersion", PREVIOUS_NOTICE_VERSION));
+
+		assertValidationError(post(body), "consent.noticeVersion");
+		assertEquals(before, intakeRowCounts());
+	}
+
+	/**
+	 * acquisition-owner-intake BR-1, BR-4 (Q-14, G2 D-45): the form no longer offers a sale, but the API still accepts
+	 * the reserved intent SALE with a total price.
+	 */
+	@Test
+	void post_saleIntentWithTotalPrice_isStillAccepted() throws Exception {
+		Map<String, Object> body = validBody(nextPhone(), nextAddress());
+		body.put("intent", "SALE");
+		price(body).put("amount", 5_000_000_000L);
+		price(body).put("unit", "TOTAL");
+
+		Result result = post(body);
+
+		assertEquals(202, result.status(), result.rawBody());
+		Map<String, Object> lead = lead(result.body().path("requestCode").asString());
+		assertEquals("SALE", lead.get("intent"));
+		assertEquals("TOTAL", lead.get("asking_price_unit"));
 	}
 
 	/** W9-5: the ward must be in the catalog and in the chosen province; the province must be known. */

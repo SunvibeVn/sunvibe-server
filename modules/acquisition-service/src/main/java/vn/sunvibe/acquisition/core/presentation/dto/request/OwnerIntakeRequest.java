@@ -136,7 +136,7 @@ public record OwnerIntakeRequest(
 
             @NotBlank(message = "Consent notice version is required.")
             @Schema(description = "Version of the consent notice the owner was shown",
-                    example = "owner-intake-2026-10", requiredMode = Schema.RequiredMode.REQUIRED)
+                    example = "owner-intake-2026-10-21", requiredMode = Schema.RequiredMode.REQUIRED)
             String noticeVersion) {
     }
 }
