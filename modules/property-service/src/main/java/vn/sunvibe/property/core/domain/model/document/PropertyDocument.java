@@ -1,8 +1,7 @@
 package vn.sunvibe.property.core.domain.model.document;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import vn.sunvibe.shared.time.AppClock;
+import vn.sunvibe.property.core.domain.model.vo.DocumentTypeRef;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 
 import java.time.LocalDate;
@@ -14,46 +13,36 @@ import java.util.UUID;
  * Domain Model - PropertyDocument
  * <p>
  * Represents a document/certificate for a specific property.
- * Links to DocumentType (master) to know about requirements, renewal, etc.
+ * Links to DocumentType (master): its renewal rule sets the expiry date when the document is created; afterwards the
+ * document keeps only a reference to the type and its stored expiry date.
  * <p>
  * Relationship: PropertyDocument (N) ──1── DocumentType (Master)
  */
-@Data
-@NoArgsConstructor
 public class PropertyDocument {
 
     private String id;
-    private PropertyId propertyId;
-    private Integer documentTypeId;        // FK to document type (master)
+    private final PropertyId propertyId;
+    private final DocumentTypeRef documentType;   // The document type (master), with the name this row keeps
 
-    private DocumentType documentType;     // Reference to master (loaded separately)
-
-    private String filePath;               // URL or path to file
-    private String fileKey;                // S3 key or identifier
-    private LocalDate issueDate;           // Issue date
+    private final String filePath;         // URL or path to file
+    private final String fileKey;          // S3 key or identifier
+    private final LocalDate issueDate;     // Issue date
     private LocalDate expiryDate;          // Expiry date (calculated from master)
-    private String issuer;                 // Issuing authority
+    private final String issuer;           // Issuing authority
     private String notes;                  // Notes
     private LocalDateTime uploadedAt;
-    private String uploadedBy;
+    private final String uploadedBy;
 
     // ==================== Constructor ====================
 
-    public PropertyDocument(PropertyId propertyId, Integer documentTypeId,
-                            DocumentType documentType, String filePath, String fileKey,
-                            LocalDate issueDate, String issuer, String notes,
-                            String uploadedBy) {
+    private PropertyDocument(PropertyId propertyId, DocumentTypeRef documentType, String filePath, String fileKey,
+                             LocalDate issueDate, LocalDate expiryDate, String issuer, String notes,
+                             String uploadedBy) {
         if (propertyId == null) {
             throw new IllegalArgumentException("PropertyId cannot be null");
         }
-        if (documentTypeId == null || documentTypeId <= 0) {
-            throw new IllegalArgumentException("DocumentTypeId must be > 0");
-        }
         if (documentType == null) {
             throw new IllegalArgumentException("DocumentType cannot be null");
-        }
-        if (!documentTypeId.equals(documentType.getId())) {
-            throw new IllegalArgumentException("DocumentTypeId does not match DocumentType.id");
         }
         if (filePath == null || filePath.isBlank()) {
             throw new IllegalArgumentException("FilePath cannot be null");
@@ -67,13 +56,11 @@ public class PropertyDocument {
 
         this.id = UUID.randomUUID().toString();
         this.propertyId = propertyId;
-        this.documentTypeId = documentTypeId;
         this.documentType = documentType;
         this.filePath = filePath;
         this.fileKey = fileKey;
         this.issueDate = issueDate;
-        // Calculate expiry date if documentType requires renewal
-        this.expiryDate = documentType.calculateExpiryDate(issueDate);
+        this.expiryDate = expiryDate;
         this.issuer = issuer;
         this.notes = notes;
         this.uploadedAt = AppClock.currentLocalTime();
@@ -90,28 +77,28 @@ public class PropertyDocument {
                                           String filePath, String fileKey,
                                           LocalDate issueDate, String issuer,
                                           String uploadedBy) {
-        return new PropertyDocument(propertyId, documentType.getId(), documentType,
-                filePath, fileKey, issueDate, issuer, null, uploadedBy);
+        if (documentType == null) {
+            throw new IllegalArgumentException("DocumentType cannot be null");
+        }
+        if (issueDate == null) {
+            throw new IllegalArgumentException("IssueDate cannot be null");
+        }
+        return new PropertyDocument(propertyId, DocumentTypeRef.of(documentType.getId(), documentType.getTypeName()),
+                filePath, fileKey, issueDate, documentType.calculateExpiryDate(issueDate), issuer, null, uploadedBy);
     }
 
     /**
-     * Load from database (reconstruct).
+     * Load from database (reconstruct): the stored expiry date is kept as it is.
      */
-    public static PropertyDocument load(String id, PropertyId propertyId,
-                                        Integer documentTypeId,
-                                        DocumentType documentType,
+    public static PropertyDocument load(String id, PropertyId propertyId, DocumentTypeRef documentType,
                                         String filePath, String fileKey,
                                         LocalDate issueDate, LocalDate expiryDate,
                                         String issuer, String notes,
                                         LocalDateTime uploadedAt, String uploadedBy) {
-        PropertyDocument doc = new PropertyDocument(propertyId, documentTypeId, documentType,
-                filePath, fileKey, issueDate, issuer,
-                notes, uploadedBy);
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("Id cannot be blank");
+        PropertyDocument doc = new PropertyDocument(propertyId, documentType, filePath, fileKey, issueDate,
+                expiryDate, issuer, notes, uploadedBy);
         doc.id = id;
-        // If expiryDate is provided from DB, use it (do not recalculate)
-        if (expiryDate != null) {
-            doc.expiryDate = expiryDate;
-        }
         doc.uploadedAt = uploadedAt;
         return doc;
     }
@@ -144,10 +131,11 @@ public class PropertyDocument {
     }
 
     /**
-     * Check whether this document needs renewal.
+     * Check whether this document needs renewal: it has an expiry date (set from a type that requires renewal) and
+     * that date has passed.
      */
     public boolean needsRenewal() {
-        return documentType.needsRenewalTracking() && isExpired();
+        return isExpired();
     }
 
     /**
@@ -171,6 +159,56 @@ public class PropertyDocument {
         }
     }
 
+    // ==================== Getters ====================
+
+    public String getId() {
+        return id;
+    }
+
+    public PropertyId getPropertyId() {
+        return propertyId;
+    }
+
+    public Integer getDocumentTypeId() {
+        return documentType.getId();
+    }
+
+    public DocumentTypeRef getDocumentType() {
+        return documentType;
+    }
+
+    public String getFilePath() {
+        return filePath;
+    }
+
+    public String getFileKey() {
+        return fileKey;
+    }
+
+    public LocalDate getIssueDate() {
+        return issueDate;
+    }
+
+    public LocalDate getExpiryDate() {
+        return expiryDate;
+    }
+
+    public String getIssuer() {
+        return issuer;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public LocalDateTime getUploadedAt() {
+        return uploadedAt;
+    }
+
+    public String getUploadedBy() {
+        return uploadedBy;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -188,8 +226,8 @@ public class PropertyDocument {
     public String toString() {
         return "PropertyDocument{" +
                 "id='" + id + '\'' +
-                ", documentTypeId=" + documentTypeId +
-                ", documentType='" + documentType.getTypeName() + '\'' +
+                ", documentTypeId=" + documentType.getId() +
+                ", documentType='" + documentType.getName() + '\'' +
                 ", issueDate=" + issueDate +
                 ", expiryDate=" + expiryDate +
                 ", isValid=" + isValid() +

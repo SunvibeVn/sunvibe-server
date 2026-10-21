@@ -1,9 +1,5 @@
 package vn.sunvibe.property.core.domain.model.vo;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
@@ -12,14 +8,11 @@ import java.util.Objects;
  * Value Object representing PropertyCode.
  * Example: DA-APT-001, DA-APT-002 (property identifier).
  */
-@EqualsAndHashCode(callSuper = true)
-@Data
-@NoArgsConstructor
 public class PropertyCode extends ValueObject<PropertyCode> implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private String value;
+    private final String value;
 
     private PropertyCode(String value) {
         if (value == null || value.isBlank()) {
@@ -31,6 +24,10 @@ public class PropertyCode extends ValueObject<PropertyCode> implements Serializa
             );
         }
         this.value = value.toUpperCase();
+    }
+
+    public String getValue() {
+        return value;
     }
 
     public static PropertyCode of(String value) {

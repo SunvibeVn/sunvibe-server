@@ -1,9 +1,5 @@
 package vn.sunvibe.property.core.domain.model.vo;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
@@ -11,20 +7,17 @@ import java.util.Objects;
 /**
  * Value Object representing Location (property location).
  */
-@EqualsAndHashCode(callSuper = true)
-@Data
-@NoArgsConstructor
 public class Location extends ValueObject<Location> implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    private String street;          // Street/road
-    private String ward;            // Ward/commune
-    private String district;        // District
-    private String city;            // City (default: Da Nang)
-    private String postalCode;      // Postal code
-    private Double latitude;        // Latitude
-    private Double longitude;       // Longitude
+    private final String street;          // Street/road
+    private final String ward;            // Ward/commune
+    private final String district;        // District
+    private final String city;            // City (default: Da Nang)
+    private final String postalCode;      // Postal code
+    private final Double latitude;        // Latitude
+    private final Double longitude;       // Longitude
 
     private Location(String street, String ward, String district, String city,
                      String postalCode, Double latitude, Double longitude) {
@@ -56,6 +49,34 @@ public class Location extends ValueObject<Location> implements Serializable {
     public static Location of(String street, String ward, String district,
                               String postalCode) {
         return new Location(street, ward, district, "Đà Nẵng", postalCode, null, null);
+    }
+
+    public String getStreet() {
+        return street;
+    }
+
+    public String getWard() {
+        return ward;
+    }
+
+    public String getDistrict() {
+        return district;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public String getPostalCode() {
+        return postalCode;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
     }
 
     public String getFullAddress() {

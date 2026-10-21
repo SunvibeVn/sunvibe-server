@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.property.core.domain.model.unit.Unit;
 import vn.sunvibe.property.core.domain.repository.UnitDomainRepository;
+import vn.sunvibe.property.core.infrastructure.persistence.entity.UnitEntity;
 import vn.sunvibe.property.core.infrastructure.persistence.mapper.manual.UnitEntityMapper;
 import vn.sunvibe.property.core.infrastructure.persistence.repository.UnitJpaRepository;
 
@@ -26,6 +27,11 @@ public class UnitRepositoryAdapter implements UnitDomainRepository {
             throw new IllegalArgumentException("Unit cannot be null");
         }
         var entity = mapper.toEntity(unit);
-        jpaRepository.save(entity);
+        // A new unit is persisted (version 0 at once, written at commit after its property); a loaded one is merged
+        // and flushed so its stale-version check and version bump happen here. Either way it gets the row's version
+        UnitEntity saved = unit.getVersion() == null
+                ? jpaRepository.save(entity)
+                : jpaRepository.saveAndFlush(entity);
+        unit.markPersisted(saved.getVersion());
     }
 }

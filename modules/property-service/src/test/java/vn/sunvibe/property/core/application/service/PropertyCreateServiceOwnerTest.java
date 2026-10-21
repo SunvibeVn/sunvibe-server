@@ -3,7 +3,7 @@ package vn.sunvibe.property.core.application.service;
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.exception.PropertyServiceException;
-import vn.sunvibe.property.core.application.exception.PropertyValidationException;
+import vn.sunvibe.property.core.domain.exception.PropertyValidationException;
 import vn.sunvibe.property.core.application.shared.external.user.UserDirectoryPort;
 import vn.sunvibe.property.core.domain.exception.PropertyOwnerNotFoundException;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;

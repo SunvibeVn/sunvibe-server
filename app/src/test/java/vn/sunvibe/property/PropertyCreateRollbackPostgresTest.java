@@ -85,8 +85,8 @@ class PropertyCreateRollbackPostgresTest {
 
 	/**
 	 * Replaces the user directory: the owner is eligible at the check and refused at the grant, as if a role changed
-	 * in between. Hibernate writes nothing before the commit, so the grant flushes first: the property, its unit and
-	 * its ownership then really reach PostgreSQL, and the rollback has rows to undo.
+	 * in between. The property is written when it is saved; the unit and the ownership wait for the commit, so the grant
+	 * flushes first: all three then really reach PostgreSQL, and the rollback has rows to undo.
 	 */
 	@TestConfiguration(proxyBeanMethods = false)
 	static class RacingOwnerDirectory {

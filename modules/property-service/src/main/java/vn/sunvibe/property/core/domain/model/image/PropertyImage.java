@@ -1,9 +1,6 @@
 package vn.sunvibe.property.core.domain.model.image;
 
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 import vn.sunvibe.shared.time.AppClock;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 
@@ -15,20 +12,17 @@ import java.util.UUID;
  * Domain Model - PropertyImage
  * Represents an image of a property.
  */
-@Getter
-@Setter
-@NoArgsConstructor
 public class PropertyImage {
 
     private String id;
-    private PropertyId propertyId;
-    private String imageUrl;           // URL or path to image
-    private String imageKey;           // Key to identify the image (S3 key, etc)
+    private final PropertyId propertyId;
+    private final String imageUrl;     // URL or path to image
+    private final String imageKey;     // Key to identify the image (S3 key, etc)
     private String caption;            // Image caption
     private boolean isPrimary;         // Is this the primary image?
     private Integer displayOrder;      // Display order
     private LocalDateTime uploadedAt;
-    private String uploadedBy;
+    private final String uploadedBy;
 
     // ==================== Constructor ====================
 
@@ -62,6 +56,20 @@ public class PropertyImage {
                                               String imageKey, String caption,
                                               String uploadedBy) {
         return new PropertyImage(propertyId, imageUrl, imageKey, caption, true, 0, uploadedBy);
+    }
+
+    /**
+     * Load from database (reconstruct): same checks as a new image, with the stored id and upload time.
+     */
+    public static PropertyImage load(String id, PropertyId propertyId, String imageUrl, String imageKey,
+                                     String caption, boolean isPrimary, Integer displayOrder,
+                                     LocalDateTime uploadedAt, String uploadedBy) {
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("Id cannot be blank");
+        PropertyImage image = new PropertyImage(propertyId, imageUrl, imageKey, caption, isPrimary, displayOrder,
+                uploadedBy);
+        image.id = id;
+        image.uploadedAt = uploadedAt;
+        return image;
     }
 
     // ==================== Business Methods ====================

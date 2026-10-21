@@ -1,9 +1,5 @@
 package vn.sunvibe.property.core.domain.model.document;
 
-
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.Objects;
 
 /**
@@ -14,23 +10,21 @@ import java.util.Objects;
  *
  * Example: LAND_CERTIFICATE, BUILDING_CERTIFICATE, INSURANCE, etc
  */
-@Data
-@NoArgsConstructor
 public class DocumentType {
 
-    private Integer id;  // Database ID (not UUID for master data)
-    private String typeName;               // Type name: "Land Certificate", etc
-    private String description;            // Description: e.g. "Certificate of land use rights"
-    private boolean requiresRenewal;       // Needs periodic renewal?
-    private Integer renewalFrequencyDays;  // If requiresRenewal = true, interval in days
-    private boolean isArchived;            // Is this type still in use?
-    private String icon;                   // Icon for UI
+    private final Integer id;  // Database ID (not UUID for master data)
+    private final String typeName;               // Type name: "Land Certificate", etc
+    private final String description;            // Description: e.g. "Certificate of land use rights"
+    private final boolean requiresRenewal;       // Needs periodic renewal?
+    private final Integer renewalFrequencyDays;  // If requiresRenewal = true, interval in days
+    private final boolean isArchived;            // Is this type still in use?
+    private final String icon;                   // Icon for UI
 
     // ==================== Constructor ====================
 
-    public DocumentType(Integer id, String typeName, String description,
-                        boolean requiresRenewal, Integer renewalFrequencyDays,
-                        boolean isArchived, String icon) {
+    private DocumentType(Integer id, String typeName, String description,
+                         boolean requiresRenewal, Integer renewalFrequencyDays,
+                         boolean isArchived, String icon) {
         if (id == null || id <= 0) {
             throw new IllegalArgumentException("DocumentType ID must be > 0");
         }
@@ -106,6 +100,36 @@ public class DocumentType {
      */
     public boolean needsRenewalTracking() {
         return requiresRenewal && renewalFrequencyDays != null && renewalFrequencyDays > 0;
+    }
+
+    // ==================== Getters ====================
+
+    public Integer getId() {
+        return id;
+    }
+
+    public String getTypeName() {
+        return typeName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public boolean isRequiresRenewal() {
+        return requiresRenewal;
+    }
+
+    public Integer getRenewalFrequencyDays() {
+        return renewalFrequencyDays;
+    }
+
+    public boolean isArchived() {
+        return isArchived;
+    }
+
+    public String getIcon() {
+        return icon;
     }
 
     @Override

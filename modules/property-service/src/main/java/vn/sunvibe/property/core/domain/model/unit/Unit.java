@@ -25,7 +25,7 @@ public final class Unit {
     private final UnitAvailabilityState availabilityState;
     private final Instant createdAt;
     private final Instant updatedAt;
-    private final Long version;             // null until stored; optimistic lock (property-units BR-14)
+    private Long version;                   // null until stored; optimistic lock (property-units BR-14)
 
     // Invariants (property-units spec A-7): reference fields set, code not blank, rooms >= 0, area > 0. Version may be null.
     private Unit(UnitId id, PropertyId propertyId, String unitCode, UnitType unitType, int bedrooms, int bathrooms,
@@ -81,6 +81,21 @@ public final class Unit {
     }
 
     // ==================== Getters ====================
+
+    /**
+     * Record the version the repository gave this unit when it saved it (0 for a new unit, one more after each
+     * update), so the next save of the same object is an update guarded by that version (property-units BR-14).
+     * The version never goes back and is never null. Only the repository adapter calls it.
+     */
+    public void markPersisted(Long persistedVersion) {
+        if (persistedVersion == null) {
+            throw new IllegalArgumentException("persistedVersion is required.");
+        }
+        if (version != null && persistedVersion < version) {
+            throw new IllegalArgumentException("persistedVersion cannot go back.");
+        }
+        this.version = persistedVersion;
+    }
 
     public UnitId getId() {
         return id;

@@ -169,6 +169,23 @@ class UnitAndOwnershipPersistencePostgresTest {
 		assertEquals(0L, loaded.getVersion());
 	}
 
+	/** property-units BR-14: a saved unit carries its version, so saving it again is an update, not a second insert. */
+	@Test
+	void save_canonicalUnitTwice_updatesTheRowInsteadOfInsertingIt() {
+		Property property = saveProperty("WT-PER-007");
+		Unit unit = Unit.createCanonical(property);
+
+		unitRepository.save(unit);
+		assertEquals(0L, unit.getVersion());
+		unitRepository.save(unit);
+
+		assertEquals(1, jdbc.queryForObject(
+				"SELECT count(*) FROM units WHERE property_id = ?", Integer.class, property.getId().getValue()));
+		// Java keeps nanoseconds and PostgreSQL microseconds, so the merge sees new timestamps and updates the row
+		assertEquals(jdbc.queryForObject("SELECT version FROM units WHERE id = ?", Long.class, unit.getId().getValue()),
+				unit.getVersion(), "the unit carries the row's version");
+	}
+
 	@Test
 	void toDomain_storedUnit_rebuildsTheSavedUnit() {
 		Property property = saveProperty("WT-PER-005");

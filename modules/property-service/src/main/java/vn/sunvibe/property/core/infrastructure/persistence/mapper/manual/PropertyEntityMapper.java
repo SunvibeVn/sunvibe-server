@@ -7,6 +7,7 @@ import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
 import vn.sunvibe.property.core.domain.model.document.PropertyDocument;
 import vn.sunvibe.property.core.domain.model.enums.PropertyStatus;
 import vn.sunvibe.property.core.domain.model.image.PropertyImage;
+import vn.sunvibe.property.core.domain.model.price.PropertyPrice;
 import vn.sunvibe.property.core.domain.model.rule.PropertyRuleApply;
 import vn.sunvibe.property.core.domain.model.vo.Location;
 import vn.sunvibe.property.core.domain.model.vo.Money;
@@ -30,6 +31,7 @@ public class PropertyEntityMapper {
     private final PropertyAmenityEntityMapper amenityMapper;
     private final PropertyRuleEntityMapper ruleMapper;
     private final PropertyDocumentEntityMapper documentMapper;
+    private final PropertyPriceEntityMapper priceMapper;
 
     /**
      * Convert Entity → Domain.
@@ -106,6 +108,15 @@ public class PropertyEntityMapper {
             });
         }
 
+        // Mapped both ways so that saving a loaded property does not orphan (and so delete) its price rows; create
+        // adds no price, so it still writes none
+        if (entity.getPriceHistory() != null && !entity.getPriceHistory().isEmpty()) {
+            entity.getPriceHistory().forEach(priceEntity -> {
+                PropertyPrice price = priceMapper.toDomain(priceEntity);
+                domain.addPriceRecord(price);
+            });
+        }
+
         return domain;
     }
 
@@ -175,6 +186,13 @@ public class PropertyEntityMapper {
                     .map(documentMapper::toEntity)
                     .collect(Collectors.toList());
             entity.setDocuments(documentEntities);
+        }
+
+        if (domain.getPriceHistories() != null && !domain.getPriceHistories().isEmpty()) {
+            List<PropertyPriceEntity> priceEntities = domain.getPriceHistories().stream()
+                    .map(priceMapper::toEntity)
+                    .collect(Collectors.toList());
+            entity.setPriceHistory(priceEntities);
         }
 
         return entity;

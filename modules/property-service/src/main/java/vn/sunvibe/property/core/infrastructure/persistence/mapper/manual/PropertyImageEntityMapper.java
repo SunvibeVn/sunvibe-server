@@ -23,21 +23,17 @@ public class PropertyImageEntityMapper {
 
         PropertyId propertyId = PropertyId.of(entity.getPropertyId());
 
-        PropertyImage image = new PropertyImage(
+        return PropertyImage.load(
+                entity.getId(),
                 propertyId,
                 entity.getImageUrl(),
                 entity.getImageKey(),
                 entity.getCaption(),
                 entity.getIsPrimary() != null && entity.getIsPrimary(),
                 entity.getDisplayOrder(),
+                entity.getUploadedAt(),
                 entity.getUploadedBy()
         );
-
-        // Set private fields via reflection
-        setPrivateField(image, "id", entity.getId());
-        setPrivateField(image, "uploadedAt", entity.getUploadedAt());
-
-        return image;
     }
 
     /**
@@ -59,15 +55,5 @@ public class PropertyImageEntityMapper {
                 .uploadedAt(domain.getUploadedAt())
                 .uploadedBy(domain.getUploadedBy())
                 .build();
-    }
-
-    private void setPrivateField(Object target, String fieldName, Object value) {
-        try {
-            var field = target.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(target, value);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new RuntimeException("Cannot set field: " + fieldName, e);
-        }
     }
 }

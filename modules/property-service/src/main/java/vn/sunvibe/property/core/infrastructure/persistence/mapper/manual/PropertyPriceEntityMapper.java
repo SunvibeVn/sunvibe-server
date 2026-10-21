@@ -25,7 +25,8 @@ public class PropertyPriceEntityMapper {
         Money monthlyPrice = Money.vnd(entity.getMonthlyPrice());
         Money depositPrice = Money.vnd(entity.getDepositPrice());
 
-        PropertyPrice price = new PropertyPrice(
+        return PropertyPrice.load(
+                entity.getId(),
                 propertyId,
                 monthlyPrice,
                 depositPrice,
@@ -34,11 +35,6 @@ public class PropertyPriceEntityMapper {
                 entity.getReason(),
                 entity.getIsCurrent() != null && entity.getIsCurrent()
         );
-
-        // Set private field via reflection
-        setPrivateField(price, "id", entity.getId());
-
-        return price;
     }
 
     /**
@@ -61,13 +57,4 @@ public class PropertyPriceEntityMapper {
                 .build();
     }
 
-    private void setPrivateField(Object target, String fieldName, Object value) {
-        try {
-            var field = target.getClass().getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(target, value);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new RuntimeException("Cannot set field: " + fieldName, e);
-        }
-    }
 }

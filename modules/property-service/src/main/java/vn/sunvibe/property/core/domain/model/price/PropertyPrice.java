@@ -1,7 +1,5 @@
 package vn.sunvibe.property.core.domain.model.price;
 
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import vn.sunvibe.property.core.domain.model.vo.Money;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
 
@@ -13,24 +11,22 @@ import java.util.UUID;
  * Domain Model - PropertyPrice
  * Represents the rental price history of a property (can change over time).
  */
-@Data
-@NoArgsConstructor
 public class PropertyPrice {
 
     private String id;
-    private PropertyId propertyId;
-    private Money monthlyPrice;        // Monthly rent
-    private Money depositPrice;        // Security deposit
-    private LocalDate effectiveDate;   // Date the price takes effect
+    private final PropertyId propertyId;
+    private final Money monthlyPrice;        // Monthly rent
+    private final Money depositPrice;        // Security deposit
+    private final LocalDate effectiveDate;   // Date the price takes effect
     private LocalDate endDate;         // End date (null = current)
-    private String reason;             // Reason for price change
+    private final String reason;             // Reason for price change
     private boolean isCurrent;         // Is this the current price?
 
     // ==================== Constructor ====================
 
-    public PropertyPrice(PropertyId propertyId, Money monthlyPrice, Money depositPrice,
-                         LocalDate effectiveDate, LocalDate endDate, String reason,
-                         boolean isCurrent) {
+    private PropertyPrice(PropertyId propertyId, Money monthlyPrice, Money depositPrice,
+                          LocalDate effectiveDate, LocalDate endDate, String reason,
+                          boolean isCurrent) {
         if (propertyId == null) throw new IllegalArgumentException("PropertyId cannot be null");
         if (monthlyPrice == null) throw new IllegalArgumentException("MonthlyPrice cannot be null");
         if (depositPrice == null) throw new IllegalArgumentException("DepositPrice cannot be null");
@@ -77,6 +73,19 @@ public class PropertyPrice {
                 endDate, reason, false);
     }
 
+    /**
+     * Load from database (reconstruct): same checks as a new price, with the stored id.
+     */
+    public static PropertyPrice load(String id, PropertyId propertyId, Money monthlyPrice, Money depositPrice,
+                                     LocalDate effectiveDate, LocalDate endDate, String reason,
+                                     boolean isCurrent) {
+        if (id == null || id.isBlank()) throw new IllegalArgumentException("Id cannot be blank");
+        PropertyPrice price = new PropertyPrice(propertyId, monthlyPrice, depositPrice, effectiveDate, endDate,
+                reason, isCurrent);
+        price.id = id;
+        return price;
+    }
+
     // ==================== Business Methods ====================
 
     /**
@@ -103,6 +112,40 @@ public class PropertyPrice {
      */
     public boolean isCurrentPrice() {
         return isCurrent && endDate == null;
+    }
+
+    // ==================== Getters ====================
+
+    public String getId() {
+        return id;
+    }
+
+    public PropertyId getPropertyId() {
+        return propertyId;
+    }
+
+    public Money getMonthlyPrice() {
+        return monthlyPrice;
+    }
+
+    public Money getDepositPrice() {
+        return depositPrice;
+    }
+
+    public LocalDate getEffectiveDate() {
+        return effectiveDate;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    public boolean isCurrent() {
+        return isCurrent;
     }
 
     @Override

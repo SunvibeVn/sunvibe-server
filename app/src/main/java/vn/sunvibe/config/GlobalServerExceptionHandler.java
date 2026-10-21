@@ -40,9 +40,24 @@ public class GlobalServerExceptionHandler {
                         AppClock.currentUTC()));
     }
 
-    // Handling unknown system errors (500)
+    // Handling unknown system errors (500). An error Spring raises with a client status of its own (no route 404,
+    // wrong method 405, body type 415, missing parameter 400, ...) keeps that status and its headers (Allow, Accept):
+    // it is the caller's mistake, not a server failure. The body keeps the BaseErrorModel shape (ADR-010)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<BaseErrorModel> handleGlobalException(Exception e) {
+        if (e instanceof org.springframework.web.ErrorResponse springError
+                && springError.getStatusCode().is4xxClientError()) {
+            int status = springError.getStatusCode().value();
+            // 404 is mostly scanners and typos: kept out of the warning log
+            if (status == HttpStatus.NOT_FOUND.value()) {
+                log.debug("Request refused by the framework: {} ({})", e.getClass().getSimpleName(), status);
+            } else {
+                log.warn("Request refused by the framework: {} ({})", e.getClass().getSimpleName(), status);
+            }
+            return ResponseEntity.status(status)
+                    .headers(springError.getHeaders())
+                    .body(new BaseErrorModel(status, clientErrorMessage(status), AppClock.currentUTC()));
+        }
         log.error("Unhandled System Error: ", e);
 
         BaseErrorModel errorResponse = new BaseErrorModel(HttpStatus.INTERNAL_SERVER_ERROR.value(), SystemErrorMessage.INTERNAL_ERROR, AppClock.currentUTC());
@@ -51,21 +66,23 @@ public class GlobalServerExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
-    // Handling business logic errors (e.g., BusinessException)
+    // Handling business logic errors (e.g., BusinessException). The ApplicationException, AuthenticationFailedException
+    // and BaseBusinessException handlers answer with a fixed message code and log only the exception classes: the text
+    // of an exception or of its cause can name a user, a phone number or a SQL detail
     @ExceptionHandler(ApplicationException.class)
     public ResponseEntity<BaseErrorModel> handleBusinessException(ApplicationException e) {
-        log.error("Business logic violation: {}", e.getMessage());
+        log.error("Business logic violation: {}", exceptionClasses(e));
 
-        BaseErrorModel errorResponse = new BaseErrorModel(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), AppClock.currentUTC());
+        BaseErrorModel errorResponse = new BaseErrorModel(HttpStatus.INTERNAL_SERVER_ERROR.value(), SystemErrorMessage.INTERNAL_ERROR, AppClock.currentUTC());
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }
 
     @ExceptionHandler(AuthenticationFailedException.class)
     public ResponseEntity<BaseErrorModel> handleInternalAuthException(AuthenticationFailedException e) {
-        log.error("Authentication service error: {}", e.getMessage());
+        log.error("Authentication service error: {}", exceptionClasses(e));
 
-        BaseErrorModel errorResponse = new BaseErrorModel(HttpStatus.UNAUTHORIZED.value(), e.getCause() != null ? e.getCause().getMessage() : e.getMessage(), AppClock.currentUTC());
+        BaseErrorModel errorResponse = new BaseErrorModel(HttpStatus.UNAUTHORIZED.value(), SystemErrorMessage.UNAUTHORIZED, AppClock.currentUTC());
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
     }
@@ -94,10 +111,28 @@ public class GlobalServerExceptionHandler {
     @ExceptionHandler(value = BaseBusinessException.class)
     public ResponseEntity<BaseErrorModel> handleUserNotFoundException(BaseBusinessException e) {
 
-        log.error("User not found: " + e);
-        BaseErrorModel errorMessage = new BaseErrorModel(HttpStatus.NOT_FOUND.value(), e.getMessage(), AppClock.currentUTC());
+        log.warn("Business exception answered 404: {}", exceptionClasses(e));
+        BaseErrorModel errorMessage = new BaseErrorModel(HttpStatus.NOT_FOUND.value(), SystemErrorMessage.RESOURCE_NOT_FOUND, AppClock.currentUTC());
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorMessage);
     }
 
+    /** The class of an exception and of its cause, without their messages (no PII in logs). */
+    private static String exceptionClasses(Throwable e) {
+        Throwable cause = e.getCause();
+        return cause == null ? e.getClass().getSimpleName()
+                : e.getClass().getSimpleName() + " caused by " + cause.getClass().getSimpleName();
+    }
+
+    /** The message code of a framework client error: the existing codes for 404 and 400, else the status name. */
+    private static String clientErrorMessage(int status) {
+        if (status == HttpStatus.NOT_FOUND.value()) {
+            return SystemErrorMessage.RESOURCE_NOT_FOUND;
+        }
+        HttpStatus known = HttpStatus.resolve(status);
+        if (status == HttpStatus.BAD_REQUEST.value() || known == null) {
+            return SystemErrorMessage.BAD_REQUEST;
+        }
+        return known.name();
+    }
 }

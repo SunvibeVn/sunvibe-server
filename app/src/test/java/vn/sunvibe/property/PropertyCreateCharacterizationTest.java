@@ -210,6 +210,17 @@ class PropertyCreateCharacterizationTest {
 				"select amenity_type_id from property_amenity where property_id = ?", Integer.class, id)));
 		assertEquals(Set.of(1, 2), Set.copyOf(jdbc.queryForList(
 				"select rule_category_id from property_rules where property_id = ?", Integer.class, id)));
+		// The master values copied into the rule and amenity rows (seed R__property_master_data.sql)
+		assertEquals(Map.of("rule_name", "PETS", "category", "PETS", "description", "Pet policy", "severity", "HIGH"),
+				jdbc.queryForMap("select rule_name, category, description, severity from property_rules"
+						+ " where property_id = ? and rule_category_id = 1", id));
+		assertEquals(Map.of("amenity_name", "WiFi", "category", "General Amenities",
+						"description", "Wireless internet connection", "level_of_need", "STANDARD", "is_included", true),
+				jdbc.queryForMap("select amenity_name, category, description, level_of_need, is_included"
+						+ " from property_amenity where property_id = ? and amenity_type_id = 10", id));
+		assertEquals(Map.of("amenity_name", "Air Conditioner", "category", "Bedroom"),
+				jdbc.queryForMap("select amenity_name, category from property_amenity"
+						+ " where property_id = ? and amenity_type_id = 11", id));
 		assertEquals(Set.of(admin.username()), Set.copyOf(jdbc.queryForList(
 				"select uploaded_by from property_images where property_id = ?", String.class, id)),
 				"image uploaded_by is the username too");
@@ -593,6 +604,64 @@ class PropertyCreateCharacterizationTest {
 				HttpResponse.BodyHandlers.ofString());
 
 		assertEquals(400, response.statusCode(), response.body());
+	}
+
+	// ==================== Framework errors (D-AI-1) ====================
+
+	/** A body that is not JSON is the client's error: 415 with the accepted types, not 500. */
+	@Test
+	void create_textPlainBody_returns415WithAcceptHeader() throws Exception {
+		HttpResponse<String> response = http.send(
+				HttpRequest.newBuilder(uri(ENDPOINT))
+						.timeout(REQUEST_TIMEOUT)
+						.header("Content-Type", "text/plain")
+						.header("Authorization", "Bearer " + admin.secret())
+						.POST(HttpRequest.BodyPublishers.ofString("not json"))
+						.build(),
+				HttpResponse.BodyHandlers.ofString());
+		JsonNode body = json.readTree(response.body());
+
+		assertEquals(415, response.statusCode(), response.body());
+		assertEquals(415, body.path("code").asInt());
+		assertEquals("UNSUPPORTED_MEDIA_TYPE", body.path("message").asString());
+		assertTrue(response.headers().firstValue("Accept").orElse("").contains("application/json"),
+				response.headers().map().toString());
+	}
+
+	/** Another method on the create path: 405 naming the allowed one, not 500. */
+	@Test
+	void create_putMethod_returns405WithAllowHeader() throws Exception {
+		HttpResponse<String> response = http.send(
+				HttpRequest.newBuilder(uri(ENDPOINT))
+						.timeout(REQUEST_TIMEOUT)
+						.header("Content-Type", "application/json")
+						.header("Authorization", "Bearer " + admin.secret())
+						.PUT(HttpRequest.BodyPublishers.ofString("{}"))
+						.build(),
+				HttpResponse.BodyHandlers.ofString());
+		JsonNode body = json.readTree(response.body());
+
+		assertEquals(405, response.statusCode(), response.body());
+		assertEquals(405, body.path("code").asInt());
+		assertEquals("METHOD_NOT_ALLOWED", body.path("message").asString());
+		assertEquals("POST", response.headers().firstValue("Allow").orElse(""));
+	}
+
+	/** A path with no endpoint, for a signed-in caller: 404, not 500. */
+	@Test
+	void get_unknownPath_returns404() throws Exception {
+		HttpResponse<String> response = http.send(
+				HttpRequest.newBuilder(uri("/api/v1/properties-unknown"))
+						.timeout(REQUEST_TIMEOUT)
+						.header("Authorization", "Bearer " + admin.secret())
+						.GET()
+						.build(),
+				HttpResponse.BodyHandlers.ofString());
+		JsonNode body = json.readTree(response.body());
+
+		assertEquals(404, response.statusCode(), response.body());
+		assertEquals(404, body.path("code").asInt());
+		assertEquals("RESOURCE_NOT_FOUND", body.path("message").asString());
 	}
 
 	// ==================== Units and ownership ====================
