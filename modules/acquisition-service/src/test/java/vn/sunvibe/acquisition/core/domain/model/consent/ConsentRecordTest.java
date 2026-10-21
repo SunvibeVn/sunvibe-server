@@ -19,7 +19,7 @@ class ConsentRecordTest {
         ConsentRecord record = ConsentRecord.create(ConsentRecord.CURRENT_NOTICE_VERSION,
                 ConsentPurpose.OWNER_INTAKE_CONTACT, ConsentChannel.WEB, "ip-hash", "ua-hash", ACCEPTED_AT);
 
-        assertEquals("owner-intake-2026-10", record.getNoticeVersion());
+        assertEquals("owner-intake-2026-10-21", record.getNoticeVersion());
         assertEquals(ConsentPurpose.OWNER_INTAKE_CONTACT, record.getPurpose());
         assertEquals(ConsentChannel.WEB, record.getChannel());
         assertEquals("ip-hash", record.getIpHash());
@@ -36,6 +36,16 @@ class ConsentRecordTest {
 
         assertEquals("consent.noticeVersion", ex.getField());
         assertFalse(ex.getMessage().contains("owner-intake-2020-01"));
+    }
+
+    /** acquisition-owner-intake BR-9: the notice that still named "bán" can no longer be accepted for a new consent. */
+    @Test
+    void create_previousNoticeVersion_throwsWithFieldConsentNoticeVersion() {
+        InvalidIntakeValueException ex = assertThrows(InvalidIntakeValueException.class,
+                () -> ConsentRecord.create("owner-intake-2026-10", ConsentPurpose.OWNER_INTAKE_CONTACT,
+                        ConsentChannel.WEB, "ip-hash", "ua-hash", ACCEPTED_AT));
+
+        assertEquals("consent.noticeVersion", ex.getField());
     }
 
     @Test

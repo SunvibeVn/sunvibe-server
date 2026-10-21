@@ -2641,7 +2641,7 @@
           "noticeVersion" : {
             "type" : "string",
             "description" : "Version of the consent notice the owner was shown",
-            "example" : "owner-intake-2026-10",
+            "example" : "owner-intake-2026-10-21",
             "minLength" : 1
           }
         },

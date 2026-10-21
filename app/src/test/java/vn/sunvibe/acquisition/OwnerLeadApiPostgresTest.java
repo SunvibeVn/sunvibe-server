@@ -327,7 +327,7 @@ class OwnerLeadApiPostgresTest {
 		assertTrue(detail.path("closeReason").isNull());
 		assertEquals(0, detail.path("duplicateCandidates").size());
 		assertEquals(List.of("noticeVersion", "acceptedAt"), fieldNames(detail.path("consent")));
-		assertEquals("owner-intake-2026-10", detail.path("consent").path("noticeVersion").asString());
+		assertEquals("owner-intake-2026-10-21", detail.path("consent").path("noticeVersion").asString());
 		assertTrue(fieldNames(detail).containsAll(SUMMARY_FIELDS), fieldNames(detail).toString());
 		assertTrue(fieldNames(detail).containsAll(List.of("phone", "email", "addressDetail", "latitude", "longitude",
 				"askingPrice", "availableFrom", "notes", "preferredCallbackTime", "source", "duplicateOfLeadId",

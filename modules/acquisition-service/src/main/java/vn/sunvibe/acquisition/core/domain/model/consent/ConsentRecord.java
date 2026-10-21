@@ -12,7 +12,7 @@ import java.time.Instant;
 public final class ConsentRecord {
 
     /** The only notice version a new consent can refer to. */
-    public static final String CURRENT_NOTICE_VERSION = "owner-intake-2026-10";
+    public static final String CURRENT_NOTICE_VERSION = "owner-intake-2026-10-21";
 
     private final ConsentRecordId id;
     private final String noticeVersion;

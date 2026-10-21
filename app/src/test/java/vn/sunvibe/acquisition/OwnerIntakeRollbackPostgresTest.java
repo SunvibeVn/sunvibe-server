@@ -198,7 +198,7 @@ class OwnerIntakeRollbackPostgresTest {
 	private static Map<String, Object> validBody() {
 		Map<String, Object> consent = new LinkedHashMap<>();
 		consent.put("accepted", true);
-		consent.put("noticeVersion", "owner-intake-2026-10");
+		consent.put("noticeVersion", "owner-intake-2026-10-21");
 
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("contactName", "Lê Thị Hoàn");

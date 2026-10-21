@@ -21,7 +21,7 @@ class OwnerIntakeCommandTest {
                 "lan@example.com", OwnerLeadIntent.LONG_TERM_RENT, "48", "20242", "12 Bach Dang",
                 new BigDecimal("16.0678"), new BigDecimal("108.2208"), OwnerLeadPropertyType.TWO_BEDROOM,
                 15_000_000L, "VND", PriceUnit.MONTH, LocalDate.parse("2026-11-01"), "Furnished", "Evening",
-                true, "owner-intake-2026-10", "203.0.113.7", "Mozilla/5.0 test", "{\"phone\":\"0909 123 456\"}");
+                true, "owner-intake-2026-10-21", "203.0.113.7", "Mozilla/5.0 test", "{\"phone\":\"0909 123 456\"}");
 
         String text = command.toString();
 
