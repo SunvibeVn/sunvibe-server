@@ -30,6 +30,7 @@ import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -179,11 +180,16 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         return staffNames.lookup(Collections.singletonList(lead.getAssignedUserId()));
     }
 
+    /**
+     * acquisition-owner-lead-queue-ui C-49: the latest activity time is read back from the store after the new
+     * activity is saved (the query flushes it first), so the answer holds the stored value the next list call returns.
+     */
     private OwnerLeadSummary summary(LeadViewer viewer, OwnerLead lead, Map<String, String> names) {
         String id = lead.getId().getValue();
         boolean possibleDuplicate = duplicateCandidates
                 .leadIdsWithVisibleCandidate(List.of(id), LeadVisibility.candidateViewer(viewer))
                 .contains(id);
-        return OwnerLeadSummary.of(lead, possibleDuplicate, names);
+        Instant lastActivityAt = activities.findLatestOccurredAt(List.of(id)).get(id);
+        return OwnerLeadSummary.of(lead, possibleDuplicate, names, lastActivityAt);
     }
 }

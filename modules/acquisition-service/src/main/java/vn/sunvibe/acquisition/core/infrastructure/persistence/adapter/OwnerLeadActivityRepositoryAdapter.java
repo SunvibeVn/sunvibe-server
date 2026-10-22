@@ -8,7 +8,11 @@ import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadActivityDomainRepo
 import vn.sunvibe.acquisition.core.infrastructure.persistence.mapper.manual.OwnerLeadActivityEntityMapper;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.repository.OwnerLeadActivityJpaRepository;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Repository Implementation - OwnerLeadActivityRepositoryAdapter
@@ -36,5 +40,15 @@ public class OwnerLeadActivityRepositoryAdapter implements OwnerLeadActivityDoma
         return jpaRepository.findByLeadIdOrderByOccurredAtAscIdAsc(leadId.getValue()).stream()
                 .map(mapper::toDomain)
                 .toList();
+    }
+
+    @Override
+    public Map<String, Instant> findLatestOccurredAt(Collection<String> leadIds) {
+        if (leadIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.findLatestOccurredAtPerLead(leadIds).stream()
+                .collect(Collectors.toMap(OwnerLeadActivityJpaRepository.LatestActivity::getLeadId,
+                        OwnerLeadActivityJpaRepository.LatestActivity::getLatest));
     }
 }

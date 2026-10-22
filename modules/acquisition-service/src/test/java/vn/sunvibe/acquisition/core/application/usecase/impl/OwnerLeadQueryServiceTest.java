@@ -469,6 +469,29 @@ class OwnerLeadQueryServiceTest {
         assertNull(summaryOf(withGhost, ghost).assignedUserName());
     }
 
+    /** acquisition-owner-lead-queue-ui W14-4: one latest-activity query per page, none for an empty page. */
+    @Test
+    void list_readsLatestActivityOncePerPage() {
+        service.list(ALL_LEADER, query(LeadScope.ALL, Set.of(), null));
+        assertEquals(List.of(), activities.latestLookups(), "an empty page asks for no activity time");
+
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A, WARD_X);
+        OwnerLead second = stored(OwnerLeadStatus.NEW, null, WARD_X);
+        OwnerLead third = stored(OwnerLeadStatus.CONTACTED, SALE_B, WARD_X);
+        activities.save(note(9001L, first, T0.plusSeconds(3600)));
+        activities.save(note(9002L, first, T0.plusSeconds(7200)));
+        activities.save(note(9003L, second, T0.plusSeconds(600)));
+
+        PageResult<OwnerLeadSummary> page = service.list(ALL_LEADER, query(LeadScope.ALL, Set.of(), null));
+
+        assertEquals(1, activities.latestLookups().size());
+        assertEquals(Set.copyOf(ids(page)), Set.copyOf(activities.latestLookups().get(0)));
+        assertEquals(T0.plusSeconds(7200), summaryOf(page, first).lastActivityAt());
+        assertEquals(T0.plusSeconds(600), summaryOf(page, second).lastActivityAt());
+        // A lead without any history (not expected) falls back to its creation time
+        assertEquals(third.getCreatedAt(), summaryOf(page, third).lastActivityAt());
+    }
+
     @Test
     void list_emptyPage_makesNoNameLookup() {
         service.list(ALL_LEADER, query(LeadScope.ALL, Set.of(), null));
@@ -543,6 +566,11 @@ class OwnerLeadQueryServiceTest {
                 .filter(item -> item.id().equals(lead.getId().getValue()))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private static OwnerLeadActivity note(long id, OwnerLead lead, Instant occurredAt) {
+        return OwnerLeadActivity.load(id, lead.getId(), OwnerLeadActivityType.NOTE_ADDED, SALE_A, null, null, null,
+                null, "note", null, occurredAt);
     }
 
     private static List<String> componentNames(Class<? extends Record> type) {
