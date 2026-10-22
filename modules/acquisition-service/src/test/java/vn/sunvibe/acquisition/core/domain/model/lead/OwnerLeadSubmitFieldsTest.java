@@ -20,7 +20,7 @@ class OwnerLeadSubmitFieldsTest {
                 "Nguyen Van A", PhoneNumber.parse("0909 123 456"), "a@example.vn", intent,
                 "48", "Da Nang", "20242", "Hai Chau", "12 Bach Dang", OwnerLead.addressKey("12 Bach Dang"),
                 GeoPoint.of(new BigDecimal("16.0544"), new BigDecimal("108.2022"), false),
-                OwnerLeadPropertyType.TWO_BEDROOM, price, LocalDate.parse("2026-11-01"), "Near the river", "Evening");
+                OwnerLeadPropertyType.APARTMENT, price, LocalDate.parse("2026-11-01"), "Near the river", "Evening");
     }
 
     @Test

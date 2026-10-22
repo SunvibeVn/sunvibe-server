@@ -19,7 +19,7 @@ class OwnerIntakeCommandTest {
     void toString_anyCommand_printsNoPersonalData() {
         OwnerIntakeCommand command = new OwnerIntakeCommand("key-0001-abcdefgh", "Nguyen Thi Lan", "0909 123 456",
                 "lan@example.com", OwnerLeadIntent.LONG_TERM_RENT, "48", "20242", "12 Bach Dang",
-                new BigDecimal("16.0678"), new BigDecimal("108.2208"), OwnerLeadPropertyType.TWO_BEDROOM,
+                new BigDecimal("16.0678"), new BigDecimal("108.2208"), OwnerLeadPropertyType.APARTMENT,
                 15_000_000L, "VND", PriceUnit.MONTH, LocalDate.parse("2026-11-01"), "Furnished", "Evening",
                 true, "owner-intake-2026-10-21", "203.0.113.7", "Mozilla/5.0 test", "{\"phone\":\"0909 123 456\"}");
 

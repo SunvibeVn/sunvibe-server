@@ -697,7 +697,7 @@ class OwnerIntakeSubmitServiceTest {
         private String addressDetail = "12 Bạch Đằng";
         private BigDecimal latitude = new BigDecimal("16.0678");
         private BigDecimal longitude = new BigDecimal("108.2208");
-        private OwnerLeadPropertyType propertyType = OwnerLeadPropertyType.TWO_BEDROOM;
+        private OwnerLeadPropertyType propertyType = OwnerLeadPropertyType.APARTMENT;
         private Long askingPriceAmount = 15_000_000L;
         private String askingPriceCurrency = "VND";
         private PriceUnit askingPriceUnit = PriceUnit.MONTH;

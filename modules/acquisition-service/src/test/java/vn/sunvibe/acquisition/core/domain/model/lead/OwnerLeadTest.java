@@ -31,7 +31,7 @@ class OwnerLeadTest {
                 "Nguyen Van A", PhoneNumber.parse("0909 123 456"), "a@example.vn", OwnerLeadIntent.LONG_TERM_RENT,
                 "48", "Da Nang", "20194", "Hai Chau 1", "12 Bach Dang", OwnerLead.addressKey("12 Bach Dang"),
                 GeoPoint.of(new BigDecimal("16.0544"), new BigDecimal("108.2022"), false),
-                OwnerLeadPropertyType.TWO_BEDROOM,
+                OwnerLeadPropertyType.APARTMENT,
                 Optional.of(AskingPrice.of(12_000_000L, "VND", PriceUnit.MONTH, OwnerLeadIntent.LONG_TERM_RENT)),
                 LocalDate.parse("2026-11-01"), "Near the river", "Evening");
     }
@@ -73,7 +73,7 @@ class OwnerLeadTest {
         assertEquals("12 Bach Dang", lead.getAddressDetail());
         assertEquals("12 bach dang", lead.getAddressKey());
         assertTrue(lead.getGeoPoint().isPresent());
-        assertEquals(OwnerLeadPropertyType.TWO_BEDROOM, lead.getPropertyType());
+        assertEquals(OwnerLeadPropertyType.APARTMENT, lead.getPropertyType());
         assertEquals(12_000_000L, lead.getAskingPrice().orElseThrow().getAmount());
         assertEquals(LocalDate.parse("2026-11-01"), lead.getAvailableFrom());
         assertEquals("Near the river", lead.getNotes());
@@ -127,7 +127,7 @@ class OwnerLeadTest {
 
         OwnerLead lead = OwnerLead.load(id, CODE, OwnerLeadStatus.DUPLICATE, OwnerLeadIntent.SALE,
                 OwnerLeadSource.REFERRAL, "Tran B", PhoneNumber.parse("0909123456"), "b@example.vn", "48", "Da Nang",
-                "20194", "Hai Chau 1", "1 Le Loi", "1 le loi", Optional.of(geo), OwnerLeadPropertyType.LAND,
+                "20194", "Hai Chau 1", "1 Le Loi", "1 le loi", Optional.of(geo), OwnerLeadPropertyType.VILLA,
                 Optional.of(price), LocalDate.parse("2026-12-01"), "note", "morning", CONSENT_ID, SNAPSHOT,
                 ASSIGNEE, nextAction, duplicateOf, "same phone", created, updated, 7L);
 
@@ -146,7 +146,7 @@ class OwnerLeadTest {
         assertEquals("1 Le Loi", lead.getAddressDetail());
         assertEquals("1 le loi", lead.getAddressKey());
         assertEquals(Optional.of(geo), lead.getGeoPoint());
-        assertEquals(OwnerLeadPropertyType.LAND, lead.getPropertyType());
+        assertEquals(OwnerLeadPropertyType.VILLA, lead.getPropertyType());
         assertEquals(Optional.of(price), lead.getAskingPrice());
         assertEquals(LocalDate.parse("2026-12-01"), lead.getAvailableFrom());
         assertEquals("note", lead.getNotes());

@@ -235,7 +235,7 @@ final class AcquisitionApiTestSupport {
 		body.put("addressDetail", addressDetail);
 		body.put("latitude", 16.0678);
 		body.put("longitude", 108.2208);
-		body.put("propertyType", "TWO_BEDROOM");
+		body.put("propertyType", "APARTMENT");
 		body.put("askingPrice", price);
 		body.put("availableFrom", "2026-11-01");
 		body.put("notes", "Có nội thất");

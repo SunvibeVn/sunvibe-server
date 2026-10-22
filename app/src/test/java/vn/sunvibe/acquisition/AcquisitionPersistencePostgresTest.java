@@ -140,7 +140,7 @@ class AcquisitionPersistencePostgresTest {
 				PhoneNumber.parse("0901234567"), "owner@example.com", "48", "Đà Nẵng", "20194", "Hải Châu",
 				"12 Bạch  Đằng", OwnerLead.addressKey("12 Bạch  Đằng"),
 				GeoPoint.of(new BigDecimal("16.054407"), new BigDecimal("108.202167"), false),
-				OwnerLeadPropertyType.TWO_BEDROOM,
+				OwnerLeadPropertyType.APARTMENT,
 				Optional.of(AskingPrice.of(12_500_000L, "VND", PriceUnit.MONTH, OwnerLeadIntent.LONG_TERM_RENT)),
 				LocalDate.parse("2026-11-01"), "Near the river", "After 18:00", consentId, snapshot, ASSIGNEE,
 				T1, duplicateOf, "Because", T0, T1, null);
@@ -159,7 +159,7 @@ class AcquisitionPersistencePostgresTest {
 		assertEquals(0, new BigDecimal("16.054407").compareTo((BigDecimal) row.get("latitude")));
 		assertEquals(0, new BigDecimal("12500000").compareTo((BigDecimal) row.get("asking_price_amount")));
 		assertEquals("MONTH", row.get("asking_price_unit"));
-		assertEquals("TWO_BEDROOM", row.get("property_type"));
+		assertEquals("APARTMENT", row.get("property_type"));
 		assertEquals(snapshot, row.get("submission_snapshot"));
 		assertEquals(duplicateOf.getValue(), row.get("duplicate_of_lead_id"));
 	}

@@ -79,6 +79,7 @@ public record OwnerIntakeRequest(
         @Schema(example = "108.2208")
         BigDecimal longitude,
 
+        @Schema(description = "Kind of property the owner describes (not the unit layout of the property create API)")
         OwnerLeadPropertyType propertyType,
 
         @Valid

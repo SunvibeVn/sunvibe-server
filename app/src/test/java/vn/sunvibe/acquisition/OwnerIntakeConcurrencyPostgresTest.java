@@ -278,7 +278,7 @@ class OwnerIntakeConcurrencyPostgresTest {
 		body.put("provinceCode", "48");
 		body.put("wardCode", "20242");
 		body.put("addressDetail", address);
-		body.put("propertyType", "TWO_BEDROOM");
+		body.put("propertyType", "APARTMENT");
 		if (notes != null) {
 			body.put("notes", notes);
 		}
