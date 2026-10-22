@@ -627,6 +627,24 @@ class OwnerLeadApiPostgresTest {
 		assertEquals("ASSIGNED", status(lead));
 	}
 
+	/** A request enum is a string code: a JSON number or a numeric string gets the 400 of an unknown code. */
+	@Test
+	void statusChange_toStatusAsNumberOrNumericString_returnsTheSame400AsAnUnknownCode() throws Exception {
+		String lead = submit(SON_TRA);
+		String path = LEADS + "/" + lead + "/status-changes";
+
+		Result unknown = api.post(sale1, path, Map.of("toStatus", "NOPE", "expectedVersion", 0));
+		assertValidationError(unknown, "toStatus");
+		for (Object value : List.of(1, "1")) {
+			Result result = api.post(sale1, path, Map.of("toStatus", value, "expectedVersion", 0));
+
+			assertValidationError(result, "toStatus");
+			assertEquals(withoutCorrelationId(unknown.body()), withoutCorrelationId(result.body()));
+		}
+		assertEquals("ASSIGNED", status(lead));
+		assertEquals(0L, version(lead));
+	}
+
 	/**
 	 * A next action time outside what the database can store (before 1970 or from year 10000 on) is a 400 on
 	 * nextActionAt on both endpoints that take it, never a 500.

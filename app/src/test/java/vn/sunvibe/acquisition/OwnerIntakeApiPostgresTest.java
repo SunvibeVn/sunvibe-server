@@ -186,6 +186,12 @@ class OwnerIntakeApiPostgresTest {
 				invalid("unknown unit", b -> price(b).put("unit", "WEEK"), "askingPrice.unit"),
 				invalid("unknown intent", b -> b.put("intent", "RENT"), "intent"),
 				invalid("unknown property type", b -> b.put("propertyType", "CASTLE"), "propertyType"),
+				invalid("intent as number", b -> b.put("intent", 0), "intent"),
+				invalid("unit as number", b -> price(b).put("unit", 1), "askingPrice.unit"),
+				invalid("property type as number 0", b -> b.put("propertyType", 0), "propertyType"),
+				invalid("property type as number 5", b -> b.put("propertyType", 5), "propertyType"),
+				invalid("property type as numeric string", b -> b.put("propertyType", "0"), "propertyType"),
+				invalid("property type as number beyond int", b -> b.put("propertyType", 3_000_000_000L), "propertyType"),
 				invalid("bad date", b -> b.put("availableFrom", "2026-13-45"), "availableFrom"),
 				invalid("latitude not a number", b -> b.put("latitude", "abc"), "latitude")),
 				OLD_PROPERTY_TYPES.stream().map(old ->

@@ -293,7 +293,8 @@ class AcquisitionExceptionHandlerTest {
             "'{\"intent\":\"RENT\"}', intent",
             "'{\"askingPrice\":{\"unit\":\"WEEK\"}}', askingPrice.unit",
             "'{\"availableFrom\":\"2026-13-45\"}', availableFrom",
-            "'{\"latitude\":\"abc\"}', latitude"})
+            "'{\"latitude\":\"abc\"}', latitude",
+            "'{\"propertyType\":3000000000}', propertyType"})
     void handle_badEnum_usesJsonPathAsField(String json, String field) throws Exception {
         ResponseEntity<ErrorResponse<ValidationError>> response =
                 handle(new HttpMessageNotReadableException("JSON parse error", parseError(json), INPUT));
