@@ -29,7 +29,8 @@ public record OwnerLeadDetailResponse(
         @Schema(example = "48") String provinceCode,
         @Schema(example = "20242") String wardCode,
         String wardName,
-        OwnerLeadPropertyType propertyType,
+        @Schema(description = "Kind of property the owner describes (not the unit layout of the property create "
+                + "API)", nullable = true) OwnerLeadPropertyType propertyType,
         @Schema(description = "User id of the assignee; null when nobody holds the lead") String assignedUserId,
         @Schema(description = "Full name of the assignee; null when nobody holds the lead "
                 + "or the id has no user row", nullable = true)

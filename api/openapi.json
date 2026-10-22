@@ -2935,7 +2935,8 @@
           },
           "propertyType" : {
             "type" : "string",
-            "enum" : [ "STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX", "PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER" ]
+            "description" : "Kind of property the owner describes (not the unit layout of the property create API)",
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
           },
           "provinceCode" : {
             "type" : "string",
@@ -3052,8 +3053,9 @@
             "type" : "string"
           },
           "propertyType" : {
-            "type" : "string",
-            "enum" : [ "STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX", "PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER" ]
+            "type" : [ "string", "null" ],
+            "description" : "Kind of property the owner describes (not the unit layout of the property create API)",
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
           },
           "provinceCode" : {
             "type" : "string",
@@ -3120,8 +3122,9 @@
             "description" : "True when the lead has at least one possible duplicate the caller can see"
           },
           "propertyType" : {
-            "type" : "string",
-            "enum" : [ "STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX", "PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER" ]
+            "type" : [ "string", "null" ],
+            "description" : "Kind of property the owner describes (not the unit layout of the property create API)",
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
           },
           "provinceCode" : {
             "type" : "string",

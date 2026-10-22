@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -79,6 +80,9 @@ class SeedE2eOwnerLeadsPostgresTest {
 			"SV-E2EA-AA2E", "SV-E2EA-AA2F", "SV-E2EA-AA2G", "SV-E2EA-AA2H", "SV-E2EA-AA2J", "SV-E2EA-AA2K");
 	private static final List<String> STATUSES = List.of("NEW", "ASSIGNED", "CONTACTED", "ON_HOLD", "ASSIGNED",
 			"REJECTED", "ASSIGNED", "ASSIGNED", "ASSIGNED", "NEW");
+	/** acquisition-owner-intake BR-3: L1..L10 use the six types and two leads have none. */
+	private static final List<String> PROPERTY_TYPES = Arrays.asList("APARTMENT", "HOMESTAY", "CONDOTEL", "HOUSE",
+			"WHOLE_BUILDING", null, "APARTMENT", "APARTMENT", null, "VILLA");
 
 	private static final String FOREIGN_LEAD = "01JE2EOTHERLEAD00000000001";
 	private static final String FOREIGN_CONSENT = "01JE2EOTHERCONS00000000001";
@@ -165,6 +169,8 @@ class SeedE2eOwnerLeadsPostgresTest {
 				+ "ORDER BY id", String.class));
 		assertEquals(STATUSES, jdbc.queryForList("SELECT status FROM owner_leads WHERE id LIKE '01JE2EHEAD%' "
 				+ "ORDER BY id", String.class));
+		assertEquals(PROPERTY_TYPES, jdbc.queryForList("SELECT property_type FROM owner_leads "
+				+ "WHERE id LIKE '01JE2EHEAD%' ORDER BY id", String.class));
 	}
 
 	/** W11-11: any target but {@code local} (or none) is refused before the first change. */

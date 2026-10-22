@@ -377,7 +377,7 @@ class OwnerIntakeRequestValidationTest {
         body.addressDetail = "12 Bạch Đằng, căn A-1203";
         body.latitude = new BigDecimal("16.0678");
         body.longitude = new BigDecimal("108.2208");
-        body.propertyType = OwnerLeadPropertyType.TWO_BEDROOM;
+        body.propertyType = OwnerLeadPropertyType.APARTMENT;
         body.askingPrice = new AskingPriceRequest(new BigDecimal("15000000"), "VND", PriceUnit.MONTH);
         body.availableFrom = LocalDate.parse("2026-11-01");
         body.notes = "Có nội thất";

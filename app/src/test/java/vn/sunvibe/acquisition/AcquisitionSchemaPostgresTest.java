@@ -4,9 +4,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.AfterEach;
@@ -20,6 +22,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import vn.sunvibe.PostgresContainerConfig;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadPropertyType;
 
 /**
  * The acquisition tables built by Flyway on a real PostgreSQL (acquisition-owner-intake spec 4.2, lead-queue spec 4):
@@ -192,7 +195,7 @@ class AcquisitionSchemaPostgresTest {
 		String consentId = insertConsent();
 
 		jdbc.update(leadInsert(consentId, "latitude", "16.047079", "longitude", "108.206230",
-				"asking_price_amount", "12000000", "asking_price_unit", "'MONTH'", "property_type", "'STUDIO'"));
+				"asking_price_amount", "12000000", "asking_price_unit", "'MONTH'", "property_type", "'APARTMENT'"));
 
 		assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM owner_leads", Integer.class));
 	}
@@ -218,15 +221,35 @@ class AcquisitionSchemaPostgresTest {
 		for (String source : List.of("WEB", "REFERRAL", "OUTBOUND", "PARTNER", "STAFF_ENTRY")) {
 			jdbc.update(leadInsert(consentId, "source", "'" + source + "'"));
 		}
-		for (String type : List.of("STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX",
-				"PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER")) {
-			jdbc.update(leadInsert(consentId, "property_type", "'" + type + "'"));
+		for (OwnerLeadPropertyType type : OwnerLeadPropertyType.values()) {
+			jdbc.update(leadInsert(consentId, "property_type", "'" + type.name() + "'"));
 		}
+		jdbc.update(leadInsert(consentId, "property_type", "NULL"));
 		for (String unit : List.of("NIGHT", "MONTH", "TOTAL")) {
 			jdbc.update(leadInsert(consentId, "asking_price_amount", "1", "asking_price_unit", "'" + unit + "'"));
 		}
 
-		assertEquals(21, jdbc.queryForObject("SELECT count(*) FROM owner_leads", Integer.class));
+		assertEquals(3 + 5 + OwnerLeadPropertyType.values().length + 1 + 3,
+				jdbc.queryForObject("SELECT count(*) FROM owner_leads", Integer.class));
+	}
+
+	/**
+	 * acquisition-owner-intake BR-3, Q-16: the constraint holds exactly the six types of the enum; the old values
+	 * (unit layouts, townhouse, land, "other") are refused like any unknown value.
+	 */
+	@Test
+	void schema_ownerLeads_propertyTypeCheck_isExactlyTheEnumAndRefusesTheOldValues() {
+		String consentId = insertConsent();
+
+		for (String old : List.of("STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX",
+				"PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER", "CASTLE")) {
+			assertRejected(leadInsert(consentId, "property_type", "'" + old + "'"), "chk_owner_leads_property_type");
+		}
+		String definition = jdbc.queryForObject("SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+				+ "WHERE conname = 'chk_owner_leads_property_type'", String.class);
+		List<String> allowed = Pattern.compile("'([A-Z_]+)'").matcher(definition).results()
+				.map(match -> match.group(1)).toList();
+		assertEquals(Arrays.stream(OwnerLeadPropertyType.values()).map(Enum::name).toList(), allowed, definition);
 	}
 
 	@Test

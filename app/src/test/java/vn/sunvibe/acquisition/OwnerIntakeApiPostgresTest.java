@@ -75,6 +75,13 @@ class OwnerIntakeApiPostgresTest {
 	private static final String ALLOWED_ORIGIN = "http://localhost:3000";
 	private static final List<String> INTAKE_TABLES = List.of("consent_records", "owner_leads",
 			"owner_lead_activities", "owner_lead_duplicate_candidates", "owner_intake_idempotency_keys");
+	/** The six property types of acquisition-owner-intake BR-3, in form order. */
+	private static final List<String> PROPERTY_TYPES = List.of("HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY",
+			"CONDOTEL", "APARTMENT");
+	/** The values before acquisition-owner-intake Q-16: unit layouts, townhouse, land and "other". */
+	private static final List<String> OLD_PROPERTY_TYPES = List.of("STUDIO", "ONE_BEDROOM", "TWO_BEDROOM",
+			"THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX", "PENTHOUSE", "TOWNHOUSE", "LAND", "OTHER");
+	private static final String LEADS = "/api/v1/staff/owner-leads";
 
 	/** Phones 091xxxxxxx; 0909 123 456 is kept for the first test, which checks its stored form. */
 	private static final AtomicInteger PHONE_SEQUENCE = new AtomicInteger(1);
@@ -151,7 +158,7 @@ class OwnerIntakeApiPostgresTest {
 	// ==================== W9-3, W9-4, W9-5, W9-6: refused values ====================
 
 	Stream<Arguments> invalidFields() {
-		return Stream.of(
+		return Stream.concat(Stream.of(
 				invalid("contactName missing", b -> b.remove("contactName"), "contactName"),
 				invalid("phone missing", b -> b.remove("phone"), "phone"),
 				invalid("intent missing", b -> b.remove("intent"), "intent"),
@@ -180,7 +187,9 @@ class OwnerIntakeApiPostgresTest {
 				invalid("unknown intent", b -> b.put("intent", "RENT"), "intent"),
 				invalid("unknown property type", b -> b.put("propertyType", "CASTLE"), "propertyType"),
 				invalid("bad date", b -> b.put("availableFrom", "2026-13-45"), "availableFrom"),
-				invalid("latitude not a number", b -> b.put("latitude", "abc"), "latitude"));
+				invalid("latitude not a number", b -> b.put("latitude", "abc"), "latitude")),
+				OLD_PROPERTY_TYPES.stream().map(old ->
+						invalid("old property type " + old, b -> b.put("propertyType", old), "propertyType")));
 	}
 
 	/** W9-3, W9-16: 400 VALIDATION_FAILED on exactly that field, the call's correlation id, nothing stored. */
@@ -198,6 +207,63 @@ class OwnerIntakeApiPostgresTest {
 		assertValidationError(result, field);
 		assertEquals(before, intakeRowCounts());
 		assertFalse(result.rawBody().contains(phone.replace(" ", "")), "the phone is never echoed");
+	}
+
+	// ==================== acquisition-owner-intake BR-3, Q-16: the six property types ====================
+
+	/** acquisition-owner-intake BR-3: each of the six types is accepted and stored as given. */
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("propertyTypes")
+	void post_eachPropertyType_returns202AndStoresIt(String type) throws Exception {
+		Map<String, Object> body = validBody(nextPhone(), nextAddress());
+		body.put("propertyType", type);
+
+		Result result = post(body);
+
+		assertEquals(202, result.status(), result.rawBody());
+		assertEquals(type, lead(result.body().path("requestCode").asString()).get("property_type"));
+	}
+
+	/** acquisition-owner-intake BR-3: the type stays optional; without it the lead has no type. */
+	@Test
+	void post_withoutPropertyType_returns202AndStoresNull() throws Exception {
+		Map<String, Object> body = validBody(nextPhone(), nextAddress());
+		body.remove("propertyType");
+
+		Result result = post(body);
+
+		assertEquals(202, result.status(), result.rawBody());
+		assertNull(lead(result.body().path("requestCode").asString()).get("property_type"));
+	}
+
+	/** acquisition-owner-intake BR-3: staff see the new code, or null for a lead without a type. */
+	@Test
+	void staffListAndDetail_showTheSubmittedTypeOrNull() throws Exception {
+		Map<String, Object> villa = validBody(nextPhone(), nextAddress());
+		villa.put("propertyType", "VILLA");
+		Map<String, Object> untyped = validBody(nextPhone(), nextAddress());
+		untyped.remove("propertyType");
+		String villaCode = post(villa).body().path("requestCode").asString();
+		String untypedCode = post(untyped).body().path("requestCode").asString();
+		String villaId = AcquisitionApiTestSupport.leadId(jdbc, villaCode);
+		String untypedId = AcquisitionApiTestSupport.leadId(jdbc, untypedCode);
+		AcquisitionApiTestSupport.TestUser leader = api.createUser(UserStatus.ACTIVE, "SALE_LEADER");
+		try {
+			AcquisitionApiTestSupport.TestUser caller = api.logIn(leader);
+
+			assertEquals("VILLA", listItem(caller, villaCode, villaId).path("propertyType").asString());
+			JsonNode untypedItem = listItem(caller, untypedCode, untypedId);
+			assertTrue(untypedItem.has("propertyType") && untypedItem.path("propertyType").isNull(),
+					untypedItem.toString());
+			assertEquals("VILLA", detail(caller, villaId).path("propertyType").asString());
+			assertTrue(detail(caller, untypedId).path("propertyType").isNull());
+		} finally {
+			AcquisitionApiTestSupport.deleteUsers(jdbc, List.of(leader.userId()));
+		}
+	}
+
+	static Stream<String> propertyTypes() {
+		return PROPERTY_TYPES.stream();
 	}
 
 	/** Spec 6.3: 255 characters is refused with the length message only; 254 is accepted and stored whole. */
@@ -785,7 +851,7 @@ class OwnerIntakeApiPostgresTest {
 		body.put("addressDetail", address);
 		body.put("latitude", 16.0678);
 		body.put("longitude", 108.2208);
-		body.put("propertyType", "TWO_BEDROOM");
+		body.put("propertyType", "APARTMENT");
 		body.put("askingPrice", price);
 		body.put("availableFrom", "2026-11-01");
 		body.put("notes", "Có nội thất");
@@ -870,6 +936,23 @@ class OwnerIntakeApiPostgresTest {
 		result.body().path("errors").forEach(error -> fields.add(error.path("field").asString()));
 		assertEquals(List.of(field), fields, result.rawBody());
 		assertEquals(result.header("X-Correlation-Id"), result.body().path("correlationId").asString());
+	}
+
+	private JsonNode detail(AcquisitionApiTestSupport.TestUser caller, String leadId) throws Exception {
+		Result result = api.get(caller, LEADS + "/" + leadId);
+		assertEquals(200, result.status(), result.rawBody());
+		return result.body();
+	}
+
+	/** The staff list item of one lead, found by its request code in the whole queue. */
+	private JsonNode listItem(AcquisitionApiTestSupport.TestUser caller, String requestCode, String leadId)
+			throws Exception {
+		Result page = api.get(caller, LEADS + "?scope=all&requestCode=" + requestCode);
+		assertEquals(200, page.status(), page.rawBody());
+		assertEquals(1, page.body().path("items").size(), page.rawBody());
+		JsonNode item = page.body().path("items").get(0);
+		assertEquals(leadId, item.path("id").asString());
+		return item;
 	}
 
 	private Map<String, Object> lead(String requestCode) {
