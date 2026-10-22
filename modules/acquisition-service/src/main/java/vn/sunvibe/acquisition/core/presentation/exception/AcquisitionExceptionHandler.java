@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import tools.jackson.core.JacksonException;
+import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.databind.exc.MismatchedInputException;
 import vn.sunvibe.acquisition.core.application.exception.AdministrativeAreaNotFoundException;
 import vn.sunvibe.acquisition.core.application.exception.ConcurrentLeadModificationException;
@@ -157,6 +158,12 @@ public class AcquisitionExceptionHandler {
         MismatchedInputException mismatch = findCause(e, MismatchedInputException.class);
         if (mismatch != null && !mismatch.getPath().isEmpty()) {
             return validationFailed(List.of(ValidationError.of(jsonPath(mismatch), INVALID_VALUE_MESSAGE)));
+        }
+        // A number out of range for its target (beyond int for an enum, beyond long for expectedVersion) fails as a
+        // coercion error before the value is looked up or bound: a validation error on its JSON path like any bad number.
+        InputCoercionException coercion = findCause(e, InputCoercionException.class);
+        if (coercion != null && !coercion.getPath().isEmpty()) {
+            return validationFailed(List.of(ValidationError.of(jsonPath(coercion), INVALID_VALUE_MESSAGE)));
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ErrorResponse.of(ErrorCode.MALFORMED_REQUEST, MALFORMED_REQUEST_MESSAGE, List.of()));

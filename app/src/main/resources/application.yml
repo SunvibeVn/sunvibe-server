@@ -7,6 +7,11 @@ spring:
   jpa:
       hibernate:
         ddl-auto: validate
+  jackson:
+    datatype:
+      enum:
+        # The contract types every enum as a string: a JSON number (or numeric string) is no enum code.
+        fail-on-numbers-for-enums: true
   mail:
     host: smtp.gmail.com
     port: 587
