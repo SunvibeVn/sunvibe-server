@@ -32,6 +32,7 @@ import vn.sunvibe.acquisition.core.domain.repository.PageResult;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -108,8 +109,11 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
         // One name lookup for the whole page, only for assignees of leads the viewer already sees
         Map<String, String> names = staffNames
                 .lookup(page.items().stream().map(OwnerLead::getAssignedUserId).toList());
+        // acquisition-owner-lead-queue-ui C-49: one grouped activity query for the whole page, none for an empty one
+        Map<String, Instant> latest = ids.isEmpty() ? Map.of() : activities.findLatestOccurredAt(ids);
         List<OwnerLeadSummary> items = page.items().stream()
-                .map(lead -> OwnerLeadSummary.of(lead, withCandidate.contains(lead.getId().getValue()), names))
+                .map(lead -> OwnerLeadSummary.of(lead, withCandidate.contains(lead.getId().getValue()), names,
+                        latest.get(lead.getId().getValue())))
                 .toList();
         return new PageResult<>(items, page.page(), page.size(), page.totalElements());
     }
@@ -138,13 +142,15 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
         rows.forEach(row -> staffIds.addAll(StaffNames.idsOf(row)));
         Map<String, String> names = staffNames.lookup(staffIds);
         List<LeadActivityView> history = rows.stream().map(row -> LeadActivityView.of(row, names)).toList();
-        return detail(lead, candidates, duplicateOf, consent, history, names);
+        Instant lastActivityAt = rows.isEmpty() ? null : rows.get(rows.size() - 1).getOccurredAt();
+        return detail(lead, candidates, duplicateOf, consent, history, names, lastActivityAt);
     }
 
     private static OwnerLeadDetail detail(OwnerLead lead, List<DuplicateCandidateView> candidates,
                                           String duplicateOf, ConsentRecord consent,
-                                          List<LeadActivityView> history, Map<String, String> names) {
-        OwnerLeadSummary summary = OwnerLeadSummary.of(lead, !candidates.isEmpty(), names);
+                                          List<LeadActivityView> history, Map<String, String> names,
+                                          Instant lastActivityAt) {
+        OwnerLeadSummary summary = OwnerLeadSummary.of(lead, !candidates.isEmpty(), names, lastActivityAt);
         OwnerLeadDetail.AskingPriceView price = lead.getAskingPrice()
                 .map(p -> new OwnerLeadDetail.AskingPriceView(p.getAmount(), p.getCurrency(), p.getUnit()))
                 .orElse(null);

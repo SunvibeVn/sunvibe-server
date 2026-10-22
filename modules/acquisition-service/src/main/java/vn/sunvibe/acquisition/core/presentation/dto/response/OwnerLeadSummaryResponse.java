@@ -33,6 +33,9 @@ public record OwnerLeadSummaryResponse(
         @Schema(description = "True when the lead has at least one possible duplicate the caller can see")
         boolean possibleDuplicate,
         Instant createdAt,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "Time of the lead's latest activity (any "
+                + "history entry: submitted, auto-assigned, assigned, reassigned, status changed, note). Opening the "
+                + "lead does not count.") Instant lastActivityAt,
         @Schema(description = "Send it back as expectedVersion with the next change") long version) {
 
     /** The contact name is personal data: never print it. */

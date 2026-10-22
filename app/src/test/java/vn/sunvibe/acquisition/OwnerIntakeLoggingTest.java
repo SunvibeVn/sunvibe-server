@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.http.HttpRequest;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +99,11 @@ class OwnerIntakeLoggingTest {
 				@Override
 				public List<OwnerLeadActivity> findByLeadIdOrderByOccurredAt(OwnerLeadId leadId) {
 					return real.findByLeadIdOrderByOccurredAt(leadId);
+				}
+
+				@Override
+				public Map<String, Instant> findLatestOccurredAt(Collection<String> leadIds) {
+					return real.findLatestOccurredAt(leadIds);
 				}
 			};
 		}

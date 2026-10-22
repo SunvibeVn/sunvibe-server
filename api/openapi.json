@@ -3113,6 +3113,11 @@
             "type" : "string",
             "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT", "SALE" ]
           },
+          "lastActivityAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Time of the lead's latest activity (any history entry: submitted, auto-assigned, assigned, reassigned, status changed, note). Opening the lead does not count."
+          },
           "nextActionAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -3150,7 +3155,8 @@
           "wardName" : {
             "type" : "string"
           }
-        }
+        },
+        "required" : [ "lastActivityAt" ]
       },
       "PasswordChangeRequest" : {
         "type" : "object",

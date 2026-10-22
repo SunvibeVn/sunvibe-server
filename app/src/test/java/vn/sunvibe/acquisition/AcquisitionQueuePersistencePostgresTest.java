@@ -9,6 +9,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CyclicBarrier;
@@ -33,6 +34,7 @@ import jakarta.persistence.PersistenceContext;
 
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
+import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentChannel;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentPurpose;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentRecord;
@@ -400,6 +402,25 @@ class AcquisitionQueuePersistencePostgresTest {
 		territories.deleteByWard(WARD_1);
 	}
 
+	// ==================== latest activity time ====================
+
+	@Test
+	void findLatestOccurredAt_returnsMaxPerLead_andSkipsUnknownIds() {
+		OwnerLead a = saveLead(lead(OwnerLeadStatus.ASSIGNED, SALE_A, WARD_1, T0));
+		OwnerLead b = saveLead(lead(OwnerLeadStatus.NEW, null, WARD_1, T0));
+		Instant t2 = T0.plusSeconds(60);
+		Instant t3 = T1;
+		activities.save(note(6101L, a.getId(), T0));
+		activities.save(note(6102L, a.getId(), t3));
+		activities.save(note(6103L, b.getId(), t2));
+
+		Map<String, Instant> latest = activities.findLatestOccurredAt(
+				List.of(a.getId().getValue(), b.getId().getValue(), "01UNKNOWN00000000000000000"));
+
+		assertEquals(Map.of(a.getId().getValue(), t3, b.getId().getValue(), t2), latest);
+		assertEquals(Map.of(), activities.findLatestOccurredAt(List.of()));
+	}
+
 	// ==================== immutable history rows ====================
 
 	@Test
@@ -504,6 +525,11 @@ class AcquisitionQueuePersistencePostgresTest {
 				ConsentPurpose.OWNER_INTAKE_CONTACT, ConsentChannel.WEB, HASH, null, T0);
 		consents.save(consent);
 		return consent.getId();
+	}
+
+	private static OwnerLeadActivity note(long id, OwnerLeadId leadId, Instant occurredAt) {
+		return OwnerLeadActivity.load(id, leadId, OwnerLeadActivityType.NOTE_ADDED, SALE_A, null, null, null, null, "note",
+				null, occurredAt);
 	}
 
 	private OwnerLead saveLead(OwnerLead lead) {

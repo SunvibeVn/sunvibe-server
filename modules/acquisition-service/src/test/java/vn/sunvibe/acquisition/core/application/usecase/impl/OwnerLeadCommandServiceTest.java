@@ -171,6 +171,39 @@ class OwnerLeadCommandServiceTest {
         assertEquals(0, directory.calls, "the no-op does not ask whether the current assignee is still eligible");
     }
 
+    /**
+     * acquisition-owner-lead-queue-ui W14-2: every command answer carries the latest stored activity time, read after
+     * the new activity is saved; a no-op assign returns the unchanged value.
+     */
+    @Test
+    void commands_answerCarriesTheLatestStoredActivityTime() {
+        OwnerLead lead = stored(OwnerLeadStatus.NEW, null);
+
+        OwnerLeadSummary assigned = service.assign(ALL_LEADER, new AssignLeadCommand(id(lead), SALE_A, 0L, null));
+        assertEquals(latestStored(lead), assigned.lastActivityAt());
+
+        OwnerLeadSummary again = service.assign(ALL_LEADER, new AssignLeadCommand(id(lead), SALE_A, 1L, null));
+        assertEquals(assigned.lastActivityAt(), again.lastActivityAt());
+        assertEquals(1, activities.all().size());
+
+        OwnerLeadSummary contacted = service.changeStatus(ALL_LEADER,
+                new ChangeLeadStatusCommand(id(lead), OwnerLeadStatus.CONTACTED, 1L, null, null, null, null));
+        assertEquals(latestStored(lead), contacted.lastActivityAt());
+
+        LeadNoteResult noted = service.addNote(OWN_A, new AddLeadNoteCommand(id(lead), "Owner is abroad", null));
+        assertEquals(noted.activity().occurredAt(), noted.lead().lastActivityAt());
+        assertEquals(latestStored(lead), noted.lead().lastActivityAt());
+    }
+
+    @Test
+    void assign_sameAssigneeWithoutHistory_fallsBackToCreatedAt() {
+        OwnerLead lead = stored(OwnerLeadStatus.CONTACTED, SALE_A);
+
+        OwnerLeadSummary summary = service.assign(ALL_LEADER, new AssignLeadCommand(id(lead), SALE_A, 0L, null));
+
+        assertEquals(lead.getCreatedAt(), summary.lastActivityAt());
+    }
+
     @Test
     void assign_invisibleLead_throwsNotFoundBeforeAnyOtherCheck() {
         OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
@@ -549,6 +582,14 @@ class OwnerLeadCommandServiceTest {
         OwnerLead lead = OwnerLeadFixture.newLead(status, assignee, WARD, T0.plusSeconds(60L * minutes++));
         leads.save(lead);
         return lead;
+    }
+
+    private Instant latestStored(OwnerLead lead) {
+        return activities.all().stream()
+                .filter(activity -> activity.getLeadId().equals(lead.getId()))
+                .map(OwnerLeadActivity::getOccurredAt)
+                .max(Instant::compareTo)
+                .orElseThrow();
     }
 
     private OwnerLead reload(OwnerLead lead) {

@@ -66,7 +66,7 @@ class OwnerLeadApiPostgresTest {
 	private static final String HOA_KHANH = "20200";
 	private static final List<String> SUMMARY_FIELDS = List.of("id", "requestCode", "status", "intent", "contactName",
 			"provinceCode", "wardCode", "wardName", "propertyType", "assignedUserId", "assignedUserName", "nextActionAt",
-			"possibleDuplicate", "createdAt", "version");
+			"possibleDuplicate", "createdAt", "lastActivityAt", "version");
 	private static final Set<String> OPEN_MOVES_OF_ASSIGNED =
 			Set.of("CONTACTED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN");
 	private static final Set<String> CLOSING = Set.of("DUPLICATE", "REJECTED", "WITHDRAWN");
@@ -328,7 +328,11 @@ class OwnerLeadApiPostgresTest {
 		assertEquals(0, detail.path("duplicateCandidates").size());
 		assertEquals(List.of("noticeVersion", "acceptedAt"), fieldNames(detail.path("consent")));
 		assertEquals("owner-intake-2026-10-21", detail.path("consent").path("noticeVersion").asString());
-		assertTrue(fieldNames(detail).containsAll(SUMMARY_FIELDS), fieldNames(detail).toString());
+		// acquisition-owner-lead-queue-ui 4.1: lastActivityAt is a list field, the detail does not carry it
+		List<String> detailSummaryFields = SUMMARY_FIELDS.stream().filter(name -> !name.equals("lastActivityAt"))
+				.toList();
+		assertTrue(fieldNames(detail).containsAll(detailSummaryFields), fieldNames(detail).toString());
+		assertFalse(fieldNames(detail).contains("lastActivityAt"));
 		assertTrue(fieldNames(detail).containsAll(List.of("phone", "email", "addressDetail", "latitude", "longitude",
 				"askingPrice", "availableFrom", "notes", "preferredCallbackTime", "source", "duplicateOfLeadId",
 				"closeReason", "consent", "duplicateCandidates", "activities")), fieldNames(detail).toString());
@@ -1032,6 +1036,93 @@ class OwnerLeadApiPostgresTest {
 		assertTrue(history.get(0).path("toAssigneeName").isNull());
 		assertEquals(sale1.userId(), history.get(1).path("toAssigneeId").asString());
 		assertEquals("W9 SALE", history.get(1).path("toAssigneeName").asString());
+	}
+
+	// ==================== acquisition-owner-lead-queue-ui W14: lastActivityAt ====================
+
+	/**
+	 * W14-1: the list item carries the time of the lead's latest history entry: SUBMITTED in a ward without holder,
+	 * AUTO_ASSIGNED in a held ward, then the time of a plain note, which leaves owner_leads.updated_at as it is.
+	 */
+	@Test
+	void list_lastActivityAt_followsHistory() throws Exception {
+		String free = submit(AN_HAI);
+		String held = submit(SON_TRA);
+
+		assertEquals(activityTime(free, "SUBMITTED"), listedLastActivityAt(saleLeader, free));
+		assertEquals(activityTime(held, "AUTO_ASSIGNED"), listedLastActivityAt(saleLeader, held));
+
+		Timestamp updatedAt = updatedAt(held);
+		Result note = api.post(sale1, LEADS + "/" + held + "/activities", Map.of("note", "Đã gọi"));
+		assertEquals(201, note.status(), note.rawBody());
+
+		assertEquals(activityTime(held, "NOTE_ADDED"), listedLastActivityAt(saleLeader, held));
+		assertEquals(activityTime(held, "NOTE_ADDED"), listedLastActivityAt(sale1, held));
+		assertEquals(updatedAt, updatedAt(held), "a note without a next action does not touch the lead row");
+	}
+
+	/**
+	 * W14-2: the assign, status change and note answers carry the same lastActivityAt text as the next list call (the
+	 * stored microseconds, not the clock reading); a second assign to the same person returns the unchanged value.
+	 */
+	@Test
+	void commandResponses_lastActivityAt_matchesNextListCall() throws Exception {
+		String lead = submit(AN_HAI);
+
+		Result assigned = assignTo(saleLeader, lead, sale1);
+		assertEquals(listedLastActivityAtText(saleLeader, lead), assigned.body().path("lastActivityAt").asString());
+		assertEquals(activityTime(lead, "ASSIGNED"), Instant.parse(assigned.body().path("lastActivityAt").asString()));
+
+		Result again = assignTo(saleLeader, lead, sale1);
+		assertEquals(assigned.body().path("lastActivityAt").asString(), again.body().path("lastActivityAt").asString());
+
+		Result changed = api.post(sale1, LEADS + "/" + lead + "/status-changes",
+				Map.of("toStatus", "CONTACTED", "expectedVersion", version(lead)));
+		assertEquals(200, changed.status(), changed.rawBody());
+		assertEquals(listedLastActivityAtText(sale1, lead), changed.body().path("lastActivityAt").asString());
+		assertEquals(activityTime(lead, "STATUS_CHANGED"),
+				Instant.parse(changed.body().path("lastActivityAt").asString()));
+
+		Result note = api.post(sale1, LEADS + "/" + lead + "/activities", Map.of("note", "Hẹn gọi lại"));
+		assertEquals(201, note.status(), note.rawBody());
+		assertEquals(listedLastActivityAtText(sale1, lead),
+				note.body().path("lead").path("lastActivityAt").asString());
+		assertEquals(activityTime(lead, "NOTE_ADDED"),
+				Instant.parse(note.body().path("lead").path("lastActivityAt").asString()));
+	}
+
+	/** W14-3: opening the lead writes an access-log row but does not move lastActivityAt; the detail has no field. */
+	@Test
+	void detailOpen_doesNotMoveLastActivityAt() throws Exception {
+		String lead = submit(SON_TRA);
+		String before = listedLastActivityAtText(sale1, lead);
+
+		JsonNode detail = okDetail(sale1, lead);
+
+		assertFalse(detail.has("lastActivityAt"));
+		assertEquals(1, accessLogs(lead));
+		assertEquals(before, listedLastActivityAtText(sale1, lead));
+	}
+
+	private String listedLastActivityAtText(TestUser caller, String leadId) throws Exception {
+		JsonNode item = item(okList(caller, "?requestCode=" + requestCode(leadId)
+				+ (caller == sale1 ? "" : "&scope=all")), leadId);
+		assertTrue(item.path("lastActivityAt").isString(), item.toString());
+		return item.path("lastActivityAt").asString();
+	}
+
+	private Instant listedLastActivityAt(TestUser caller, String leadId) throws Exception {
+		return Instant.parse(listedLastActivityAtText(caller, leadId));
+	}
+
+	/** The time of the lead's only (or latest) history entry of that type, as stored. */
+	private Instant activityTime(String leadId, String type) {
+		return jdbc.queryForObject("select max(occurred_at) from owner_lead_activities where lead_id = ? and type = ?",
+				Timestamp.class, leadId, type).toInstant();
+	}
+
+	private Timestamp updatedAt(String leadId) {
+		return jdbc.queryForObject("select updated_at from owner_leads where id = ?", Timestamp.class, leadId);
 	}
 
 	private Result assignTo(TestUser leader, String lead, TestUser holder) throws Exception {

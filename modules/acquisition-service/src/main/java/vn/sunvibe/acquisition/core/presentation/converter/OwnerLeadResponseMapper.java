@@ -36,7 +36,7 @@ public class OwnerLeadResponseMapper {
         return new OwnerLeadSummaryResponse(lead.id(), lead.requestCode(), lead.status(), lead.intent(),
                 lead.contactName(), lead.provinceCode(), lead.wardCode(), lead.wardName(), lead.propertyType(),
                 lead.assignedUserId(), lead.assignedUserName(), lead.nextActionAt(), lead.possibleDuplicate(),
-                lead.createdAt(), lead.version());
+                lead.createdAt(), lead.lastActivityAt(), lead.version());
     }
 
     public OwnerLeadDetailResponse toDetail(OwnerLeadDetail lead) {
