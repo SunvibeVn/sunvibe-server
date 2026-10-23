@@ -1,6 +1,7 @@
 package vn.sunvibe.acquisition.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.acquisition.core.application.query.IntentChangeView;
 import vn.sunvibe.acquisition.core.application.query.LeadActivityView;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadDetail;
@@ -55,14 +56,26 @@ public class OwnerLeadResponseMapper {
                         .map(candidate -> new DuplicateCandidateResponse(candidate.id(), candidate.requestCode(),
                                 candidate.status(), candidate.createdAt()))
                         .toList(),
-                lead.activities().stream().map(this::toActivity).toList());
+                lead.activities().stream().map(this::toActivity).toList(),
+                lead.intentChanges().stream().map(OwnerLeadResponseMapper::toIntentChange).toList());
     }
 
     public LeadActivityResponse toActivity(LeadActivityView activity) {
         return new LeadActivityResponse(activity.type(), activity.actorUserId(), activity.actorName(),
                 activity.fromStatus(), activity.toStatus(), activity.fromAssigneeId(), activity.fromAssigneeName(),
                 activity.toAssigneeId(), activity.toAssigneeName(), activity.note(), activity.nextActionAt(),
-                activity.occurredAt());
+                activity.occurredAt(), activity.referenceId(), activity.referenceNo());
+    }
+
+    private static OwnerLeadDetailResponse.IntentChangeResponse toIntentChange(IntentChangeView change) {
+        return new OwnerLeadDetailResponse.IntentChangeResponse(change.fromIntent(), change.toIntent(),
+                toPrice(change.fromAskingPrice()), toPrice(change.toAskingPrice()), change.reason(),
+                new OwnerLeadDetailResponse.BasisResponse(change.basis().confirmedOn(), change.basis().text()),
+                change.actorUserId(), change.actorName(), change.newIntentCycle(), change.occurredAt());
+    }
+
+    private static AskingPriceResponse toPrice(OwnerLeadDetail.AskingPriceView price) {
+        return price == null ? null : new AskingPriceResponse(price.amount(), price.currency(), price.unit());
     }
 
     public LeadNoteResponse toNote(LeadNoteResult result) {

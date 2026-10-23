@@ -27,7 +27,8 @@ public record OwnerLeadDetail(String id, String requestCode, OwnerLeadStatus sta
                               LocalDate availableFrom, String notes, String preferredCallbackTime,
                               OwnerLeadSource source, String duplicateOfLeadId, String closeReason,
                               ConsentView consent,
-                              List<DuplicateCandidateView> duplicateCandidates, List<LeadActivityView> activities) {
+                              List<DuplicateCandidateView> duplicateCandidates, List<LeadActivityView> activities,
+                              List<IntentChangeView> intentChanges) {
 
     /** The price the owner hopes to get, in whole VND per unit. */
     public record AskingPriceView(long amount, String currency, PriceUnit unit) {
@@ -36,6 +37,7 @@ public record OwnerLeadDetail(String id, String requestCode, OwnerLeadStatus sta
     public OwnerLeadDetail {
         duplicateCandidates = List.copyOf(duplicateCandidates);
         activities = List.copyOf(activities);
+        intentChanges = List.copyOf(intentChanges);
     }
 
     /** The detail holds contact data, address and position: never print it. */

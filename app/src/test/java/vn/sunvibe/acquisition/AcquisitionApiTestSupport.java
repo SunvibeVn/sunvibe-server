@@ -41,9 +41,9 @@ import vn.sunvibe.shared.time.AppClock;
  * the auth domain repository and log in through {@code POST /api/v1/auth/login}, so a staff call carries a real access
  * token. Tokens and passwords are never printed.
  */
-final class AcquisitionApiTestSupport {
+public final class AcquisitionApiTestSupport {
 
-	static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
+	public static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
 	/** Usernames of created users; the 08 prefix keeps them apart from the phones the intake tests submit. */
 	private static final AtomicInteger USERNAME_SEQUENCE = new AtomicInteger(1);
@@ -58,7 +58,7 @@ final class AcquisitionApiTestSupport {
 			.build();
 	private final JsonMapper json = JsonMapper.builder().build();
 
-	AcquisitionApiTestSupport(int port, UserDomainRepository userRepository, BCryptPasswordEncoder passwordEncoder,
+	public AcquisitionApiTestSupport(int port, UserDomainRepository userRepository, BCryptPasswordEncoder passwordEncoder,
 			IdGenerator<String> ulidGenerator) {
 		this.port = port;
 		this.userRepository = userRepository;
@@ -67,7 +67,7 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** {@code secret} is the password before {@link #logIn}, the access token after. */
-	record TestUser(String userId, String username, String secret) {
+	public record TestUser(String userId, String username, String secret) {
 		@Override
 		public String toString() {
 			// Keeps the token out of any assertion message or log line
@@ -76,37 +76,37 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** One HTTP answer: status, parsed body (missing node when empty), headers, and the raw text for messages. */
-	record Result(int status, JsonNode body, HttpResponse<String> response, String rawBody) {
+	public record Result(int status, JsonNode body, HttpResponse<String> response, String rawBody) {
 
-		String header(String name) {
+		public String header(String name) {
 			return response.headers().firstValue(name).orElse(null);
 		}
 	}
 
-	JsonMapper json() {
+	public JsonMapper json() {
 		return json;
 	}
 
-	HttpClient http() {
+	public HttpClient http() {
 		return http;
 	}
 
-	URI uri(String path) {
+	public URI uri(String path) {
 		return URI.create("http://localhost:" + port + path);
 	}
 
 	/** Same server through the IPv4 loopback address, so the client IP the server sees is known. */
-	URI ipv4Uri(String path) {
+	public URI ipv4Uri(String path) {
 		return URI.create("http://127.0.0.1:" + port + path);
 	}
 
 	/** Saved through the auth repository; PENDING keeps the phone unverified. The password is kept for logIn. */
-	TestUser createUser(UserStatus status, String... roles) {
+	public TestUser createUser(UserStatus status, String... roles) {
 		return createUser("W9 " + String.join(" ", roles), status, roles);
 	}
 
 	/** Same, with the full name the staff views will show. */
-	TestUser createUser(String fullName, UserStatus status, String... roles) {
+	public TestUser createUser(String fullName, UserStatus status, String... roles) {
 		String username = "08" + String.format("%08d", USERNAME_SEQUENCE.getAndIncrement());
 		String password = UUID.randomUUID().toString();
 		Instant now = AppClock.currentUTC();
@@ -130,7 +130,7 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** The same user with an access token in place of the password. */
-	TestUser logIn(TestUser user) throws Exception {
+	public TestUser logIn(TestUser user) throws Exception {
 		HttpResponse<String> login = http.send(
 				HttpRequest.newBuilder(uri("/api/v1/auth/login"))
 						.timeout(REQUEST_TIMEOUT)
@@ -148,7 +148,7 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** Sends the request and parses the answer; a body that is not JSON is kept only as raw text. */
-	Result send(HttpRequest request) throws Exception {
+	public Result send(HttpRequest request) throws Exception {
 		HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
 		String raw = response.body();
 		JsonNode parsed;
@@ -161,7 +161,7 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** A request to the path, with the caller's bearer token when a caller is given. */
-	HttpRequest.Builder request(TestUser caller, String path) {
+	public HttpRequest.Builder request(TestUser caller, String path) {
 		HttpRequest.Builder request = HttpRequest.newBuilder(uri(path)).timeout(REQUEST_TIMEOUT);
 		if (caller != null) {
 			request.header("Authorization", "Bearer " + caller.secret());
@@ -172,12 +172,12 @@ final class AcquisitionApiTestSupport {
 	// ==================== Staff calls (acquisition-owner-lead-queue spec 6) ====================
 
 	/** GET as the caller ({@code null}: without a token). */
-	Result get(TestUser caller, String path) throws Exception {
+	public Result get(TestUser caller, String path) throws Exception {
 		return send(request(caller, path).GET().build());
 	}
 
 	/** POST of the body as JSON, as the caller ({@code null}: without a token). */
-	Result post(TestUser caller, String path, Object body) throws Exception {
+	public Result post(TestUser caller, String path, Object body) throws Exception {
 		return send(request(caller, path)
 				.header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body), StandardCharsets.UTF_8))
@@ -185,7 +185,7 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** PUT of the body as JSON, as the caller ({@code null}: without a token). */
-	Result put(TestUser caller, String path, Object body) throws Exception {
+	public Result put(TestUser caller, String path, Object body) throws Exception {
 		return send(request(caller, path)
 				.header("Content-Type", "application/json")
 				.PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body), StandardCharsets.UTF_8))
@@ -193,7 +193,7 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** DELETE as the caller ({@code null}: without a token). */
-	Result delete(TestUser caller, String path) throws Exception {
+	public Result delete(TestUser caller, String path) throws Exception {
 		return send(request(caller, path).DELETE().build());
 	}
 
@@ -204,7 +204,7 @@ final class AcquisitionApiTestSupport {
 	 *
 	 * @return the request code of the lead
 	 */
-	String submitLead(String wardCode, String phone, String addressDetail) throws Exception {
+	public String submitLead(String wardCode, String phone, String addressDetail) throws Exception {
 		Result result = send(HttpRequest.newBuilder(uri("/api/v1/public/owner-intake-requests"))
 				.timeout(REQUEST_TIMEOUT)
 				.header("Content-Type", "application/json")
@@ -215,12 +215,36 @@ final class AcquisitionApiTestSupport {
 		return result.body().path("requestCode").asString();
 	}
 
+	/** Same as {@link #submitLead(String, String, String)} with another intent and price (null: no price). */
+	public String submitLead(String wardCode, String phone, String addressDetail, String intent,
+			Map<String, Object> priceOrNull) throws Exception {
+		Result result = send(HttpRequest.newBuilder(uri("/api/v1/public/owner-intake-requests"))
+				.timeout(REQUEST_TIMEOUT)
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(
+						intakeBody(wardCode, phone, addressDetail, intent, priceOrNull)), StandardCharsets.UTF_8))
+				.build());
+		assertEquals(202, result.status(), result.rawBody());
+		return result.body().path("requestCode").asString();
+	}
+
 	/** The example body of acquisition-owner-intake spec 6.3 for the ward, phone and address. */
-	static Map<String, Object> intakeBody(String wardCode, String phone, String addressDetail) {
+	public static Map<String, Object> intakeBody(String wardCode, String phone, String addressDetail) {
+		return intakeBody(wardCode, phone, addressDetail, "LONG_TERM_RENT", price(15_000_000, "MONTH"));
+	}
+
+	/** An asking price in VND per unit, as the intake form sends it. */
+	public static Map<String, Object> price(long amount, String unit) {
 		Map<String, Object> price = new LinkedHashMap<>();
-		price.put("amount", 15_000_000);
+		price.put("amount", amount);
 		price.put("currency", "VND");
-		price.put("unit", "MONTH");
+		price.put("unit", unit);
+		return price;
+	}
+
+	/** The example body for the ward, phone, address, intent and price (null: no price). */
+	public static Map<String, Object> intakeBody(String wardCode, String phone, String addressDetail, String intent,
+			Map<String, Object> priceOrNull) {
 		Map<String, Object> consent = new LinkedHashMap<>();
 		consent.put("accepted", true);
 		consent.put("noticeVersion", "owner-intake-2026-10-21");
@@ -229,14 +253,16 @@ final class AcquisitionApiTestSupport {
 		body.put("contactName", "Nguyễn Thị Lan");
 		body.put("phone", phone);
 		body.put("email", "lan@example.com");
-		body.put("intent", "LONG_TERM_RENT");
+		body.put("intent", intent);
 		body.put("provinceCode", "48");
 		body.put("wardCode", wardCode);
 		body.put("addressDetail", addressDetail);
 		body.put("latitude", 16.0678);
 		body.put("longitude", 108.2208);
 		body.put("propertyType", "APARTMENT");
-		body.put("askingPrice", price);
+		if (priceOrNull != null) {
+			body.put("askingPrice", priceOrNull);
+		}
 		body.put("availableFrom", "2026-11-01");
 		body.put("notes", "Có nội thất");
 		body.put("preferredCallbackTime", "Buổi tối");
@@ -245,22 +271,23 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** The field names of a JSON object, in order. */
-	static List<String> fieldNames(JsonNode node) {
+	public static List<String> fieldNames(JsonNode node) {
 		List<String> names = new ArrayList<>();
 		node.propertyNames().forEach(names::add);
 		return names;
 	}
 
 	/** The lead id of a request code. */
-	static String leadId(JdbcTemplate jdbc, String requestCode) {
+	public static String leadId(JdbcTemplate jdbc, String requestCode) {
 		return jdbc.queryForObject("select id from owner_leads where request_code = ?", String.class, requestCode);
 	}
 
 	/** Deletes the leads with every row that points to them (history, logs, candidates, keys) and their consents. */
-	static void deleteLeads(JdbcTemplate jdbc, Collection<String> leadIds) {
+	public static void deleteLeads(JdbcTemplate jdbc, Collection<String> leadIds) {
 		for (String id : leadIds) {
 			jdbc.update("delete from owner_intake_idempotency_keys where lead_id = ?", id);
 			jdbc.update("delete from owner_lead_duplicate_candidates where lead_id = ? or candidate_lead_id = ?", id, id);
+			jdbc.update("delete from owner_lead_intent_changes where lead_id = ?", id);
 			jdbc.update("delete from owner_lead_activities where lead_id = ?", id);
 			jdbc.update("delete from owner_lead_access_logs where lead_id = ?", id);
 			jdbc.update("update owner_leads set duplicate_of_lead_id = null where id = ? or duplicate_of_lead_id = ?",
@@ -277,7 +304,7 @@ final class AcquisitionApiTestSupport {
 	}
 
 	/** Deletes the users (their roles and refresh tokens cascade) and the audit rows their logins wrote. */
-	static void deleteUsers(JdbcTemplate jdbc, Collection<String> userIds) {
+	public static void deleteUsers(JdbcTemplate jdbc, Collection<String> userIds) {
 		for (String id : userIds) {
 			jdbc.update("delete from auth_audit_events where user_id = ?", id);
 			jdbc.update("delete from users where id = ?", id);

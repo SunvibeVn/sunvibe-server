@@ -10,6 +10,7 @@ import vn.sunvibe.acquisition.core.domain.repository.PageResult;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,6 +51,15 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
     @Override
     public Optional<OwnerLead> findById(OwnerLeadId id) {
         return Optional.ofNullable(leads.get(id)).map(lead -> copy(lead, lead.getVersion()));
+    }
+
+    @Override
+    public List<OwnerLead> findAllById(Collection<OwnerLeadId> ids) {
+        return ids.stream()
+                .map(leads::get)
+                .filter(java.util.Objects::nonNull)
+                .map(lead -> copy(lead, lead.getVersion()))
+                .toList();
     }
 
     @Override
@@ -114,6 +124,7 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
                 lead.getAddressKey(), lead.getGeoPoint(), lead.getPropertyType(), lead.getAskingPrice(),
                 lead.getAvailableFrom(), lead.getNotes(), lead.getPreferredCallbackTime(), lead.getConsentRecordId(),
                 lead.getSubmissionSnapshot(), lead.getAssignedUserId(), lead.getNextActionAt(),
-                lead.getDuplicateOfLeadId(), lead.getCloseReason(), lead.getCreatedAt(), lead.getUpdatedAt(), version);
+                lead.getDuplicateOfLeadId(), lead.getCloseReason(), lead.getCreatedAt(), lead.getUpdatedAt(), version,
+                lead.getIntentCycle());
     }
 }

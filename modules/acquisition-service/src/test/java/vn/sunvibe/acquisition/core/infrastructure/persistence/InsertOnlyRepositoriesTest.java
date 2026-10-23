@@ -4,12 +4,15 @@ import org.hibernate.annotations.Immutable;
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadAccessLogDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadActivityDomainRepository;
+import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadIntentChangeDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.SaleTerritoryChangeDomainRepository;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.adapter.OwnerLeadAccessLogRepositoryAdapter;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.adapter.OwnerLeadActivityRepositoryAdapter;
+import vn.sunvibe.acquisition.core.infrastructure.persistence.adapter.OwnerLeadIntentChangeRepositoryAdapter;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.adapter.SaleTerritoryChangeRepositoryAdapter;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.entity.OwnerLeadAccessLogEntity;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.entity.OwnerLeadActivityEntity;
+import vn.sunvibe.acquisition.core.infrastructure.persistence.entity.OwnerLeadIntentChangeEntity;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.entity.SaleTerritoryChangeEntity;
 
 import java.lang.reflect.Method;
@@ -22,9 +25,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The three histories (lead activity, lead access log, ward assignment change) are insert-only (acquisition module
- * brief BR-4, acquisition-owner-lead-queue Q9-14): their entities are Hibernate-immutable, their ports only save and
- * find, and their adapters offer no way to change or remove a row.
+ * The histories (lead activity, lead access log, ward assignment change, requirement change) are insert-only
+ * (acquisition module brief BR-4, acquisition-owner-lead-queue Q9-14, survey-schedule spec 5.3): their entities are
+ * Hibernate-immutable, their ports only save and find, and their adapters offer no way to change or remove a row.
  */
 class InsertOnlyRepositoriesTest {
 
@@ -33,7 +36,7 @@ class InsertOnlyRepositoriesTest {
     @Test
     void entities_ofTheThreeHistories_areHibernateImmutable() {
         for (Class<?> entity : List.of(OwnerLeadActivityEntity.class, OwnerLeadAccessLogEntity.class,
-                SaleTerritoryChangeEntity.class)) {
+                SaleTerritoryChangeEntity.class, OwnerLeadIntentChangeEntity.class)) {
             assertNotNull(entity.getAnnotation(Immutable.class), entity.getSimpleName() + " must be @Immutable");
         }
     }
@@ -41,7 +44,7 @@ class InsertOnlyRepositoriesTest {
     @Test
     void ports_ofTheThreeHistories_declareOnlySaveAndFindMethods() {
         for (Class<?> port : List.of(OwnerLeadActivityDomainRepository.class, OwnerLeadAccessLogDomainRepository.class,
-                SaleTerritoryChangeDomainRepository.class)) {
+                SaleTerritoryChangeDomainRepository.class, OwnerLeadIntentChangeDomainRepository.class)) {
             Method[] methods = port.getDeclaredMethods();
             assertTrue(methods.length > 0, port.getSimpleName() + " declares no method");
             for (Method method : methods) {
@@ -54,7 +57,8 @@ class InsertOnlyRepositoriesTest {
     @Test
     void adapters_ofTheThreeHistories_declareNoUpdateDeleteRemoveOrMerge() {
         for (Class<?> adapter : List.of(OwnerLeadActivityRepositoryAdapter.class,
-                OwnerLeadAccessLogRepositoryAdapter.class, SaleTerritoryChangeRepositoryAdapter.class)) {
+                OwnerLeadAccessLogRepositoryAdapter.class, SaleTerritoryChangeRepositoryAdapter.class,
+                OwnerLeadIntentChangeRepositoryAdapter.class)) {
             Arrays.stream(adapter.getDeclaredMethods())
                     .filter(method -> Modifier.isPublic(method.getModifiers()))
                     .forEach(method -> assertFalse(

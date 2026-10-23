@@ -2,6 +2,7 @@ package vn.sunvibe.acquisition.core.application.usecase;
 
 import vn.sunvibe.acquisition.core.application.command.AddLeadNoteCommand;
 import vn.sunvibe.acquisition.core.application.command.AssignLeadCommand;
+import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
@@ -24,4 +25,10 @@ public interface OwnerLeadCommandUseCase {
 
     /** Record a note, optionally with the next action time. Returns the history entry and the lead after it. */
     LeadNoteResult addNote(LeadViewer viewer, AddLeadNoteCommand command);
+
+    /**
+     * Record a new requirement (rental intent and price) agreed with the owner (survey-schedule US-5); cancels the
+     * scheduled survey appointment, if any. Returns the lead after it.
+     */
+    OwnerLeadSummary changeIntent(LeadViewer viewer, ChangeLeadIntentCommand command);
 }

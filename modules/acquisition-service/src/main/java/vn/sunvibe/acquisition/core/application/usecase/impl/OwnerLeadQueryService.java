@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.acquisition.core.application.query.ConsentView;
 import vn.sunvibe.acquisition.core.application.query.DuplicateCandidateView;
+import vn.sunvibe.acquisition.core.application.query.IntentChangeView;
 import vn.sunvibe.acquisition.core.application.query.LeadActivityView;
 import vn.sunvibe.acquisition.core.application.query.LeadListQuery;
 import vn.sunvibe.acquisition.core.application.query.LeadScope;
@@ -20,6 +21,7 @@ import vn.sunvibe.acquisition.core.domain.model.lead.GeoPoint;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntentChange;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.domain.model.log.OwnerLeadAccessLog;
 import vn.sunvibe.acquisition.core.domain.repository.ConsentRecordDomainRepository;
@@ -28,6 +30,7 @@ import vn.sunvibe.acquisition.core.domain.repository.LeadSearchCriteria;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadAccessLogDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadActivityDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadDomainRepository;
+import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadIntentChangeDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.PageResult;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -53,6 +56,7 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
 
     private final OwnerLeadDomainRepository leads;
     private final OwnerLeadActivityDomainRepository activities;
+    private final OwnerLeadIntentChangeDomainRepository intentChanges;
     private final OwnerLeadAccessLogDomainRepository accessLogs;
     private final DuplicateCandidateDomainRepository duplicateCandidates;
     private final ConsentRecordDomainRepository consents;
@@ -61,6 +65,7 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
     private final IdGenerator<Long> idGenerator;
 
     public OwnerLeadQueryService(OwnerLeadDomainRepository leads, OwnerLeadActivityDomainRepository activities,
+                                 OwnerLeadIntentChangeDomainRepository intentChanges,
                                  OwnerLeadAccessLogDomainRepository accessLogs,
                                  DuplicateCandidateDomainRepository duplicateCandidates,
                                  ConsentRecordDomainRepository consents, LeadVisibility visibility,
@@ -68,6 +73,7 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
                                  @Qualifier("Snowflake") IdGenerator<Long> idGenerator) {
         this.leads = leads;
         this.activities = activities;
+        this.intentChanges = intentChanges;
         this.accessLogs = accessLogs;
         this.duplicateCandidates = duplicateCandidates;
         this.consents = consents;
@@ -136,20 +142,24 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
         ConsentRecord consent = consents.findById(lead.getConsentRecordId())
                 .orElseThrow(() -> new IllegalStateException("The consent record of a lead is missing."));
         List<OwnerLeadActivity> rows = activities.findByLeadIdOrderByOccurredAt(lead.getId());
-        // One name lookup for the assignee and every id of the history
+        List<OwnerLeadIntentChange> changes = intentChanges.findByLeadIdOrderByOccurredAt(lead.getId());
+        // One name lookup for the assignee, every id of the history and every requirement change
         List<String> staffIds = new ArrayList<>();
         staffIds.add(lead.getAssignedUserId());
         rows.forEach(row -> staffIds.addAll(StaffNames.idsOf(row)));
+        changes.forEach(change -> staffIds.add(change.getActorUserId()));
         Map<String, String> names = staffNames.lookup(staffIds);
         List<LeadActivityView> history = rows.stream().map(row -> LeadActivityView.of(row, names)).toList();
+        List<IntentChangeView> changeViews = changes.stream().map(change -> IntentChangeView.of(change, names))
+                .toList();
         Instant lastActivityAt = rows.isEmpty() ? null : rows.get(rows.size() - 1).getOccurredAt();
-        return detail(lead, candidates, duplicateOf, consent, history, names, lastActivityAt);
+        return detail(lead, candidates, duplicateOf, consent, history, changeViews, names, lastActivityAt);
     }
 
     private static OwnerLeadDetail detail(OwnerLead lead, List<DuplicateCandidateView> candidates,
                                           String duplicateOf, ConsentRecord consent,
-                                          List<LeadActivityView> history, Map<String, String> names,
-                                          Instant lastActivityAt) {
+                                          List<LeadActivityView> history, List<IntentChangeView> intentChanges,
+                                          Map<String, String> names, Instant lastActivityAt) {
         OwnerLeadSummary summary = OwnerLeadSummary.of(lead, !candidates.isEmpty(), names, lastActivityAt);
         OwnerLeadDetail.AskingPriceView price = lead.getAskingPrice()
                 .map(p -> new OwnerLeadDetail.AskingPriceView(p.getAmount(), p.getCurrency(), p.getUnit()))
@@ -163,6 +173,6 @@ public class OwnerLeadQueryService implements OwnerLeadQueryUseCase {
                 lead.getGeoPoint().map(GeoPoint::getLongitude).orElse(null), price, lead.getAvailableFrom(),
                 lead.getNotes(), lead.getPreferredCallbackTime(), lead.getSource(), duplicateOf,
                 lead.getCloseReason(), new ConsentView(consent.getNoticeVersion(), consent.getAcceptedAt()),
-                candidates, history);
+                candidates, history, intentChanges);
     }
 }

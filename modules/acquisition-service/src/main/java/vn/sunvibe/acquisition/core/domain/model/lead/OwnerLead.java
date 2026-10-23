@@ -1,14 +1,17 @@
 package vn.sunvibe.acquisition.core.domain.model.lead;
 
+import vn.sunvibe.acquisition.core.domain.exception.IntentChangeNotAllowedException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadTransitionException;
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentRecordId;
+import vn.sunvibe.shared.text.PhoneNumberDetector;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.text.Normalizer;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -29,6 +32,11 @@ public final class OwnerLead {
     private static final int MAX_NOTE_LENGTH = 2000;
     private static final List<OwnerLeadStatus> CLOSING_STATUSES =
             List.of(OwnerLeadStatus.DUPLICATE, OwnerLeadStatus.REJECTED, OwnerLeadStatus.WITHDRAWN);
+    /** survey-schedule US-5, spec 4.6: the statuses in which staff may record a new requirement. */
+    public static final List<OwnerLeadStatus> INTENT_CHANGE_STATUSES = List.of(OwnerLeadStatus.ASSIGNED,
+            OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD, OwnerLeadStatus.SURVEY_SCHEDULED);
+    /** Dates staff type (the basis of a requirement change) are Vietnam dates (survey-schedule BR-4). */
+    public static final ZoneId VIETNAM = ZoneId.of("Asia/Ho_Chi_Minh");
 
     /**
      * The one message for every refused {@code duplicateOfLeadId}: missing, the lead itself, unknown, not visible to
@@ -41,7 +49,7 @@ public final class OwnerLead {
     private final OwnerLeadId id;
     private final RequestCode requestCode;
     private OwnerLeadStatus status;
-    private final OwnerLeadIntent intent;
+    private OwnerLeadIntent intent;            // Current requirement; staff may change it (survey-schedule US-5)
     private final OwnerLeadSource source;
     private final String contactName;
     private final PhoneNumber phone;
@@ -54,7 +62,7 @@ public final class OwnerLead {
     private final String addressKey;
     private final Optional<GeoPoint> geoPoint;
     private final OwnerLeadPropertyType propertyType;
-    private final Optional<AskingPrice> askingPrice;
+    private Optional<AskingPrice> askingPrice; // Current price; changes only with the requirement
     private final LocalDate availableFrom;
     private final String notes;
     private final String preferredCallbackTime;
@@ -67,6 +75,8 @@ public final class OwnerLead {
     private final Instant createdAt;
     private Instant updatedAt;
     private Long version;                      // Optimistic lock: null for a new lead; set when loaded or saved
+    // 1 at submission, one more per requirement change (survey-schedule BR-10)
+    private int intentCycle;
 
     /**
      * The validated pieces of an intake submission. Text fields are already trimmed and normalized by the caller;
@@ -105,7 +115,7 @@ public final class OwnerLead {
                       LocalDate availableFrom, String notes, String preferredCallbackTime,
                       ConsentRecordId consentRecordId, String submissionSnapshot, String assignedUserId,
                       Instant nextActionAt, OwnerLeadId duplicateOfLeadId, String closeReason, Instant createdAt,
-                      Instant updatedAt, Long version) {
+                      Instant updatedAt, Long version, int intentCycle) {
         this.id = required(id, "id");
         this.requestCode = required(requestCode, "requestCode");
         this.status = required(status, "status");
@@ -139,6 +149,10 @@ public final class OwnerLead {
         this.createdAt = required(createdAt, "createdAt");
         this.updatedAt = required(updatedAt, "updatedAt");
         this.version = version;
+        if (intentCycle < 1) {
+            throw new IllegalArgumentException("intentCycle must be at least 1.");
+        }
+        this.intentCycle = intentCycle;
     }
 
     /**
@@ -155,11 +169,12 @@ public final class OwnerLead {
                 fields.wardCode(), fields.wardName(), fields.addressDetail(), fields.addressKey(),
                 fields.geoPoint(), fields.propertyType(), fields.askingPrice(), fields.availableFrom(),
                 fields.notes(), fields.preferredCallbackTime(), consentId, submissionSnapshot,
-                autoAssigneeUserId.orElse(null), null, null, null, now, now, null);
+                autoAssigneeUserId.orElse(null), null, null, null, now, now, null, 1);
     }
 
     /**
-     * Load from database (reconstruct).
+     * Load from database (reconstruct). {@code intentCycle} is the current requirement cycle (1 for a lead whose
+     * requirement was never changed).
      */
     public static OwnerLead load(OwnerLeadId id, RequestCode requestCode, OwnerLeadStatus status,
                                  OwnerLeadIntent intent, OwnerLeadSource source, String contactName,
@@ -170,11 +185,11 @@ public final class OwnerLead {
                                  String preferredCallbackTime, ConsentRecordId consentRecordId,
                                  String submissionSnapshot, String assignedUserId, Instant nextActionAt,
                                  OwnerLeadId duplicateOfLeadId, String closeReason, Instant createdAt,
-                                 Instant updatedAt, Long version) {
+                                 Instant updatedAt, Long version, int intentCycle) {
         return new OwnerLead(id, requestCode, status, intent, source, contactName, phone, email, provinceCode,
                 provinceName, wardCode, wardName, addressDetail, addressKey, geoPoint, propertyType, askingPrice,
                 availableFrom, notes, preferredCallbackTime, consentRecordId, submissionSnapshot, assignedUserId,
-                nextActionAt, duplicateOfLeadId, closeReason, createdAt, updatedAt, version);
+                nextActionAt, duplicateOfLeadId, closeReason, createdAt, updatedAt, version, intentCycle);
     }
 
     /**
@@ -196,7 +211,9 @@ public final class OwnerLead {
      * The statuses this lead may move to through {@link #changeStatus} (acquisition module brief BR-3): an assigned
      * lead goes to CONTACTED or ON_HOLD, a contacted lead to ON_HOLD, a held lead back to CONTACTED, and any open
      * lead can be closed as DUPLICATE, REJECTED or WITHDRAWN. A NEW lead only reaches ASSIGNED through
-     * {@link #assignTo}, so it may only be closed here. Closed leads and the statuses not used yet allow nothing.
+     * {@link #assignTo}, so it may only be closed here. A lead with survey work may only be put on hold or closed
+     * (survey-schedule BR-3, B-2); SURVEY_SCHEDULED itself is reached only through {@link #moveForSurvey}. Closed
+     * leads and the statuses not used yet allow nothing.
      */
     public List<OwnerLeadStatus> allowedNextStatuses() {
         return switch (status) {
@@ -204,8 +221,152 @@ public final class OwnerLead {
             case ASSIGNED -> withClosing(OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD);
             case CONTACTED -> withClosing(OwnerLeadStatus.ON_HOLD);
             case ON_HOLD -> withClosing(OwnerLeadStatus.CONTACTED);
+            case SURVEY_SCHEDULED -> withClosing(OwnerLeadStatus.ON_HOLD);
             default -> List.of();
         };
+    }
+
+    /**
+     * The lead move a survey command asks for (survey-schedule spec 4.3; survey BR-12 table; survey-schedule BR-3,
+     * BR-11, US-2 AC-2). {@code targetOrNull} null keeps the status; the returned change then has no from/to status.
+     * Allowed: SURVEY_BOOKED from ASSIGNED or CONTACTED to SURVEY_SCHEDULED, or kept in SURVEY_SCHEDULED (a re-survey);
+     * SURVEY_CHANGED, SURVEY_CONFIRMED, SURVEY_UNCONFIRMED and SURVEY_VISITED kept in SURVEY_SCHEDULED;
+     * SURVEY_CANCELLED kept in SURVEY_SCHEDULED or to CONTACTED; SURVEY_RESUMED from ON_HOLD to SURVEY_SCHEDULED.
+     * Every allowed move touches {@code updatedAt}, so persistence bumps the version even when the status stays
+     * (survey-schedule spec A-2). The change carries the appointment reference and no text (survey-schedule BR-8).
+     *
+     * @throws InvalidLeadTransitionException any other combination; carries no allowed status
+     */
+    public LeadChange moveForSurvey(OwnerLeadActivityType type, OwnerLeadStatus targetOrNull, String referenceId,
+                                    Integer referenceNo) {
+        if (type == null || !isSurveyMove(type, status, targetOrNull)) {
+            throw new InvalidLeadTransitionException(status, targetOrNull, List.of());
+        }
+        if (referenceId == null || referenceNo == null) {
+            throw new IllegalArgumentException("A survey move names its appointment.");
+        }
+        OwnerLeadStatus from = status;
+        if (targetOrNull != null) {
+            this.status = targetOrNull;
+        }
+        this.updatedAt = AppClock.currentUTC();
+        return new LeadChange(type, targetOrNull == null ? null : from, targetOrNull, null, null, null, null,
+                referenceId, referenceNo);
+    }
+
+    private static boolean isSurveyMove(OwnerLeadActivityType type, OwnerLeadStatus from, OwnerLeadStatus target) {
+        boolean scheduledKept = from == OwnerLeadStatus.SURVEY_SCHEDULED && target == null;
+        return switch (type) {
+            case SURVEY_BOOKED -> scheduledKept || target == OwnerLeadStatus.SURVEY_SCHEDULED
+                    && (from == OwnerLeadStatus.ASSIGNED || from == OwnerLeadStatus.CONTACTED);
+            case SURVEY_CHANGED, SURVEY_CONFIRMED, SURVEY_UNCONFIRMED, SURVEY_VISITED -> scheduledKept;
+            case SURVEY_CANCELLED -> scheduledKept
+                    || from == OwnerLeadStatus.SURVEY_SCHEDULED && target == OwnerLeadStatus.CONTACTED;
+            case SURVEY_RESUMED -> from == OwnerLeadStatus.ON_HOLD && target == OwnerLeadStatus.SURVEY_SCHEDULED;
+            default -> false;
+        };
+    }
+
+    /**
+     * Record a new requirement agreed with the owner (survey-schedule US-5, BR-10): a rental intent other than the
+     * current one and a price in its unit, or no price until the owner confirms one. A new intent cycle starts, so
+     * earlier visits stop counting (survey-schedule US-5 AC-4); an assigned or survey-scheduled lead goes back to
+     * CONTACTED, a contacted or held lead keeps its status. The submission snapshot never changes. The caller checks
+     * the request values first ({@link #checkIntentChangeValues}); here the status is checked before the values that
+     * need the lead (survey-schedule spec 5.5): the new intent differs from the current one and the basis is not
+     * before the lead's creation date (spec A-25).
+     *
+     * @throws IntentChangeNotAllowedException the lead's status does not allow a requirement change
+     * @throws InvalidLeadCommandException     field {@code newIntent}, {@code askingPrice.unit}, {@code basis} or
+     *                                         {@code basis.confirmedOn}
+     */
+    public IntentChange changeIntent(OwnerLeadIntent newIntent, Optional<AskingPrice> newPrice,
+                                     ConfirmationBasis basis) {
+        if (!INTENT_CHANGE_STATUSES.contains(status)) {
+            throw new IntentChangeNotAllowedException(status, INTENT_CHANGE_STATUSES);
+        }
+        checkNewRequirement(newIntent, newPrice);
+        if (newIntent == intent) {
+            throw new InvalidLeadCommandException("newIntent", "newIntent must differ from the current requirement.");
+        }
+        requireBasis(basis).requireValid(LocalDate.ofInstant(createdAt, VIETNAM), vietnamToday());
+
+        OwnerLeadIntent fromIntent = intent;
+        Optional<AskingPrice> fromPrice = askingPrice;
+        OwnerLeadStatus from = status;
+        OwnerLeadStatus to = from == OwnerLeadStatus.ASSIGNED || from == OwnerLeadStatus.SURVEY_SCHEDULED
+                ? OwnerLeadStatus.CONTACTED : null;
+        this.intent = newIntent;
+        this.askingPrice = newPrice;
+        this.intentCycle = intentCycle + 1;
+        if (to != null) {
+            this.status = to;
+        }
+        this.updatedAt = AppClock.currentUTC();
+        LeadChange change = new LeadChange(OwnerLeadActivityType.INTENT_CHANGED, to == null ? null : from, to, null,
+                null, null, null);
+        return new IntentChange(fromIntent, fromPrice, newIntent, newPrice, intentCycle, change);
+    }
+
+    /**
+     * The value rules of {@link #changeIntent} that need no lead (survey-schedule US-5 AC-1..AC-3, spec A-14, A-17,
+     * A-25): a rental intent, a price in its unit (or none), a reason of 1..500 characters and a basis whose date is
+     * not after today and whose text has 1..500 characters; neither text may hold a phone number.
+     *
+     * @throws InvalidLeadCommandException field {@code newIntent}, {@code askingPrice.unit}, {@code reason},
+     *                                     {@code basis}, {@code basis.confirmedOn} or {@code basis.text}
+     */
+    public static void checkIntentChangeValues(OwnerLeadIntent newIntent, Optional<AskingPrice> price, String reason,
+                                               ConfirmationBasis basis) {
+        checkNewRequirement(newIntent, price);
+        requireReason(reason);
+        requireBasis(basis).requireValid(null, vietnamToday());
+    }
+
+    /**
+     * The reason of a requirement change, cleaned (NFC, trimmed): 1..500 characters without a phone number.
+     *
+     * @throws InvalidLeadCommandException field {@code reason}
+     */
+    public static String requireReason(String reason) {
+        String text = reason == null ? "" : cleanNote(reason);
+        if (text.isEmpty() || text.length() > MAX_REASON_LENGTH) {
+            throw new InvalidLeadCommandException("reason",
+                    "reason must be between 1 and " + MAX_REASON_LENGTH + " characters.");
+        }
+        if (PhoneNumberDetector.containsVietnamesePhoneNumber(text)) {
+            throw new InvalidLeadCommandException("reason", "reason must not contain a phone number.");
+        }
+        return text;
+    }
+
+    /** survey-schedule US-5 AC-1, AC-2: only a rental intent, and a price in that intent's unit or none. */
+    private static void checkNewRequirement(OwnerLeadIntent newIntent, Optional<AskingPrice> price) {
+        if (newIntent == null) {
+            throw new InvalidLeadCommandException("newIntent", "newIntent is required.");
+        }
+        if (newIntent == OwnerLeadIntent.SALE) {
+            throw new InvalidLeadCommandException("newIntent", "newIntent must be a short-term or long-term rental.");
+        }
+        if (price == null) {
+            throw new IllegalArgumentException("price is required (empty for no price).");
+        }
+        if (price.isPresent() && price.get().getUnit() != newIntent.requiredPriceUnit()) {
+            throw new InvalidLeadCommandException("askingPrice.unit",
+                    "Asking price unit does not match the new requirement.");
+        }
+    }
+
+    private static ConfirmationBasis requireBasis(ConfirmationBasis basis) {
+        if (basis == null) {
+            throw new InvalidLeadCommandException("basis", "basis is required.");
+        }
+        return basis;
+    }
+
+    /** Today's date in Vietnam. */
+    public static LocalDate vietnamToday() {
+        return LocalDate.ofInstant(AppClock.currentUTC(), VIETNAM);
     }
 
     /**
@@ -512,6 +673,11 @@ public final class OwnerLead {
 
     public Long getVersion() {
         return version;
+    }
+
+    /** The current requirement cycle: 1 until the first requirement change (survey-schedule BR-10). */
+    public int getIntentCycle() {
+        return intentCycle;
     }
 
     private static <T> T required(T value, String name) {

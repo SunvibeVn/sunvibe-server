@@ -9,6 +9,7 @@ import vn.sunvibe.acquisition.core.application.command.OwnerIntakeCommand;
 import vn.sunvibe.acquisition.core.application.exception.IdempotencyKeyReusedException;
 import vn.sunvibe.acquisition.core.application.exception.IntakeValidationException;
 import vn.sunvibe.acquisition.core.application.query.OwnerIntakeResult;
+import vn.sunvibe.acquisition.core.application.shared.IntakeLocationRules;
 import vn.sunvibe.acquisition.core.application.shared.external.area.AdministrativeAreaPort;
 import vn.sunvibe.acquisition.core.application.shared.external.area.AdministrativeWard;
 import vn.sunvibe.acquisition.core.application.shared.external.security.ConsentHasher;
@@ -87,7 +88,7 @@ public class OwnerIntakeSubmitService implements OwnerIntakeSubmitUseCase {
     private final DuplicateCandidateDomainRepository duplicateCandidates;
     private final IdempotencyKeyDomainRepository idempotencyKeys;
     private final SaleTerritoryDomainRepository territories;
-    private final AdministrativeAreaPort administrativeAreas;
+    private final IntakeLocationRules locationRules;
     private final LeadAssigneeDirectoryPort assigneeDirectory;
     private final ConsentHasher consentHasher;
     private final IntakeLockPort intakeLock;
@@ -121,7 +122,7 @@ public class OwnerIntakeSubmitService implements OwnerIntakeSubmitUseCase {
         this.duplicateCandidates = duplicateCandidates;
         this.idempotencyKeys = idempotencyKeys;
         this.territories = territories;
-        this.administrativeAreas = administrativeAreas;
+        this.locationRules = new IntakeLocationRules(administrativeAreas);
         this.assigneeDirectory = assigneeDirectory;
         this.consentHasher = consentHasher;
         this.intakeLock = intakeLock;
@@ -202,13 +203,7 @@ public class OwnerIntakeSubmitService implements OwnerIntakeSubmitUseCase {
      * another province, on the ward (acquisition-owner-intake BR-1).
      */
     private AdministrativeWard resolveWard(OwnerIntakeCommand command) {
-        if (administrativeAreas.findWards(command.provinceCode()).isEmpty()) {
-            throw new IntakeValidationException("provinceCode", "Province is not in the catalog.");
-        }
-        return administrativeAreas.findWard(command.wardCode())
-                .filter(ward -> ward.provinceCode().equals(command.provinceCode()))
-                .orElseThrow(() -> new IntakeValidationException("wardCode",
-                        "Ward is not in the catalog of the chosen province."));
+        return locationRules.resolveWard(command.provinceCode(), command.wardCode());
     }
 
     /**
@@ -228,8 +223,7 @@ public class OwnerIntakeSubmitService implements OwnerIntakeSubmitUseCase {
     private OwnerLead.SubmitFields submitFields(OwnerIntakeCommand command, PhoneNumber phone,
                                                 AdministrativeWard ward) {
         Optional<AskingPrice> askingPrice = askingPrice(command);
-        Optional<GeoPoint> geoPoint = valid(() ->
-                GeoPoint.of(command.latitude(), command.longitude(), ward.isSpecialZone()));
+        Optional<GeoPoint> geoPoint = locationRules.geoPoint(command.latitude(), command.longitude(), ward);
         String addressDetail = OwnerLead.normalizeText(command.addressDetail());
         return new OwnerLead.SubmitFields(OwnerLead.normalizeText(command.contactName()), phone,
                 optionalText(command.email()), command.intent(), ward.provinceCode(), ward.provinceName(),

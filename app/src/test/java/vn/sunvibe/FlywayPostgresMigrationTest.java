@@ -62,8 +62,10 @@ class FlywayPostgresMigrationTest {
 						"V202610161113__create_owner_intake_idempotency_keys_table.sql",
 						"V202610161114__create_sale_territories_tables.sql",
 						"V202610221000__replace_owner_lead_property_types.sql",
+						"V202610231900__add_owner_lead_survey_columns_and_intent_changes.sql",
+						"V202610231910__create_survey_tables.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 17, applied.size()));
+				applied.subList(applied.size() - 19, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */

@@ -136,4 +136,8 @@ public class OwnerLeadEntity {
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
+
+    /** The current requirement cycle (survey-schedule BR-10): 1 until the first requirement change. */
+    @Column(name = "intent_cycle", nullable = false)
+    private int intentCycle;
 }

@@ -2,6 +2,7 @@ package vn.sunvibe.acquisition.core.testsupport;
 
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadActivityDomainRepository;
 
 import java.time.Instant;
@@ -10,6 +11,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /** Hand-written fake of the lead history; keeps activities in the order they were saved. */
@@ -47,5 +49,13 @@ public class InMemoryOwnerLeadActivityRepository implements OwnerLeadActivityDom
                 .filter(activity -> leadIds.contains(activity.getLeadId().getValue()))
                 .collect(Collectors.toMap(activity -> activity.getLeadId().getValue(), OwnerLeadActivity::getOccurredAt,
                         (left, right) -> left.isAfter(right) ? left : right));
+    }
+
+    @Override
+    public Optional<Instant> findLatestOccurredAtOfStatus(OwnerLeadId leadId, OwnerLeadStatus toStatus) {
+        return activities.stream()
+                .filter(activity -> activity.getLeadId().equals(leadId) && activity.getToStatus() == toStatus)
+                .map(OwnerLeadActivity::getOccurredAt)
+                .max(Comparator.naturalOrder());
     }
 }

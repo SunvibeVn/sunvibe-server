@@ -116,6 +116,7 @@ class AcquisitionPersistencePostgresTest {
 	void cleanAcquisitionTables() {
 		jdbc.update("DELETE FROM owner_intake_idempotency_keys");
 		jdbc.update("DELETE FROM owner_lead_duplicate_candidates");
+		jdbc.update("DELETE FROM owner_lead_intent_changes");
 		jdbc.update("DELETE FROM owner_lead_activities");
 		jdbc.update("DELETE FROM owner_lead_access_logs");
 		jdbc.update("DELETE FROM owner_leads");
@@ -143,7 +144,7 @@ class AcquisitionPersistencePostgresTest {
 				OwnerLeadPropertyType.APARTMENT,
 				Optional.of(AskingPrice.of(12_500_000L, "VND", PriceUnit.MONTH, OwnerLeadIntent.LONG_TERM_RENT)),
 				LocalDate.parse("2026-11-01"), "Near the river", "After 18:00", consentId, snapshot, ASSIGNEE,
-				T1, duplicateOf, "Because", T0, T1, null);
+				T1, duplicateOf, "Because", T0, T1, null, 1);
 
 		leads.save(lead);
 		OwnerLead stored = leads.findById(lead.getId()).orElseThrow();
@@ -330,9 +331,9 @@ class AcquisitionPersistencePostgresTest {
 		OwnerLead lead = saveLead(plainLead("0901234567", "a", OwnerLeadStatus.NEW, T0));
 		OwnerLeadActivity later = OwnerLeadActivity.load(202610160002L, lead.getId(),
 				OwnerLeadActivityType.REASSIGNED, OTHER_USER, OwnerLeadStatus.ASSIGNED, OwnerLeadStatus.CONTACTED,
-				ASSIGNEE, OTHER_USER, "Called the owner", T1, T1);
+				ASSIGNEE, OTHER_USER, "Called the owner", T1, T1, null, null);
 		OwnerLeadActivity earlier = OwnerLeadActivity.load(202610160001L, lead.getId(),
-				OwnerLeadActivityType.SUBMITTED, null, null, null, null, null, null, null, T0);
+				OwnerLeadActivityType.SUBMITTED, null, null, null, null, null, null, null, T0, null, null);
 
 		activities.save(later);
 		activities.save(earlier);
@@ -396,7 +397,8 @@ class AcquisitionPersistencePostgresTest {
 		List<OwnerLeadId> open = leads.findOpenIdsByPhone("+84901234567");
 
 		assertEquals(0, statistics.getEntityLoadCount(), "no lead entity is loaded");
-		assertEquals(4, expected.size());
+		// NEW, ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED (survey-schedule BR-3, W15-15)
+		assertEquals(5, expected.size());
 		assertEquals(expected.stream().map(OwnerLeadId::getValue).sorted().toList(),
 				open.stream().map(OwnerLeadId::getValue).sorted().toList());
 		assertTrue(leads.findOpenIdsByPhone("+84900000000").isEmpty());
@@ -545,7 +547,7 @@ class AcquisitionPersistencePostgresTest {
 		return OwnerLead.load(OwnerLeadId.generate(), newCode(), status, OwnerLeadIntent.LONG_TERM_RENT,
 				OwnerLeadSource.WEB, "Tran Thi B", PhoneNumber.parse(phone), null, "48", "Đà Nẵng", "20194",
 				"Hải Châu", addressKey, addressKey, Optional.empty(), null, Optional.empty(), null, null, null,
-				saveConsent(), "{}", null, null, null, null, createdAt, createdAt, null);
+				saveConsent(), "{}", null, null, null, null, createdAt, createdAt, null, 1);
 	}
 
 	private static OwnerLead withStatus(OwnerLead lead, OwnerLeadStatus status, Long version) {
@@ -555,7 +557,8 @@ class AcquisitionPersistencePostgresTest {
 				lead.getAddressKey(), lead.getGeoPoint(), lead.getPropertyType(), lead.getAskingPrice(),
 				lead.getAvailableFrom(), lead.getNotes(), lead.getPreferredCallbackTime(), lead.getConsentRecordId(),
 				lead.getSubmissionSnapshot(), lead.getAssignedUserId(), lead.getNextActionAt(),
-				lead.getDuplicateOfLeadId(), lead.getCloseReason(), lead.getCreatedAt(), T1, version);
+				lead.getDuplicateOfLeadId(), lead.getCloseReason(), lead.getCreatedAt(), T1, version,
+				lead.getIntentCycle());
 	}
 
 	private static void assertSameLead(OwnerLead expected, OwnerLead actual) {

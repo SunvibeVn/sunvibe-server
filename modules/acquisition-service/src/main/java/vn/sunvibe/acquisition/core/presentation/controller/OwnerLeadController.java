@@ -40,6 +40,7 @@ import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadRequestMapper
 import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseMapper;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AddLeadNoteRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadIntentRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadStatusRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadNoteResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadPageResponse;
@@ -248,6 +249,41 @@ public class OwnerLeadController {
                                                                  @Valid @RequestBody ChangeLeadStatusRequest request) {
         return ResponseEntity.ok(responseMapper.toSummary(
                 commandUseCase.changeStatus(viewer(), requestMapper.toCommand(leadId, request))));
+    }
+
+    /**
+     * POST /api/v1/staff/owner-leads/{leadId}/intent-changes
+     * <p>
+     * Record a new requirement agreed with the owner (survey-schedule US-5); the roles of a status change.
+     */
+    @PostMapping("/{leadId}/intent-changes")
+    @Operation(summary = "Change the requirement (rental intent and price) of an owner lead (SALE: own leads only; "
+            + "SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+            description = "Allowed in ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED; ASSIGNED and "
+                    + "SURVEY_SCHEDULED move to CONTACTED. Starts a new intent cycle and cancels the scheduled survey "
+                    + "appointment, if any. askingPrice must be sent: a price or null.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The lead after the change",
+                    content = @Content(schema = @Schema(implementation = OwnerLeadSummaryResponse.class))),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on expectedVersion, newIntent (not "
+                    + "a rental intent or the same as now), askingPrice (missing key), askingPrice.amount, "
+                    + "askingPrice.currency, askingPrice.unit, reason, basis.confirmedOn (in the future or before "
+                    + "the lead was created) or basis.text; MALFORMED_REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
+                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION (field expectedVersion) or "
+                    + "INVALID_STATE_TRANSITION (field status, allowedValues the statuses that allow the change)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<OwnerLeadSummaryResponse> changeIntent(@PathVariable("leadId") String leadId,
+                                                                 @Valid @RequestBody ChangeLeadIntentRequest request) {
+        return ResponseEntity.ok(responseMapper.toSummary(
+                commandUseCase.changeIntent(viewer(), requestMapper.toCommand(leadId, request))));
     }
 
     /**

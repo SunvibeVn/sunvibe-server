@@ -30,6 +30,7 @@ import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeExcep
 import vn.sunvibe.acquisition.core.application.exception.OwnerLeadNotFoundException;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
 import vn.sunvibe.acquisition.core.application.usecase.impl.OwnerLeadQueryService;
+import vn.sunvibe.acquisition.core.domain.exception.IntentChangeNotAllowedException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadTransitionException;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
@@ -39,6 +40,7 @@ import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryConsentRecordRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryDuplicateCandidateRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryLeadAssigneeDirectory;
+import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadIntentChangeRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadAccessLogRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadActivityRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadRepository;
@@ -143,6 +145,11 @@ class AcquisitionExceptionHandlerStaffTest {
                         409, ErrorCode.INVALID_STATE_TRANSITION, List.of("toStatus"), List.of()),
                 Arguments.of(new InvalidLeadTransitionException(OwnerLeadStatus.REJECTED, null, List.of()),
                         409, ErrorCode.INVALID_STATE_TRANSITION, List.of("status"), List.of()),
+                // survey-schedule spec 5.3: a requirement change refused by status lists the four statuses
+                Arguments.of(new IntentChangeNotAllowedException(OwnerLeadStatus.NEW,
+                                OwnerLead.INTENT_CHANGE_STATUSES),
+                        409, ErrorCode.INVALID_STATE_TRANSITION, List.of("status"),
+                        List.of("ASSIGNED", "CONTACTED", "ON_HOLD", "SURVEY_SCHEDULED")),
                 // 409 CONCURRENT_MODIFICATION on expectedVersion
                 Arguments.of(new ConcurrentLeadModificationException(),
                         409, ErrorCode.CONCURRENT_MODIFICATION, List.of("expectedVersion"), null),
@@ -190,6 +197,7 @@ class AcquisitionExceptionHandlerStaffTest {
     void handle_notFoundMissingAndInvisible_haveIdenticalBodiesExceptCorrelationId() throws Exception {
         InMemoryOwnerLeadRepository leads = new InMemoryOwnerLeadRepository();
         OwnerLeadQueryService queries = new OwnerLeadQueryService(leads, new InMemoryOwnerLeadActivityRepository(),
+                new InMemoryOwnerLeadIntentChangeRepository(),
                 new InMemoryOwnerLeadAccessLogRepository(), new InMemoryDuplicateCandidateRepository(leads),
                 new InMemoryConsentRecordRepository(), new LeadVisibility(leads),
                 new InMemoryLeadAssigneeDirectory(), new AtomicLong(5_000L)::incrementAndGet);

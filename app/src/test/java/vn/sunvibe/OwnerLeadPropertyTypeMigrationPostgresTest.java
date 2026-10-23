@@ -27,15 +27,17 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * The migration of stored owner leads to the six property types (acquisition-owner-intake BR-3, Q-16) on a real
  * PostgreSQL. The database is migrated to the last version before it and holds one lead per old value plus one
- * without a type, each with its consent record; it is then migrated to the latest version. Every unit layout becomes
- * {@code APARTMENT}, {@code TOWNHOUSE} becomes {@code HOUSE}, land and "other" lose their type, and nothing else
- * changes. Needs Docker, like {@link FlywayPostgresMigrationTest}.
+ * without a type, each with its consent record; it is then migrated to the version of that migration. Every unit
+ * layout becomes {@code APARTMENT}, {@code TOWNHOUSE} becomes {@code HOUSE}, land and "other" lose their type, and
+ * nothing else changes. Needs Docker, like {@link FlywayPostgresMigrationTest}.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OwnerLeadPropertyTypeMigrationPostgresTest {
 
 	private static final String LAST_VERSION_BEFORE = "202610161114";
-	private static final String SCRIPT = "db/migration/V202610221000__replace_owner_lead_property_types.sql";
+	/** The migration under test; later migrations add columns of their own and are left out. */
+	private static final String VERSION = "202610221000";
+	private static final String SCRIPT = "db/migration/V" + VERSION + "__replace_owner_lead_property_types.sql";
 	/** The other tables of the acquisition module; the migration leaves them as they are. */
 	private static final List<String> OTHER_TABLES = List.of("consent_records", "owner_lead_activities",
 			"owner_lead_duplicate_candidates", "owner_lead_access_logs", "owner_intake_idempotency_keys",
@@ -118,7 +120,8 @@ class OwnerLeadPropertyTypeMigrationPostgresTest {
 		leadsBefore = leads();
 		otherTablesBefore = otherTables();
 
-		flywayToLatest = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load();
+		flywayToLatest = Flyway.configure().dataSource(dataSource).locations("classpath:db/migration")
+				.target(VERSION).load();
 		flywayToLatest.migrate();
 	}
 

@@ -39,12 +39,14 @@ import org.testcontainers.utility.MountableFile;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import vn.sunvibe.survey.SurveyApiTestSupport;
+import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 
 /**
  * The E2E fixture script {@code scripts/dev/seed-e2e-owner-leads.sql} (acquisition-owner-lead-queue-ui spec 4.4,
  * W11-11) run with psql inside the test PostgreSQL container, after {@code seed-e2e-accounts.sql}. The decisive proof
  * is that the application itself reads the fixtures: the staff API, called as the seeded leader, sale and admin,
- * shows the ten leads, their history, the duplicate link, the staff names and the one territory. Passwords are
+ * shows the twelve leads, their history, the duplicate link, the staff names and the one territory. Passwords are
  * random per run and never printed.
  */
 @SpringBootTest(
@@ -70,19 +72,20 @@ class SeedE2eOwnerLeadsPostgresTest {
 
 	private static final String AN_HAI = "20275";
 	private static final String HAI_CHAU = "20242";
-	/** The fixture leads L1..L10 in order. */
+	/** The fixture leads L1..L12 in order. */
 	private static final List<String> LEAD_IDS = List.of(
 			"01JE2EHEAD0000000000000001", "01JE2EHEAD0000000000000002", "01JE2EHEAD0000000000000003",
 			"01JE2EHEAD0000000000000004", "01JE2EHEAD0000000000000005", "01JE2EHEAD0000000000000006",
 			"01JE2EHEAD0000000000000007", "01JE2EHEAD0000000000000008", "01JE2EHEAD0000000000000009",
-			"01JE2EHEAD0000000000000010");
+			"01JE2EHEAD0000000000000010", "01JE2EHEAD0000000000000011", "01JE2EHEAD0000000000000012");
 	private static final List<String> CODES = List.of("SV-E2EA-AA2A", "SV-E2EA-AA2B", "SV-E2EA-AA2C", "SV-E2EA-AA2D",
-			"SV-E2EA-AA2E", "SV-E2EA-AA2F", "SV-E2EA-AA2G", "SV-E2EA-AA2H", "SV-E2EA-AA2J", "SV-E2EA-AA2K");
+			"SV-E2EA-AA2E", "SV-E2EA-AA2F", "SV-E2EA-AA2G", "SV-E2EA-AA2H", "SV-E2EA-AA2J", "SV-E2EA-AA2K",
+			"SV-E2EA-AA2L", "SV-E2EA-AA2M");
 	private static final List<String> STATUSES = List.of("NEW", "ASSIGNED", "CONTACTED", "ON_HOLD", "ASSIGNED",
-			"REJECTED", "ASSIGNED", "ASSIGNED", "ASSIGNED", "NEW");
-	/** acquisition-owner-intake BR-3: L1..L10 use the six types and two leads have none. */
+			"REJECTED", "ASSIGNED", "ASSIGNED", "ASSIGNED", "NEW", "CONTACTED", "ASSIGNED");
+	/** acquisition-owner-intake BR-3: L1..L12 use the six types and two leads have none. */
 	private static final List<String> PROPERTY_TYPES = Arrays.asList("APARTMENT", "HOMESTAY", "CONDOTEL", "HOUSE",
-			"WHOLE_BUILDING", null, "APARTMENT", "APARTMENT", null, "VILLA");
+			"WHOLE_BUILDING", null, "APARTMENT", "APARTMENT", null, "VILLA", "APARTMENT", "HOUSE");
 
 	private static final String FOREIGN_LEAD = "01JE2EOTHERLEAD00000000001";
 	private static final String FOREIGN_CONSENT = "01JE2EOTHERCONS00000000001";
@@ -114,6 +117,8 @@ class SeedE2eOwnerLeadsPostgresTest {
 	@AfterEach
 	void removeFixtures() {
 		jdbc.update("UPDATE owner_leads SET duplicate_of_lead_id = NULL WHERE duplicate_of_lead_id LIKE '01JE2EHEAD%'");
+		SurveyApiTestSupport.deleteSurveyRows(jdbc, LEAD_IDS);
+		jdbc.update("DELETE FROM owner_lead_intent_changes WHERE lead_id LIKE '01JE2EHEAD%'");
 		jdbc.update("DELETE FROM owner_lead_access_logs WHERE lead_id LIKE '01JE2EHEAD%' OR lead_id LIKE '01JE2EOTHERLEAD%'");
 		jdbc.update("DELETE FROM owner_lead_activities WHERE lead_id LIKE '01JE2EHEAD%' OR lead_id LIKE '01JE2EOTHERLEAD%'");
 		jdbc.update("DELETE FROM owner_lead_duplicate_candidates WHERE lead_id LIKE '01JE2EHEAD%' "
@@ -133,27 +138,27 @@ class SeedE2eOwnerLeadsPostgresTest {
 		http.close();
 	}
 
-	/** W11-11: ten leads, one territory; a second run of both files changes no count and no id (idempotent). */
+	/** W11-11: twelve leads, one territory; a second run of both files changes no count and no id (idempotent). */
 	@Test
-	void seed_runTwice_tenLeadsOneTerritory_sameCountsTheSecondTime() throws Exception {
+	void seed_runTwice_twelveLeadsOneTerritory_sameCountsTheSecondTime() throws Exception {
 		seedAccounts();
 		ExecResult first = runLeads("local");
 		assertEquals(0, first.getExitCode(), "first run failed: " + first.getStderr());
-		assertEquals(List.of(10, 10, 20, 1, 1, 1), printedCounts(first));
+		assertEquals(List.of(12, 12, 25, 1, 1, 1), printedCounts(first));
 		List<String> before = stableSnapshot();
 
 		seedAccounts();
 		ExecResult second = runLeads("local");
 		assertEquals(0, second.getExitCode(), "second run failed: " + second.getStderr());
-		assertEquals(List.of(10, 10, 20, 1, 1, 1), printedCounts(second));
+		assertEquals(List.of(12, 12, 25, 1, 1, 1), printedCounts(second));
 
-		assertEquals(10, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
-		assertEquals(10, count("SELECT count(*) FROM consent_records WHERE id LIKE '01JE2EHCNT%'"));
-		assertEquals(10, count("SELECT count(*) FROM owner_lead_activities WHERE type = 'SUBMITTED' "
+		assertEquals(12, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
+		assertEquals(12, count("SELECT count(*) FROM consent_records WHERE id LIKE '01JE2EHCNT%'"));
+		assertEquals(12, count("SELECT count(*) FROM owner_lead_activities WHERE type = 'SUBMITTED' "
 				+ "AND lead_id LIKE '01JE2EHEAD%' AND actor_user_id IS NULL"));
-		assertEquals(7, count("SELECT count(*) FROM owner_lead_activities WHERE type = 'ASSIGNED' "
+		assertEquals(9, count("SELECT count(*) FROM owner_lead_activities WHERE type = 'ASSIGNED' "
 				+ "AND lead_id LIKE '01JE2EHEAD%' AND actor_user_id = '" + LEADER_ID + "'"));
-		assertEquals(20, count("SELECT count(*) FROM owner_lead_activities WHERE lead_id LIKE '01JE2EHEAD%'"));
+		assertEquals(25, count("SELECT count(*) FROM owner_lead_activities WHERE lead_id LIKE '01JE2EHEAD%'"));
 		assertEquals(1, count("SELECT count(*) FROM owner_lead_duplicate_candidates "
 				+ "WHERE lead_id = '" + LEAD_IDS.get(7) + "' AND candidate_lead_id = '" + LEAD_IDS.get(6) + "'"));
 		assertEquals(1, count("SELECT count(*) FROM sale_territories WHERE user_id = '" + SALE_ID + "'"));
@@ -232,8 +237,8 @@ class SeedE2eOwnerLeadsPostgresTest {
 		assertEquals(0, runLeads("local").getExitCode());
 
 		assertEquals(foreignBefore, foreignSnapshot(), "the foreign rows are unchanged");
-		assertEquals(10, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
-		assertEquals(11, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%' OR id = '" + FOREIGN_LEAD
+		assertEquals(12, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
+		assertEquals(13, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%' OR id = '" + FOREIGN_LEAD
 				+ "'"));
 		assertEquals(2, count("SELECT count(*) FROM sale_territories WHERE ward_code IN ('" + AN_HAI + "', '" + HAI_CHAU
 				+ "')"), "the foreign ward and the fixture ward");
@@ -328,7 +333,7 @@ class SeedE2eOwnerLeadsPostgresTest {
 
 		ExecResult loopback = execPsql(LEADS_SCRIPT, List.of("-v", "target=local"), false, List.of("-h", "127.0.0.1"));
 		assertEquals(0, loopback.getExitCode(), "the loopback address is local: " + loopback.getStderr());
-		assertEquals(10, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
+		assertEquals(12, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
 	}
 
 	/** A lead outside the fixture that names a fixture lead as its original is refused; nothing changes. */
@@ -396,7 +401,7 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
-	 * The application reads the fixtures: the staff API as the seeded leader, sale and admin shows the ten leads,
+	 * The application reads the fixtures: the staff API as the seeded leader, sale and admin shows the twelve leads,
 	 * their history and names, the duplicate link, the assignee list and the territory; a lead opened by the API
 	 * (access log) does not stop the next run.
 	 */
@@ -489,7 +494,7 @@ class SeedE2eOwnerLeadsPostgresTest {
 
 		// E2E Sale sees exactly the fixtures assigned to it (looked up by code, whatever else its queue holds)
 		List<String> ofSale = List.of("SV-E2EA-AA2B", "SV-E2EA-AA2C", "SV-E2EA-AA2D", "SV-E2EA-AA2G", "SV-E2EA-AA2H",
-				"SV-E2EA-AA2J");
+				"SV-E2EA-AA2J", "SV-E2EA-AA2L", "SV-E2EA-AA2M");
 		for (String code : CODES) {
 			assertEquals(ofSale.contains(code) ? 1 : 0,
 					get(sale, "/api/v1/staff/owner-leads?scope=mine&size=5&requestCode=" + code).path("items").size(),
@@ -500,8 +505,53 @@ class SeedE2eOwnerLeadsPostgresTest {
 		assertTrue(count("SELECT count(*) FROM owner_lead_access_logs WHERE lead_id LIKE '01JE2EHEAD%'") > 0);
 		ExecResult again = runLeads("local");
 		assertEquals(0, again.getExitCode(), "re-run after the API read failed: " + again.getStderr());
-		assertEquals(List.of(10, 10, 20, 1, 1, 1), printedCounts(again));
+		assertEquals(List.of(12, 12, 25, 1, 1, 1), printedCounts(again));
 		assertEquals(0, count("SELECT count(*) FROM owner_lead_access_logs WHERE lead_id LIKE '01JE2EHEAD%'"));
+	}
+
+	/**
+	 * survey-schedule: E2E Sale books a survey on L11 and changes the requirement of L12 through the API; the next run
+	 * removes every survey and requirement-change row of the fixtures and puts L11 and L12 back as they were.
+	 */
+	@Test
+	void reseed_afterSurveyFlows_removesSurveyRows() throws Exception {
+		seedAccounts();
+		assertEquals(0, runLeads("local").getExitCode());
+		String sale = accessToken("0900000102", salePassword());
+		String l11 = LEAD_IDS.get(10);
+		String l12 = LEAD_IDS.get(11);
+		Instant start = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.HOURS).plus(Duration.ofHours(25));
+
+		assertEquals(201, post(sale, "/api/v1/staff/owner-leads/" + l11 + "/survey-appointments", Map.of(
+				"expectedLeadVersion", leadVersion(l11), "startAt", start.toString())));
+		Map<String, Object> change = new LinkedHashMap<>();
+		change.put("expectedVersion", leadVersion(l12));
+		change.put("newIntent", "LONG_TERM_RENT");
+		change.put("askingPrice", null);
+		change.put("reason", "Chủ nhà muốn cho thuê dài hạn");
+		change.put("basis", Map.of("confirmedOn", java.time.LocalDate.now(SurveyTimeRules.ZONE).toString(),
+				"text", "Chủ nhà nói qua điện thoại"));
+		assertEquals(200, post(sale, "/api/v1/staff/owner-leads/" + l12 + "/intent-changes", change));
+		get(sale, "/api/v1/staff/owner-leads/" + l11 + "/survey");
+		assertEquals("SURVEY_SCHEDULED", jdbc.queryForObject("SELECT status FROM owner_leads WHERE id = ?",
+				String.class, l11));
+
+		ExecResult again = runLeads("local");
+
+		assertEquals(0, again.getExitCode(), "re-run after the survey flows failed: " + again.getStderr());
+		assertEquals(List.of(12, 12, 25, 1, 1, 1), printedCounts(again));
+		for (String table : List.of("survey_appointments", "survey_access_logs", "survey_resumptions",
+				"owner_lead_intent_changes")) {
+			assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE lead_id LIKE '01JE2EHEAD%'"), table);
+		}
+		assertEquals(0, count("SELECT count(*) FROM survey_appointment_revisions r LEFT JOIN survey_appointments a "
+				+ "ON a.id = r.appointment_id WHERE a.id IS NULL"), "no revision left without its appointment");
+		assertEquals(0, count("SELECT count(*) FROM survey_appointment_events e LEFT JOIN survey_appointments a "
+				+ "ON a.id = e.appointment_id WHERE a.id IS NULL"), "no event left without its appointment");
+		assertEquals(List.of("CONTACTED", "LONG_TERM_RENT", "1"), jdbc.queryForList("SELECT unnest(ARRAY[status, "
+				+ "intent, intent_cycle::text]) FROM owner_leads WHERE id = ?", String.class, l11));
+		assertEquals(List.of("ASSIGNED", "SALE", "1"), jdbc.queryForList("SELECT unnest(ARRAY[status, intent, "
+				+ "intent_cycle::text]) FROM owner_leads WHERE id = ?", String.class, l12));
 	}
 
 	// ==================== helpers ====================
@@ -676,6 +726,21 @@ class SeedE2eOwnerLeadsPostgresTest {
 		// the body holds names and phones: only the status goes into the message
 		assertEquals(200, response.statusCode(), path + " answered " + response.statusCode());
 		return json.readTree(response.body());
+	}
+
+	/** POST of the body as JSON; returns the status (the body holds lead data and is never printed). */
+	private int post(String accessToken, String path, Object body) throws Exception {
+		HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+				.timeout(Duration.ofSeconds(30))
+				.header("Authorization", "Bearer " + accessToken)
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body), StandardCharsets.UTF_8))
+				.build();
+		return http.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+	}
+
+	private long leadVersion(String leadId) {
+		return jdbc.queryForObject("SELECT version FROM owner_leads WHERE id = ?", Long.class, leadId);
 	}
 
 	private static List<String> idsOf(JsonNode array) {

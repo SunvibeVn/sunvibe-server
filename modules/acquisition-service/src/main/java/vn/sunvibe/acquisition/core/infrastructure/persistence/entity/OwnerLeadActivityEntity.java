@@ -64,4 +64,11 @@ public class OwnerLeadActivityEntity {
 
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
+
+    /** The survey appointment the entry concerns (no foreign key: survey-service owns appointments). */
+    @Column(name = "reference_id", length = 26)
+    private String referenceId;
+
+    @Column(name = "reference_no")
+    private Integer referenceNo;
 }

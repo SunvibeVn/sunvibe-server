@@ -1940,6 +1940,94 @@
         "tags" : [ "Owner leads (staff)" ]
       }
     },
+    "/api/v1/staff/owner-leads/{leadId}/intent-changes" : {
+      "post" : {
+        "description" : "Allowed in ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED; ASSIGNED and SURVEY_SCHEDULED move to CONTACTED. Starts a new intent cycle and cancels the scheduled survey appointment, if any. askingPrice must be sent: a price or null.",
+        "operationId" : "changeIntent",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeLeadIntentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerLeadSummaryResponse"
+                }
+              }
+            },
+            "description" : "The lead after the change"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on expectedVersion, newIntent (not a rental intent or the same as now), askingPrice (missing key), askingPrice.amount, askingPrice.currency, askingPrice.unit, reason, basis.confirmedOn (in the future or before the lead was created) or basis.text; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead, or the caller may not see it"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION (field expectedVersion) or INVALID_STATE_TRANSITION (field status, allowedValues the statuses that allow the change)"
+          }
+        },
+        "summary" : "Change the requirement (rental intent and price) of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Owner leads (staff)" ]
+      }
+    },
     "/api/v1/staff/owner-leads/{leadId}/status-changes" : {
       "post" : {
         "description" : "Closing (DUPLICATE, REJECTED, WITHDRAWN) needs a reason; DUPLICATE also needs duplicateOfLeadId, a lead the caller can see.",
@@ -2026,6 +2114,344 @@
         },
         "summary" : "Change the status of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
         "tags" : [ "Owner leads (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/survey" : {
+      "get" : {
+        "description" : "Appointments with places, access notes and on-site contacts, revisions, events, the visit and the resumptions. Every call is recorded in the survey access log.",
+        "operationId" : "block",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyBlockResponse"
+                }
+              }
+            },
+            "description" : "The survey block"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead, or the caller may not see it"
+          }
+        },
+        "summary" : "Read the survey block of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Surveys (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/survey-appointments" : {
+      "post" : {
+        "description" : "The surveyor is the lead's assignee. A first survey is booked from ASSIGNED or CONTACTED, a re-survey (the current requirement cycle already has a visit; needs resurveyReason) from CONTACTED or SURVEY_SCHEDULED; only rental leads. A meeting place other than the lead's needs locationReason. Overlapping appointments of the surveyor are listed, never refused.",
+        "operationId" : "book",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BookAppointmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyCommandResponse"
+                }
+              }
+            },
+            "description" : "The survey block, the lead and its History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on a body field (startAt, durationMinutes, meetingLocation.*, locationReason, resurveyReason, accessNote, onSiteContactName, onSiteContactRole, confirmationNote, expectedLeadVersion); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead, or the caller may not see it"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION (field expectedLeadVersion), SURVEY_ALREADY_SCHEDULED, SURVEY_NOT_ALLOWED (field status or intent, with the allowed values) or INVALID_STATE_TRANSITION"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Book a survey appointment (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Surveys (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/survey-overlaps" : {
+      "get" : {
+        "description" : "Only request codes and times. On an edit, excludeAppointmentId leaves the appointment itself out. Not recorded in the access log.",
+        "operationId" : "overlaps",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Planned start, a whole minute",
+          "in" : "query",
+          "name" : "startAt",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "description" : "Planned duration, 15..480 in steps of 15",
+          "in" : "query",
+          "name" : "durationMinutes",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "description" : "On an edit: the appointment itself",
+          "in" : "query",
+          "name" : "excludeAppointmentId",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyOverlapsResponse"
+                }
+              }
+            },
+            "description" : "The overlapping appointments"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on startAt, durationMinutes or excludeAppointmentId"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead, or the caller may not see it"
+          }
+        },
+        "summary" : "Check overlaps before booking or changing a survey (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Surveys (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/survey-resumptions" : {
+      "post" : {
+        "description" : "ON_HOLD with a current visit goes back to SURVEY_SCHEDULED, with a reason and the owner's confirmation (basis) dated from the day the lead went on hold.",
+        "operationId" : "resume",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResumeSurveyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyCommandResponse"
+                }
+              }
+            },
+            "description" : "The survey block, the lead and its History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on reason or basis.*; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such lead, or the caller may not see it"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION (field expectedLeadVersion), INVALID_STATE_TRANSITION (field status, allowed ON_HOLD) or NO_CURRENT_VISIT"
+          }
+        },
+        "summary" : "Resume the survey work of a held owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Surveys (staff)" ]
       }
     },
     "/api/v1/staff/sale-territories" : {
@@ -2250,6 +2676,482 @@
         },
         "summary" : "Give a ward to a SALE or SALE_LEADER (ADMIN, SUPER_ADMIN)",
         "tags" : [ "Sale territories (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-appointments" : {
+      "get" : {
+        "description" : "scope=mine (default): the caller's own appointments; all: every appointment, optionally of one surveyor (not for a SALE). Ordered by group (OVERDUE, TODAY, UPCOMING; Vietnam days), start, id. The items hold no phone, address, coordinates, access note or on-site contact.",
+        "operationId" : "listSurveyAppointments",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "scope",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "mine",
+            "enum" : [ "mine", "all" ],
+            "pattern" : "mine|all"
+          }
+        }, {
+          "description" : "Only with scope=all: the appointments of this surveyor",
+          "in" : "query",
+          "name" : "surveyorUserId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 1
+          }
+        }, {
+          "description" : "Zero-based page number",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "Appointments per page, 1 to 100",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyPageResponse"
+                }
+              }
+            },
+            "description" : "One page of appointments"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on scope, surveyorUserId (only with scope all), page or size"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or a SALE asked for scope all"
+          }
+        },
+        "summary" : "List scheduled survey appointments (SALE, SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Surveys (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-appointments/{appointmentId}/cancellation" : {
+      "post" : {
+        "description" : "The lead stays SURVEY_SCHEDULED when it has a current visit, else goes back to CONTACTED. An overdue appointment can be cancelled; the surveyor need not be eligible.",
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "appointmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CancelAppointmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyCommandResponse"
+                }
+              }
+            },
+            "description" : "The survey block, the lead and its History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on cancelReason or description; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such appointment, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION or INVALID_STATE_TRANSITION"
+          }
+        },
+        "summary" : "Cancel a scheduled survey appointment (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Surveys (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-appointments/{appointmentId}/changes" : {
+      "post" : {
+        "description" : "Every editable value plus a reason; a new revision keeps them and the earlier ones stay. A change of start, duration or place removes the owner's confirmation. A change of time lists overlapping appointments of the surveyor.",
+        "operationId" : "change",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "appointmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeAppointmentRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyCommandResponse"
+                }
+              }
+            },
+            "description" : "The survey block, the lead and its History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on a body field (a missing key is required), or without field: Nothing changed; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such appointment, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION (field expectedLeadVersion or expectedAppointmentVersion) or INVALID_STATE_TRANSITION (field status): not scheduled"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the surveyor can no longer take leads"
+          }
+        },
+        "summary" : "Change a scheduled survey appointment (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Surveys (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-appointments/{appointmentId}/confirmation" : {
+      "post" : {
+        "description" : "The same value again changes nothing: 200 with historyEntry null and the lead version unchanged.",
+        "operationId" : "confirmation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "appointmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConfirmationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyCommandResponse"
+                }
+              }
+            },
+            "description" : "The survey block, the lead and its History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on a body field; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such appointment, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION or INVALID_STATE_TRANSITION"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the surveyor can no longer take leads"
+          }
+        },
+        "summary" : "Record or remove the owner's confirmation (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Surveys (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-appointments/{appointmentId}/visit" : {
+      "post" : {
+        "description" : "An own record is the current surveyor's visit, who held the appointment at arrivedAt and can take leads now. Every other record is a proxy record of a manager with proxy.reason and proxy.basis. The lead stays SURVEY_SCHEDULED.",
+        "operationId" : "visit",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "appointmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RecordVisitRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyCommandResponse"
+                }
+              }
+            },
+            "description" : "The survey block, the lead and its History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on arrivedAt, note, performedByUserId, proxy or proxy.*; MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or a SALE records a visit for someone else or a proxy record"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such appointment, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION or INVALID_STATE_TRANSITION"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "PERFORMER_MISMATCH (field performedByUserId): that person did not hold the appointment then; SURVEYOR_INELIGIBLE (field performedByUserId): an own record by someone who can no longer take leads"
+          }
+        },
+        "summary" : "Record the visit of a scheduled survey appointment (SALE: own visit only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN also for others)",
+        "tags" : [ "Surveys (staff)" ]
       }
     },
     "/api/v1/staff/users/{userId}/roles" : {
@@ -2568,6 +3470,202 @@
           }
         }
       },
+      "BasisRequest" : {
+        "type" : "object",
+        "description" : "The basis of a proxy visit record or a resumption",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "Vietnam date"
+          },
+          "text" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "confirmedOn", "text" ]
+      },
+      "BookAppointmentRequest" : {
+        "type" : "object",
+        "description" : "Book a survey appointment for an owner lead",
+        "properties" : {
+          "accessNote" : {
+            "type" : "string",
+            "description" : "No door codes, passwords or phone numbers",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "confirmationNote" : {
+            "type" : "string",
+            "description" : "Only with ownerConfirmed",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "durationMinutes" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "15..480 in steps of 15; 60 when left out",
+            "maximum" : 480,
+            "minimum" : 15
+          },
+          "expectedLeadVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The lead version the caller last saw",
+            "minimum" : 0
+          },
+          "locationReason" : {
+            "type" : "string",
+            "description" : "Required when the meeting place differs from the lead's place",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "meetingLocation" : {
+            "$ref" : "#/components/schemas/MeetingLocationRequest",
+            "description" : "Left out: the lead's own place"
+          },
+          "onSiteContactName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "onSiteContactRole" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "ownerConfirmed" : {
+            "type" : "boolean",
+            "description" : "Staff recorded that the owner agreed; false when left out"
+          },
+          "resurveyReason" : {
+            "type" : "string",
+            "description" : "Required when the lead already has a visit in its current requirement cycle",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Whole minute, from the current minute to 90 days ahead"
+          }
+        },
+        "required" : [ "expectedLeadVersion", "startAt" ]
+      },
+      "CancelAppointmentRequest" : {
+        "type" : "object",
+        "description" : "Cancel a scheduled survey appointment",
+        "properties" : {
+          "cancelReason" : {
+            "type" : "string",
+            "description" : "One of OWNER_CANCELLED, STAFF_CANCELLED, OWNER_ABSENT, NO_ACCESS, OTHER; the system reasons are refused",
+            "enum" : [ "OWNER_CANCELLED", "STAFF_CANCELLED", "OWNER_ABSENT", "NO_ACCESS", "OTHER", "LEAD_ON_HOLD", "LEAD_CLOSED", "INTENT_CHANGED" ]
+          },
+          "description" : {
+            "type" : "string",
+            "description" : "Required for OTHER",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "expectedAppointmentVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "expectedLeadVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "cancelReason", "expectedAppointmentVersion", "expectedLeadVersion" ]
+      },
+      "ChangeAppointmentRequest" : {
+        "type" : "object",
+        "description" : "Change a scheduled survey appointment; every key is required, optional values may be null",
+        "properties" : {
+          "accessNote" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null to clear; no door codes, passwords or phone numbers",
+            "maxLength" : 1000
+          },
+          "durationMinutes" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "15..480 in steps of 15",
+            "maximum" : 480,
+            "minimum" : 15
+          },
+          "expectedAppointmentVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "expectedLeadVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "meetingLocation" : {
+            "$ref" : "#/components/schemas/MeetingLocationRequest"
+          },
+          "onSiteContactName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null to clear",
+            "maxLength" : 100
+          },
+          "onSiteContactRole" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null to clear",
+            "maxLength" : 100
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Whole minute; a new start lies from the current minute to 90 days ahead"
+          }
+        },
+        "required" : [ "accessNote", "durationMinutes", "expectedAppointmentVersion", "expectedLeadVersion", "meetingLocation", "onSiteContactName", "onSiteContactRole", "reason", "startAt" ]
+      },
+      "ChangeLeadIntentRequest" : {
+        "type" : "object",
+        "description" : "Record a new requirement (rental intent and price) of an owner lead",
+        "properties" : {
+          "askingPrice" : {
+            "type" : "null",
+            "$ref" : "#/components/schemas/AskingPriceRequest",
+            "description" : "The new price, its unit NIGHT for SHORT_TERM_RENT or MONTH for LONG_TERM_RENT; null for none"
+          },
+          "basis" : {
+            "$ref" : "#/components/schemas/LeadIntentChangeBasisRequest"
+          },
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The lead version the caller last saw",
+            "minimum" : 0
+          },
+          "newIntent" : {
+            "type" : "string",
+            "description" : "SHORT_TERM_RENT or LONG_TERM_RENT, different from the current intent",
+            "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT", "SALE" ]
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "Why the requirement changed; no phone number",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "askingPrice", "basis", "expectedVersion", "newIntent", "reason" ]
+      },
       "ChangeLeadStatusRequest" : {
         "type" : "object",
         "description" : "Move an owner lead to another status",
@@ -2630,6 +3728,31 @@
             "example" : "091****678"
           }
         }
+      },
+      "ConfirmationRequest" : {
+        "type" : "object",
+        "description" : "Record or remove the owner's confirmation of a scheduled survey appointment",
+        "properties" : {
+          "confirmed" : {
+            "type" : "boolean"
+          },
+          "expectedAppointmentVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "expectedLeadVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "note" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "confirmed", "expectedAppointmentVersion", "expectedLeadVersion" ]
       },
       "ConsentRequest" : {
         "type" : "object",
@@ -2730,6 +3853,15 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "referenceId" : {
+            "type" : [ "string", "null" ],
+            "description" : "The survey appointment the entry concerns (survey-schedule); null when none"
+          },
+          "referenceNo" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "That appointment's number within the lead; null when none"
+          },
           "toAssigneeId" : {
             "type" : "string"
           },
@@ -2743,7 +3875,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED" ]
+            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED" ]
           }
         }
       },
@@ -2771,6 +3903,79 @@
             "example" : "01J9Z3K8M2Q4R5T6V7W8X9Y0ZA"
           }
         }
+      },
+      "LeadIntentChange" : {
+        "type" : "object",
+        "description" : "A requirement change of an owner lead",
+        "properties" : {
+          "actorName" : {
+            "type" : [ "string", "null" ]
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "basis" : {
+            "$ref" : "#/components/schemas/LeadIntentChangeBasis"
+          },
+          "fromAskingPrice" : {
+            "type" : "null",
+            "$ref" : "#/components/schemas/AskingPriceResponse"
+          },
+          "fromIntent" : {
+            "type" : "string",
+            "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT", "SALE" ]
+          },
+          "newIntentCycle" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "toAskingPrice" : {
+            "type" : "null",
+            "$ref" : "#/components/schemas/AskingPriceResponse"
+          },
+          "toIntent" : {
+            "type" : "string",
+            "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT", "SALE" ]
+          }
+        }
+      },
+      "LeadIntentChangeBasis" : {
+        "type" : "object",
+        "description" : "The basis of a requirement change",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LeadIntentChangeBasisRequest" : {
+        "type" : "object",
+        "description" : "How the owner confirmed the new requirement",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "Vietnam date, from the lead's creation date to today"
+          },
+          "text" : {
+            "type" : "string",
+            "description" : "No phone number",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "confirmedOn", "text" ]
       },
       "LeadNoteResponse" : {
         "type" : "object",
@@ -2862,6 +4067,41 @@
             "example" : "0901234567"
           }
         }
+      },
+      "MeetingLocationRequest" : {
+        "type" : "object",
+        "description" : "A meeting place: address, province and ward of the catalog, optional pin",
+        "properties" : {
+          "addressText" : {
+            "type" : "string",
+            "description" : "1..255 characters, no phone number",
+            "maxLength" : 255,
+            "minLength" : 0
+          },
+          "latitude" : {
+            "type" : "number",
+            "description" : "Optional; with longitude, inside the served area, never for a special-zone ward",
+            "example" : 16.0678
+          },
+          "longitude" : {
+            "type" : "number",
+            "description" : "Optional; with latitude",
+            "example" : 108.2208
+          },
+          "provinceCode" : {
+            "type" : "string",
+            "example" : "48",
+            "maxLength" : 10,
+            "minLength" : 0
+          },
+          "wardCode" : {
+            "type" : "string",
+            "example" : "20242",
+            "maxLength" : 10,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "addressText", "provinceCode", "wardCode" ]
       },
       "OwnerIntakeRequest" : {
         "type" : "object",
@@ -3024,6 +4264,13 @@
           "intent" : {
             "type" : "string",
             "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT", "SALE" ]
+          },
+          "intentChanges" : {
+            "type" : "array",
+            "description" : "Requirement changes recorded by staff, oldest first (survey-schedule US-5)",
+            "items" : {
+              "$ref" : "#/components/schemas/LeadIntentChange"
+            }
           },
           "latitude" : {
             "type" : "number",
@@ -3466,6 +4713,58 @@
           }
         }
       },
+      "ProxyRequest" : {
+        "type" : "object",
+        "description" : "Reason and basis of a proxy visit record",
+        "properties" : {
+          "basis" : {
+            "$ref" : "#/components/schemas/BasisRequest"
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "basis", "reason" ]
+      },
+      "RecordVisitRequest" : {
+        "type" : "object",
+        "description" : "Record a visit of a scheduled survey appointment",
+        "properties" : {
+          "arrivedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "Whole minute, not in the future, at most 60 minutes before the start in force then"
+          },
+          "expectedAppointmentVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "expectedLeadVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "note" : {
+            "type" : "string",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "performedByUserId" : {
+            "type" : "string",
+            "description" : "Who reached the property; must have held the appointment at arrivedAt",
+            "maxLength" : 26,
+            "minLength" : 0
+          },
+          "proxy" : {
+            "$ref" : "#/components/schemas/ProxyRequest",
+            "description" : "Required for every record that is not the current surveyor's own visit"
+          }
+        },
+        "required" : [ "arrivedAt", "expectedAppointmentVersion", "expectedLeadVersion", "note", "performedByUserId" ]
+      },
       "RegistrationPhoneSendRequest" : {
         "type" : "object",
         "properties" : {
@@ -3502,6 +4801,27 @@
             "type" : "string"
           }
         }
+      },
+      "ResumeSurveyRequest" : {
+        "type" : "object",
+        "description" : "Resume the survey work of a held owner lead",
+        "properties" : {
+          "basis" : {
+            "$ref" : "#/components/schemas/BasisRequest",
+            "description" : "Dated from the day the lead went on hold"
+          },
+          "expectedLeadVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "minimum" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "basis", "expectedLeadVersion", "reason" ]
       },
       "SaleTerritoryResponse" : {
         "type" : "object",
@@ -3613,6 +4933,682 @@
             "type" : "string",
             "description" : "The account's phone number",
             "example" : "0901234567"
+          }
+        }
+      },
+      "SurveyAppointmentResponse" : {
+        "type" : "object",
+        "description" : "A survey appointment of a lead",
+        "properties" : {
+          "accessNote" : {
+            "type" : "string"
+          },
+          "appointmentNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cancellation" : {
+            "$ref" : "#/components/schemas/SurveyCancellationResponse"
+          },
+          "cannotBePerformed" : {
+            "type" : "boolean"
+          },
+          "confirmation" : {
+            "$ref" : "#/components/schemas/SurveyConfirmationResponse"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdByName" : {
+            "type" : "string"
+          },
+          "createdByUserId" : {
+            "type" : "string"
+          },
+          "durationMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyEventResponse"
+            }
+          },
+          "holders" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyHolderResponse"
+            }
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "inCurrentCycle" : {
+            "type" : "boolean"
+          },
+          "intent" : {
+            "type" : "string",
+            "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT" ]
+          },
+          "intentCycle" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "FIRST", "RESURVEY" ]
+          },
+          "leadId" : {
+            "type" : "string"
+          },
+          "leadLocation" : {
+            "$ref" : "#/components/schemas/SurveyLocationResponse"
+          },
+          "locationReason" : {
+            "type" : "string"
+          },
+          "meetingLocation" : {
+            "$ref" : "#/components/schemas/SurveyLocationResponse"
+          },
+          "onSiteContactName" : {
+            "type" : "string"
+          },
+          "onSiteContactRole" : {
+            "type" : "string"
+          },
+          "previousVisitId" : {
+            "type" : "string"
+          },
+          "resurveyReason" : {
+            "type" : "string"
+          },
+          "revisions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyRevisionResponse"
+            }
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "SCHEDULED", "VISITED", "CANCELLED" ]
+          },
+          "surveyorName" : {
+            "type" : "string"
+          },
+          "surveyorUserId" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "visit" : {
+            "$ref" : "#/components/schemas/SurveyVisitResponse"
+          }
+        }
+      },
+      "SurveyBasisResponse" : {
+        "type" : "object",
+        "description" : "The basis of a proxy record or a resumption",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyBlockResponse" : {
+        "type" : "object",
+        "description" : "The survey block of an owner lead",
+        "properties" : {
+          "appointments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyAppointmentResponse"
+            }
+          },
+          "booking" : {
+            "$ref" : "#/components/schemas/SurveyBookingResponse"
+          },
+          "currentVisitId" : {
+            "type" : "string"
+          },
+          "intentCycle" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "leadId" : {
+            "type" : "string"
+          },
+          "resumeAllowed" : {
+            "type" : "boolean"
+          },
+          "resumptions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyResumptionResponse"
+            }
+          }
+        }
+      },
+      "SurveyBookingResponse" : {
+        "type" : "object",
+        "description" : "Whether and how the lead can get a survey booking now",
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "blockedBy" : {
+            "type" : "string",
+            "enum" : [ "ALREADY_SCHEDULED", "NO_ASSIGNEE", "LEAD_STATUS", "INTENT", "SURVEYOR_INELIGIBLE" ]
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "FIRST", "RESURVEY" ]
+          },
+          "previousVisitId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyCancellationResponse" : {
+        "type" : "object",
+        "description" : "The cancellation of the appointment",
+        "properties" : {
+          "cancelReason" : {
+            "type" : "string",
+            "enum" : [ "OWNER_CANCELLED", "STAFF_CANCELLED", "OWNER_ABSENT", "NO_ACCESS", "OTHER", "LEAD_ON_HOLD", "LEAD_CLOSED", "INTENT_CHANGED" ]
+          },
+          "cancelledAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cancelledByName" : {
+            "type" : "string"
+          },
+          "cancelledByUserId" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyCommandResponse" : {
+        "type" : "object",
+        "description" : "The answer of a survey command",
+        "properties" : {
+          "historyEntry" : {
+            "$ref" : "#/components/schemas/SurveyHistoryEntryResponse"
+          },
+          "lead" : {
+            "$ref" : "#/components/schemas/SurveyLeadStateResponse"
+          },
+          "overlaps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyOverlapResponse"
+            }
+          },
+          "survey" : {
+            "$ref" : "#/components/schemas/SurveyBlockResponse"
+          }
+        }
+      },
+      "SurveyConfirmationResponse" : {
+        "type" : "object",
+        "description" : "The owner's confirmation of the appointment",
+        "properties" : {
+          "cause" : {
+            "type" : "string",
+            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER" ]
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "changedByName" : {
+            "type" : "string"
+          },
+          "changedByUserId" : {
+            "type" : "string"
+          },
+          "everConfirmed" : {
+            "type" : "boolean"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "CONFIRMED", "UNCONFIRMED" ]
+          }
+        }
+      },
+      "SurveyEventResponse" : {
+        "type" : "object",
+        "description" : "One event of the appointment",
+        "properties" : {
+          "actorName" : {
+            "type" : "string"
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "confirmationCause" : {
+            "type" : "string",
+            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER" ]
+          },
+          "fromSurveyorName" : {
+            "type" : "string"
+          },
+          "fromSurveyorUserId" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "toSurveyorName" : {
+            "type" : "string"
+          },
+          "toSurveyorUserId" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "BOOKED", "CHANGED", "CONFIRMED", "UNCONFIRMED", "SURVEYOR_CHANGED", "CANCELLED", "VISITED" ]
+          }
+        }
+      },
+      "SurveyHistoryEntryResponse" : {
+        "type" : "object",
+        "description" : "The lead History entry written by a survey command",
+        "properties" : {
+          "actorName" : {
+            "type" : "string"
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "fromAssigneeId" : {
+            "type" : "string"
+          },
+          "fromAssigneeName" : {
+            "type" : "string"
+          },
+          "fromStatus" : {
+            "type" : "string",
+            "description" : "Null when the lead kept its status"
+          },
+          "nextActionAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "referenceId" : {
+            "type" : "string"
+          },
+          "referenceNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "toAssigneeId" : {
+            "type" : "string"
+          },
+          "toAssigneeName" : {
+            "type" : "string"
+          },
+          "toStatus" : {
+            "type" : "string",
+            "description" : "Null when the lead kept its status"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED" ]
+          }
+        }
+      },
+      "SurveyHolderResponse" : {
+        "type" : "object",
+        "description" : "A holder of the appointment and the time they held it",
+        "properties" : {
+          "from" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyLeadStateResponse" : {
+        "type" : "object",
+        "description" : "The owner lead after a survey command",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "lastActivityAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SurveyListConfirmation" : {
+        "type" : "object",
+        "description" : "The owner's confirmation in the survey list",
+        "properties" : {
+          "cause" : {
+            "type" : "string",
+            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER" ]
+          },
+          "everConfirmed" : {
+            "type" : "boolean"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "CONFIRMED", "UNCONFIRMED" ]
+          }
+        }
+      },
+      "SurveyListItemResponse" : {
+        "type" : "object",
+        "description" : "One scheduled survey appointment in the survey list",
+        "properties" : {
+          "cannotBePerformed" : {
+            "type" : "boolean"
+          },
+          "confirmation" : {
+            "$ref" : "#/components/schemas/SurveyListConfirmation"
+          },
+          "durationMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "group" : {
+            "type" : "string",
+            "enum" : [ "OVERDUE", "TODAY", "UPCOMING" ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "FIRST", "RESURVEY" ]
+          },
+          "leadId" : {
+            "type" : "string"
+          },
+          "ownerContactName" : {
+            "type" : "string"
+          },
+          "requestCode" : {
+            "type" : "string"
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "SCHEDULED", "VISITED", "CANCELLED" ]
+          },
+          "surveyorName" : {
+            "type" : "string"
+          },
+          "surveyorUserId" : {
+            "type" : "string"
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyLocationResponse" : {
+        "type" : "object",
+        "description" : "A place: address, province and ward with names, optional pin",
+        "properties" : {
+          "addressText" : {
+            "type" : "string"
+          },
+          "latitude" : {
+            "type" : "number"
+          },
+          "longitude" : {
+            "type" : "number"
+          },
+          "provinceCode" : {
+            "type" : "string"
+          },
+          "provinceName" : {
+            "type" : "string"
+          },
+          "wardCode" : {
+            "type" : "string"
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyOverlapResponse" : {
+        "type" : "object",
+        "description" : "An overlapping scheduled appointment of the same surveyor",
+        "properties" : {
+          "appointmentId" : {
+            "type" : "string"
+          },
+          "durationMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "leadId" : {
+            "type" : "string"
+          },
+          "requestCode" : {
+            "type" : "string"
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SurveyOverlapsResponse" : {
+        "type" : "object",
+        "description" : "Scheduled appointments of the lead's surveyor that overlap the planned time",
+        "properties" : {
+          "overlaps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyOverlapResponse"
+            }
+          }
+        }
+      },
+      "SurveyPageResponse" : {
+        "type" : "object",
+        "description" : "One page of the survey list",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyListItemResponse"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SurveyProxyResponse" : {
+        "type" : "object",
+        "description" : "Reason and basis of a proxy visit record",
+        "properties" : {
+          "basis" : {
+            "$ref" : "#/components/schemas/SurveyBasisResponse"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyResumptionResponse" : {
+        "type" : "object",
+        "description" : "A resumption of the lead's survey work",
+        "properties" : {
+          "actorName" : {
+            "type" : "string"
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "basis" : {
+            "$ref" : "#/components/schemas/SurveyBasisResponse"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "visitAppointmentId" : {
+            "type" : "string"
+          },
+          "visitAppointmentNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "SurveyRevisionResponse" : {
+        "type" : "object",
+        "description" : "One revision of the appointment's values",
+        "properties" : {
+          "accessNote" : {
+            "type" : "string"
+          },
+          "actorName" : {
+            "type" : "string"
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "durationMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "meetingLocation" : {
+            "$ref" : "#/components/schemas/SurveyLocationResponse"
+          },
+          "onSiteContactName" : {
+            "type" : "string"
+          },
+          "onSiteContactRole" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "startAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "validFrom" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "SurveyVisitResponse" : {
+        "type" : "object",
+        "description" : "The visit recorded for the appointment",
+        "properties" : {
+          "arrivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "performedByName" : {
+            "type" : "string"
+          },
+          "performedByUserId" : {
+            "type" : "string"
+          },
+          "proxy" : {
+            "$ref" : "#/components/schemas/SurveyProxyResponse"
+          },
+          "recordKind" : {
+            "type" : "string",
+            "enum" : [ "OWN", "PROXY" ]
+          },
+          "recordedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recordedByName" : {
+            "type" : "string"
+          },
+          "recordedByUserId" : {
+            "type" : "string"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
