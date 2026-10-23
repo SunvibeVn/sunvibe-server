@@ -96,6 +96,11 @@ class OwnerLeadTest {
     }
 
     @Test
+    void submit_startsTheFirstIntentCycle() {
+        assertEquals(1, OwnerLead.submit(fields(), CONSENT_ID, Optional.empty(), SNAPSHOT, CODE).getIntentCycle());
+    }
+
+    @Test
     void addressKey_caseAndSpaceVariants_areEqual() {
         assertEquals(OwnerLead.addressKey("12 Bạch  Đằng"), OwnerLead.addressKey(" 12 bạch đằng "));
     }
@@ -129,7 +134,7 @@ class OwnerLeadTest {
                 OwnerLeadSource.REFERRAL, "Tran B", PhoneNumber.parse("0909123456"), "b@example.vn", "48", "Da Nang",
                 "20194", "Hai Chau 1", "1 Le Loi", "1 le loi", Optional.of(geo), OwnerLeadPropertyType.VILLA,
                 Optional.of(price), LocalDate.parse("2026-12-01"), "note", "morning", CONSENT_ID, SNAPSHOT,
-                ASSIGNEE, nextAction, duplicateOf, "same phone", created, updated, 7L);
+                ASSIGNEE, nextAction, duplicateOf, "same phone", created, updated, 7L, 4);
 
         assertEquals(id, lead.getId());
         assertEquals(CODE, lead.getRequestCode());
@@ -160,6 +165,7 @@ class OwnerLeadTest {
         assertEquals(created, lead.getCreatedAt());
         assertEquals(updated, lead.getUpdatedAt());
         assertEquals(7L, lead.getVersion());
+        assertEquals(4, lead.getIntentCycle());
     }
 
     @Test

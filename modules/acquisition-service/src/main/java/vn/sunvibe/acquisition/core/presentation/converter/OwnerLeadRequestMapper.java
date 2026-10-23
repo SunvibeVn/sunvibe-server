@@ -3,10 +3,17 @@ package vn.sunvibe.acquisition.core.presentation.converter;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.acquisition.core.application.command.AddLeadNoteCommand;
 import vn.sunvibe.acquisition.core.application.command.AssignLeadCommand;
+import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
+import vn.sunvibe.acquisition.core.domain.exception.InvalidIntakeValueException;
+import vn.sunvibe.acquisition.core.domain.model.lead.AskingPrice;
+import vn.sunvibe.acquisition.core.domain.model.lead.ConfirmationBasis;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AddLeadNoteRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadIntentRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadStatusRequest;
+
+import java.util.Optional;
 
 /**
  * Converter - OwnerLeadRequestMapper
@@ -27,5 +34,20 @@ public class OwnerLeadRequestMapper {
 
     public AddLeadNoteCommand toCommand(String leadId, AddLeadNoteRequest request) {
         return new AddLeadNoteCommand(leadId, request.note(), request.nextActionAt());
+    }
+
+    /**
+     * A sent price is checked against the new intent here, as the intake form does (amount, VND, the intent's unit:
+     * field {@code askingPrice.*}); the amount, when present, was validated as a whole number of at most 15 digits.
+     */
+    public ChangeLeadIntentCommand toCommand(String leadId, ChangeLeadIntentRequest request) {
+        Optional<AskingPrice> price = request.askingPrice().map(p -> {
+            if (p.amount() == null) {
+                throw new InvalidIntakeValueException("askingPrice.amount", "Asking price amount is required.");
+            }
+            return AskingPrice.of(p.amount().longValueExact(), p.currency(), p.unit(), request.newIntent());
+        });
+        return new ChangeLeadIntentCommand(leadId, request.expectedVersion(), request.newIntent(), price,
+                request.reason(), new ConfirmationBasis(request.basis().confirmedOn(), request.basis().text()));
     }
 }

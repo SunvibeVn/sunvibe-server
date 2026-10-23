@@ -38,7 +38,8 @@ class AcquisitionSchemaPostgresTest {
 
 	private static final List<String> ACQUISITION_TABLES = List.of(
 			"consent_records", "owner_leads", "owner_lead_duplicate_candidates", "owner_lead_activities",
-			"owner_lead_access_logs", "owner_intake_idempotency_keys", "sale_territories", "sale_territory_changes");
+			"owner_lead_access_logs", "owner_intake_idempotency_keys", "sale_territories", "sale_territory_changes",
+			"owner_lead_intent_changes");
 
 	/** The 12 values of doc 09 (rebuild/09-lifecycle-and-rules.md, OwnerLead). */
 	private static final List<String> LEAD_STATUSES = List.of(
@@ -55,6 +56,7 @@ class AcquisitionSchemaPostgresTest {
 	void cleanAcquisitionTables() {
 		jdbc.update("DELETE FROM owner_intake_idempotency_keys");
 		jdbc.update("DELETE FROM owner_lead_duplicate_candidates");
+		jdbc.update("DELETE FROM owner_lead_intent_changes");
 		jdbc.update("DELETE FROM owner_lead_activities");
 		jdbc.update("DELETE FROM owner_lead_access_logs");
 		jdbc.update("DELETE FROM owner_leads");
@@ -105,6 +107,7 @@ class AcquisitionSchemaPostgresTest {
 		expected.put("created_at", "timestamp with time zone NOT NULL");
 		expected.put("updated_at", "timestamp with time zone NOT NULL");
 		expected.put("version", "bigint NOT NULL");
+		expected.put("intent_cycle", "integer NOT NULL");
 
 		assertEquals(expected, columnsOf("owner_leads"));
 		assertEquals("0", jdbc.queryForObject("SELECT column_default FROM information_schema.columns"
@@ -161,7 +164,96 @@ class AcquisitionSchemaPostgresTest {
 		activityColumns.put("note", "character varying(2000) NULL");
 		activityColumns.put("next_action_at", "timestamp with time zone NULL");
 		activityColumns.put("occurred_at", "timestamp with time zone NOT NULL");
+		activityColumns.put("reference_id", "character varying(26) NULL");
+		activityColumns.put("reference_no", "integer NULL");
 		assertEquals(activityColumns, columnsOf("owner_lead_activities"));
+
+		Map<String, String> intentChangeColumns = new LinkedHashMap<>();
+		intentChangeColumns.put("id", "bigint NOT NULL");
+		intentChangeColumns.put("lead_id", "character varying(26) NOT NULL");
+		intentChangeColumns.put("from_intent", "character varying(20) NOT NULL");
+		intentChangeColumns.put("to_intent", "character varying(20) NOT NULL");
+		intentChangeColumns.put("from_price_amount", "numeric(15,0) NULL");
+		intentChangeColumns.put("from_price_unit", "character varying(10) NULL");
+		intentChangeColumns.put("to_price_amount", "numeric(15,0) NULL");
+		intentChangeColumns.put("to_price_unit", "character varying(10) NULL");
+		intentChangeColumns.put("reason", "character varying(500) NOT NULL");
+		intentChangeColumns.put("basis_confirmed_on", "date NOT NULL");
+		intentChangeColumns.put("basis_text", "character varying(500) NOT NULL");
+		intentChangeColumns.put("actor_user_id", "character varying(26) NOT NULL");
+		intentChangeColumns.put("new_intent_cycle", "integer NOT NULL");
+		intentChangeColumns.put("occurred_at", "timestamp with time zone NOT NULL");
+		assertEquals(intentChangeColumns, columnsOf("owner_lead_intent_changes"));
+	}
+
+	/**
+	 * survey-schedule spec 5.3: every stored lead starts in intent cycle 1; the requirement change history refuses a
+	 * row that keeps the intent, moves to SALE, prices in another unit or does not start a later cycle; an activity
+	 * reference is an id and a number together.
+	 */
+	@Test
+	void surveyColumns_andIntentChangeTable_exist() {
+		String consentId = insertConsent();
+		String leadId = "'01LEADSURVEYCOLUMNS0000000'";
+		jdbc.update(leadInsert(consentId, "id", leadId));
+
+		assertEquals(1, jdbc.queryForObject("SELECT intent_cycle FROM owner_leads WHERE id = " + leadId,
+				Integer.class));
+		assertRejected(leadInsert(consentId, "intent_cycle", "0"), "chk_owner_leads_intent_cycle");
+
+		jdbc.update(intentChangeInsert(leadId));
+		assertRejected(intentChangeInsert(leadId, "to_price_amount", "1000000", "to_price_unit", "'MONTH'"),
+				"chk_owner_lead_intent_changes_to_price_unit");
+		assertRejected(intentChangeInsert(leadId, "from_price_amount", "1000000", "from_price_unit", "'NIGHT'"),
+				"chk_owner_lead_intent_changes_from_price_unit");
+		assertRejected(intentChangeInsert(leadId, "to_intent", "'LONG_TERM_RENT'"),
+				"chk_owner_lead_intent_changes_intent_differs");
+		assertRejected(intentChangeInsert(leadId, "to_intent", "'SALE'"), "chk_owner_lead_intent_changes_to_intent");
+		assertRejected(intentChangeInsert(leadId, "from_intent", "'RENT'"),
+				"chk_owner_lead_intent_changes_from_intent");
+		assertRejected(intentChangeInsert(leadId, "to_price_amount", "1000000"),
+				"chk_owner_lead_intent_changes_to_price_pair");
+		assertRejected(intentChangeInsert(leadId, "to_price_amount", "0", "to_price_unit", "'NIGHT'"),
+				"chk_owner_lead_intent_changes_to_price_positive");
+		assertRejected(intentChangeInsert(leadId, "new_intent_cycle", "1"),
+				"chk_owner_lead_intent_changes_new_intent_cycle");
+		assertRejected(intentChangeInsert("'01LEADMISSING0000000000000'"), "fk_owner_lead_intent_changes_lead_id");
+
+		assertRejected("INSERT INTO owner_lead_activities (id, lead_id, type, occurred_at, reference_id) VALUES ("
+				+ (++sequence) + ", " + leadId + ", 'SURVEY_BOOKED', now(), '01APPOINTMENT0000000000000')",
+				"chk_owner_lead_activities_reference_pair");
+		assertRejected("INSERT INTO owner_lead_activities (id, lead_id, type, occurred_at, reference_id, reference_no)"
+				+ " VALUES (" + (++sequence) + ", " + leadId + ", 'SURVEY_BOOKED', now(),"
+				+ " '01APPOINTMENT0000000000000', 0)", "chk_owner_lead_activities_reference_no");
+		jdbc.update("INSERT INTO owner_lead_activities (id, lead_id, type, occurred_at, reference_id, reference_no)"
+				+ " VALUES (" + (++sequence) + ", " + leadId + ", 'SURVEY_BOOKED', now(),"
+				+ " '01APPOINTMENT0000000000000', 1)");
+
+		assertEquals(List.of("lead_id", "occurred_at"),
+				indexColumns("idx_owner_lead_intent_changes_lead_id_occurred_at"));
+	}
+
+	/**
+	 * A valid owner_lead_intent_changes INSERT (LONG_TERM_RENT → SHORT_TERM_RENT, no price, cycle 2) whose listed
+	 * columns are overridden by column, SQL literal pairs.
+	 */
+	private String intentChangeInsert(String leadIdLiteral, String... overrides) {
+		Map<String, String> values = new LinkedHashMap<>();
+		values.put("id", String.valueOf(++sequence));
+		values.put("lead_id", leadIdLiteral);
+		values.put("from_intent", "'LONG_TERM_RENT'");
+		values.put("to_intent", "'SHORT_TERM_RENT'");
+		values.put("reason", "'Owner prefers holiday guests'");
+		values.put("basis_confirmed_on", "DATE '2026-10-20'");
+		values.put("basis_text", "'Owner said so on the phone'");
+		values.put("actor_user_id", "'01SALEA0000000000000000000'");
+		values.put("new_intent_cycle", "2");
+		values.put("occurred_at", "now()");
+		for (int i = 0; i < overrides.length; i += 2) {
+			values.put(overrides[i], overrides[i + 1]);
+		}
+		return "INSERT INTO owner_lead_intent_changes (" + String.join(", ", values.keySet()) + ") VALUES ("
+				+ String.join(", ", values.values()) + ")";
 	}
 
 	@Test

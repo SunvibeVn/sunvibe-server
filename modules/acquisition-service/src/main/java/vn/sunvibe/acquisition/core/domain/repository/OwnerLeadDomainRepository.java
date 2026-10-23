@@ -3,8 +3,10 @@ package vn.sunvibe.acquisition.core.domain.repository;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntent;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +24,9 @@ public interface OwnerLeadDomainRepository {
 
     Optional<OwnerLead> findById(OwnerLeadId id);
 
+    /** The leads with these ids, in one query, in no particular order; unknown ids are skipped. */
+    List<OwnerLead> findAllById(Collection<OwnerLeadId> ids);
+
     boolean existsByRequestCode(String requestCode);
 
     /**
@@ -32,7 +37,7 @@ public interface OwnerLeadDomainRepository {
                                                  String addressKey, Instant createdAtOrAfter);
 
     /**
-     * Ids of the leads of this phone that are still open (NEW, ASSIGNED, CONTACTED or ON_HOLD), without loading the
+     * Ids of the leads of this phone that are still open ({@link OwnerLeadStatus#isOpen()}), without loading the
      * leads: the possible duplicates of a new submission (acquisition-owner-intake US-4).
      */
     List<OwnerLeadId> findOpenIdsByPhone(String phoneNormalized);

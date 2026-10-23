@@ -63,7 +63,8 @@ public class OwnerLeadEntityMapper {
                 entity.getCloseReason(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                entity.getVersion()
+                entity.getVersion(),
+                entity.getIntentCycle()
         );
     }
 
@@ -107,6 +108,7 @@ public class OwnerLeadEntityMapper {
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .version(domain.getVersion())
+                .intentCycle(domain.getIntentCycle())
                 .build();
     }
 }

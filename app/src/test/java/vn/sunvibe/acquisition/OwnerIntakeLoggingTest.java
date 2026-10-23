@@ -12,6 +12,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.AfterAll;
@@ -40,6 +41,7 @@ import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadActivityDomainRepository;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.adapter.OwnerLeadActivityRepositoryAdapter;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
@@ -104,6 +106,11 @@ class OwnerIntakeLoggingTest {
 				@Override
 				public Map<String, Instant> findLatestOccurredAt(Collection<String> leadIds) {
 					return real.findLatestOccurredAt(leadIds);
+				}
+
+				@Override
+				public Optional<Instant> findLatestOccurredAtOfStatus(OwnerLeadId leadId, OwnerLeadStatus toStatus) {
+					return real.findLatestOccurredAtOfStatus(leadId, toStatus);
 				}
 			};
 		}
@@ -291,6 +298,7 @@ class OwnerIntakeLoggingTest {
 	static void deleteIntakeRows(JdbcTemplate jdbc) {
 		jdbc.update("delete from owner_intake_idempotency_keys");
 		jdbc.update("delete from owner_lead_duplicate_candidates");
+		jdbc.update("delete from owner_lead_intent_changes");
 		jdbc.update("delete from owner_lead_activities");
 		jdbc.update("delete from owner_lead_access_logs");
 		jdbc.update("delete from owner_leads");

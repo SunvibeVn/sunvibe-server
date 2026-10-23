@@ -77,7 +77,7 @@ class IdempotencyKeyCleanupPostgresTest {
 		lead = OwnerLead.load(OwnerLeadId.generate(), RequestCode.generate(new SecureRandom()), OwnerLeadStatus.NEW,
 				OwnerLeadIntent.LONG_TERM_RENT, OwnerLeadSource.WEB, "Tran Thi B", PhoneNumber.parse("0941000001"),
 				null, "48", "Đà Nẵng", "20242", "Hải Châu", "1 a", "1 a", Optional.empty(), null, Optional.empty(),
-				null, null, null, consent.getId(), "{}", null, null, null, null, createdAt, createdAt, null);
+				null, null, null, consent.getId(), "{}", null, null, null, null, createdAt, createdAt, null, 1);
 		leads.save(lead);
 	}
 

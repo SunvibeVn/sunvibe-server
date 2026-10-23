@@ -11,12 +11,13 @@ import java.util.Map;
 /**
  * One history entry of a lead as staff see it. The actor is null for the system or the owner who sent the form. Each
  * name is the full name of the id before it, null when that id is null or has no user row
- * (acquisition-owner-lead-queue-ui C-18).
+ * (acquisition-owner-lead-queue-ui C-18). The reference names the survey appointment the entry concerns, null when
+ * none (survey-schedule spec 7.2).
  */
 public record LeadActivityView(OwnerLeadActivityType type, String actorUserId, String actorName,
                                OwnerLeadStatus fromStatus, OwnerLeadStatus toStatus, String fromAssigneeId,
                                String fromAssigneeName, String toAssigneeId, String toAssigneeName, String note,
-                               Instant nextActionAt, Instant occurredAt) {
+                               Instant nextActionAt, Instant occurredAt, String referenceId, Integer referenceNo) {
 
     /** The view of a history entry; {@code names} maps staff ids to full names and may lack any of them. */
     public static LeadActivityView of(OwnerLeadActivity activity, Map<String, String> names) {
@@ -25,7 +26,8 @@ public record LeadActivityView(OwnerLeadActivityType type, String actorUserId, S
                 activity.getToStatus(), activity.getFromAssigneeId(),
                 StaffNames.nameOf(names, activity.getFromAssigneeId()), activity.getToAssigneeId(),
                 StaffNames.nameOf(names, activity.getToAssigneeId()), activity.getNote(),
-                activity.getNextActionAt(), activity.getOccurredAt());
+                activity.getNextActionAt(), activity.getOccurredAt(), activity.getReferenceId(),
+                activity.getReferenceNo());
     }
 
     /** The note is staff text: never print it. */

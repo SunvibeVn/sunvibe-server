@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadActivityDomainRepository;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.mapper.manual.OwnerLeadActivityEntityMapper;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.repository.OwnerLeadActivityJpaRepository;
@@ -12,6 +13,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -50,5 +52,10 @@ public class OwnerLeadActivityRepositoryAdapter implements OwnerLeadActivityDoma
         return jpaRepository.findLatestOccurredAtPerLead(leadIds).stream()
                 .collect(Collectors.toMap(OwnerLeadActivityJpaRepository.LatestActivity::getLeadId,
                         OwnerLeadActivityJpaRepository.LatestActivity::getLatest));
+    }
+
+    @Override
+    public Optional<Instant> findLatestOccurredAtOfStatus(OwnerLeadId leadId, OwnerLeadStatus toStatus) {
+        return Optional.ofNullable(jpaRepository.findLatestOccurredAtOfStatus(leadId.getValue(), toStatus));
     }
 }

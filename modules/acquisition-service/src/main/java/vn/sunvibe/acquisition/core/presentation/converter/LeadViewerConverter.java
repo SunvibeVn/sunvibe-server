@@ -4,6 +4,7 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
+import vn.sunvibe.acquisition.core.application.shared.LeadAccessPolicy;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.shared.security.AuthenticatedUser;
@@ -21,26 +22,21 @@ import java.util.stream.Collectors;
 @Component
 public class LeadViewerConverter {
 
-    private static final Set<String> ALL_LEADS_ROLES = Set.of("ROLE_SALE_LEADER", "ROLE_SALES_MANAGER", "ROLE_ADMIN");
-    private static final String OWN_LEADS_ROLE = "ROLE_SALE";
+    private final LeadAccessPolicy accessPolicy = new LeadAccessPolicy();
 
     /**
      * acquisition-owner-lead-queue BR-1: SALE_LEADER, SALES_MANAGER and ADMIN see every lead, a SALE only the leads
-     * assigned to them. A person with both SALE and a leader role sees every lead.
+     * assigned to them. A person with both SALE and a leader role sees every lead ({@link LeadAccessPolicy}).
      */
     public LeadViewer toViewer(Authentication authentication, RoleHierarchy roleHierarchy) {
         String userId = actorId(authentication);
         Set<String> roles = roleHierarchy.getReachableGrantedAuthorities(authentication.getAuthorities()).stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toSet());
-        if (roles.stream().anyMatch(ALL_LEADS_ROLES::contains)) {
-            return new LeadViewer(userId, LeadAccess.ALL);
-        }
-        if (roles.contains(OWN_LEADS_ROLE)) {
-            return new LeadViewer(userId, LeadAccess.OWN);
-        }
-        // Unreachable behind @PreAuthorize; fails closed rather than guess what the caller may see
-        throw new IllegalStateException("Caller has no role that may read owner leads.");
+        LeadAccess access = accessPolicy.accessFor(roles)
+                // Unreachable behind @PreAuthorize; fails closed rather than guess what the caller may see
+                .orElseThrow(() -> new IllegalStateException("Caller has no role that may read owner leads."));
+        return new LeadViewer(userId, access);
     }
 
     /** The user id of the authenticated staff member, for the history of a territory change. */

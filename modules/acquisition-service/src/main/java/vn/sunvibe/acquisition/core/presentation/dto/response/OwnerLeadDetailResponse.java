@@ -56,10 +56,30 @@ public record OwnerLeadDetailResponse(
         ConsentResponse consent,
         @Schema(description = "Possible duplicates the caller can see, in either direction")
         List<DuplicateCandidateResponse> duplicateCandidates,
-        @Schema(description = "History, oldest first") List<LeadActivityResponse> activities) {
+        @Schema(description = "History, oldest first") List<LeadActivityResponse> activities,
+        @Schema(description = "Requirement changes recorded by staff, oldest first (survey-schedule US-5)")
+        List<IntentChangeResponse> intentChanges) {
 
     /** The price the owner hopes to get, in whole VND per unit. */
     public record AskingPriceResponse(long amount, @Schema(example = "VND") String currency, PriceUnit unit) {
+    }
+
+    /**
+     * One requirement change (survey-schedule spec 7.2): old and new intent and price (null when none), why, the
+     * owner's confirmation (basis), who and when, and the intent cycle it started.
+     */
+    @Schema(name = "LeadIntentChange", description = "A requirement change of an owner lead")
+    public record IntentChangeResponse(OwnerLeadIntent fromIntent, OwnerLeadIntent toIntent,
+                                       @Schema(nullable = true) AskingPriceResponse fromAskingPrice,
+                                       @Schema(nullable = true) AskingPriceResponse toAskingPrice, String reason,
+                                       BasisResponse basis, String actorUserId,
+                                       @Schema(nullable = true) String actorName, int newIntentCycle,
+                                       Instant occurredAt) {
+    }
+
+    /** The owner's confirmation a requirement change relies on: Vietnam date and text. */
+    @Schema(name = "LeadIntentChangeBasis", description = "The basis of a requirement change")
+    public record BasisResponse(LocalDate confirmedOn, String text) {
     }
 
     /** Which privacy notice the owner accepted and when. */
@@ -74,6 +94,7 @@ public record OwnerLeadDetailResponse(
     public OwnerLeadDetailResponse {
         duplicateCandidates = List.copyOf(duplicateCandidates);
         activities = List.copyOf(activities);
+        intentChanges = List.copyOf(intentChanges);
     }
 
     /** The detail holds contact data, address and position: never print it. */

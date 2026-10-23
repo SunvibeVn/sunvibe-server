@@ -40,6 +40,33 @@ class OwnerLeadActivityFromChangeTest {
     }
 
     @Test
+    void from_surveyMove_copiesTheAppointmentReference() {
+        OwnerLead lead = lead(OwnerLeadStatus.CONTACTED, ACTOR);
+        LeadChange change = lead.moveForSurvey(OwnerLeadActivityType.SURVEY_BOOKED, OwnerLeadStatus.SURVEY_SCHEDULED,
+                "01JAPPTAAAAAAAAAAAAAAAAAAA", 1);
+
+        OwnerLeadActivity activity = OwnerLeadActivity.from(9L, lead.getId(), ACTOR, change, Instant.now());
+
+        assertEquals(OwnerLeadActivityType.SURVEY_BOOKED, activity.getType());
+        assertEquals("01JAPPTAAAAAAAAAAAAAAAAAAA", activity.getReferenceId());
+        assertEquals(1, activity.getReferenceNo());
+        assertNull(activity.getNote());
+    }
+
+    @Test
+    void from_changeWithReferenceAddedLater_keepsIt() {
+        OwnerLead lead = lead(OwnerLeadStatus.SURVEY_SCHEDULED, ACTOR);
+        LeadChange change = lead.changeStatus(OwnerLeadStatus.ON_HOLD, null, null, null, null)
+                .withReference("01JAPPTAAAAAAAAAAAAAAAAAAA", 3);
+
+        OwnerLeadActivity activity = OwnerLeadActivity.from(10L, lead.getId(), ACTOR, change, Instant.now());
+
+        assertEquals(OwnerLeadActivityType.STATUS_CHANGED, activity.getType());
+        assertEquals("01JAPPTAAAAAAAAAAAAAAAAAAA", activity.getReferenceId());
+        assertEquals(3, activity.getReferenceNo());
+    }
+
+    @Test
     void from_reassignment_copiesBothAssignees() {
         OwnerLead lead = lead(OwnerLeadStatus.ASSIGNED, ACTOR);
         LeadChange change = lead.assignTo("01JUSERBBBBBBBBBBBBBBBBBBB", "handover").orElseThrow();

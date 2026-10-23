@@ -31,7 +31,12 @@ public record LeadActivityResponse(
         String toAssigneeName,
         String note,
         Instant nextActionAt,
-        Instant occurredAt) {
+        Instant occurredAt,
+        @Schema(description = "The survey appointment the entry concerns (survey-schedule); null when none",
+                nullable = true)
+        String referenceId,
+        @Schema(description = "That appointment's number within the lead; null when none", nullable = true)
+        Integer referenceNo) {
 
     /** The note is staff text: never print it. */
     @Override

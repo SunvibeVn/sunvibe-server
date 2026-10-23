@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.lang.reflect.Field;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -39,12 +40,17 @@ import vn.sunvibe.acquisition.core.domain.model.consent.ConsentChannel;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentPurpose;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentRecord;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentRecordId;
+import vn.sunvibe.acquisition.core.domain.model.lead.AskingPrice;
+import vn.sunvibe.acquisition.core.domain.model.lead.ConfirmationBasis;
+import vn.sunvibe.acquisition.core.domain.model.lead.IntentChange;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntent;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntentChange;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadSource;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.domain.model.lead.PhoneNumber;
+import vn.sunvibe.acquisition.core.domain.model.lead.PriceUnit;
 import vn.sunvibe.acquisition.core.domain.model.lead.RequestCode;
 import vn.sunvibe.acquisition.core.domain.model.log.OwnerLeadAccessLog;
 import vn.sunvibe.acquisition.core.domain.model.territory.SaleTerritory;
@@ -55,11 +61,13 @@ import vn.sunvibe.acquisition.core.domain.repository.LeadSearchCriteria;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadAccessLogDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadActivityDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadDomainRepository;
+import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadIntentChangeDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.PageResult;
 import vn.sunvibe.acquisition.core.domain.repository.SaleTerritoryChangeDomainRepository;
 import vn.sunvibe.acquisition.core.domain.repository.SaleTerritoryDomainRepository;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.entity.OwnerLeadAccessLogEntity;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.entity.OwnerLeadActivityEntity;
+import vn.sunvibe.acquisition.core.infrastructure.persistence.entity.OwnerLeadIntentChangeEntity;
 import vn.sunvibe.acquisition.core.infrastructure.persistence.entity.SaleTerritoryChangeEntity;
 
 /**
@@ -97,6 +105,9 @@ class AcquisitionQueuePersistencePostgresTest {
 	private OwnerLeadActivityDomainRepository activities;
 
 	@Autowired
+	private OwnerLeadIntentChangeDomainRepository intentChanges;
+
+	@Autowired
 	private OwnerLeadAccessLogDomainRepository accessLogs;
 
 	@Autowired
@@ -122,6 +133,7 @@ class AcquisitionQueuePersistencePostgresTest {
 	void cleanAcquisitionTables() {
 		jdbc.update("DELETE FROM owner_intake_idempotency_keys");
 		jdbc.update("DELETE FROM owner_lead_duplicate_candidates");
+		jdbc.update("DELETE FROM owner_lead_intent_changes");
 		jdbc.update("DELETE FROM owner_lead_activities");
 		jdbc.update("DELETE FROM owner_lead_access_logs");
 		jdbc.update("DELETE FROM owner_leads");
@@ -454,6 +466,106 @@ class AcquisitionQueuePersistencePostgresTest {
 		assertNull(jdbc.queryForObject("SELECT note FROM owner_lead_activities WHERE id = 6001", String.class));
 	}
 
+	// ==================== requirement change and survey references ====================
+
+	/**
+	 * survey-schedule spec 5.3: the lead keeps its new intent, price and cycle; an activity keeps its appointment
+	 * reference; the requirement change row keeps both requirements, reason and basis; the hold date is the time of
+	 * the latest move to ON_HOLD.
+	 */
+	@Test
+	void intentChange_andActivityReference_roundTrip() {
+		OwnerLead lead = saveLead(lead(OwnerLeadStatus.CONTACTED, SALE_A, WARD_1, T0));
+		AskingPrice night = AskingPrice.of(900_000L, "VND", PriceUnit.NIGHT, OwnerLeadIntent.SHORT_TERM_RENT);
+		ConfirmationBasis basis = new ConfirmationBasis(LocalDate.parse("2026-10-17"), "Owner said so");
+		IntentChange change = lead.changeIntent(OwnerLeadIntent.SHORT_TERM_RENT, Optional.of(night), basis);
+		leads.save(lead);
+		intentChanges.save(OwnerLeadIntentChange.create(9101L, lead.getId(), change, "Holiday guests pay more",
+				basis, SALE_A, T1));
+		activities.save(OwnerLeadActivity.from(9102L, lead.getId(), SALE_A,
+				change.change().withReference("01APPOINTMENT0000000000000", 2), T1));
+
+		OwnerLead stored = leads.findById(lead.getId()).orElseThrow();
+		assertEquals(OwnerLeadIntent.SHORT_TERM_RENT, stored.getIntent());
+		assertEquals(Optional.of(night), stored.getAskingPrice());
+		assertEquals(2, stored.getIntentCycle());
+		assertEquals("{}", stored.getSubmissionSnapshot());
+
+		OwnerLeadActivity activity = activities.findByLeadIdOrderByOccurredAt(lead.getId()).get(0);
+		assertEquals(OwnerLeadActivityType.INTENT_CHANGED, activity.getType());
+		assertEquals("01APPOINTMENT0000000000000", activity.getReferenceId());
+		assertEquals(2, activity.getReferenceNo());
+
+		List<OwnerLeadIntentChange> history = intentChanges.findByLeadIdOrderByOccurredAt(lead.getId());
+		assertEquals(1, history.size());
+		OwnerLeadIntentChange row = history.get(0);
+		assertEquals(9101L, row.getId());
+		assertEquals(OwnerLeadIntent.LONG_TERM_RENT, row.getFromIntent());
+		assertEquals(Optional.empty(), row.getFromPrice());
+		assertEquals(OwnerLeadIntent.SHORT_TERM_RENT, row.getToIntent());
+		assertEquals(Optional.of(night), row.getToPrice());
+		assertEquals("Holiday guests pay more", row.getReason());
+		assertEquals(basis, row.getBasis());
+		assertEquals(SALE_A, row.getActorUserId());
+		assertEquals(2, row.getNewIntentCycle());
+		assertEquals(T1, row.getOccurredAt());
+	}
+
+	@Test
+	void intentChange_withPricesOnBothSides_roundTrips() {
+		OwnerLead lead = saveLead(lead(OwnerLeadStatus.ASSIGNED, SALE_A, WARD_1, T0));
+		AskingPrice night = AskingPrice.of(900_000L, "VND", PriceUnit.NIGHT, OwnerLeadIntent.SHORT_TERM_RENT);
+		AskingPrice month = AskingPrice.of(12_000_000L, "VND", PriceUnit.MONTH, OwnerLeadIntent.LONG_TERM_RENT);
+		ConfirmationBasis basis = new ConfirmationBasis(LocalDate.parse("2026-10-17"), "Owner said so");
+		lead.changeIntent(OwnerLeadIntent.SHORT_TERM_RENT, Optional.of(night), basis);
+		IntentChange back = lead.changeIntent(OwnerLeadIntent.LONG_TERM_RENT, Optional.of(month), basis);
+		leads.save(lead);
+		intentChanges.save(OwnerLeadIntentChange.create(9201L, lead.getId(), back, "Back to monthly", basis, SALE_A,
+				T1));
+
+		OwnerLeadIntentChange row = intentChanges.findByLeadIdOrderByOccurredAt(lead.getId()).get(0);
+		assertEquals(Optional.of(night), row.getFromPrice());
+		assertEquals(Optional.of(month), row.getToPrice());
+		assertEquals(3, row.getNewIntentCycle());
+		assertEquals(3, leads.findById(lead.getId()).orElseThrow().getIntentCycle());
+		assertEquals(OwnerLeadStatus.CONTACTED, leads.findById(lead.getId()).orElseThrow().getStatus());
+	}
+
+	@Test
+	void findLatestOccurredAtOfStatus_returnsTheLastMoveToThatStatus() {
+		OwnerLead lead = saveLead(lead(OwnerLeadStatus.ON_HOLD, SALE_A, WARD_1, T0));
+		activities.save(statusMove(9301L, lead.getId(), OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD, T0));
+		activities.save(statusMove(9302L, lead.getId(), OwnerLeadStatus.ON_HOLD, OwnerLeadStatus.CONTACTED,
+				T0.plusSeconds(60)));
+		activities.save(statusMove(9303L, lead.getId(), OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD, T1));
+		activities.save(note(9304L, lead.getId(), T1.plusSeconds(60)));
+
+		assertEquals(Optional.of(T1),
+				activities.findLatestOccurredAtOfStatus(lead.getId(), OwnerLeadStatus.ON_HOLD));
+		assertEquals(Optional.empty(),
+				activities.findLatestOccurredAtOfStatus(lead.getId(), OwnerLeadStatus.SURVEY_SCHEDULED));
+	}
+
+	@Test
+	void flush_modifiedIntentChangeEntity_leavesTheRowUnchanged() throws Exception {
+		OwnerLead lead = saveLead(lead(OwnerLeadStatus.CONTACTED, SALE_A, WARD_1, T0));
+		ConfirmationBasis basis = new ConfirmationBasis(LocalDate.parse("2026-10-17"), "Owner said so");
+		IntentChange change = lead.changeIntent(OwnerLeadIntent.SHORT_TERM_RENT, Optional.empty(), basis);
+		leads.save(lead);
+		intentChanges.save(OwnerLeadIntentChange.create(9401L, lead.getId(), change, "reason", basis, SALE_A, T1));
+
+		modifyInsideTransaction(OwnerLeadIntentChangeEntity.class, 9401L, "reason", "changed");
+
+		assertEquals("reason", jdbc.queryForObject(
+				"SELECT reason FROM owner_lead_intent_changes WHERE id = 9401", String.class));
+	}
+
+	private static OwnerLeadActivity statusMove(long id, OwnerLeadId leadId, OwnerLeadStatus from,
+			OwnerLeadStatus to, Instant occurredAt) {
+		return OwnerLeadActivity.load(id, leadId, OwnerLeadActivityType.STATUS_CHANGED, SALE_A, from, to, null, null,
+				null, null, occurredAt, null, null);
+	}
+
 	// ==================== helpers ====================
 
 	/**
@@ -529,7 +641,7 @@ class AcquisitionQueuePersistencePostgresTest {
 
 	private static OwnerLeadActivity note(long id, OwnerLeadId leadId, Instant occurredAt) {
 		return OwnerLeadActivity.load(id, leadId, OwnerLeadActivityType.NOTE_ADDED, SALE_A, null, null, null, null, "note",
-				null, occurredAt);
+				null, occurredAt, null, null);
 	}
 
 	private OwnerLead saveLead(OwnerLead lead) {
@@ -543,6 +655,6 @@ class AcquisitionQueuePersistencePostgresTest {
 				OwnerLeadIntent.LONG_TERM_RENT, OwnerLeadSource.WEB, "Tran Thi B", PhoneNumber.parse("0901234567"),
 				null, "48", "Đà Nẵng", wardCode, "Hải Châu", "12 a", "12 a", Optional.empty(), null,
 				Optional.empty(), null, null, null, saveConsent(), "{}", assignedUserId, null, null, null,
-				createdAt, createdAt, null);
+				createdAt, createdAt, null, 1);
 	}
 }

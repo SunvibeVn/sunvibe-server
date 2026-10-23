@@ -92,6 +92,6 @@ class IdempotencyKeyCleanupTest {
                 OwnerLeadIntent.LONG_TERM_RENT, OwnerLeadSource.WEB, "Old Owner", PhoneNumber.parse("0909123456"),
                 null, "48", "Đà Nẵng", "20242", "Hải Châu", address, OwnerLead.addressKey(address),
                 Optional.empty(), null, Optional.empty(), null, null, null, ConsentRecordId.generate(), "{}",
-                null, null, null, null, createdAt, createdAt, null);
+                null, null, null, null, createdAt, createdAt, null, 1);
     }
 }

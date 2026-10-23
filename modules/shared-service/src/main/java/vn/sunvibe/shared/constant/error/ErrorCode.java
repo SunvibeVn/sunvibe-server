@@ -30,6 +30,21 @@ public final class ErrorCode {
     /** The chosen assignee cannot take this work (not a staff member, inactive or without the needed role). */
     public static final String INELIGIBLE_ASSIGNEE = "INELIGIBLE_ASSIGNEE";
 
+    /** The lead already has a scheduled survey appointment (survey-schedule US-1 AC-4). */
+    public static final String SURVEY_ALREADY_SCHEDULED = "SURVEY_ALREADY_SCHEDULED";
+
+    /** A survey cannot be booked for the lead now: its status or its intent does not allow it. */
+    public static final String SURVEY_NOT_ALLOWED = "SURVEY_NOT_ALLOWED";
+
+    /** A held lead has no visit its survey work could resume from. */
+    public static final String NO_CURRENT_VISIT = "NO_CURRENT_VISIT";
+
+    /** The surveyor (the lead's assignee) can no longer take leads, so the survey command is refused. */
+    public static final String SURVEYOR_INELIGIBLE = "SURVEYOR_INELIGIBLE";
+
+    /** The person named as having reached the property did not hold the appointment at that time. */
+    public static final String PERFORMER_MISMATCH = "PERFORMER_MISMATCH";
+
     /** An unexpected server error; the details are only in the server log, found by the correlation id. */
     public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
 

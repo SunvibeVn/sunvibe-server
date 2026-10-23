@@ -16,12 +16,19 @@ import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentChannel;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentPurpose;
 import vn.sunvibe.acquisition.core.domain.model.consent.ConsentRecord;
+import vn.sunvibe.acquisition.core.application.query.IntentChangeView;
+import vn.sunvibe.acquisition.core.domain.model.lead.AskingPrice;
+import vn.sunvibe.acquisition.core.domain.model.lead.ConfirmationBasis;
+import vn.sunvibe.acquisition.core.domain.model.lead.IntentChange;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadChange;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntent;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntentChange;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
+import vn.sunvibe.acquisition.core.domain.model.lead.PriceUnit;
 import vn.sunvibe.acquisition.core.domain.model.log.OwnerLeadAccessLog;
 import vn.sunvibe.acquisition.core.domain.repository.PageResult;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryConsentRecordRepository;
@@ -29,15 +36,18 @@ import vn.sunvibe.acquisition.core.testsupport.InMemoryDuplicateCandidateReposit
 import vn.sunvibe.acquisition.core.testsupport.InMemoryLeadAssigneeDirectory;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadAccessLogRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadActivityRepository;
+import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadIntentChangeRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadRepository;
 import vn.sunvibe.acquisition.core.testsupport.OwnerLeadFixture;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 
 import java.lang.reflect.RecordComponent;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -64,6 +74,7 @@ class OwnerLeadQueryServiceTest {
     private InMemoryConsentRecordRepository consents;
     private InMemoryLeadAssigneeDirectory directory;
     private OwnerLeadQueryService service;
+    private InMemoryOwnerLeadIntentChangeRepository intentChanges;
     private int minutes;
 
     @BeforeEach
@@ -76,8 +87,43 @@ class OwnerLeadQueryServiceTest {
         IdGenerator<Long> ids = new AtomicLong(5_000L)::incrementAndGet;
         directory = new InMemoryLeadAssigneeDirectory().withName(SALE_A, "Nguyen An").withName(SALE_B, "Tran Binh")
                 .withName(LEADER, "Le Cuong");
-        service = new OwnerLeadQueryService(leads, activities, accessLogs, candidates, consents,
+        intentChanges = new InMemoryOwnerLeadIntentChangeRepository();
+        service = new OwnerLeadQueryService(leads, activities, intentChanges, accessLogs, candidates, consents,
                 new LeadVisibility(leads), directory, ids);
+    }
+
+    // ==================== requirement changes and survey references (survey-schedule spec 5.3, 7.2) ====================
+
+    @Test
+    void get_intentChangesAscendingWithNames_andActivityReferences() {
+        OwnerLead lead = stored(OwnerLeadStatus.CONTACTED, SALE_A, WARD_X);
+        ConfirmationBasis basis = new ConfirmationBasis(LocalDate.parse("2026-10-20"), "Owner said so");
+        IntentChange first = lead.changeIntent(OwnerLeadIntent.SHORT_TERM_RENT, Optional.empty(), basis);
+        IntentChange second = lead.changeIntent(OwnerLeadIntent.LONG_TERM_RENT, Optional.of(AskingPrice.of(
+                12_000_000L, "VND", PriceUnit.MONTH, OwnerLeadIntent.LONG_TERM_RENT)), basis);
+        intentChanges.save(OwnerLeadIntentChange.create(2L, lead.getId(), second, "Back", basis, LEADER,
+                T0.plusSeconds(120)));
+        intentChanges.save(OwnerLeadIntentChange.create(1L, lead.getId(), first, "Holiday", basis, SALE_A,
+                T0.plusSeconds(60)));
+        activities.save(OwnerLeadActivity.from(3L, lead.getId(), SALE_A, first.change()
+                .withReference("01JAPPOINTMENTAAAAAAAAAAAA", 2), T0.plusSeconds(60)));
+
+        OwnerLeadDetail detail = service.get(ALL_LEADER, lead.getId().getValue());
+
+        assertEquals(2, detail.intentChanges().size());
+        IntentChangeView view = detail.intentChanges().get(0);
+        assertEquals(OwnerLeadIntent.LONG_TERM_RENT, view.fromIntent());
+        assertEquals(OwnerLeadIntent.SHORT_TERM_RENT, view.toIntent());
+        assertNull(view.fromAskingPrice());
+        assertEquals("Holiday", view.reason());
+        assertEquals(basis, view.basis());
+        assertEquals("Nguyen An", view.actorName());
+        assertEquals(2, view.newIntentCycle());
+        assertEquals(12_000_000L, detail.intentChanges().get(1).toAskingPrice().amount());
+        assertEquals("Le Cuong", detail.intentChanges().get(1).actorName());
+        assertEquals("01JAPPOINTMENTAAAAAAAAAAAA", detail.activities().get(0).referenceId());
+        assertEquals(2, detail.activities().get(0).referenceNo());
+        assertEquals(1, directory.nameLookups());
     }
 
     // ==================== list ====================
@@ -330,7 +376,7 @@ class OwnerLeadQueryServiceTest {
                 new LeadChange(OwnerLeadActivityType.NOTE_ADDED, null, null, null, null, "Called the owner", later),
                 later));
         activities.save(OwnerLeadActivity.load(1L, lead.getId(), OwnerLeadActivityType.AUTO_ASSIGNED, null,
-                OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, null, SALE_A, null, null, T0));
+                OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, null, SALE_A, null, null, T0, null, null));
 
         OwnerLeadDetail detail = service.get(OWN_A, lead.getId().getValue());
 
@@ -504,11 +550,13 @@ class OwnerLeadQueryServiceTest {
     void detailMakesOneNameLookup() {
         OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
         activities.save(OwnerLeadActivity.load(1L, lead.getId(), OwnerLeadActivityType.SUBMITTED, null, null,
-                OwnerLeadStatus.NEW, null, null, null, null, T0));
+                OwnerLeadStatus.NEW, null, null, null, null, T0, null, null));
         activities.save(OwnerLeadActivity.load(2L, lead.getId(), OwnerLeadActivityType.AUTO_ASSIGNED, null,
-                OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, null, SALE_A, null, null, T0.plusSeconds(1)));
+                OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, null, SALE_A, null, null, T0.plusSeconds(1), null,
+                null));
         activities.save(OwnerLeadActivity.load(3L, lead.getId(), OwnerLeadActivityType.REASSIGNED, LEADER,
-                OwnerLeadStatus.ASSIGNED, OwnerLeadStatus.ASSIGNED, SALE_A, SALE_B, null, null, T0.plusSeconds(2)));
+                OwnerLeadStatus.ASSIGNED, OwnerLeadStatus.ASSIGNED, SALE_A, SALE_B, null, null, T0.plusSeconds(2),
+                null, null));
 
         OwnerLeadDetail detail = service.get(ALL_LEADER, lead.getId().getValue());
 
@@ -570,7 +618,7 @@ class OwnerLeadQueryServiceTest {
 
     private static OwnerLeadActivity note(long id, OwnerLead lead, Instant occurredAt) {
         return OwnerLeadActivity.load(id, lead.getId(), OwnerLeadActivityType.NOTE_ADDED, SALE_A, null, null, null,
-                null, "note", null, occurredAt);
+                null, "note", null, occurredAt, null, null);
     }
 
     private static List<String> componentNames(Class<? extends Record> type) {

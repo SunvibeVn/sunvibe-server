@@ -39,6 +39,7 @@ import vn.sunvibe.acquisition.core.application.exception.IdempotencyKeyReusedExc
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
 import vn.sunvibe.acquisition.core.application.exception.IntakeValidationException;
 import vn.sunvibe.acquisition.core.application.exception.OwnerLeadNotFoundException;
+import vn.sunvibe.acquisition.core.domain.exception.IntentChangeNotAllowedException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidIntakeValueException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadTransitionException;
@@ -79,6 +80,8 @@ public class AcquisitionExceptionHandler {
     public static final String REQUEST_NOT_PROCESSED_MESSAGE = "The request cannot be processed.";
     static final String INTERNAL_ERROR_MESSAGE = "Unexpected server error.";
     private static final String INVALID_VALUE_MESSAGE = "Value is not valid for this field.";
+    /** How Jackson starts the message of a missing {@code @JsonProperty(required = true)} creator property. */
+    private static final String MISSING_REQUIRED_PROPERTY = "Missing required creator property";
     static final String LEAD_NOT_FOUND_MESSAGE = "Owner lead not found.";
     /** Also the message of the 404 that OwnerIntakeEnabledFilter gives while the intake form is switched off. */
     public static final String NOT_FOUND_MESSAGE = "Resource not found.";
@@ -86,6 +89,7 @@ public class AcquisitionExceptionHandler {
     static final String STATUS_CHANGE_NOT_ALLOWED_MESSAGE =
             "This status change is not allowed from the current status.";
     static final String LEAD_CLOSED_MESSAGE = "The lead is closed and cannot be changed.";
+    static final String ACTION_NOT_ALLOWED_MESSAGE = "This action is not allowed in the lead's current status.";
     static final String CONCURRENT_MODIFICATION_MESSAGE =
             "The lead was changed by someone else. Reload it and try again.";
     static final String INELIGIBLE_ASSIGNEE_MESSAGE = "The user cannot be given owner leads.";
@@ -148,7 +152,8 @@ public class AcquisitionExceptionHandler {
 
     /**
      * A body over the size limit is 413; a value Jackson could not convert (bad enum, date or number) is a
-     * validation error on its JSON path, for example {@code askingPrice.unit}; anything else is unreadable JSON.
+     * validation error on its JSON path, for example {@code askingPrice.unit}, and a key that must be sent but is
+     * missing is "required" on its path; anything else is unreadable JSON.
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleUnreadableBody(HttpMessageNotReadableException e) {
@@ -157,7 +162,12 @@ public class AcquisitionExceptionHandler {
         }
         MismatchedInputException mismatch = findCause(e, MismatchedInputException.class);
         if (mismatch != null && !mismatch.getPath().isEmpty()) {
-            return validationFailed(List.of(ValidationError.of(jsonPath(mismatch), INVALID_VALUE_MESSAGE)));
+            String path = jsonPath(mismatch);
+            // survey-schedule spec A-17: a key that must be sent, even as null, is "required" on its path
+            boolean missingKey = mismatch.getOriginalMessage() != null
+                    && mismatch.getOriginalMessage().startsWith(MISSING_REQUIRED_PROPERTY);
+            return validationFailed(List.of(ValidationError.of(path,
+                    missingKey ? path + " is required." : INVALID_VALUE_MESSAGE)));
         }
         // A number out of range for its target (beyond int for an enum, beyond long for expectedVersion) fails as a
         // coercion error before the value is looked up or bound: a validation error on its JSON path like any bad number.
@@ -221,6 +231,20 @@ public class AcquisitionExceptionHandler {
                 ? ValidationError.withAllowed("status", LEAD_CLOSED_MESSAGE, List.of())
                 : ValidationError.withAllowed("toStatus", STATUS_CHANGE_NOT_ALLOWED_MESSAGE,
                         e.getAllowed().stream().map(Enum::name).toList());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(ErrorCode.INVALID_STATE_TRANSITION, INVALID_TRANSITION_MESSAGE,
+                        List.of(error)));
+    }
+
+    /**
+     * survey-schedule spec 5.3: the lead's status does not allow a requirement change. The error names {@code status}
+     * and lists the statuses that allow it.
+     */
+    @ExceptionHandler(IntentChangeNotAllowedException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleIntentChangeNotAllowed(
+            IntentChangeNotAllowedException e) {
+        ValidationError error = ValidationError.withAllowed("status", ACTION_NOT_ALLOWED_MESSAGE,
+                e.getAllowed().stream().map(Enum::name).toList());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(ErrorCode.INVALID_STATE_TRANSITION, INVALID_TRANSITION_MESSAGE,
                         List.of(error)));

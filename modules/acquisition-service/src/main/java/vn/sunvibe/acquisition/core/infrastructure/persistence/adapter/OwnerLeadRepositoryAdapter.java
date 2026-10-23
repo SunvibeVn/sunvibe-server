@@ -19,6 +19,7 @@ import vn.sunvibe.acquisition.core.infrastructure.persistence.repository.OwnerLe
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,6 +50,16 @@ public class OwnerLeadRepositoryAdapter implements OwnerLeadDomainRepository {
     @Override
     public Optional<OwnerLead> findById(OwnerLeadId id) {
         return jpaRepository.findById(id.getValue()).map(mapper::toDomain);
+    }
+
+    @Override
+    public List<OwnerLead> findAllById(Collection<OwnerLeadId> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findAllById(ids.stream().map(OwnerLeadId::getValue).toList()).stream()
+                .map(mapper::toDomain)
+                .toList();
     }
 
     @Override

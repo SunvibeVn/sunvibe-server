@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import vn.sunvibe.acquisition.core.application.command.AddLeadNoteCommand;
 import vn.sunvibe.acquisition.core.application.command.AssignLeadCommand;
+import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
 import vn.sunvibe.acquisition.core.application.exception.ConcurrentLeadModificationException;
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
@@ -14,27 +15,37 @@ import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
 import vn.sunvibe.acquisition.core.application.shared.external.staff.EligibleAssignee;
 import vn.sunvibe.acquisition.core.application.shared.external.staff.LeadAssigneeDirectoryPort;
+import vn.sunvibe.acquisition.core.domain.exception.IntentChangeNotAllowedException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadTransitionException;
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType;
+import vn.sunvibe.acquisition.core.domain.model.lead.AskingPrice;
+import vn.sunvibe.acquisition.core.domain.model.lead.ConfirmationBasis;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntent;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntentChange;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
+import vn.sunvibe.acquisition.core.domain.model.lead.PriceUnit;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryDuplicateCandidateRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadActivityRepository;
+import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadIntentChangeRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadRepository;
 import vn.sunvibe.acquisition.core.testsupport.OwnerLeadFixture;
+import vn.sunvibe.acquisition.core.testsupport.RecordingLeadSurveyPort;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -53,6 +64,7 @@ class OwnerLeadCommandServiceTest {
     private static final LeadViewer OWN_B = new LeadViewer(SALE_B, LeadAccess.OWN);
     private static final LeadViewer ALL_LEADER = new LeadViewer(LEADER, LeadAccess.ALL);
     private static final String WARD = "20194";
+    private static final String APPOINTMENT = "01JAPPOINTMENTAAAAAAAAAAAA";
     private static final Instant T0 = Instant.parse("2026-10-10T08:00:00Z");
     private static final Instant NEXT = Instant.parse("2026-10-20T02:00:00Z");
 
@@ -61,6 +73,8 @@ class OwnerLeadCommandServiceTest {
     private InMemoryDuplicateCandidateRepository candidates;
     private CountingDirectory directory;
     private OwnerLeadCommandService service;
+    private RecordingLeadSurveyPort surveys;
+    private InMemoryOwnerLeadIntentChangeRepository intentChanges;
     private int minutes;
 
     @BeforeEach
@@ -70,9 +84,143 @@ class OwnerLeadCommandServiceTest {
         candidates = new InMemoryDuplicateCandidateRepository(leads);
         directory = new CountingDirectory();
         directory.withEligible(SALE_A).withEligible(SALE_B);
+        surveys = new RecordingLeadSurveyPort(leads);
+        intentChanges = new InMemoryOwnerLeadIntentChangeRepository();
         IdGenerator<Long> ids = new AtomicLong(7_000L)::incrementAndGet;
         service = new OwnerLeadCommandService(leads, activities, candidates, new LeadVisibility(leads), directory,
-                ids);
+                surveys, intentChanges, ids);
+    }
+
+    // ==================== survey hooks (survey-schedule spec 4.6, 5.5) ====================
+
+    /** survey-schedule spec 5.5: the lead row is written before the survey hook runs. */
+    @Test
+    void surveyHook_runsAfterLeadSave() {
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        surveys.answering(APPOINTMENT, 2);
+
+        service.assign(ALL_LEADER, new AssignLeadCommand(id(lead), SALE_B, 0L, null));
+
+        RecordingLeadSurveyPort.Call call = surveys.calls().get(0);
+        assertEquals("reassigned", call.hook());
+        assertEquals(SALE_B, call.argument());
+        assertEquals(LEADER, call.actorUserId());
+        assertEquals(1L, call.storedVersion());
+        OwnerLeadActivity activity = activities.all().get(0);
+        assertEquals(OwnerLeadActivityType.REASSIGNED, activity.getType());
+        assertEquals(APPOINTMENT, activity.getReferenceId());
+        assertEquals(2, activity.getReferenceNo());
+        assertEquals(call.at(), activity.getOccurredAt());
+    }
+
+    @Test
+    void assign_firstAssignment_callsNoHook() {
+        OwnerLead lead = stored(OwnerLeadStatus.NEW, null);
+
+        service.assign(ALL_LEADER, new AssignLeadCommand(id(lead), SALE_A, 0L, null));
+
+        assertEquals(List.of(), surveys.calls());
+    }
+
+    @Test
+    void changeStatus_holdOrCloseFromSurveyScheduled_cancelsThroughTheHookWithTheText() {
+        OwnerLead held = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        OwnerLead closed = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        surveys.answering(APPOINTMENT, 1);
+
+        service.changeStatus(OWN_A, new ChangeLeadStatusCommand(id(held), OwnerLeadStatus.ON_HOLD, 0L, null, null,
+                "  Owner abroad, call 0905 123 456  ", null));
+        service.changeStatus(OWN_A, new ChangeLeadStatusCommand(id(closed), OwnerLeadStatus.REJECTED, 0L,
+                "Not a fit", null, null, null));
+
+        assertEquals("LEAD_ON_HOLD", surveys.calls().get(0).hook());
+        assertEquals("Owner abroad, call 0905 123 456", surveys.calls().get(0).argument());
+        assertEquals(1L, surveys.calls().get(0).storedVersion());
+        assertEquals("LEAD_CLOSED", surveys.calls().get(1).hook());
+        assertEquals("Not a fit", surveys.calls().get(1).argument());
+        assertEquals(APPOINTMENT, activities.all().get(0).getReferenceId());
+        assertEquals(OwnerLeadActivityType.STATUS_CHANGED, activities.all().get(0).getType());
+    }
+
+    @Test
+    void changeStatus_holdFromContacted_callsNoHook() {
+        OwnerLead lead = stored(OwnerLeadStatus.CONTACTED, SALE_A);
+
+        service.changeStatus(OWN_A, new ChangeLeadStatusCommand(id(lead), OwnerLeadStatus.ON_HOLD, 0L, null, null,
+                null, null));
+
+        assertEquals(List.of(), surveys.calls());
+    }
+
+    // ==================== requirement change (survey-schedule US-5) ====================
+
+    @Test
+    void changeIntent_fromSurveyScheduled_movesToContactedCancelsAndRecordsTheChange() {
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        surveys.answering(APPOINTMENT, 3);
+        AskingPrice night = AskingPrice.of(800_000L, "VND", PriceUnit.NIGHT, OwnerLeadIntent.SHORT_TERM_RENT);
+
+        OwnerLeadSummary summary = service.changeIntent(OWN_A, new ChangeLeadIntentCommand(id(lead), 0L,
+                OwnerLeadIntent.SHORT_TERM_RENT, Optional.of(night), "  Owner prefers holiday guests ",
+                new ConfirmationBasis(LocalDate.ofInstant(T0, OwnerLead.VIETNAM), " Owner said so ")));
+
+        assertEquals(OwnerLeadStatus.CONTACTED, summary.status());
+        assertEquals(OwnerLeadIntent.SHORT_TERM_RENT, summary.intent());
+        assertEquals(1L, summary.version());
+        OwnerLead stored = reload(lead);
+        assertEquals(2, stored.getIntentCycle());
+        assertEquals(Optional.of(night), stored.getAskingPrice());
+        RecordingLeadSurveyPort.Call call = surveys.calls().get(0);
+        assertEquals("intentChanged", call.hook());
+        assertEquals("2", call.argument());
+        assertEquals(1L, call.storedVersion());
+        OwnerLeadIntentChange row = intentChanges.all().get(0);
+        assertEquals(OwnerLeadIntent.LONG_TERM_RENT, row.getFromIntent());
+        assertEquals("Owner prefers holiday guests", row.getReason());
+        assertEquals("Owner said so", row.getBasis().text());
+        assertEquals(SALE_A, row.getActorUserId());
+        OwnerLeadActivity activity = activities.all().get(0);
+        assertEquals(OwnerLeadActivityType.INTENT_CHANGED, activity.getType());
+        assertEquals(OwnerLeadStatus.SURVEY_SCHEDULED, activity.getFromStatus());
+        assertEquals(OwnerLeadStatus.CONTACTED, activity.getToStatus());
+        assertEquals(APPOINTMENT, activity.getReferenceId());
+        assertNull(activity.getNote());
+        assertEquals(row.getOccurredAt(), activity.getOccurredAt());
+    }
+
+    @Test
+    void changeIntent_checkOrder_bodyThenVisibilityThenVersionThenStatus() {
+        OwnerLead closed = stored(OwnerLeadStatus.REJECTED, SALE_A);
+        ConfirmationBasis basis = new ConfirmationBasis(LocalDate.ofInstant(T0, OwnerLead.VIETNAM), "Said so");
+
+        assertEquals("newIntent", assertThrows(InvalidLeadCommandException.class, () -> service.changeIntent(OWN_A,
+                new ChangeLeadIntentCommand("unknown", 0L, OwnerLeadIntent.SALE, Optional.empty(), "r", basis)))
+                .getField());
+        assertThrows(OwnerLeadNotFoundException.class, () -> service.changeIntent(OWN_B,
+                new ChangeLeadIntentCommand(id(closed), 0L, OwnerLeadIntent.SHORT_TERM_RENT, Optional.empty(), "r",
+                        basis)));
+        assertThrows(ConcurrentLeadModificationException.class, () -> service.changeIntent(OWN_A,
+                new ChangeLeadIntentCommand(id(closed), 4L, OwnerLeadIntent.SHORT_TERM_RENT, Optional.empty(), "r",
+                        basis)));
+        IntentChangeNotAllowedException refused = assertThrows(IntentChangeNotAllowedException.class,
+                () -> service.changeIntent(OWN_A, new ChangeLeadIntentCommand(id(closed), 0L,
+                        OwnerLeadIntent.SHORT_TERM_RENT, Optional.empty(), "r", basis)));
+        assertEquals(OwnerLead.INTENT_CHANGE_STATUSES, refused.getAllowed());
+        assertEquals(List.of(), surveys.calls());
+        assertEquals(List.of(), intentChanges.all());
+    }
+
+    @Test
+    void changeIntent_hookFails_nothingBeyondTheLeadSaveIsWritten() {
+        OwnerLead lead = stored(OwnerLeadStatus.CONTACTED, SALE_A);
+        surveys.failNextCall = new IllegalStateException("survey down");
+
+        assertThrows(IllegalStateException.class, () -> service.changeIntent(OWN_A, new ChangeLeadIntentCommand(
+                id(lead), 0L, OwnerLeadIntent.SHORT_TERM_RENT, Optional.empty(), "r",
+                new ConfirmationBasis(LocalDate.ofInstant(T0, OwnerLead.VIETNAM), "Said so"))));
+
+        assertEquals(List.of(), intentChanges.all());
+        assertEquals(List.of(), activities.all());
     }
 
     // ==================== assign ====================

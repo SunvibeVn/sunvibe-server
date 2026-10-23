@@ -4,7 +4,7 @@
 -- Needs the accounts of scripts/dev/seed-e2e-accounts.sql first (E2E Sale, E2E Trưởng nhóm, E2E Admin); it stops with
 -- a clear message when they are missing. It writes no password and no secret.
 --
--- Ten leads of Đà Nẵng (province 48), each with its consent record and its SUBMITTED history entry:
+-- Twelve leads of Đà Nẵng (province 48), each with its consent record and its SUBMITTED history entry:
 --   no  lead id                      request code  status      who holds it / what it shows
 --   L1  01JE2EHEAD0000000000000001   SV-E2EA-AA2A  NEW         nobody (unassigned), with coordinates
 --   L2  01JE2EHEAD0000000000000002   SV-E2EA-AA2B  ASSIGNED    E2E Sale; ward An Hải, the ward E2E Sale looks after
@@ -16,8 +16,11 @@
 --   L8  01JE2EHEAD0000000000000008   SV-E2EA-AA2H  ASSIGNED    E2E Sale; same phone as L7, possible duplicate of L7
 --   L9  01JE2EHEAD0000000000000009   SV-E2EA-AA2J  ASSIGNED    E2E Sale; without coordinates
 --   L10 01JE2EHEAD0000000000000010   SV-E2EA-AA2K  NEW         nobody (unassigned), with coordinates
--- Leads L2 to L5 and L7 to L9 also have the ASSIGNED history entry made by E2E Trưởng nhóm. L3, L4 and L6 have the
--- STATUS_CHANGED entry that moved them to their status. Consent records are 01JE2EHCNT00000000000000nn (nn = 01..10).
+--   L11 01JE2EHEAD0000000000000011   SV-E2EA-AA2L  CONTACTED   E2E Sale; long-term rent with a pin, ready for a survey
+--   L12 01JE2EHEAD0000000000000012   SV-E2EA-AA2M  ASSIGNED    E2E Sale; for sale, ready for a requirement change
+-- Leads L2 to L5, L7 to L9, L11 and L12 also have the ASSIGNED history entry made by E2E Trưởng nhóm. L3, L4, L6 and
+-- L11 have the STATUS_CHANGED entry that moved them to their status. Consent records are 01JE2EHCNT00000000000000nn
+-- (nn = 01..12).
 -- History ids are 20261018000001.., 20261018000101.., 20261018000201.. and the territory change is 20261018000301.
 -- One ward is held: An Hải (20275, first by the Vietnamese collator when written), by E2E Sale, with its change
 -- (acquisition-owner-lead-queue BR-10); every other ward an E2E seed account held is freed.
@@ -25,7 +28,8 @@
 --
 -- Idempotent: a re-run deletes the rows with the fixed ids above and inserts them again, whatever happened to them
 -- since. Rows of these leads that other code added (history, access logs, idempotency keys, the duplicate links
--- the lead itself owns) go with them. Wards held by an E2E seed account are freed first (an interrupted admin e2e
+-- the lead itself owns, requirement changes, survey appointments with their revisions, events, resumptions and
+-- access logs) go with them. Wards held by an E2E seed account are freed first (an interrupted admin e2e
 -- run); wards of other holders are left as they are. The change rows the application writes for An Hải stay as history.
 -- It never changes any other lead, consent, user or territory. It refuses, before any change, when another lead
 -- already uses one of the request codes, when a lead outside the fixture names one of these leads as its original
@@ -163,12 +167,20 @@ VALUES
     (10, '01JE2EHEAD0000000000000010', 'SV-E2EA-AA2K', 'NEW', 'SHORT_TERM_RENT', 'Ngô Thị Yến', '+84912000010',
      'yen.e2e@example.com', '20197', '70 Nguyễn Lương Bằng', '70 nguyễn lương bằng', 16.075300, 108.150400,
      'VILLA', 700000, 'NIGHT', NULL, NULL, NULL, NULL, NULL, NULL, 0,
-     now() - interval '1 day', now() - interval '1 day');
+     now() - interval '1 day', now() - interval '1 day'),
+    (11, '01JE2EHEAD0000000000000011', 'SV-E2EA-AA2L', 'CONTACTED', 'LONG_TERM_RENT', 'Đỗ Thị Hoa',
+     '+84912000011', NULL, '20242', '25 Trần Phú', '25 trần phú', 16.071500, 108.223900, 'APARTMENT', 10000000,
+     'MONTH', NULL, NULL, NULL, :'sale_id', NULL, NULL, 2,
+     now() - interval '2 days', now() - interval '1 day'),
+    (12, '01JE2EHEAD0000000000000012', 'SV-E2EA-AA2M', 'ASSIGNED', 'SALE', 'Lý Văn Phúc', '+84912000012', NULL,
+     '20257', '18 Núi Thành', '18 núi thành', 16.043200, 108.219500, 'HOUSE', 3500000000, 'TOTAL', NULL, NULL,
+     NULL, :'sale_id', NULL, NULL, 1,
+     now() - interval '1 day', now() - interval '1 day' + interval '1 hour');
 
 -- The wards and the province must be in the catalog (the property migrations seed them).
 DO $$
 BEGIN
-    IF (SELECT count(*) FROM seed_leads s JOIN wards w ON w.code = s.ward_code AND w.province_code = '48') <> 10 THEN
+    IF (SELECT count(*) FROM seed_leads s JOIN wards w ON w.code = s.ward_code AND w.province_code = '48') <> 12 THEN
         RAISE EXCEPTION 'seed-e2e-owner-leads.sql: a ward of Đà Nẵng is missing from the catalog; run the Flyway migrations first';
     END IF;
 END
@@ -196,7 +208,16 @@ BEGIN
 END
 $$;
 
--- Delete the fixture rows (and only them), children first.
+-- Delete the fixture rows (and only them), children first: the survey rows of the fixture leads, their requirement
+-- changes, then the lead rows.
+DELETE FROM survey_access_logs WHERE lead_id IN (SELECT id FROM seed_leads);
+DELETE FROM survey_resumptions WHERE lead_id IN (SELECT id FROM seed_leads);
+DELETE FROM survey_appointment_events
+WHERE appointment_id IN (SELECT id FROM survey_appointments WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_appointment_revisions
+WHERE appointment_id IN (SELECT id FROM survey_appointments WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_appointments WHERE lead_id IN (SELECT id FROM seed_leads);
+DELETE FROM owner_lead_intent_changes WHERE lead_id IN (SELECT id FROM seed_leads);
 DELETE FROM owner_lead_access_logs WHERE lead_id IN (SELECT id FROM seed_leads);
 DELETE FROM owner_lead_activities WHERE lead_id IN (SELECT id FROM seed_leads);
 DELETE FROM owner_lead_duplicate_candidates
@@ -258,7 +279,7 @@ JOIN seed_leads l7 ON l7.n = 7
 WHERE l8.n = 8;
 
 -- History: SUBMITTED for every lead (no actor), ASSIGNED by the leader for the assigned ones, and the status change
--- that moved L3, L4 and L6 to their status.
+-- that moved L3, L4, L6 and L11 to their status.
 INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status, to_status, from_assignee_id,
                                    to_assignee_id, note, next_action_at, occurred_at)
 SELECT 20261018000000 + n, id, 'SUBMITTED', NULL, NULL, NULL, NULL, NULL, NULL, NULL, created_at
@@ -269,7 +290,7 @@ INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status
 SELECT 20261018000100 + n, id, 'ASSIGNED', :'leader_id', 'NEW', 'ASSIGNED', NULL, assigned_user_id, NULL, NULL,
        created_at + interval '1 hour'
 FROM seed_leads
-WHERE n IN (2, 3, 4, 5, 7, 8, 9);
+WHERE n IN (2, 3, 4, 5, 7, 8, 9, 11, 12);
 
 INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status, to_status, from_assignee_id,
                                    to_assignee_id, note, next_action_at, occurred_at)
@@ -278,7 +299,9 @@ VALUES (20261018000203, '01JE2EHEAD0000000000000003', 'STATUS_CHANGED', :'sale_i
        (20261018000204, '01JE2EHEAD0000000000000004', 'STATUS_CHANGED', :'sale_id', 'ASSIGNED', 'ON_HOLD', NULL,
         NULL, 'Chủ nhà chưa sẵn sàng, tạm hoãn.', NULL, now() - interval '3 days'),
        (20261018000206, '01JE2EHEAD0000000000000006', 'STATUS_CHANGED', :'leader_id', 'NEW', 'REJECTED', NULL,
-        NULL, NULL, NULL, now() - interval '3 days' + interval '2 hours');
+        NULL, NULL, NULL, now() - interval '3 days' + interval '2 hours'),
+       (20261018000211, '01JE2EHEAD0000000000000011', 'STATUS_CHANGED', :'sale_id', 'ASSIGNED', 'CONTACTED', NULL,
+        NULL, 'Chủ nhà đồng ý cho khảo sát.', NULL, now() - interval '1 day');
 
 -- The one territory: E2E Sale looks after An Hải, assigned by E2E Admin (only an ADMIN assigns wards), with its change.
 INSERT INTO sale_territories (ward_code, user_id, assigned_by, assigned_at)

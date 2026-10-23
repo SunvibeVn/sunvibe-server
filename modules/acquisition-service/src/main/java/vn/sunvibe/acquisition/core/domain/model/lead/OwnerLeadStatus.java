@@ -12,7 +12,10 @@ public enum OwnerLeadStatus {
     ASSIGNED,
     /** Staff have spoken with the owner. */
     CONTACTED,
-    /** A visit to the property is planned. */
+    /**
+     * A survey of the property is booked, or a visit was recorded and the survey work goes on (survey-schedule
+     * BR-3). Reached only through survey commands, never by a manual status change.
+     */
     SURVEY_SCHEDULED,
     /** The owner and the property are confirmed as suitable for the platform. */
     QUALIFIED,
@@ -30,10 +33,11 @@ public enum OwnerLeadStatus {
     WITHDRAWN;
 
     /**
-     * Open leads: still waiting for contact or in contact with the owner.
+     * Open leads: still waiting for contact, in contact with the owner or with survey work going on
+     * (survey-schedule BR-3). Open leads take notes and reassignments and count for duplicate detection.
      */
     public boolean isOpen() {
-        return this == NEW || this == ASSIGNED || this == CONTACTED || this == ON_HOLD;
+        return this == NEW || this == ASSIGNED || this == CONTACTED || this == ON_HOLD || this == SURVEY_SCHEDULED;
     }
 
     /** Closed without becoming an onboarded owner. */

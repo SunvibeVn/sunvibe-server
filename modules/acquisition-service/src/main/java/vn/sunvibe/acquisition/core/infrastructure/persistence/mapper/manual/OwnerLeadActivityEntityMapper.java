@@ -30,7 +30,9 @@ public class OwnerLeadActivityEntityMapper {
                 entity.getToAssigneeId(),
                 entity.getNote(),
                 entity.getNextActionAt(),
-                entity.getOccurredAt()
+                entity.getOccurredAt(),
+                entity.getReferenceId(),
+                entity.getReferenceNo()
         );
     }
 
@@ -52,6 +54,8 @@ public class OwnerLeadActivityEntityMapper {
                 .note(domain.getNote())
                 .nextActionAt(domain.getNextActionAt())
                 .occurredAt(domain.getOccurredAt())
+                .referenceId(domain.getReferenceId())
+                .referenceNo(domain.getReferenceNo())
                 .build();
     }
 }

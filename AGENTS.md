@@ -25,7 +25,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   creates the CUSTOMER, SALE, SALE_LEADER 0900000103 and ADMIN 0900000104 accounts),
   then npm run e2e in sunvibe-ui with the same env vars. Never commit the passwords. Both seed scripts refuse a
   server that is not on this machine (psql host other than localhost, 127.0.0.1, ::1 or a socket), even with target=local.
-- E2E lead fixtures (local DB only; run AFTER the accounts seed, which it needs): ten owner leads, one territory,
+- E2E lead fixtures (local DB only; run AFTER the accounts seed, which it needs): twelve owner leads, one territory,
   fixed ids: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v target=local -f scripts/dev/seed-e2e-owner-leads.sql
   (idempotent: deletes and re-inserts only its own fixture rows). `npm run e2e:workspace` in sunvibe-ui (the lead
   queue workspace) uses both seeds.
@@ -41,7 +41,10 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - modules/auth-service: login, refresh-token rotation, registration, contact verification, password reset, audit, rate limit.
 - modules/property-service: properties (prices, images, amenities, rules, documents, availability), units and
   ownership, the province/ward catalog.
-- modules/acquisition-service: owner intake (public form), owner leads, ward territories and the staff lead queue.
+- modules/acquisition-service: owner intake (public form), owner leads, ward territories, the staff lead queue
+  and the requirement change of a lead.
+- modules/survey-service: survey appointments of owner leads (booking, change, confirmation, cancellation, visit,
+  re-survey, resume) and the staff survey list; it moves leads only through the use case acquisition publishes.
 - modules/listing-service, modules/notification-service: empty placeholders (target names, ADR-003). A new module must be added to settings.gradle.kts and app/build.gradle.kts.
 
 ## Architecture

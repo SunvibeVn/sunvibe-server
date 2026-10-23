@@ -23,12 +23,16 @@ class OwnerLeadStatusChangeTest {
     private static final Instant NEXT_ACTION = Instant.parse("2026-11-01T09:00:00Z");
     private static final List<OwnerLeadStatus> CLOSING = List.of(DUPLICATE, REJECTED, WITHDRAWN);
 
-    /** The table of acquisition module brief BR-3, written out per source state. */
+    /**
+     * The table of acquisition module brief BR-3, written out per source state, with the survey row of
+     * survey-schedule BR-3 (survey-schedule spec 4.3): SURVEY_SCHEDULED is never a manual target.
+     */
     private static final Map<OwnerLeadStatus, List<OwnerLeadStatus>> TABLE = Map.of(
             NEW, CLOSING,
             ASSIGNED, List.of(CONTACTED, ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN),
             CONTACTED, List.of(ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN),
-            ON_HOLD, List.of(CONTACTED, DUPLICATE, REJECTED, WITHDRAWN));
+            ON_HOLD, List.of(CONTACTED, DUPLICATE, REJECTED, WITHDRAWN),
+            SURVEY_SCHEDULED, List.of(ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN));
 
     private static List<OwnerLeadStatus> tableFor(OwnerLeadStatus from) {
         return TABLE.getOrDefault(from, List.of());
@@ -65,10 +69,36 @@ class OwnerLeadStatusChangeTest {
 
     @Test
     void allowedNextStatuses_closedAndUnusedStates_isEmpty() {
-        for (OwnerLeadStatus status : List.of(DUPLICATE, REJECTED, WITHDRAWN, VALIDATING, SURVEY_SCHEDULED,
-                QUALIFIED, AGREEMENT_PENDING, ONBOARDED)) {
+        for (OwnerLeadStatus status : List.of(DUPLICATE, REJECTED, WITHDRAWN, VALIDATING, QUALIFIED,
+                AGREEMENT_PENDING, ONBOARDED)) {
             assertEquals(List.of(), lead(status, ASSIGNEE).allowedNextStatuses(), status.name());
         }
+    }
+
+    /** survey-schedule BR-3, B-2 (W15-14): survey work is only put on hold or closed by hand. */
+    @Test
+    void surveyScheduled_allowsHoldAndClosingOnly() {
+        assertEquals(List.of(ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN),
+                lead(SURVEY_SCHEDULED, ASSIGNEE).allowedNextStatuses());
+
+        for (OwnerLeadStatus from : List.of(ASSIGNED, CONTACTED, ON_HOLD, SURVEY_SCHEDULED)) {
+            OwnerLead lead = lead(from, ASSIGNEE);
+            InvalidLeadTransitionException ex = assertThrows(InvalidLeadTransitionException.class,
+                    () -> lead.changeStatus(SURVEY_SCHEDULED, null, null, null, null), from.name());
+            assertEquals(SURVEY_SCHEDULED, ex.getTo());
+            assertEquals(tableFor(from), ex.getAllowed(), from.name());
+        }
+    }
+
+    @Test
+    void changeStatus_surveyScheduledToOnHold_keepsTheOptionalNote() {
+        OwnerLead lead = lead(SURVEY_SCHEDULED, ASSIGNEE);
+
+        LeadChange change = lead.changeStatus(ON_HOLD, null, null, "x".repeat(2000), null);
+
+        assertEquals(ON_HOLD, lead.getStatus());
+        assertEquals(SURVEY_SCHEDULED, change.fromStatus());
+        assertEquals(2000, change.note().length());
     }
 
     @Test

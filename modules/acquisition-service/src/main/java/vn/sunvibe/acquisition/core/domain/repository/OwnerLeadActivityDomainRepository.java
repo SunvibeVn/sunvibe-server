@@ -2,11 +2,13 @@ package vn.sunvibe.acquisition.core.domain.repository;
 
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Domain repository of the lead history. Insert-only: an activity is never updated or deleted.
@@ -23,4 +25,10 @@ public interface OwnerLeadActivityDomainRepository {
      * an empty input returns an empty map without a query.
      */
     Map<String, Instant> findLatestOccurredAt(Collection<String> leadIds);
+
+    /**
+     * The time of the latest history entry that moved the lead to the given status (for example the moment it went on
+     * hold), or empty when no entry did.
+     */
+    Optional<Instant> findLatestOccurredAtOfStatus(OwnerLeadId leadId, OwnerLeadStatus toStatus);
 }

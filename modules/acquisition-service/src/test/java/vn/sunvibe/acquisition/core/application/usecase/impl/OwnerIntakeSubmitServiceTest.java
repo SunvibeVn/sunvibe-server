@@ -676,7 +676,7 @@ class OwnerIntakeSubmitServiceTest {
                 OwnerLeadIntent.LONG_TERM_RENT, OwnerLeadSource.WEB, "Old Owner", PhoneNumber.parse(phone), null,
                 "48", "Đà Nẵng", HAI_CHAU.code(), HAI_CHAU.name(), address, OwnerLead.addressKey(address),
                 Optional.empty(), null, Optional.empty(), null, null, null, ConsentRecordId.generate(), "{}",
-                status == OwnerLeadStatus.NEW ? null : SALE_USER, null, null, null, createdAt, createdAt, null);
+                status == OwnerLeadStatus.NEW ? null : SALE_USER, null, null, null, createdAt, createdAt, null, 1);
         leads.save(lead);
         return lead;
     }

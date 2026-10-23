@@ -9,7 +9,8 @@ import java.time.Instant;
 
 /**
  * One entry in the history of an owner lead: what happened, who did it (empty for the system) and when. The id is a
- * Snowflake number given by the caller.
+ * Snowflake number given by the caller. Entries of survey and requirement commands carry no text, only the reference
+ * of the survey appointment they concern (survey-schedule BR-8, spec 4.9).
  */
 public final class OwnerLeadActivity {
 
@@ -24,10 +25,13 @@ public final class OwnerLeadActivity {
     private final String note;
     private final Instant nextActionAt;
     private final Instant occurredAt;
+    private final String referenceId;
+    private final Integer referenceNo;
 
     private OwnerLeadActivity(Long id, OwnerLeadId leadId, OwnerLeadActivityType type, String actorUserId,
                               OwnerLeadStatus fromStatus, OwnerLeadStatus toStatus, String fromAssigneeId,
-                              String toAssigneeId, String note, Instant nextActionAt, Instant occurredAt) {
+                              String toAssigneeId, String note, Instant nextActionAt, Instant occurredAt,
+                              String referenceId, Integer referenceNo) {
         this.id = required(id, "id");
         this.leadId = required(leadId, "leadId");
         this.type = required(type, "type");
@@ -39,6 +43,11 @@ public final class OwnerLeadActivity {
         this.note = note;
         this.nextActionAt = nextActionAt;
         this.occurredAt = required(occurredAt, "occurredAt");
+        if ((referenceId == null) != (referenceNo == null)) {
+            throw new IllegalArgumentException("referenceId and referenceNo come together.");
+        }
+        this.referenceId = referenceId;
+        this.referenceNo = referenceNo;
     }
 
     /**
@@ -46,7 +55,7 @@ public final class OwnerLeadActivity {
      */
     public static OwnerLeadActivity submitted(Long id, OwnerLeadId leadId) {
         return new OwnerLeadActivity(id, leadId, OwnerLeadActivityType.SUBMITTED, null, null, null, null, null, null,
-                null, AppClock.currentUTC());
+                null, AppClock.currentUTC(), null, null);
     }
 
     /**
@@ -54,7 +63,7 @@ public final class OwnerLeadActivity {
      */
     public static OwnerLeadActivity autoAssigned(Long id, OwnerLeadId leadId, String toAssigneeId) {
         return new OwnerLeadActivity(id, leadId, OwnerLeadActivityType.AUTO_ASSIGNED, null, OwnerLeadStatus.NEW,
-                OwnerLeadStatus.ASSIGNED, null, toAssigneeId, null, null, AppClock.currentUTC());
+                OwnerLeadStatus.ASSIGNED, null, toAssigneeId, null, null, AppClock.currentUTC(), null, null);
     }
 
     /**
@@ -64,7 +73,7 @@ public final class OwnerLeadActivity {
                                          Instant occurredAt) {
         return new OwnerLeadActivity(id, leadId, change.type(), actorUserIdOrNull, change.fromStatus(),
                 change.toStatus(), change.fromAssigneeId(), change.toAssigneeId(), change.note(),
-                change.nextActionAt(), occurredAt);
+                change.nextActionAt(), occurredAt, change.referenceId(), change.referenceNo());
     }
 
     /**
@@ -73,9 +82,10 @@ public final class OwnerLeadActivity {
     public static OwnerLeadActivity load(Long id, OwnerLeadId leadId, OwnerLeadActivityType type, String actorUserId,
                                          OwnerLeadStatus fromStatus, OwnerLeadStatus toStatus,
                                          String fromAssigneeId, String toAssigneeId, String note,
-                                         Instant nextActionAt, Instant occurredAt) {
+                                         Instant nextActionAt, Instant occurredAt, String referenceId,
+                                         Integer referenceNo) {
         return new OwnerLeadActivity(id, leadId, type, actorUserId, fromStatus, toStatus, fromAssigneeId,
-                toAssigneeId, note, nextActionAt, occurredAt);
+                toAssigneeId, note, nextActionAt, occurredAt, referenceId, referenceNo);
     }
 
     // ==================== Getters ====================
@@ -122,6 +132,16 @@ public final class OwnerLeadActivity {
 
     public Instant getOccurredAt() {
         return occurredAt;
+    }
+
+    /** The id of the survey appointment the entry concerns, or null. */
+    public String getReferenceId() {
+        return referenceId;
+    }
+
+    /** The number of that appointment within the lead, or null. */
+    public Integer getReferenceNo() {
+        return referenceNo;
     }
 
     private static <T> T required(T value, String name) {
