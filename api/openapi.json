@@ -3639,8 +3639,11 @@
         "description" : "Record a new requirement (rental intent and price) of an owner lead",
         "properties" : {
           "askingPrice" : {
-            "type" : "null",
-            "$ref" : "#/components/schemas/AskingPriceRequest",
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/AskingPriceRequest"
+            }, {
+              "type" : "null"
+            } ],
             "description" : "The new price, its unit NIGHT for SHORT_TERM_RENT or MONTH for LONG_TERM_RENT; null for none"
           },
           "basis" : {
@@ -3918,8 +3921,11 @@
             "$ref" : "#/components/schemas/LeadIntentChangeBasis"
           },
           "fromAskingPrice" : {
-            "type" : "null",
-            "$ref" : "#/components/schemas/AskingPriceResponse"
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/AskingPriceResponse"
+            }, {
+              "type" : "null"
+            } ]
           },
           "fromIntent" : {
             "type" : "string",
@@ -3937,8 +3943,11 @@
             "type" : "string"
           },
           "toAskingPrice" : {
-            "type" : "null",
-            "$ref" : "#/components/schemas/AskingPriceResponse"
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/AskingPriceResponse"
+            }, {
+              "type" : "null"
+            } ]
           },
           "toIntent" : {
             "type" : "string",
