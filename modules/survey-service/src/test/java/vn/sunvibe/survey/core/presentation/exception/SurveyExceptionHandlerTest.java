@@ -5,14 +5,28 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import org.springframework.core.MethodParameter;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.TransactionSystemException;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.shared.dto.response.error.ValidationError;
 import vn.sunvibe.shared.logging.CorrelationId;
+import vn.sunvibe.survey.core.application.exception.ChecklistNotAllowedException;
+import vn.sunvibe.survey.core.application.exception.ChecklistNotFoundException;
+import vn.sunvibe.survey.core.application.exception.ChecklistReadOnlyException;
+import vn.sunvibe.survey.core.application.exception.ChecklistTakeoverRequiredException;
 import vn.sunvibe.survey.core.application.exception.InvalidSurveyStateException;
 import vn.sunvibe.survey.core.application.exception.NoCurrentVisitException;
 import vn.sunvibe.survey.core.application.exception.SurveyConcurrentModificationException;
@@ -21,9 +35,14 @@ import vn.sunvibe.survey.core.application.exception.SurveyNotAllowedException;
 import vn.sunvibe.survey.core.application.exception.SurveyorIneligibleException;
 import vn.sunvibe.survey.core.domain.exception.AppointmentAlreadyScheduledException;
 import vn.sunvibe.survey.core.domain.exception.AppointmentStateException;
+import vn.sunvibe.survey.core.domain.exception.ChecklistAlreadyStartedException;
+import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.exception.PerformerMismatchException;
+import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -131,6 +150,96 @@ class SurveyExceptionHandlerTest {
         assertCode(notAllowed, 409, "SURVEY_NOT_ALLOWED", "intent");
         assertEquals(List.of("SHORT_TERM_RENT", "LONG_TERM_RENT"),
                 notAllowed.getBody().errors().get(0).allowedValues());
+    }
+
+    // ==================== survey-checklist spec 7.3 ====================
+
+    @Test
+    void checklistValidation_is400WithEveryViolation() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new ChecklistValidationException(List.of(
+                new Violation("content.spaces.1.code", "content.spaces.1.code is already used."),
+                new Violation("content.observedAddress.value.wardCode", "Choose a ward of the province."))));
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals("VALIDATION_FAILED", response.getBody().code());
+        assertEquals(List.of("content.observedAddress.value.wardCode", "content.spaces.1.code"),
+                response.getBody().errors().stream().map(ValidationError::field).toList());
+    }
+
+    @Test
+    void checklistNotFound_is404WithAChecklistMessage() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new ChecklistNotFoundException());
+
+        assertCode(response, 404, "NOT_FOUND", null);
+        assertEquals("Checklist not found.", response.getBody().message());
+    }
+
+    @Test
+    void checklistRefusals_haveTheirCodesAndFields() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> intent = handle(
+                new ChecklistNotAllowedException("intent", List.of("LONG_TERM_RENT")));
+        assertCode(intent, 409, "CHECKLIST_NOT_ALLOWED", "intent");
+        assertEquals(List.of("LONG_TERM_RENT"), intent.getBody().errors().get(0).allowedValues());
+        assertCode(handle(new ChecklistNotAllowedException("holder", List.of())), 409, "CHECKLIST_NOT_ALLOWED",
+                "holder");
+        assertCode(handle(new ChecklistAlreadyStartedException(null)), 409, "CHECKLIST_ALREADY_STARTED", null);
+        assertCode(handle(new ChecklistReadOnlyException()), 409, "CHECKLIST_READ_ONLY", null);
+        assertCode(handle(new ChecklistTakeoverRequiredException()), 409, "CHECKLIST_TAKEOVER_REQUIRED", null);
+    }
+
+    @Test
+    void checklistConflicts_sayTheChecklistChanged() throws Exception {
+        for (String field : List.of("expectedVersion", "otherGroupVersions.parts")) {
+            ResponseEntity<ErrorResponse<ValidationError>> response = handle(
+                    new SurveyConcurrentModificationException(field));
+            assertCode(response, 409, "CONCURRENT_MODIFICATION", field);
+            assertEquals("This checklist changed since you opened it.", response.getBody().message());
+        }
+        assertEquals(SurveyExceptionHandler.CONCURRENT_MODIFICATION_MESSAGE,
+                handle(new SurveyConcurrentModificationException("expectedLeadVersion")).getBody().message());
+    }
+
+    @Test
+    void unknownKey_is400OnItsPath() throws Exception {
+        JsonMapper strict = JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).build();
+        JacksonException unknown = assertThrows(JacksonException.class,
+                () -> strict.readValue("{\"content\":{\"name\":\"x\",\"secret\":\"0905123456\"}}", Outer.class));
+
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(
+                new HttpMessageNotReadableException("JSON parse error", unknown, INPUT));
+
+        assertCode(response, 400, "VALIDATION_FAILED", "content.secret");
+        assertEquals("content.secret is not a known field.", response.getBody().errors().get(0).message());
+    }
+
+    @Test
+    void beanValidationIndexes_becomeDottedPaths() throws Exception {
+        BeanPropertyBindingResult result = new BeanPropertyBindingResult(new Outer(null), "request");
+        result.addError(new FieldError("request", "spaces[1].code", "Code is required."));
+        MethodParameter parameter = new MethodParameter(Outer.class.getDeclaredMethod("content"), -1);
+
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(
+                new MethodArgumentNotValidException(parameter, result));
+
+        assertCode(response, 400, "VALIDATION_FAILED", "spaces.1.code");
+    }
+
+    private static final HttpInputMessage INPUT = new HttpInputMessage() {
+        @Override
+        public InputStream getBody() {
+            return new ByteArrayInputStream(new byte[0]);
+        }
+
+        @Override
+        public HttpHeaders getHeaders() {
+            return new HttpHeaders();
+        }
+    };
+
+    record Outer(Inner content) {
+    }
+
+    record Inner(String name) {
     }
 
     @Test

@@ -45,6 +45,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.Coordinates;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyAppointmentRepository;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyHistoryRepositories;
+import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyLeadPort;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyorDirectory;
 import vn.sunvibe.shared.generator.id.IdGenerator;
@@ -97,7 +98,8 @@ class SurveyAppointmentCommandServiceTest {
                 .withEligible(LEADER, "Lead Er");
         IdGenerator<String> ulids = () -> UlidCreator.getMonotonicUlid().toString();
         IdGenerator<Long> snowflakes = new AtomicLong(5_000L)::incrementAndGet;
-        SurveyBlockAssembler assembler = new SurveyBlockAssembler(appointments, resumptions, directory);
+        SurveyBlockAssembler assembler = new SurveyBlockAssembler(appointments, resumptions, directory,
+                ChecklistServiceHarness.noChecklists(leads, directory));
         service = new SurveyAppointmentCommandService(appointments, resumptions, accessLogs, leads, directory,
                 assembler, ulids, snowflakes);
         start = Instant.now().truncatedTo(ChronoUnit.HOURS).plus(Duration.ofDays(1));

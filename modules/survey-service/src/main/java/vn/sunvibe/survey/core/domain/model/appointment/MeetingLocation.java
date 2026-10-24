@@ -1,11 +1,7 @@
 package vn.sunvibe.survey.core.domain.model.appointment;
 
+import vn.sunvibe.survey.core.domain.policy.PlaceComparison;
 import vn.sunvibe.survey.core.domain.policy.SurveyText;
-
-import java.text.Normalizer;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.regex.Pattern;
 
 /**
  * Where staff meet the owner (survey-schedule BR-7, spec C-3b): an address, a ward of the catalog with its province
@@ -16,7 +12,6 @@ public record MeetingLocation(String addressText, String provinceCode, String pr
                               String wardName, Coordinates coordinates) {
 
     public static final int MAX_ADDRESS_LENGTH = 255;
-    private static final Pattern WHITESPACE = Pattern.compile("\\s+", Pattern.UNICODE_CHARACTER_CLASS);
 
     public MeetingLocation {
         if (addressText == null || provinceCode == null || provinceName == null || wardCode == null
@@ -48,14 +43,8 @@ public record MeetingLocation(String addressText, String provinceCode, String pr
      * its ward or its pin differs.
      */
     public boolean differsFrom(LeadLocationSnapshot lead) {
-        return !addressKey(addressText).equals(addressKey(lead.addressDetail()))
-                || !wardCode.equals(lead.wardCode())
-                || !Objects.equals(coordinates, lead.coordinates());
-    }
-
-    private static String addressKey(String address) {
-        return WHITESPACE.matcher(Normalizer.normalize(address, Normalizer.Form.NFC).strip()).replaceAll(" ")
-                .toLowerCase(Locale.ROOT);
+        return PlaceComparison.differs(addressText, wardCode, coordinates, lead.addressDetail(), lead.wardCode(),
+                lead.coordinates());
     }
 
     @Override

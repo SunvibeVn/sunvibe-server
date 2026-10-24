@@ -1,5 +1,7 @@
 package vn.sunvibe.survey.core.application.query;
 
+import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStart;
+
 import java.util.List;
 import java.util.Map;
 
@@ -11,7 +13,8 @@ import java.util.Map;
  */
 public record SurveyBlock(String leadId, int intentCycle, BookingState booking, String currentVisitId,
                           boolean resumeAllowed, List<AppointmentView> appointments,
-                          List<ResumptionView> resumptions, Map<String, String> staffNames) {
+                          List<ResumptionView> resumptions, ChecklistStart checklistStart,
+                          Map<String, String> staffNames) {
 
     public SurveyBlock {
         appointments = List.copyOf(appointments);

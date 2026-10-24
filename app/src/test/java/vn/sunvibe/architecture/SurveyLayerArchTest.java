@@ -15,6 +15,7 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
+import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 
 /**
  * Layer direction inside survey-service (backend-architecture.md, layer-guide.md), the same rules as
@@ -80,7 +81,8 @@ class SurveyLayerArchTest {
 	void aggregateLoad_isCalledOnlyByPersistence() {
 		noClasses().that().resideOutsideOfPackage(ROOT + ".infrastructure.persistence..")
 				.and().resideOutsideOfPackage(ROOT + ".domain..")
-				.should().callMethodWhere(target(name("load")).and(target(owner(type(SurveyAppointment.class)))))
+				.should().callMethodWhere(target(name("load")).and(target(owner(type(SurveyAppointment.class)))
+						.or(target(owner(type(SurveyChecklist.class))))))
 				.allowEmptyShould(true)
 				.check(classes);
 	}

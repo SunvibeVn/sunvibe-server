@@ -25,6 +25,9 @@ public interface SurveyAppointmentDomainRepository {
 
     Optional<SurveyAppointment> findById(SurveyAppointmentId id);
 
+    /** The lead of an appointment by a scalar query, without loading it (survey-checklist spec 5.5). */
+    Optional<String> findLeadIdById(SurveyAppointmentId id);
+
     /** Every appointment of the lead, newest (highest number) first. */
     List<SurveyAppointment> findByLeadId(String leadId);
 

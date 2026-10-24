@@ -331,9 +331,9 @@ class AcquisitionPersistencePostgresTest {
 		OwnerLead lead = saveLead(plainLead("0901234567", "a", OwnerLeadStatus.NEW, T0));
 		OwnerLeadActivity later = OwnerLeadActivity.load(202610160002L, lead.getId(),
 				OwnerLeadActivityType.REASSIGNED, OTHER_USER, OwnerLeadStatus.ASSIGNED, OwnerLeadStatus.CONTACTED,
-				ASSIGNEE, OTHER_USER, "Called the owner", T1, T1, null, null);
+				ASSIGNEE, OTHER_USER, "Called the owner", T1, T1, null, null, null);
 		OwnerLeadActivity earlier = OwnerLeadActivity.load(202610160001L, lead.getId(),
-				OwnerLeadActivityType.SUBMITTED, null, null, null, null, null, null, null, T0, null, null);
+				OwnerLeadActivityType.SUBMITTED, null, null, null, null, null, null, null, T0, null, null, null);
 
 		activities.save(later);
 		activities.save(earlier);

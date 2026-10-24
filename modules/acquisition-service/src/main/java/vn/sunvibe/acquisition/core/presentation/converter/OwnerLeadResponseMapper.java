@@ -64,7 +64,8 @@ public class OwnerLeadResponseMapper {
         return new LeadActivityResponse(activity.type(), activity.actorUserId(), activity.actorName(),
                 activity.fromStatus(), activity.toStatus(), activity.fromAssigneeId(), activity.fromAssigneeName(),
                 activity.toAssigneeId(), activity.toAssigneeName(), activity.note(), activity.nextActionAt(),
-                activity.occurredAt(), activity.referenceId(), activity.referenceNo());
+                activity.occurredAt(), activity.referenceId(), activity.referenceNo(),
+                activity.referenceDetail());
     }
 
     private static OwnerLeadDetailResponse.IntentChangeResponse toIntentChange(IntentChangeView change) {

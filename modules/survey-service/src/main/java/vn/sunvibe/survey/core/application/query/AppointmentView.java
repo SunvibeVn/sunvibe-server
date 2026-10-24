@@ -28,20 +28,22 @@ public record AppointmentView(String id, String leadId, int appointmentNo, Appoi
                               boolean cannotBePerformed, List<Holder> holders, Confirmation confirmation,
                               VisitRecord visit, Cancellation cancellation, List<AppointmentRevision> revisions,
                               List<AppointmentEvent> events, String createdByUserId, Instant createdAt,
-                              long version) {
+                              long version, List<ChecklistSummaryView> checklists) {
 
     public AppointmentView {
         holders = List.copyOf(holders);
         revisions = List.copyOf(revisions);
         events = List.copyOf(events);
+        checklists = List.copyOf(checklists);
     }
 
     /**
      * The view of an appointment of a lead whose current intent cycle is given; {@code surveyorIneligible} is whether
-     * its surveyor can no longer take leads (it only flags a scheduled appointment, survey-schedule BR-6).
+     * its surveyor can no longer take leads (it only flags a scheduled appointment, survey-schedule BR-6);
+     * {@code checklists} are those of a VISITED appointment, newest first (survey-checklist spec 7.2).
      */
     public static AppointmentView of(SurveyAppointment appointment, int currentIntentCycle,
-                                     boolean surveyorIneligible) {
+                                     boolean surveyorIneligible, List<ChecklistSummaryView> checklists) {
         return new AppointmentView(appointment.getId().getValue(), appointment.getLeadId(),
                 appointment.getAppointmentNo(), appointment.getKind(),
                 appointment.getPreviousVisitId() == null ? null : appointment.getPreviousVisitId().getValue(),
@@ -52,7 +54,7 @@ public record AppointmentView(String id, String leadId, int appointmentNo, Appoi
                 appointment.holders(), appointment.getConfirmation(), appointment.getVisit(),
                 appointment.getCancellation(), appointment.getRevisions(), appointment.getEvents(),
                 appointment.getCreatedBy(), appointment.getCreatedAt(),
-                appointment.getVersion() == null ? 0L : appointment.getVersion());
+                appointment.getVersion() == null ? 0L : appointment.getVersion(), checklists);
     }
 
     @Override

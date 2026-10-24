@@ -28,6 +28,7 @@ import vn.sunvibe.survey.core.domain.policy.ListGroup;
 import vn.sunvibe.survey.core.domain.repository.PageResult;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyAppointmentRepository;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyHistoryRepositories;
+import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyLeadPort;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyorDirectory;
 import vn.sunvibe.shared.generator.id.IdGenerator;
@@ -75,7 +76,8 @@ class SurveyQueryServiceTest {
                 .withName(LEADER, "Lead Er");
         IdGenerator<Long> snowflakes = new AtomicLong(1_000L)::incrementAndGet;
         service = new SurveyQueryService(appointments, accessLogs, leads, directory,
-                new SurveyBlockAssembler(appointments, resumptions, directory), snowflakes);
+                new SurveyBlockAssembler(appointments, resumptions, directory, ChecklistServiceHarness.noChecklists(
+                        leads, directory)), snowflakes, ChecklistServiceHarness.noRecorder());
         start = Instant.now().truncatedTo(ChronoUnit.HOURS).plus(Duration.ofDays(1));
     }
 

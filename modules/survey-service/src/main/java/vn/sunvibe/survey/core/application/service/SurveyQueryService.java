@@ -12,6 +12,7 @@ import vn.sunvibe.survey.core.application.query.SurveyBlock;
 import vn.sunvibe.survey.core.application.query.SurveyListItem;
 import vn.sunvibe.survey.core.application.query.SurveyListQuery;
 import vn.sunvibe.survey.core.application.query.SurveyListScope;
+import vn.sunvibe.survey.core.application.shared.SecurityEventRecorder;
 import vn.sunvibe.survey.core.application.shared.SurveyBlockAssembler;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadCard;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
@@ -23,6 +24,9 @@ import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
+import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
+import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
+import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.policy.ListGroup;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.repository.PageResult;
@@ -56,23 +60,36 @@ public class SurveyQueryService implements SurveyQueryUseCase {
     private final SurveyorDirectoryPort directory;
     private final SurveyBlockAssembler assembler;
     private final IdGenerator<Long> snowflakes;
+    private final SecurityEventRecorder securityEvents;
 
     public SurveyQueryService(SurveyAppointmentDomainRepository appointments,
                               SurveyAccessLogDomainRepository accessLogs, SurveyLeadPort leads,
                               SurveyorDirectoryPort directory, SurveyBlockAssembler assembler,
-                              @Qualifier("Snowflake") IdGenerator<Long> snowflakes) {
+                              @Qualifier("Snowflake") IdGenerator<Long> snowflakes,
+                              SecurityEventRecorder securityEvents) {
         this.appointments = appointments;
         this.accessLogs = accessLogs;
         this.leads = leads;
         this.directory = directory;
         this.assembler = assembler;
         this.snowflakes = snowflakes;
+        this.securityEvents = securityEvents;
     }
 
+    /**
+     * survey-checklist spec 4.10: a lead that exists but is hidden from the caller writes one LEAD event; an
+     * unknown lead writes none. The access-log row names the survey block (spec A-10).
+     */
     @Override
     public SurveyBlock block(SurveyViewer viewer, String leadId) {
-        LeadFacts lead = leads.findVisible(leadId, viewer).orElseThrow(SurveyLeadNotFoundException::new);
-        SurveyBlock block = assembler.assemble(lead);
+        LeadFacts lead = leads.findVisible(leadId, viewer).orElseThrow(() -> {
+            if (leads.leadExists(leadId)) {
+                securityEvents.refused(viewer.userId(), leadId, SecurityResourceType.LEAD, leadId, SecurityAction.READ,
+                        SecurityOutcome.NOT_VISIBLE);
+            }
+            return new SurveyLeadNotFoundException();
+        });
+        SurveyBlock block = assembler.assemble(lead, viewer);
         accessLogs.save(SurveyAccessLog.create(snowflakes.generateId(), lead.leadId(), viewer.userId(),
                 AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS)));
         return block;

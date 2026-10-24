@@ -45,6 +45,18 @@ public final class ErrorCode {
     /** The person named as having reached the property did not hold the appointment at that time. */
     public static final String PERFORMER_MISMATCH = "PERFORMER_MISMATCH";
 
+    /** A survey checklist cannot be started or taken over now: the visit, the intent, the lead status or the holder. */
+    public static final String CHECKLIST_NOT_ALLOWED = "CHECKLIST_NOT_ALLOWED";
+
+    /** The visit already has a survey checklist. */
+    public static final String CHECKLIST_ALREADY_STARTED = "CHECKLIST_ALREADY_STARTED";
+
+    /** The survey checklist can no longer be changed; the reason is on its next read. */
+    public static final String CHECKLIST_READ_ONLY = "CHECKLIST_READ_ONLY";
+
+    /** The caller is the new assignee and must take the survey checklist over before saving. */
+    public static final String CHECKLIST_TAKEOVER_REQUIRED = "CHECKLIST_TAKEOVER_REQUIRED";
+
     /** An unexpected server error; the details are only in the server log, found by the correlation id. */
     public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
 

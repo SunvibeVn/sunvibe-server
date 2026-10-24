@@ -45,4 +45,40 @@ public interface SurveyLeadUseCase {
     /** Check a meeting place by the intake location rules; broken rules are returned, never thrown. */
     MeetingPlaceCheck checkMeetingPlace(String provinceCode, String wardCode, BigDecimal latitude,
                                         BigDecimal longitude);
+
+    /**
+     * The same facts as {@link #findVisible}, read fresh under a PostgreSQL {@code FOR SHARE} row lock taken in the
+     * caller's transaction (survey-checklist spec 5.3, A-5): lead commands wait for the checklist command, while other
+     * checklist commands do not. It never updates the lead. Only inside a transaction (a share lock outside one would
+     * end at once).
+     */
+    Optional<SurveyLeadFacts> findVisibleForShare(String leadId, SurveyLeadViewer viewer);
+
+    /**
+     * Insert the History entry of a checklist command as an activity row only (survey-checklist spec 4.9, I-5): the
+     * lead row, its version and its status never change, and LAST UPDATE moves because the entry is the latest
+     * activity. The caller found the lead visible in the same transaction.
+     *
+     * @return the latest activity time read back after the insert, and the entry with the actor's name
+     */
+    SurveyChecklistActivityResult recordChecklistActivity(String leadId, SurveyChecklistActivity activity);
+
+    /**
+     * Whether a lead with this id exists, whoever may see it; false for an id that is not a ULID. Only to decide
+     * whether a refused survey-block read writes a security event (survey-checklist spec 4.10).
+     */
+    boolean leadExists(String leadId);
+
+    /**
+     * The values the owner's own web submission holds for the "owner's form" source (survey-checklist spec A-18,
+     * A-27); empty for a lead from another source. The caller found the lead visible in the same transaction.
+     */
+    Optional<SurveyLeadOwnerForm> ownerForm(String leadId);
+
+    /**
+     * The lead's staff as acquisition knows them (survey-checklist spec A-25): the current assignee and every user
+     * named on the lead's History (actor, previous and new assignee). The caller found the lead visible in the same
+     * transaction.
+     */
+    Set<String> leadStaffIds(String leadId);
 }

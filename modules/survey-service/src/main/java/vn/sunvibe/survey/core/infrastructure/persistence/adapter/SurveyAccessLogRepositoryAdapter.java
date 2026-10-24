@@ -31,13 +31,16 @@ public class SurveyAccessLogRepositoryAdapter implements SurveyAccessLogDomainRe
                 .leadId(log.leadId())
                 .userId(log.userId())
                 .accessedAt(log.accessedAt())
+                .resourceType(log.resourceTypeOrNull())
+                .resourceId(log.resourceIdOrNull())
                 .build());
     }
 
     @Override
     public List<SurveyAccessLog> findByLeadId(String leadId) {
         return jpaRepository.findByLeadIdOrderByAccessedAtAscIdAsc(leadId).stream()
-                .map(row -> new SurveyAccessLog(row.getId(), row.getLeadId(), row.getUserId(), row.getAccessedAt()))
+                .map(row -> new SurveyAccessLog(row.getId(), row.getLeadId(), row.getUserId(), row.getAccessedAt(),
+                        row.getResourceType(), row.getResourceId()))
                 .toList();
     }
 }

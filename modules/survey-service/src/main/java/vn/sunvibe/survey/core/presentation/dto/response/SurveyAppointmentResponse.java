@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSummaryResponse;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,7 +25,10 @@ public record SurveyAppointmentResponse(String id, String leadId, int appointmen
                                         SurveyVisitResponse visit, SurveyCancellationResponse cancellation,
                                         List<SurveyRevisionResponse> revisions, List<SurveyEventResponse> events,
                                         String createdByUserId, String createdByName, Instant createdAt,
-                                        long version) {
+                                        long version,
+                                        @Schema(description = "The survey checklists of a VISITED appointment, "
+                                                + "newest first; empty otherwise (survey-checklist spec 7.2)")
+                                        List<ChecklistSummaryResponse> checklists) {
 
     @Override
     public String toString() {

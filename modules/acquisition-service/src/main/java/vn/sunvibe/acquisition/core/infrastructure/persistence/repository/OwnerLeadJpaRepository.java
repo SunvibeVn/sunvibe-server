@@ -1,7 +1,9 @@
 package vn.sunvibe.acquisition.core.infrastructure.persistence.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -23,6 +25,11 @@ public interface OwnerLeadJpaRepository
         extends JpaRepository<OwnerLeadEntity, String>, JpaSpecificationExecutor<OwnerLeadEntity> {
 
     boolean existsByRequestCode(String requestCode);
+
+    /** The lead with a PostgreSQL {@code FOR SHARE} row lock (survey-checklist spec 5.3). */
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("select l from OwnerLeadEntity l where l.id = :id")
+    Optional<OwnerLeadEntity> findForShareById(@Param("id") String id);
 
     Optional<OwnerLeadEntity> findFirstByPhoneNormalizedAndIntentAndWardCodeAndAddressKeyAndCreatedAtGreaterThanEqualOrderByCreatedAtDescIdDesc(
             String phoneNormalized, OwnerLeadIntent intent, String wardCode, String addressKey,

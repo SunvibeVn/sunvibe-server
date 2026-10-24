@@ -511,6 +511,27 @@ class AcquisitionQueuePersistencePostgresTest {
 		assertEquals(T1, row.getOccurredAt());
 	}
 
+	/** survey-checklist spec A-13: a checklist History entry keeps its type, checklist reference and group. */
+	@Test
+	void checklistActivity_roundTrip() {
+		OwnerLead lead = saveLead(lead(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A, WARD_1, T0));
+		activities.save(OwnerLeadActivity.checklistEvent(9201L, lead.getId(), OwnerLeadActivityType.CHECKLIST_SAVED,
+				SALE_A, "01CHECKLIST000000000000000", 3, "DIMENSIONS", T1));
+		activities.save(statusMove(9202L, lead.getId(), OwnerLeadStatus.CONTACTED, OwnerLeadStatus.SURVEY_SCHEDULED,
+				T0));
+
+		List<OwnerLeadActivity> history = activities.findByLeadIdOrderByOccurredAt(lead.getId());
+		assertEquals(2, history.size());
+		assertNull(history.get(0).getReferenceDetail());
+		OwnerLeadActivity saved = history.get(1);
+		assertEquals(OwnerLeadActivityType.CHECKLIST_SAVED, saved.getType());
+		assertEquals(SALE_A, saved.getActorUserId());
+		assertEquals("01CHECKLIST000000000000000", saved.getReferenceId());
+		assertEquals(3, saved.getReferenceNo());
+		assertEquals("DIMENSIONS", saved.getReferenceDetail());
+		assertEquals(T1, saved.getOccurredAt());
+	}
+
 	@Test
 	void intentChange_withPricesOnBothSides_roundTrips() {
 		OwnerLead lead = saveLead(lead(OwnerLeadStatus.ASSIGNED, SALE_A, WARD_1, T0));
@@ -563,7 +584,7 @@ class AcquisitionQueuePersistencePostgresTest {
 	private static OwnerLeadActivity statusMove(long id, OwnerLeadId leadId, OwnerLeadStatus from,
 			OwnerLeadStatus to, Instant occurredAt) {
 		return OwnerLeadActivity.load(id, leadId, OwnerLeadActivityType.STATUS_CHANGED, SALE_A, from, to, null, null,
-				null, null, occurredAt, null, null);
+				null, null, occurredAt, null, null, null);
 	}
 
 	// ==================== helpers ====================
@@ -641,7 +662,7 @@ class AcquisitionQueuePersistencePostgresTest {
 
 	private static OwnerLeadActivity note(long id, OwnerLeadId leadId, Instant occurredAt) {
 		return OwnerLeadActivity.load(id, leadId, OwnerLeadActivityType.NOTE_ADDED, SALE_A, null, null, null, null, "note",
-				null, occurredAt, null, null);
+				null, occurredAt, null, null, null);
 	}
 
 	private OwnerLead saveLead(OwnerLead lead) {

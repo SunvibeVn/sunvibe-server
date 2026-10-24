@@ -8,6 +8,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.MeetingLocation;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
+import vn.sunvibe.survey.core.domain.model.appointment.VisitRecordKind;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -53,5 +54,15 @@ public final class AppointmentFixture {
         return SurveyAppointment.book(SurveyAppointmentId.generate(), LEAD_ID, 1, AppointmentKind.FIRST, null, null,
                 SurveyIntent.LONG_TERM_RENT, 1, leadPlace(), details(START, 60, atLead()), null, SALE_A,
                 ownerConfirmed, ownerConfirmed ? "Owner agreed by phone" : null, SALE_A, BOOKED_AT);
+    }
+
+    /** A first survey of the intent, visited at the start by SALE_A, who records it. */
+    public static SurveyAppointment visited(SurveyIntent intent) {
+        SurveyAppointment appointment = SurveyAppointment.book(SurveyAppointmentId.generate(), LEAD_ID, 1,
+                AppointmentKind.FIRST, null, null, intent, 1, leadPlace(), details(START, 60, atLead()), null, SALE_A,
+                false, null, SALE_A, BOOKED_AT);
+        appointment.recordVisit(START, "Đã đến xem nhà", SALE_A, SALE_A, VisitRecordKind.OWN, null, null,
+                START.plusSeconds(3600));
+        return appointment;
     }
 }

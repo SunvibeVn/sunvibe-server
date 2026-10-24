@@ -4,11 +4,13 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.query.AppointmentView;
 import vn.sunvibe.survey.core.application.query.BookingBlock;
 import vn.sunvibe.survey.core.application.query.BookingState;
+import vn.sunvibe.survey.core.application.query.ChecklistSummaryView;
 import vn.sunvibe.survey.core.application.query.OverlapView;
 import vn.sunvibe.survey.core.application.query.ResumptionView;
 import vn.sunvibe.survey.core.application.query.SurveyBlock;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadCard;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
+import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.shared.external.staff.SurveyorDirectoryPort;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentEvent;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
@@ -16,8 +18,11 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentRevision;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.Holder;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.resumption.SurveyResumption;
 import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
+import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStart;
+import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStartPolicy;
 import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyResumptionDomainRepository;
 
@@ -47,12 +52,15 @@ public class SurveyBlockAssembler {
     private final SurveyAppointmentDomainRepository appointments;
     private final SurveyResumptionDomainRepository resumptions;
     private final SurveyorDirectoryPort directory;
+    private final ChecklistViewAssembler checklists;
 
     public SurveyBlockAssembler(SurveyAppointmentDomainRepository appointments,
-                                SurveyResumptionDomainRepository resumptions, SurveyorDirectoryPort directory) {
+                                SurveyResumptionDomainRepository resumptions, SurveyorDirectoryPort directory,
+                                ChecklistViewAssembler checklists) {
         this.appointments = appointments;
         this.resumptions = resumptions;
         this.directory = directory;
+        this.checklists = checklists;
     }
 
     /** The lead statuses a booking of this kind is made from (survey-schedule spec 4.5). */
@@ -60,13 +68,16 @@ public class SurveyBlockAssembler {
         return kind == AppointmentKind.RESURVEY ? RESURVEY_STATUSES : FIRST_SURVEY_STATUSES;
     }
 
-    /** The block of the lead, read with its appointments and resumptions. */
-    public SurveyBlock assemble(LeadFacts lead) {
-        return assemble(lead, appointments.findByLeadId(lead.leadId()));
+    /** The block of the lead as the viewer sees it, read with its appointments, resumptions and checklists. */
+    public SurveyBlock assemble(LeadFacts lead, SurveyViewer viewer) {
+        return assemble(lead, appointments.findByLeadId(lead.leadId()), viewer);
     }
 
-    /** The block of the lead from its appointments (any order). */
-    public SurveyBlock assemble(LeadFacts lead, List<SurveyAppointment> ofLead) {
+    /**
+     * The block of the lead from its appointments (any order), with the viewer's checklist start and each VISITED
+     * appointment's checklists (survey-checklist spec 7.2).
+     */
+    public SurveyBlock assemble(LeadFacts lead, List<SurveyAppointment> ofLead, SurveyViewer viewer) {
         Set<String> toCheck = new LinkedHashSet<>();
         if (lead.assignedUserId() != null) {
             toCheck.add(lead.assignedUserId());
@@ -80,11 +91,20 @@ public class SurveyBlockAssembler {
                 lead.assignedUserId() != null && eligible.contains(lead.assignedUserId()));
         boolean resumeAllowed = "ON_HOLD".equals(lead.status()) && currentVisit.isPresent();
 
+        boolean assigneeEligible = lead.assignedUserId() != null && eligible.contains(lead.assignedUserId());
+        Map<String, List<ChecklistSummaryView>> summaries = checklists.summaries(viewer, lead, ofLead,
+                assigneeEligible);
         List<AppointmentView> views = ofLead.stream()
                 .sorted(Comparator.comparingInt(SurveyAppointment::getAppointmentNo).reversed())
                 .map(appointment -> AppointmentView.of(appointment, lead.intentCycle(),
-                        !eligible.contains(appointment.getSurveyorUserId())))
+                        !eligible.contains(appointment.getSurveyorUserId()),
+                        summaries.getOrDefault(appointment.getId().getValue(), List.of())))
                 .toList();
+        boolean currentVisitHasDraft = currentVisit.isPresent() && summaries.getOrDefault(
+                currentVisit.get().getId().getValue(), List.of()).stream()
+                .anyMatch(summary -> summary.status() == ChecklistStatus.DRAFT);
+        ChecklistStart checklistStart = ChecklistStartPolicy.of(currentVisit, currentVisitHasDraft, lead.status(),
+                lead.assignedUserId(), assigneeEligible, viewer.userId());
         Map<String, Integer> numbers = new HashMap<>();
         ofLead.forEach(appointment -> numbers.put(appointment.getId().getValue(), appointment.getAppointmentNo()));
         List<SurveyResumption> rows = new ArrayList<>(resumptions.findByLeadIdOrderByOccurredAt(lead.leadId()));
@@ -99,7 +119,7 @@ public class SurveyBlockAssembler {
         Map<String, String> names = staffIds.isEmpty() ? Map.of() : directory.displayNames(staffIds);
         return new SurveyBlock(lead.leadId(), lead.intentCycle(), booking,
                 currentVisit.map(visit -> visit.getId().getValue()).orElse(null), resumeAllowed, views,
-                resumptionViews, names);
+                resumptionViews, checklistStart, names);
     }
 
     /**
@@ -158,6 +178,10 @@ public class SurveyBlockAssembler {
                 ids.add(view.cancellation().cancelledBy());
             }
             view.revisions().stream().map(AppointmentRevision::actorUserId).forEach(ids::add);
+            for (ChecklistSummaryView summary : view.checklists()) {
+                ids.add(summary.holderUserId());
+                ids.add(summary.updatedByUserIdOrNull());
+            }
             for (AppointmentEvent event : view.events()) {
                 ids.add(event.actorUserId());
                 ids.add(event.fromSurveyorUserId());

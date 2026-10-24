@@ -4,14 +4,23 @@ import org.hibernate.annotations.Immutable;
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentHistoryDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyChecklistTakeoverDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyResumptionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveySecurityEventDomainRepository;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyAccessLogRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyAppointmentHistoryRepositoryAdapter;
+import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistSaveRepositoryAdapter;
+import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistTakeoverRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyResumptionRepositoryAdapter;
+import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveySecurityEventRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAccessLogEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmentEventEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmentRevisionEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistSaveEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistTakeoverEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyResumptionEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveySecurityEventEntity;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -34,7 +43,8 @@ class InsertOnlyRepositoriesTest {
     @Test
     void entities_ofTheFourHistories_areHibernateImmutable() {
         for (Class<?> entity : List.of(SurveyAppointmentRevisionEntity.class, SurveyAppointmentEventEntity.class,
-                SurveyResumptionEntity.class, SurveyAccessLogEntity.class)) {
+                SurveyResumptionEntity.class, SurveyAccessLogEntity.class, SurveyChecklistTakeoverEntity.class,
+                SurveyChecklistSaveEntity.class, SurveySecurityEventEntity.class)) {
             assertNotNull(entity.getAnnotation(Immutable.class), entity.getSimpleName() + " must be @Immutable");
         }
     }
@@ -42,7 +52,9 @@ class InsertOnlyRepositoriesTest {
     @Test
     void ports_ofTheHistories_declareOnlySaveAndFindMethods() {
         for (Class<?> port : List.of(SurveyAppointmentHistoryDomainRepository.class,
-                SurveyResumptionDomainRepository.class, SurveyAccessLogDomainRepository.class)) {
+                SurveyResumptionDomainRepository.class, SurveyAccessLogDomainRepository.class,
+                SurveyChecklistTakeoverDomainRepository.class, SurveyChecklistSaveDomainRepository.class,
+                SurveySecurityEventDomainRepository.class)) {
             Method[] methods = port.getDeclaredMethods();
             assertTrue(methods.length > 0, port.getSimpleName() + " declares no method");
             for (Method method : methods) {
@@ -55,7 +67,9 @@ class InsertOnlyRepositoriesTest {
     @Test
     void adapters_ofTheHistories_declareNoUpdateDeleteRemoveOrMerge() {
         for (Class<?> adapter : List.of(SurveyAppointmentHistoryRepositoryAdapter.class,
-                SurveyResumptionRepositoryAdapter.class, SurveyAccessLogRepositoryAdapter.class)) {
+                SurveyResumptionRepositoryAdapter.class, SurveyAccessLogRepositoryAdapter.class,
+                SurveyChecklistTakeoverRepositoryAdapter.class, SurveyChecklistSaveRepositoryAdapter.class,
+                SurveySecurityEventRepositoryAdapter.class)) {
             Arrays.stream(adapter.getDeclaredMethods())
                     .filter(method -> Modifier.isPublic(method.getModifiers()))
                     .forEach(method -> assertFalse(

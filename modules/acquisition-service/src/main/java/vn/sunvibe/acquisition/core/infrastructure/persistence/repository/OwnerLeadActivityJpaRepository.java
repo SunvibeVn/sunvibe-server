@@ -32,6 +32,15 @@ public interface OwnerLeadActivityJpaRepository extends JpaRepository<OwnerLeadA
     Instant findLatestOccurredAtOfStatus(@Param("leadId") String leadId,
                                          @Param("toStatus") OwnerLeadStatus toStatus);
 
+    /** The distinct non-null actor and assignee ids of the lead's entries (survey-checklist spec A-25). */
+    @Query(value = "select actor_user_id from owner_lead_activities where lead_id = :leadId"
+            + " and actor_user_id is not null"
+            + " union select from_assignee_id from owner_lead_activities where lead_id = :leadId"
+            + " and from_assignee_id is not null"
+            + " union select to_assignee_id from owner_lead_activities where lead_id = :leadId"
+            + " and to_assignee_id is not null", nativeQuery = true)
+    List<String> findStaffIds(@Param("leadId") String leadId);
+
     interface LatestActivity {
         String getLeadId();
 

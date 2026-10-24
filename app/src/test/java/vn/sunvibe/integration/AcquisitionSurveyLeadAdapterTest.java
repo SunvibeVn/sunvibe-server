@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -17,6 +18,10 @@ import org.junit.jupiter.api.Test;
 
 import vn.sunvibe.acquisition.core.application.usecase.survey.MeetingPlaceCheck;
 import vn.sunvibe.acquisition.core.application.usecase.survey.MeetingPlaceViolation;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistActivity;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistActivityResult;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistEvent;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistHistoryEntry;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadAccess;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadCard;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadEvent;
@@ -25,11 +30,15 @@ import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadHistoryE
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadMove;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadMoveRefusedException;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadMoveResult;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadOwnerForm;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadPlace;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadTarget;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadUseCase;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadVersionConflictException;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadViewer;
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity;
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityResult;
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityType;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMove;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveEvent;
@@ -37,6 +46,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveRefusedEx
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveResult;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveTarget;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadVersionConflictException;
+import vn.sunvibe.survey.core.application.shared.external.lead.OwnerFormFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.PlaceCheck;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.shared.external.lead.ViewerAccess;
@@ -95,6 +105,42 @@ class AcquisitionSurveyLeadAdapterTest {
 					? new MeetingPlaceCheck(null, null, null, null,
 							List.of(new MeetingPlaceViolation("wardCode", "Ward is not in the catalog.")))
 					: new MeetingPlaceCheck("Da Nang", "Hai Chau", latitude, longitude, List.of());
+		}
+
+		@Override
+		public Optional<SurveyLeadFacts> findVisibleForShare(String leadId, SurveyLeadViewer viewer) {
+			calls.add("share:" + leadId);
+			return findVisible(leadId, viewer);
+		}
+
+		@Override
+		public SurveyChecklistActivityResult recordChecklistActivity(String leadId, SurveyChecklistActivity activity) {
+			calls.add(activity);
+			return new SurveyChecklistActivityResult(AT, new SurveyChecklistHistoryEntry(activity.event().name(),
+					activity.actorUserId(), "Sale A", activity.checklistId(), activity.checklistNo(),
+					activity.detailOrNull(), activity.occurredAt()));
+		}
+
+		@Override
+		public boolean leadExists(String leadId) {
+			calls.add("exists:" + leadId);
+			return LEAD.equals(leadId);
+		}
+
+		@Override
+		public Optional<SurveyLeadOwnerForm> ownerForm(String leadId) {
+			calls.add("form:" + leadId);
+			return LEAD.equals(leadId)
+					? Optional.of(new SurveyLeadOwnerForm(AT.minusSeconds(3600), "12 Bach Dang", "48", "20194",
+							new BigDecimal("16.054407"), new BigDecimal("108.202167"), 15_000_000L,
+							LocalDate.parse("2026-11-01")))
+					: Optional.empty();
+		}
+
+		@Override
+		public Set<String> leadStaffIds(String leadId) {
+			calls.add("staff:" + leadId);
+			return Set.of(SALE);
 		}
 	});
 
@@ -159,6 +205,70 @@ class AcquisitionSurveyLeadAdapterTest {
 			assertEquals(target.name(), SurveyLeadTarget.valueOf(target.name()).name());
 		}
 		assertEquals(LeadMoveEvent.values().length, SurveyLeadEvent.values().length);
+	}
+
+	// ==================== checklist support (survey-checklist spec 5.4) ====================
+
+	@Test
+	void findVisibleForShare_forwardsToTheShareLockedRead() {
+		LeadFacts facts = adapter.findVisibleForShare(LEAD, new SurveyViewer(SALE, ViewerAccess.ALL)).orElseThrow();
+
+		assertEquals("share:" + LEAD, calls.get(0));
+		assertEquals(new SurveyLeadViewer(SALE, SurveyLeadAccess.ALL), calls.get(1));
+		assertEquals(7L, facts.version());
+		assertEquals(AT.minusSeconds(30), facts.onHoldSince());
+	}
+
+	@Test
+	void recordChecklistActivity_forwardsAndMapsTheEntry() {
+		ChecklistActivityResult result = adapter.recordChecklistActivity(LEAD, new ChecklistActivity(
+				ChecklistActivityType.CHECKLIST_SAVED, SALE, "01JCHECKLISTAAAAAAAAAAAAAA", 3, "TERMS", AT));
+
+		assertEquals(new SurveyChecklistActivity(SurveyChecklistEvent.CHECKLIST_SAVED, SALE,
+				"01JCHECKLISTAAAAAAAAAAAAAA", 3, "TERMS", AT), calls.get(0));
+		assertEquals(AT, result.lastActivityAt());
+		assertEquals("CHECKLIST_SAVED", result.entry().type());
+		assertEquals(SALE, result.entry().actorUserId());
+		assertEquals("Sale A", result.entry().actorName());
+		assertEquals("01JCHECKLISTAAAAAAAAAAAAAA", result.entry().referenceId());
+		assertEquals(3, result.entry().referenceNo());
+		assertEquals("TERMS", result.entry().referenceDetail());
+		assertEquals(AT, result.entry().occurredAt());
+	}
+
+	@Test
+	void everyChecklistActivityType_hasItsCounterpart() {
+		for (ChecklistActivityType type : ChecklistActivityType.values()) {
+			assertEquals(type.name(), SurveyChecklistEvent.valueOf(type.name()).name());
+		}
+		assertEquals(ChecklistActivityType.values().length, SurveyChecklistEvent.values().length);
+	}
+
+	@Test
+	void leadExistsAndLeadStaff_areForwarded() {
+		assertTrue(adapter.leadExists(LEAD));
+		assertEquals(false, adapter.leadExists("01JUNKNOWNAAAAAAAAAAAAAAAA"));
+		assertEquals(Set.of(SALE), adapter.leadStaffIds(LEAD));
+		assertEquals(List.of("exists:" + LEAD, "exists:01JUNKNOWNAAAAAAAAAAAAAAAA", "staff:" + LEAD), calls);
+	}
+
+	@Test
+	void ownerForm_mapsEveryField() {
+		OwnerFormFacts form = adapter.ownerForm(LEAD).orElseThrow();
+
+		assertEquals(AT.minusSeconds(3600), form.submittedAt());
+		assertEquals("12 Bach Dang", form.addressDetail());
+		assertEquals("48", form.provinceCode());
+		assertEquals("20194", form.wardCode());
+		assertEquals(new BigDecimal("16.054407"), form.latitude());
+		assertEquals(new BigDecimal("108.202167"), form.longitude());
+		assertEquals(15_000_000L, form.monthlyAskingPriceOrNull());
+		assertEquals(LocalDate.parse("2026-11-01"), form.availableFromOrNull());
+	}
+
+	@Test
+	void ownerForm_emptyStaysEmpty() {
+		assertEquals(Optional.empty(), adapter.ownerForm("01JUNKNOWNAAAAAAAAAAAAAAAA"));
 	}
 
 	@Test

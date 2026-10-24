@@ -67,6 +67,11 @@ public class InMemorySurveyAppointmentRepository implements SurveyAppointmentDom
     }
 
     @Override
+    public Optional<String> findLeadIdById(SurveyAppointmentId id) {
+        return Optional.ofNullable(stored.get(id)).map(SurveyAppointment::getLeadId);
+    }
+
+    @Override
     public List<SurveyAppointment> findByLeadId(String leadId) {
         return stored.values().stream()
                 .filter(appointment -> appointment.getLeadId().equals(leadId))

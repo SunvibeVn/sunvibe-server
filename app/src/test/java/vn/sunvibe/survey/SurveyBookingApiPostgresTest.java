@@ -119,6 +119,18 @@ class SurveyBookingApiPostgresTest {
 		assertEquals(null, row.get("note"));
 	}
 
+	/** survey-checklist PD-2: only the checklist requests are strict; the W15 bodies keep ignoring unknown keys. */
+	@Test
+	void booking_unknownKey_isStillIgnored() throws Exception {
+		String leadId = survey.lead(leader, sale, "CONTACTED");
+		Map<String, Object> body = survey.booking(leadId, SurveyApiTestSupport.startIn(24));
+		body.put("unexpectedKey", "ignored");
+
+		Result result = survey.book(sale, leadId, body);
+
+		assertEquals(201, result.status(), result.rawBody());
+	}
+
 	@Test
 	void book_fromAssigned_movesToSurveyScheduled() throws Exception {
 		String leadId = survey.lead(leader, sale, "ASSIGNED");

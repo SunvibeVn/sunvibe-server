@@ -50,13 +50,13 @@ class SurveyReadApiPostgresTest {
 			"wardName", "startAt", "durationMinutes", "surveyorUserId", "surveyorName", "confirmation", "status",
 			"group", "kind", "cannotBePerformed");
 	private static final List<String> BLOCK_FIELDS = List.of("leadId", "intentCycle", "booking", "currentVisitId",
-			"resumeAllowed", "appointments", "resumptions");
+			"resumeAllowed", "appointments", "resumptions", "checklistStart");
 	private static final List<String> APPOINTMENT_FIELDS = List.of("id", "leadId", "appointmentNo", "kind",
 			"previousVisitId", "resurveyReason", "intent", "intentCycle", "inCurrentCycle", "status", "startAt",
 			"durationMinutes", "meetingLocation", "leadLocation", "locationReason", "accessNote", "onSiteContactName",
 			"onSiteContactRole", "surveyorUserId", "surveyorName", "cannotBePerformed", "holders", "confirmation",
 			"visit", "cancellation", "revisions", "events", "createdByUserId", "createdByName", "createdAt",
-			"version");
+			"version", "checklists");
 
 	@Value("${local.server.port}")
 	private int port;

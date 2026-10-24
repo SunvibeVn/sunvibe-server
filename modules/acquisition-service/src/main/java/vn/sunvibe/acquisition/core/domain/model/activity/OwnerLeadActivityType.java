@@ -34,5 +34,11 @@ public enum OwnerLeadActivityType {
     /** Staff resumed the survey work of a held lead from its current visit (survey-schedule BR-11). */
     SURVEY_RESUMED,
     /** Staff recorded a new requirement (intent and price) agreed with the owner (survey-schedule US-5). */
-    INTENT_CHANGED
+    INTENT_CHANGED,
+    /** The assignee started a survey checklist draft on the current visit (survey-checklist US-1 AC-1, BR-15). */
+    CHECKLIST_STARTED,
+    /** A new assignee took a survey checklist draft over from its holder (survey-checklist BR-14, BR-15). */
+    CHECKLIST_TAKEN_OVER,
+    /** The holder saved one group of a survey checklist draft (survey-checklist BR-15). */
+    CHECKLIST_SAVED
 }

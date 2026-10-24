@@ -12,8 +12,8 @@ import java.util.Optional;
 /**
  * The current visit and the kind of the next booking (survey-schedule BR-10, BR-12, spec A-9, 4.5). The current visit
  * is the VISITED appointment with the highest number in the lead's current intent cycle; visits of earlier cycles never
- * count again (survey-schedule US-5 AC-4, E-6). Until survey-checklist exists every current visit can still be
- * completed.
+ * count again (survey-schedule US-5 AC-4, E-6). A DRAFT checklist keeps the visit completable: booking, cancel and
+ * resume answer as before (survey-checklist spec 4.3).
  */
 public final class CurrentVisitPolicy {
 

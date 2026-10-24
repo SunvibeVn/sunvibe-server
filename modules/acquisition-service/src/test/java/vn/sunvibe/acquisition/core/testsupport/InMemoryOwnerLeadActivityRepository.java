@@ -9,9 +9,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Hand-written fake of the lead history; keeps activities in the order they were saved. */
@@ -22,6 +24,22 @@ public class InMemoryOwnerLeadActivityRepository implements OwnerLeadActivityDom
 
     public List<OwnerLeadActivity> all() {
         return new ArrayList<>(activities);
+    }
+
+    @Override
+    public Set<String> findStaffIds(OwnerLeadId leadId) {
+        Set<String> ids = new LinkedHashSet<>();
+        for (OwnerLeadActivity activity : activities) {
+            if (activity.getLeadId().equals(leadId)) {
+                for (String id : new String[]{activity.getActorUserId(), activity.getFromAssigneeId(),
+                        activity.getToAssigneeId()}) {
+                    if (id != null) {
+                        ids.add(id);
+                    }
+                }
+            }
+        }
+        return ids;
     }
 
     /** The lead ids of each {@link #findLatestOccurredAt} call, in call order. */

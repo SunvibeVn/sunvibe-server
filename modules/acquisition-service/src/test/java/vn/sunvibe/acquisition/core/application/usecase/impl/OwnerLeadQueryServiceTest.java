@@ -376,7 +376,7 @@ class OwnerLeadQueryServiceTest {
                 new LeadChange(OwnerLeadActivityType.NOTE_ADDED, null, null, null, null, "Called the owner", later),
                 later));
         activities.save(OwnerLeadActivity.load(1L, lead.getId(), OwnerLeadActivityType.AUTO_ASSIGNED, null,
-                OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, null, SALE_A, null, null, T0, null, null));
+                OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, null, SALE_A, null, null, T0, null, null, null));
 
         OwnerLeadDetail detail = service.get(OWN_A, lead.getId().getValue());
 
@@ -550,13 +550,13 @@ class OwnerLeadQueryServiceTest {
     void detailMakesOneNameLookup() {
         OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_B, WARD_X);
         activities.save(OwnerLeadActivity.load(1L, lead.getId(), OwnerLeadActivityType.SUBMITTED, null, null,
-                OwnerLeadStatus.NEW, null, null, null, null, T0, null, null));
+                OwnerLeadStatus.NEW, null, null, null, null, T0, null, null, null));
         activities.save(OwnerLeadActivity.load(2L, lead.getId(), OwnerLeadActivityType.AUTO_ASSIGNED, null,
                 OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, null, SALE_A, null, null, T0.plusSeconds(1), null,
-                null));
+                null, null));
         activities.save(OwnerLeadActivity.load(3L, lead.getId(), OwnerLeadActivityType.REASSIGNED, LEADER,
                 OwnerLeadStatus.ASSIGNED, OwnerLeadStatus.ASSIGNED, SALE_A, SALE_B, null, null, T0.plusSeconds(2),
-                null, null));
+                null, null, null));
 
         OwnerLeadDetail detail = service.get(ALL_LEADER, lead.getId().getValue());
 
@@ -618,7 +618,7 @@ class OwnerLeadQueryServiceTest {
 
     private static OwnerLeadActivity note(long id, OwnerLead lead, Instant occurredAt) {
         return OwnerLeadActivity.load(id, lead.getId(), OwnerLeadActivityType.NOTE_ADDED, SALE_A, null, null, null,
-                null, "note", null, occurredAt, null, null);
+                null, "note", null, occurredAt, null, null, null);
     }
 
     private static List<String> componentNames(Class<? extends Record> type) {
