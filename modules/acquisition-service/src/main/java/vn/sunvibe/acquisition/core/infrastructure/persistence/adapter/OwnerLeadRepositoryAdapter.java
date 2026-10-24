@@ -53,6 +53,16 @@ public class OwnerLeadRepositoryAdapter implements OwnerLeadDomainRepository {
     }
 
     @Override
+    public Optional<OwnerLead> findByIdForShare(OwnerLeadId id) {
+        return jpaRepository.findForShareById(id.getValue()).map(mapper::toDomain);
+    }
+
+    @Override
+    public boolean existsById(OwnerLeadId id) {
+        return jpaRepository.existsById(id.getValue());
+    }
+
+    @Override
     public List<OwnerLead> findAllById(Collection<OwnerLeadId> ids) {
         if (ids.isEmpty()) {
             return List.of();

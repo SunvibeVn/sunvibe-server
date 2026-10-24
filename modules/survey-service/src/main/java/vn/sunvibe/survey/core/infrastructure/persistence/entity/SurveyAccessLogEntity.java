@@ -3,6 +3,7 @@ package vn.sunvibe.survey.core.infrastructure.persistence.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.Immutable;
+import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 
 import java.time.Instant;
 
@@ -38,4 +39,12 @@ public class SurveyAccessLogEntity {
 
     @Column(name = "accessed_at", nullable = false)
     private Instant accessedAt;
+
+    /** What the read showed (survey-checklist spec A-10); null on rows written before the checklist. */
+    @Column(name = "resource_type", length = 20)
+    @Enumerated(EnumType.STRING)
+    private AccessResourceType resourceType;
+
+    @Column(name = "resource_id", length = 40)
+    private String resourceId;
 }

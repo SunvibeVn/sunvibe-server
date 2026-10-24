@@ -24,6 +24,16 @@ public interface OwnerLeadDomainRepository {
 
     Optional<OwnerLead> findById(OwnerLeadId id);
 
+    /**
+     * The lead read with a {@code FOR SHARE} row lock held until the caller's transaction ends (survey-checklist spec
+     * 5.3, A-5): lead commands, which update the row, wait for it, while other share-locking readers do not. The lead
+     * row is never updated by it. Only inside a transaction.
+     */
+    Optional<OwnerLead> findByIdForShare(OwnerLeadId id);
+
+    /** Whether a lead with this id exists, whoever may see it. */
+    boolean existsById(OwnerLeadId id);
+
     /** The leads with these ids, in one query, in no particular order; unknown ids are skipped. */
     List<OwnerLead> findAllById(Collection<OwnerLeadId> ids);
 

@@ -6,11 +6,14 @@ import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;
+import java.util.EnumSet;
+import java.util.Set;
 
 /**
  * One entry in the history of an owner lead: what happened, who did it (empty for the system) and when. The id is a
  * Snowflake number given by the caller. Entries of survey and requirement commands carry no text, only the reference
- * of the survey appointment they concern (survey-schedule BR-8, spec 4.9).
+ * of the survey appointment they concern (survey-schedule BR-8, spec 4.9). Entries of survey checklists reference
+ * the checklist and, for a save, the group as the reference detail (survey-checklist BR-15, spec A-13).
  */
 public final class OwnerLeadActivity {
 
@@ -27,11 +30,16 @@ public final class OwnerLeadActivity {
     private final Instant occurredAt;
     private final String referenceId;
     private final Integer referenceNo;
+    private final String referenceDetail;
+
+    private static final Set<OwnerLeadActivityType> CHECKLIST_TYPES = EnumSet.of(
+            OwnerLeadActivityType.CHECKLIST_STARTED, OwnerLeadActivityType.CHECKLIST_TAKEN_OVER,
+            OwnerLeadActivityType.CHECKLIST_SAVED);
 
     private OwnerLeadActivity(Long id, OwnerLeadId leadId, OwnerLeadActivityType type, String actorUserId,
                               OwnerLeadStatus fromStatus, OwnerLeadStatus toStatus, String fromAssigneeId,
                               String toAssigneeId, String note, Instant nextActionAt, Instant occurredAt,
-                              String referenceId, Integer referenceNo) {
+                              String referenceId, Integer referenceNo, String referenceDetail) {
         this.id = required(id, "id");
         this.leadId = required(leadId, "leadId");
         this.type = required(type, "type");
@@ -48,6 +56,10 @@ public final class OwnerLeadActivity {
         }
         this.referenceId = referenceId;
         this.referenceNo = referenceNo;
+        if (referenceDetail != null && referenceId == null) {
+            throw new IllegalArgumentException("referenceDetail needs a reference.");
+        }
+        this.referenceDetail = referenceDetail;
     }
 
     /**
@@ -55,7 +67,7 @@ public final class OwnerLeadActivity {
      */
     public static OwnerLeadActivity submitted(Long id, OwnerLeadId leadId) {
         return new OwnerLeadActivity(id, leadId, OwnerLeadActivityType.SUBMITTED, null, null, null, null, null, null,
-                null, AppClock.currentUTC(), null, null);
+                null, AppClock.currentUTC(), null, null, null);
     }
 
     /**
@@ -63,7 +75,7 @@ public final class OwnerLeadActivity {
      */
     public static OwnerLeadActivity autoAssigned(Long id, OwnerLeadId leadId, String toAssigneeId) {
         return new OwnerLeadActivity(id, leadId, OwnerLeadActivityType.AUTO_ASSIGNED, null, OwnerLeadStatus.NEW,
-                OwnerLeadStatus.ASSIGNED, null, toAssigneeId, null, null, AppClock.currentUTC(), null, null);
+                OwnerLeadStatus.ASSIGNED, null, toAssigneeId, null, null, AppClock.currentUTC(), null, null, null);
     }
 
     /**
@@ -73,7 +85,28 @@ public final class OwnerLeadActivity {
                                          Instant occurredAt) {
         return new OwnerLeadActivity(id, leadId, change.type(), actorUserIdOrNull, change.fromStatus(),
                 change.toStatus(), change.fromAssigneeId(), change.toAssigneeId(), change.note(),
-                change.nextActionAt(), occurredAt, change.referenceId(), change.referenceNo());
+                change.nextActionAt(), occurredAt, change.referenceId(), change.referenceNo(), null);
+    }
+
+    /**
+     * A survey checklist event (survey-checklist BR-15, spec A-13): the actor, the checklist and its number and, only
+     * and always for a save, the group as the detail; no note, statuses or assignees, because the event never moves
+     * the lead.
+     *
+     * @throws IllegalArgumentException for a type other than the three checklist types, or a detail that does not
+     *                                  match the type
+     */
+    public static OwnerLeadActivity checklistEvent(long id, OwnerLeadId leadId, OwnerLeadActivityType type,
+                                                   String actorUserId, String checklistId, int checklistNo,
+                                                   String detailOrNull, Instant occurredAt) {
+        if (!CHECKLIST_TYPES.contains(type)) {
+            throw new IllegalArgumentException("Not a checklist activity type: " + type);
+        }
+        if ((type == OwnerLeadActivityType.CHECKLIST_SAVED) != (detailOrNull != null)) {
+            throw new IllegalArgumentException("Only a checklist save carries the group, and it always does.");
+        }
+        return new OwnerLeadActivity(id, leadId, type, required(actorUserId, "actorUserId"), null, null, null, null,
+                null, null, occurredAt, required(checklistId, "checklistId"), checklistNo, detailOrNull);
     }
 
     /**
@@ -83,9 +116,9 @@ public final class OwnerLeadActivity {
                                          OwnerLeadStatus fromStatus, OwnerLeadStatus toStatus,
                                          String fromAssigneeId, String toAssigneeId, String note,
                                          Instant nextActionAt, Instant occurredAt, String referenceId,
-                                         Integer referenceNo) {
+                                         Integer referenceNo, String referenceDetail) {
         return new OwnerLeadActivity(id, leadId, type, actorUserId, fromStatus, toStatus, fromAssigneeId,
-                toAssigneeId, note, nextActionAt, occurredAt, referenceId, referenceNo);
+                toAssigneeId, note, nextActionAt, occurredAt, referenceId, referenceNo, referenceDetail);
     }
 
     // ==================== Getters ====================
@@ -134,14 +167,19 @@ public final class OwnerLeadActivity {
         return occurredAt;
     }
 
-    /** The id of the survey appointment the entry concerns, or null. */
+    /** The id of the survey appointment or checklist the entry concerns, by type, or null. */
     public String getReferenceId() {
         return referenceId;
     }
 
-    /** The number of that appointment within the lead, or null. */
+    /** The number of that appointment or checklist within the lead, or null. */
     public Integer getReferenceNo() {
         return referenceNo;
+    }
+
+    /** The checklist group a CHECKLIST_SAVED entry concerns, or null. */
+    public String getReferenceDetail() {
+        return referenceDetail;
     }
 
     private static <T> T required(T value, String name) {

@@ -19,6 +19,10 @@ import java.util.Optional;
 @Repository
 public interface SurveyAppointmentJpaRepository extends JpaRepository<SurveyAppointmentEntity, String> {
 
+    /** The lead of an appointment without loading it (survey-checklist spec 5.5). */
+    @Query("select a.leadId from SurveyAppointmentEntity a where a.id = :id")
+    Optional<String> findLeadIdById(@Param("id") String id);
+
     String GROUP_RANK = "CASE WHEN a.start_at + make_interval(mins => a.duration_minutes) <= :now THEN 0"
             + " WHEN a.start_at < :tomorrowStart THEN 1 ELSE 2 END";
 

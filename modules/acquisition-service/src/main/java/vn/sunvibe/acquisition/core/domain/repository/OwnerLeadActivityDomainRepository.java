@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Domain repository of the lead history. Insert-only: an activity is never updated or deleted.
@@ -31,4 +32,10 @@ public interface OwnerLeadActivityDomainRepository {
      * hold), or empty when no entry did.
      */
     Optional<Instant> findLatestOccurredAtOfStatus(OwnerLeadId leadId, OwnerLeadStatus toStatus);
+
+    /**
+     * Every distinct staff id the lead's history names: actors and previous and new assignees, in one query
+     * (survey-checklist spec A-25).
+     */
+    Set<String> findStaffIds(OwnerLeadId leadId);
 }

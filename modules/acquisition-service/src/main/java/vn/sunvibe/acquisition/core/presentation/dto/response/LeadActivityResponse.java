@@ -32,11 +32,14 @@ public record LeadActivityResponse(
         String note,
         Instant nextActionAt,
         Instant occurredAt,
-        @Schema(description = "The survey appointment the entry concerns (survey-schedule); null when none",
-                nullable = true)
+        @Schema(description = "The survey appointment (survey types) or survey checklist (checklist types) the entry "
+                + "concerns; null when none", nullable = true)
         String referenceId,
-        @Schema(description = "That appointment's number within the lead; null when none", nullable = true)
-        Integer referenceNo) {
+        @Schema(description = "That appointment's or checklist's number within the lead; null when none",
+                nullable = true)
+        Integer referenceNo,
+        @Schema(description = "The checklist group a CHECKLIST_SAVED entry concerns; null otherwise", nullable = true)
+        String referenceDetail) {
 
     /** The note is staff text: never print it. */
     @Override

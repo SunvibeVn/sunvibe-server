@@ -43,6 +43,17 @@ public class LeadVisibility {
     }
 
     /**
+     * The same as {@link #findVisible}, read with a {@code FOR SHARE} row lock that lasts until the caller's
+     * transaction ends (survey-checklist spec 5.3). An id that is not a ULID is neither looked up nor locked.
+     */
+    public Optional<OwnerLead> findVisibleForShare(LeadViewer viewer, String leadId) {
+        if (leadId == null || !Ulid.isValid(leadId)) {
+            return Optional.empty();
+        }
+        return leads.findByIdForShare(OwnerLeadId.of(leadId)).filter(viewer::canSee);
+    }
+
+    /**
      * The viewer as the duplicate-candidate queries take it: the viewer's id when they see only their own leads,
      * empty when they see every lead.
      */

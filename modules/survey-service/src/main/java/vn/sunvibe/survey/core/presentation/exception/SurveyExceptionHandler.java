@@ -28,10 +28,15 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 import vn.sunvibe.shared.constant.error.ErrorCode;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.shared.dto.response.error.ValidationError;
 import vn.sunvibe.shared.logging.CorrelationId;
+import vn.sunvibe.survey.core.application.exception.ChecklistNotAllowedException;
+import vn.sunvibe.survey.core.application.exception.ChecklistNotFoundException;
+import vn.sunvibe.survey.core.application.exception.ChecklistReadOnlyException;
+import vn.sunvibe.survey.core.application.exception.ChecklistTakeoverRequiredException;
 import vn.sunvibe.survey.core.application.exception.InvalidSurveyStateException;
 import vn.sunvibe.survey.core.application.exception.NoCurrentVisitException;
 import vn.sunvibe.survey.core.application.exception.SurveyConcurrentModificationException;
@@ -40,6 +45,8 @@ import vn.sunvibe.survey.core.application.exception.SurveyNotAllowedException;
 import vn.sunvibe.survey.core.application.exception.SurveyorIneligibleException;
 import vn.sunvibe.survey.core.domain.exception.AppointmentAlreadyScheduledException;
 import vn.sunvibe.survey.core.domain.exception.AppointmentStateException;
+import vn.sunvibe.survey.core.domain.exception.ChecklistAlreadyStartedException;
+import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.exception.PerformerMismatchException;
 
@@ -54,11 +61,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
- * ADR-010 error bodies of the survey endpoints (survey-schedule spec 7.3 and the refusal table of 5.4): a stable code,
- * the failing fields ({@code []} when none) and the correlation id. Messages are English and never contain a
- * submitted value. 401 and 403 stay with Spring Security: its exceptions are rethrown. Nothing here logs request data.
+ * ADR-010 error bodies of the survey endpoints (survey-schedule spec 7.3 and the refusal table of 5.4, survey-checklist
+ * spec 7.3): a stable code, the failing fields ({@code []} when none) and the correlation id. Messages are English and
+ * never contain a submitted value. 401 and 403 stay with Spring Security: its exceptions are rethrown. Nothing here
+ * logs request data.
  */
 @RestControllerAdvice(basePackages = "vn.sunvibe.survey.core.presentation")
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -70,11 +79,16 @@ public class SurveyExceptionHandler {
     static final String REQUEST_NOT_PROCESSED_MESSAGE = "The request cannot be processed.";
     static final String NOT_FOUND_MESSAGE = "Lead or survey appointment not found.";
     static final String CONCURRENT_MODIFICATION_MESSAGE = "Someone else just updated this lead. Reload and try again.";
+    static final String CHECKLIST_CHANGED_MESSAGE = "This checklist changed since you opened it.";
     static final String STATE_MESSAGE = "This action is not allowed in the current status.";
     static final String INTERNAL_ERROR_MESSAGE = "Unexpected server error.";
     private static final String INVALID_VALUE_MESSAGE = "Value is not valid for this field.";
     /** How Jackson starts the message of a missing {@code @JsonProperty(required = true)} creator property. */
     private static final String MISSING_REQUIRED_PROPERTY = "Missing required creator property";
+    /** The version fields of the checklist commands (survey-checklist spec 7.3). */
+    private static final String CHECKLIST_VERSION = "expectedVersion";
+    private static final String OTHER_GROUP_VERSIONS = "otherGroupVersions.";
+    private static final Pattern INDEX = Pattern.compile("\\[(\\d+)]");
     private static final int MAX_CAUSE_DEPTH = 20;
     private static final int MAX_EXCEPTIONS_CHECKED = 50;
 
@@ -83,6 +97,14 @@ public class SurveyExceptionHandler {
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleInvalidBody(MethodArgumentNotValidException e) {
         return validationFailed(fieldErrors(e.getBindingResult().getFieldErrors()));
+    }
+
+    /** survey-checklist spec 5.5: every rule a checklist body breaks, each on its JSON path. */
+    @ExceptionHandler(ChecklistValidationException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleChecklistValidation(ChecklistValidationException e) {
+        return validationFailed(e.violations().stream()
+                .map(violation -> ValidationError.of(violation.path(), violation.message()))
+                .toList());
     }
 
     /** A value refused by a command or the domain; no field means the request as a whole (e.g. nothing changed). */
@@ -134,13 +156,17 @@ public class SurveyExceptionHandler {
 
     /**
      * A value Jackson could not convert is a validation error on its JSON path; a key that must be present but is
-     * missing (survey-schedule spec A-4) is "required" on its path; anything else is unreadable JSON.
+     * missing (survey-schedule spec A-4) is "required" on its path; a key a strict checklist body does not know
+     * (survey-checklist spec A-4, plan PD-2) is "not a known field" on its path; anything else is unreadable JSON.
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleUnreadableBody(HttpMessageNotReadableException e) {
         MismatchedInputException mismatch = findCause(e, MismatchedInputException.class);
         if (mismatch != null && !mismatch.getPath().isEmpty()) {
             String path = jsonPath(mismatch);
+            if (mismatch instanceof UnrecognizedPropertyException) {
+                return validationFailed(List.of(ValidationError.of(path, path + " is not a known field.")));
+            }
             boolean missingKey = mismatch.getOriginalMessage() != null
                     && mismatch.getOriginalMessage().startsWith(MISSING_REQUIRED_PROPERTY);
             return validationFailed(List.of(ValidationError.of(path,
@@ -161,6 +187,13 @@ public class SurveyExceptionHandler {
     public ResponseEntity<ErrorResponse<ValidationError>> handleNotFound(SurveyLeadNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of(ErrorCode.NOT_FOUND, NOT_FOUND_MESSAGE, List.of()));
+    }
+
+    /** survey-checklist spec 7.3: a missing checklist or checkpoint answers like one of a hidden lead. */
+    @ExceptionHandler(ChecklistNotFoundException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleChecklistNotFound(ChecklistNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ErrorResponse.of(ErrorCode.NOT_FOUND, e.getMessage(), List.of()));
     }
 
     // ==================== 409 ====================
@@ -200,6 +233,32 @@ public class SurveyExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(ErrorCode.SURVEY_NOT_ALLOWED, e.getMessage(),
                         List.of(ValidationError.withAllowed(e.getField(), e.getMessage(), e.getAllowedValues()))));
+    }
+
+    /** survey-checklist spec 7.3: the visit, the intent, the lead status or the holder does not allow the command. */
+    @ExceptionHandler(ChecklistNotAllowedException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleChecklistNotAllowed(ChecklistNotAllowedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(ErrorCode.CHECKLIST_NOT_ALLOWED, e.getMessage(),
+                        List.of(ValidationError.withAllowed(e.getField(), e.getMessage(), e.getAllowedValues()))));
+    }
+
+    @ExceptionHandler(ChecklistAlreadyStartedException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleChecklistAlreadyStarted(
+            ChecklistAlreadyStartedException e) {
+        return conflict(ErrorCode.CHECKLIST_ALREADY_STARTED, e.getMessage());
+    }
+
+    /** survey-checklist spec 4.4: the reason is on the next read ({@code readOnlyReason}). */
+    @ExceptionHandler(ChecklistReadOnlyException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleChecklistReadOnly(ChecklistReadOnlyException e) {
+        return conflict(ErrorCode.CHECKLIST_READ_ONLY, e.getMessage());
+    }
+
+    @ExceptionHandler(ChecklistTakeoverRequiredException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleChecklistTakeoverRequired(
+            ChecklistTakeoverRequiredException e) {
+        return conflict(ErrorCode.CHECKLIST_TAKEOVER_REQUIRED, e.getMessage());
     }
 
     @ExceptionHandler(NoCurrentVisitException.class)
@@ -260,10 +319,17 @@ public class SurveyExceptionHandler {
 
     // ==================== Helpers ====================
 
+    /** A stale version; on a checklist version (survey-checklist spec 7.3) the message says the checklist changed. */
     private static ResponseEntity<ErrorResponse<ValidationError>> concurrentModification(String field) {
+        String message = CHECKLIST_VERSION.equals(field) || field.startsWith(OTHER_GROUP_VERSIONS)
+                ? CHECKLIST_CHANGED_MESSAGE : CONCURRENT_MODIFICATION_MESSAGE;
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ErrorResponse.of(ErrorCode.CONCURRENT_MODIFICATION, CONCURRENT_MODIFICATION_MESSAGE,
-                        List.of(ValidationError.of(field, CONCURRENT_MODIFICATION_MESSAGE))));
+                .body(ErrorResponse.of(ErrorCode.CONCURRENT_MODIFICATION, message,
+                        List.of(ValidationError.of(field, message))));
+    }
+
+    private static ResponseEntity<ErrorResponse<ValidationError>> conflict(String code, String message) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(code, message, List.of()));
     }
 
     private static ResponseEntity<ErrorResponse<ValidationError>> invalidState(List<String> allowed) {
@@ -283,9 +349,10 @@ public class SurveyExceptionHandler {
                 .body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED, VALIDATION_FAILED_MESSAGE, sorted));
     }
 
+    /** Bean Validation paths with dotted indexes, like JSON paths: {@code spaces[1].code} is {@code spaces.1.code}. */
     private static List<ValidationError> fieldErrors(List<FieldError> fieldErrors) {
         return fieldErrors.stream()
-                .map(error -> ValidationError.of(error.getField(),
+                .map(error -> ValidationError.of(INDEX.matcher(error.getField()).replaceAll(".$1"),
                         error.getDefaultMessage() == null ? INVALID_VALUE_MESSAGE : error.getDefaultMessage()))
                 .toList();
     }

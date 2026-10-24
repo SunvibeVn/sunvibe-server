@@ -12,6 +12,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -39,6 +40,9 @@ import org.testcontainers.utility.MountableFile;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
+import vn.sunvibe.survey.ChecklistApiTestSupport;
 import vn.sunvibe.survey.SurveyApiTestSupport;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 
@@ -46,7 +50,7 @@ import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
  * The E2E fixture script {@code scripts/dev/seed-e2e-owner-leads.sql} (acquisition-owner-lead-queue-ui spec 4.4,
  * W11-11) run with psql inside the test PostgreSQL container, after {@code seed-e2e-accounts.sql}. The decisive proof
  * is that the application itself reads the fixtures: the staff API, called as the seeded leader, sale and admin,
- * shows the twelve leads, their history, the duplicate link, the staff names and the one territory. Passwords are
+ * shows the thirteen leads, their history, the duplicate link, the staff names and the one territory. Passwords are
  * random per run and never printed.
  */
 @SpringBootTest(
@@ -63,7 +67,10 @@ class SeedE2eOwnerLeadsPostgresTest {
 	private static final Path ACCOUNTS_SCRIPT = Path.of("..", "scripts", "dev", "seed-e2e-accounts.sql");
 	private static final Path LEADS_SCRIPT = Path.of("..", "scripts", "dev", "seed-e2e-owner-leads.sql");
 	private static final Pattern COUNTS = Pattern.compile("seed-e2e-owner-leads: leads=(\\d+) consents=(\\d+) "
-			+ "activities=(\\d+) candidates=(\\d+) territories=(\\d+) territory_changes=(\\d+)");
+			+ "activities=(\\d+) candidates=(\\d+) territories=(\\d+) territory_changes=(\\d+) "
+			+ "appointments=(\\d+)");
+	/** The printed counts of a complete run: 13 leads and consents, 30 History rows, L13's visited appointment. */
+	private static final List<Integer> SEEDED = List.of(13, 13, 30, 1, 1, 1, 1);
 
 	private static final String CUSTOMER_ID = "01JE2EACCT0000000000000001";
 	private static final String SALE_ID = "01JE2EACCT0000000000000002";
@@ -72,20 +79,23 @@ class SeedE2eOwnerLeadsPostgresTest {
 
 	private static final String AN_HAI = "20275";
 	private static final String HAI_CHAU = "20242";
-	/** The fixture leads L1..L12 in order. */
+	/** The fixture leads L1..L13 in order. */
 	private static final List<String> LEAD_IDS = List.of(
 			"01JE2EHEAD0000000000000001", "01JE2EHEAD0000000000000002", "01JE2EHEAD0000000000000003",
 			"01JE2EHEAD0000000000000004", "01JE2EHEAD0000000000000005", "01JE2EHEAD0000000000000006",
 			"01JE2EHEAD0000000000000007", "01JE2EHEAD0000000000000008", "01JE2EHEAD0000000000000009",
-			"01JE2EHEAD0000000000000010", "01JE2EHEAD0000000000000011", "01JE2EHEAD0000000000000012");
+			"01JE2EHEAD0000000000000010", "01JE2EHEAD0000000000000011", "01JE2EHEAD0000000000000012",
+			"01JE2EHEAD0000000000000013");
+	/** L13's visited appointment (survey-checklist plan PD-7). */
+	private static final String L13_VISIT = "01JE2ESVAPPT00000000000013";
 	private static final List<String> CODES = List.of("SV-E2EA-AA2A", "SV-E2EA-AA2B", "SV-E2EA-AA2C", "SV-E2EA-AA2D",
 			"SV-E2EA-AA2E", "SV-E2EA-AA2F", "SV-E2EA-AA2G", "SV-E2EA-AA2H", "SV-E2EA-AA2J", "SV-E2EA-AA2K",
-			"SV-E2EA-AA2L", "SV-E2EA-AA2M");
+			"SV-E2EA-AA2L", "SV-E2EA-AA2M", "SV-E2EA-AA2N");
 	private static final List<String> STATUSES = List.of("NEW", "ASSIGNED", "CONTACTED", "ON_HOLD", "ASSIGNED",
-			"REJECTED", "ASSIGNED", "ASSIGNED", "ASSIGNED", "NEW", "CONTACTED", "ASSIGNED");
-	/** acquisition-owner-intake BR-3: L1..L12 use the six types and two leads have none. */
+			"REJECTED", "ASSIGNED", "ASSIGNED", "ASSIGNED", "NEW", "CONTACTED", "ASSIGNED", "SURVEY_SCHEDULED");
+	/** acquisition-owner-intake BR-3: L1..L13 use the six types and two leads have none. */
 	private static final List<String> PROPERTY_TYPES = Arrays.asList("APARTMENT", "HOMESTAY", "CONDOTEL", "HOUSE",
-			"WHOLE_BUILDING", null, "APARTMENT", "APARTMENT", null, "VILLA", "APARTMENT", "HOUSE");
+			"WHOLE_BUILDING", null, "APARTMENT", "APARTMENT", null, "VILLA", "APARTMENT", "HOUSE", "HOUSE");
 
 	private static final String FOREIGN_LEAD = "01JE2EOTHERLEAD00000000001";
 	private static final String FOREIGN_CONSENT = "01JE2EOTHERCONS00000000001";
@@ -138,27 +148,33 @@ class SeedE2eOwnerLeadsPostgresTest {
 		http.close();
 	}
 
-	/** W11-11: twelve leads, one territory; a second run of both files changes no count and no id (idempotent). */
+	/** W11-11: thirteen leads, one territory; a second run of both files changes no count and no id (idempotent). */
 	@Test
-	void seed_runTwice_twelveLeadsOneTerritory_sameCountsTheSecondTime() throws Exception {
+	void seed_runTwice_thirteenLeadsOneTerritory_sameCountsTheSecondTime() throws Exception {
 		seedAccounts();
 		ExecResult first = runLeads("local");
 		assertEquals(0, first.getExitCode(), "first run failed: " + first.getStderr());
-		assertEquals(List.of(12, 12, 25, 1, 1, 1), printedCounts(first));
+		assertEquals(SEEDED, printedCounts(first));
 		List<String> before = stableSnapshot();
 
 		seedAccounts();
 		ExecResult second = runLeads("local");
 		assertEquals(0, second.getExitCode(), "second run failed: " + second.getStderr());
-		assertEquals(List.of(12, 12, 25, 1, 1, 1), printedCounts(second));
+		assertEquals(SEEDED, printedCounts(second));
 
-		assertEquals(12, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
-		assertEquals(12, count("SELECT count(*) FROM consent_records WHERE id LIKE '01JE2EHCNT%'"));
-		assertEquals(12, count("SELECT count(*) FROM owner_lead_activities WHERE type = 'SUBMITTED' "
+		assertEquals(13, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
+		assertEquals(13, count("SELECT count(*) FROM consent_records WHERE id LIKE '01JE2EHCNT%'"));
+		assertEquals(13, count("SELECT count(*) FROM owner_lead_activities WHERE type = 'SUBMITTED' "
 				+ "AND lead_id LIKE '01JE2EHEAD%' AND actor_user_id IS NULL"));
-		assertEquals(9, count("SELECT count(*) FROM owner_lead_activities WHERE type = 'ASSIGNED' "
+		assertEquals(10, count("SELECT count(*) FROM owner_lead_activities WHERE type = 'ASSIGNED' "
 				+ "AND lead_id LIKE '01JE2EHEAD%' AND actor_user_id = '" + LEADER_ID + "'"));
-		assertEquals(25, count("SELECT count(*) FROM owner_lead_activities WHERE lead_id LIKE '01JE2EHEAD%'"));
+		assertEquals(30, count("SELECT count(*) FROM owner_lead_activities WHERE lead_id LIKE '01JE2EHEAD%'"));
+		assertEquals(List.of("SUBMITTED", "ASSIGNED", "STATUS_CHANGED", "SURVEY_BOOKED", "SURVEY_VISITED"),
+				jdbc.queryForList("SELECT type FROM owner_lead_activities WHERE lead_id = ? ORDER BY occurred_at, id",
+						String.class, LEAD_IDS.get(12)));
+		assertEquals(List.of("VISITED/OWN/" + SALE_ID + "/" + SALE_ID), jdbc.queryForList("SELECT status || '/' || "
+				+ "visit_record_kind || '/' || performed_by || '/' || visit_recorded_by FROM survey_appointments "
+				+ "WHERE lead_id = ?", String.class, LEAD_IDS.get(12)));
 		assertEquals(1, count("SELECT count(*) FROM owner_lead_duplicate_candidates "
 				+ "WHERE lead_id = '" + LEAD_IDS.get(7) + "' AND candidate_lead_id = '" + LEAD_IDS.get(6) + "'"));
 		assertEquals(1, count("SELECT count(*) FROM sale_territories WHERE user_id = '" + SALE_ID + "'"));
@@ -237,8 +253,8 @@ class SeedE2eOwnerLeadsPostgresTest {
 		assertEquals(0, runLeads("local").getExitCode());
 
 		assertEquals(foreignBefore, foreignSnapshot(), "the foreign rows are unchanged");
-		assertEquals(12, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
-		assertEquals(13, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%' OR id = '" + FOREIGN_LEAD
+		assertEquals(13, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
+		assertEquals(14, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%' OR id = '" + FOREIGN_LEAD
 				+ "'"));
 		assertEquals(2, count("SELECT count(*) FROM sale_territories WHERE ward_code IN ('" + AN_HAI + "', '" + HAI_CHAU
 				+ "')"), "the foreign ward and the fixture ward");
@@ -333,7 +349,7 @@ class SeedE2eOwnerLeadsPostgresTest {
 
 		ExecResult loopback = execPsql(LEADS_SCRIPT, List.of("-v", "target=local"), false, List.of("-h", "127.0.0.1"));
 		assertEquals(0, loopback.getExitCode(), "the loopback address is local: " + loopback.getStderr());
-		assertEquals(12, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
+		assertEquals(13, count("SELECT count(*) FROM owner_leads WHERE id LIKE '01JE2EHEAD%'"));
 	}
 
 	/** A lead outside the fixture that names a fixture lead as its original is refused; nothing changes. */
@@ -494,7 +510,7 @@ class SeedE2eOwnerLeadsPostgresTest {
 
 		// E2E Sale sees exactly the fixtures assigned to it (looked up by code, whatever else its queue holds)
 		List<String> ofSale = List.of("SV-E2EA-AA2B", "SV-E2EA-AA2C", "SV-E2EA-AA2D", "SV-E2EA-AA2G", "SV-E2EA-AA2H",
-				"SV-E2EA-AA2J", "SV-E2EA-AA2L", "SV-E2EA-AA2M");
+				"SV-E2EA-AA2J", "SV-E2EA-AA2L", "SV-E2EA-AA2M", "SV-E2EA-AA2N");
 		for (String code : CODES) {
 			assertEquals(ofSale.contains(code) ? 1 : 0,
 					get(sale, "/api/v1/staff/owner-leads?scope=mine&size=5&requestCode=" + code).path("items").size(),
@@ -505,7 +521,7 @@ class SeedE2eOwnerLeadsPostgresTest {
 		assertTrue(count("SELECT count(*) FROM owner_lead_access_logs WHERE lead_id LIKE '01JE2EHEAD%'") > 0);
 		ExecResult again = runLeads("local");
 		assertEquals(0, again.getExitCode(), "re-run after the API read failed: " + again.getStderr());
-		assertEquals(List.of(12, 12, 25, 1, 1, 1), printedCounts(again));
+		assertEquals(SEEDED, printedCounts(again));
 		assertEquals(0, count("SELECT count(*) FROM owner_lead_access_logs WHERE lead_id LIKE '01JE2EHEAD%'"));
 	}
 
@@ -539,11 +555,12 @@ class SeedE2eOwnerLeadsPostgresTest {
 		ExecResult again = runLeads("local");
 
 		assertEquals(0, again.getExitCode(), "re-run after the survey flows failed: " + again.getStderr());
-		assertEquals(List.of(12, 12, 25, 1, 1, 1), printedCounts(again));
-		for (String table : List.of("survey_appointments", "survey_access_logs", "survey_resumptions",
-				"owner_lead_intent_changes")) {
+		assertEquals(SEEDED, printedCounts(again));
+		for (String table : List.of("survey_access_logs", "survey_resumptions", "owner_lead_intent_changes")) {
 			assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE lead_id LIKE '01JE2EHEAD%'"), table);
 		}
+		assertEquals(List.of(L13_VISIT), jdbc.queryForList("SELECT id FROM survey_appointments WHERE lead_id LIKE "
+				+ "'01JE2EHEAD%'", String.class), "only the fixture visit of L13");
 		assertEquals(0, count("SELECT count(*) FROM survey_appointment_revisions r LEFT JOIN survey_appointments a "
 				+ "ON a.id = r.appointment_id WHERE a.id IS NULL"), "no revision left without its appointment");
 		assertEquals(0, count("SELECT count(*) FROM survey_appointment_events e LEFT JOIN survey_appointments a "
@@ -552,6 +569,69 @@ class SeedE2eOwnerLeadsPostgresTest {
 				+ "intent, intent_cycle::text]) FROM owner_leads WHERE id = ?", String.class, l11));
 		assertEquals(List.of("ASSIGNED", "SALE", "1"), jdbc.queryForList("SELECT unnest(ARRAY[status, intent, "
 				+ "intent_cycle::text]) FROM owner_leads WHERE id = ?", String.class, l12));
+	}
+
+
+	/**
+	 * survey-checklist: E2E Sale starts a checklist on L13 (the performer, so no intake), saves G1 and G3, the lead goes
+	 * to E2E Trưởng nhóm who takes the draft over, and E2E Sale's read of it is refused with a security event; the next
+	 * run removes every checklist row of the fixtures and L13 can be started again.
+	 */
+	@Test
+	void reseed_afterChecklistFlows_removesChecklistRows() throws Exception {
+		seedAccounts();
+		assertEquals(0, runLeads("local").getExitCode());
+		String sale = accessToken("0900000102", salePassword());
+		String leader = accessToken("0900000103", leaderPassword());
+		String l13 = LEAD_IDS.get(12);
+
+		assertEquals(201, post(sale, "/api/v1/staff/survey-appointments/" + L13_VISIT + "/checklists",
+				nullIntake()));
+		String checklistId = jdbc.queryForObject("SELECT id FROM survey_checklists WHERE lead_id = ?", String.class,
+				l13);
+		String checklistPath = "/api/v1/staff/survey-checklists/" + checklistId;
+		ObjectNode g1 = ChecklistApiTestSupport.input(get(sale, checklistPath), "identification");
+		g1.put("rentalScope", "WHOLE");
+		ObjectNode space = ((ArrayNode) g1.path("spaces")).addObject();
+		space.put("spaceId", "01JE2ESPACE000000000000001");
+		space.put("code", "P1");
+		space.put("location", "Tầng trệt");
+		space.putNull("description");
+		assertEquals(200, put(sale, checklistPath + "/identification", saveBody(0, g1)));
+		ObjectNode g3 = ChecklistApiTestSupport.input(get(sale, checklistPath), "dimensions");
+		ObjectNode area = (ObjectNode) g3.path("spaces").path(0).path("area");
+		area.put("state", "VALUE");
+		area.put("value", new BigDecimal("40.5"));
+		area.put("source", "MEASURED");
+		assertEquals(200, put(sale, checklistPath + "/dimensions", saveBody(0, g3)));
+		assertEquals(200, post(leader, "/api/v1/staff/owner-leads/" + l13 + "/assign", Map.of("assigneeUserId",
+				LEADER_ID, "expectedVersion", leadVersion(l13))));
+		Map<String, Object> takeover = new LinkedHashMap<>();
+		takeover.put("expectedVersion", jdbc.queryForObject("SELECT version FROM survey_checklists WHERE id = ?",
+				Long.class, checklistId));
+		takeover.put("reason", "Trưởng nhóm nhận lại");
+		takeover.put("basis", Map.of("confirmedOn", java.time.LocalDate.now(SurveyTimeRules.ZONE).toString(),
+				"text", "Đã trao đổi với nhân viên"));
+		assertEquals(201, post(leader, checklistPath + "/takeovers", takeover));
+		assertEquals(404, status(sale, checklistPath));
+		assertEquals(1, count("SELECT count(*) FROM survey_security_events WHERE lead_id = '" + l13 + "'"));
+
+		ExecResult again = runLeads("local");
+
+		assertEquals(0, again.getExitCode(), "re-run after the checklist flows failed: " + again.getStderr());
+		assertEquals(SEEDED, printedCounts(again));
+		for (String table : List.of("survey_checklists", "survey_security_events", "survey_access_logs")) {
+			assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE lead_id LIKE '01JE2EHEAD%'"), table);
+		}
+		for (String table : List.of("survey_checklist_groups", "survey_checklist_takeovers",
+				"survey_checklist_saves")) {
+			assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE checklist_id = '" + checklistId + "'"),
+					table);
+		}
+		assertEquals(SALE_ID, jdbc.queryForObject("SELECT assigned_user_id FROM owner_leads WHERE id = ?",
+				String.class, l13));
+		assertEquals(201, post(sale, "/api/v1/staff/survey-appointments/" + L13_VISIT + "/checklists",
+				nullIntake()));
 	}
 
 	// ==================== helpers ====================
@@ -737,6 +817,41 @@ class SeedE2eOwnerLeadsPostgresTest {
 				.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body), StandardCharsets.UTF_8))
 				.build();
 		return http.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+	}
+
+	/** PUT of the body as JSON; returns the status (the body holds survey data and is never printed). */
+	private int put(String accessToken, String path, Object body) throws Exception {
+		HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+				.timeout(Duration.ofSeconds(30))
+				.header("Authorization", "Bearer " + accessToken)
+				.header("Content-Type", "application/json")
+				.PUT(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body), StandardCharsets.UTF_8))
+				.build();
+		return http.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+	}
+
+	/** GET; returns only the status. */
+	private int status(String accessToken, String path) throws Exception {
+		HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+				.timeout(Duration.ofSeconds(30))
+				.header("Authorization", "Bearer " + accessToken)
+				.GET()
+				.build();
+		return http.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+	}
+
+	private static Map<String, Object> nullIntake() {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("intake", null);
+		return body;
+	}
+
+	private static Map<String, Object> saveBody(long expectedVersion, ObjectNode content) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("expectedVersion", expectedVersion);
+		body.put("correction", null);
+		body.put("content", content);
+		return body;
 	}
 
 	private long leadVersion(String leadId) {

@@ -1,5 +1,8 @@
 package vn.sunvibe.survey.core.testsupport;
 
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity;
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityResult;
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistHistoryEntry;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadCard;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadHistoryEntry;
@@ -9,6 +12,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveResult;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveTarget;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadPlace;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadVersionConflictException;
+import vn.sunvibe.survey.core.application.shared.external.lead.OwnerFormFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.PlaceCheck;
 import vn.sunvibe.survey.core.application.shared.external.lead.PlaceViolation;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
@@ -20,6 +24,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -37,7 +42,12 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
     private final Map<String, LeadFacts> leads = new LinkedHashMap<>();
     private final List<String> journal;
     private final List<LeadMove> moves = new ArrayList<>();
+    private final List<ChecklistActivity> checklistActivities = new ArrayList<>();
+    private final Map<String, Set<String>> historyStaff = new LinkedHashMap<>();
+    private final Map<String, OwnerFormFacts> ownerForms = new LinkedHashMap<>();
+    private final Map<String, String> names = new LinkedHashMap<>();
     public RuntimeException failNextApply;
+    public RuntimeException failNextChecklistActivity;
 
     public InMemorySurveyLeadPort(List<String> journal) {
         this.journal = journal;
@@ -62,6 +72,29 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
 
     public List<LeadMove> moves() {
         return List.copyOf(moves);
+    }
+
+    /** The checklist History entries written, in order. */
+    public List<ChecklistActivity> checklistActivities() {
+        return List.copyOf(checklistActivities);
+    }
+
+    /** Staff ids the lead's History names besides its assignee (survey-checklist spec A-25). */
+    public InMemorySurveyLeadPort withHistoryStaff(String leadId, String... userIds) {
+        historyStaff.computeIfAbsent(leadId, id -> new LinkedHashSet<>()).addAll(List.of(userIds));
+        return this;
+    }
+
+    /** The owner's web form of the lead (survey-checklist spec A-27). */
+    public InMemorySurveyLeadPort withOwnerForm(String leadId, OwnerFormFacts form) {
+        ownerForms.put(leadId, form);
+        return this;
+    }
+
+    /** The actor name History entries carry. */
+    public InMemorySurveyLeadPort withName(String userId, String name) {
+        names.put(userId, name);
+        return this;
     }
 
     public static LeadPlace place() {
@@ -147,8 +180,54 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
                 || latitude.compareTo(new BigDecimal("16.25")) > 0)) {
             return violation("latitude");
         }
-        return new PlaceCheck("Da Nang", "20194".equals(wardCode) ? "Hai Chau" : "Thanh Khe", latitude, longitude,
-                List.of());
+        // Like the intake location rules, the pin comes back rounded to 6 decimals
+        return new PlaceCheck("Da Nang", "20194".equals(wardCode) ? "Hai Chau" : "Thanh Khe",
+                latitude == null ? null : latitude.setScale(6, java.math.RoundingMode.HALF_UP),
+                longitude == null ? null : longitude.setScale(6, java.math.RoundingMode.HALF_UP), List.of());
+    }
+
+    @Override
+    public Optional<LeadFacts> findVisibleForShare(String leadId, SurveyViewer viewer) {
+        journal.add("lead:share");
+        return findVisible(leadId, viewer);
+    }
+
+    @Override
+    public ChecklistActivityResult recordChecklistActivity(String leadId, ChecklistActivity activity) {
+        journal.add("lead:activity:" + activity.type());
+        if (failNextChecklistActivity != null) {
+            RuntimeException failure = failNextChecklistActivity;
+            failNextChecklistActivity = null;
+            throw failure;
+        }
+        checklistActivities.add(activity);
+        LeadFacts lead = leads.get(leadId);
+        // survey-checklist spec 4.9: LAST UPDATE moves, the version and status stay
+        leads.put(leadId, lead.moved(lead.status(), lead.version(), activity.occurredAt()));
+        return new ChecklistActivityResult(activity.occurredAt(), new ChecklistHistoryEntry(activity.type().name(),
+                activity.actorUserId(), names.get(activity.actorUserId()), activity.checklistId(),
+                activity.checklistNo(), activity.detailOrNull(), activity.occurredAt()));
+    }
+
+    @Override
+    public boolean leadExists(String leadId) {
+        return leads.containsKey(leadId);
+    }
+
+    @Override
+    public Optional<OwnerFormFacts> ownerForm(String leadId) {
+        return Optional.ofNullable(ownerForms.get(leadId));
+    }
+
+    @Override
+    public Set<String> leadStaffIds(String leadId) {
+        Set<String> staff = new LinkedHashSet<>();
+        LeadFacts lead = leads.get(leadId);
+        if (lead != null && lead.assignedUserId() != null) {
+            staff.add(lead.assignedUserId());
+        }
+        staff.addAll(historyStaff.getOrDefault(leadId, Set.of()));
+        return staff;
     }
 
     private static PlaceCheck violation(String field) {

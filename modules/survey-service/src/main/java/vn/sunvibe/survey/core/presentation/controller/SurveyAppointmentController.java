@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +27,10 @@ import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.survey.core.application.query.SurveyListQuery;
 import vn.sunvibe.survey.core.application.query.SurveyListScope;
 import vn.sunvibe.survey.core.application.usecase.SurveyAppointmentCommandUseCase;
+import vn.sunvibe.survey.core.application.usecase.SurveyChecklistCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyQueryUseCase;
+import vn.sunvibe.survey.core.presentation.converter.ChecklistRequestMapper;
+import vn.sunvibe.survey.core.presentation.converter.ChecklistResponseMapper;
 import vn.sunvibe.survey.core.presentation.converter.SurveyRequestMapper;
 import vn.sunvibe.survey.core.presentation.converter.SurveyResponseMapper;
 import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
@@ -34,15 +38,18 @@ import vn.sunvibe.survey.core.presentation.dto.request.CancelAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ChangeAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ConfirmationRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.RecordVisitRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistStartRequest;
 import vn.sunvibe.survey.core.presentation.dto.response.SecurityError;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyCommandResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyPageResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistStartedResponse;
 
 import java.util.Locale;
 import java.util.Optional;
 
 /**
- * The survey appointments of staff (survey-schedule spec 7.1): the survey list and the commands on one appointment.
+ * The survey appointments of staff (survey-schedule spec 7.1): the survey list, the commands on one appointment and
+ * the start of a survey checklist on a visit (survey-checklist spec 7.1).
  * Sale staff and ADMIN only; a SALE sees and works only the appointments of the leads assigned to them, and an
  * appointment of a lead they may not see answers 404 exactly like one that does not exist (survey-schedule BR-1).
  */
@@ -61,6 +68,9 @@ public class SurveyAppointmentController {
     private final SurveyViewerResolver viewerResolver;
     private final SurveyRequestMapper requestMapper;
     private final SurveyResponseMapper responseMapper;
+    private final SurveyChecklistCommandUseCase checklistCommandUseCase;
+    private final ChecklistRequestMapper checklistRequestMapper;
+    private final ChecklistResponseMapper checklistResponseMapper;
 
     /**
      * GET /api/v1/staff/survey-appointments
@@ -247,5 +257,45 @@ public class SurveyAppointmentController {
                                                        @Valid @RequestBody RecordVisitRequest request) {
         return ResponseEntity.ok(responseMapper.toCommand(commandUseCase.recordVisit(viewerResolver.current(),
                 requestMapper.toCommand(appointmentId, request))));
+    }
+
+    /**
+     * POST /api/v1/staff/survey-appointments/{appointmentId}/checklists
+     * <p>
+     * Start a survey checklist on the lead's current visit (survey-checklist US-1 AC-1, BR-14).
+     */
+    @PostMapping("/{appointmentId}/checklists")
+    @Operation(operationId = "startSurveyChecklist",
+            summary = "Start a survey checklist on the current visit (the lead's eligible assignee only)",
+            description = "A DRAFT with every field unknown, held by the caller. An assignee who did not perform the "
+                    + "visit sends an intake declaration (reason and basis); the performer sends intake null. Unknown "
+                    + "keys are refused. The lead's status and version do not change.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "The checklist, the lead and its History entry",
+                    content = @Content(schema = @Schema(implementation = ChecklistStartedResponse.class))),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on intake or intake.* (a missing or "
+                    + "unknown key too); MALFORMED_REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
+                    + "assignee",
+                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such appointment, or the caller may not "
+                    + "see its lead",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "CHECKLIST_NOT_ALLOWED (field appointmentId: not the "
+                    + "lead's current visit; intent, allowedValues [LONG_TERM_RENT]; status, allowedValues "
+                    + "[SURVEY_SCHEDULED]); CHECKLIST_ALREADY_STARTED",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "SURVEYOR_INELIGIBLE: the assignee can no longer take "
+                    + "leads",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<ChecklistStartedResponse> startChecklist(
+            @PathVariable("appointmentId") String appointmentId, @RequestBody ChecklistStartRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(checklistResponseMapper.toStarted(
+                checklistCommandUseCase.start(viewerResolver.current(),
+                        checklistRequestMapper.toCommand(appointmentId, request))));
     }
 }

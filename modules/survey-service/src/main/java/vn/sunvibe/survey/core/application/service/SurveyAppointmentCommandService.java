@@ -378,7 +378,7 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
         LeadFacts after = movedOrNull == null ? lead
                 : lead.moved(movedOrNull.status(), movedOrNull.version(), movedOrNull.lastActivityAt());
         accessLogs.save(SurveyAccessLog.create(snowflakes.generateId(), lead.leadId(), viewer.userId(), now));
-        return new SurveyCommandResult(assembler.assemble(after),
+        return new SurveyCommandResult(assembler.assemble(after, viewer),
                 new LeadState(after.leadId(), after.status(), after.version(), after.lastActivityAt()),
                 movedOrNull == null ? null : movedOrNull.entry(), overlaps);
     }

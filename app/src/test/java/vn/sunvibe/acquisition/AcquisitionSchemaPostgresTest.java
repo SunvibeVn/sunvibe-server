@@ -166,6 +166,7 @@ class AcquisitionSchemaPostgresTest {
 		activityColumns.put("occurred_at", "timestamp with time zone NOT NULL");
 		activityColumns.put("reference_id", "character varying(26) NULL");
 		activityColumns.put("reference_no", "integer NULL");
+		activityColumns.put("reference_detail", "character varying(30) NULL");
 		assertEquals(activityColumns, columnsOf("owner_lead_activities"));
 
 		Map<String, String> intentChangeColumns = new LinkedHashMap<>();
@@ -231,6 +232,21 @@ class AcquisitionSchemaPostgresTest {
 
 		assertEquals(List.of("lead_id", "occurred_at"),
 				indexColumns("idx_owner_lead_intent_changes_lead_id_occurred_at"));
+	}
+
+	/** survey-checklist BR-15, spec 5.2: the checklist group of a History entry needs the checklist reference. */
+	@Test
+	void referenceDetail_withoutReference_isRefused() {
+		String consentId = insertConsent();
+		String leadId = "'01LEADREFERENCEDETAIL00000'";
+		jdbc.update(leadInsert(consentId, "id", leadId));
+
+		assertRejected("INSERT INTO owner_lead_activities (id, lead_id, type, occurred_at, reference_detail) VALUES ("
+				+ (++sequence) + ", " + leadId + ", 'CHECKLIST_SAVED', now(), 'DIMENSIONS')",
+				"chk_owner_lead_activities_reference_detail");
+		jdbc.update("INSERT INTO owner_lead_activities (id, lead_id, type, occurred_at, reference_id, reference_no,"
+				+ " reference_detail) VALUES (" + (++sequence) + ", " + leadId + ", 'CHECKLIST_SAVED', now(),"
+				+ " '01CHECKLIST000000000000000', 1, 'DIMENSIONS')");
 	}
 
 	/**

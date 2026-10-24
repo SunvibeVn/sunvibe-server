@@ -196,9 +196,19 @@ public final class SurveyApiTestSupport {
 		api.http().close();
 	}
 
-	/** Deletes every survey row of the leads (logs, resumptions, events, revisions, appointments). */
+	/**
+	 * Deletes every survey row of the leads: security events, the checklists with their saves, takeovers and groups,
+	 * then logs, resumptions, events, revisions and appointments.
+	 */
 	public static void deleteSurveyRows(JdbcTemplate jdbc, Collection<String> leadIds) {
 		for (String id : leadIds) {
+			jdbc.update("delete from survey_security_events where lead_id = ?", id);
+			for (String table : List.of("survey_checklist_saves", "survey_checklist_takeovers",
+					"survey_checklist_groups")) {
+				jdbc.update("delete from " + table + " where checklist_id in "
+						+ "(select id from survey_checklists where lead_id = ?)", id);
+			}
+			jdbc.update("delete from survey_checklists where lead_id = ?", id);
 			jdbc.update("delete from survey_access_logs where lead_id = ?", id);
 			jdbc.update("delete from survey_resumptions where lead_id = ?", id);
 			jdbc.update("delete from survey_appointment_events where appointment_id in "

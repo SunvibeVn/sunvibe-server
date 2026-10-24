@@ -3,6 +3,10 @@ package vn.sunvibe.integration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.acquisition.core.application.usecase.survey.MeetingPlaceCheck;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistActivity;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistActivityResult;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistEvent;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistHistoryEntry;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadAccess;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadEvent;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadFacts;
@@ -14,6 +18,9 @@ import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadTarget;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadUseCase;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadVersionConflictException;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadViewer;
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity;
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityResult;
+import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistHistoryEntry;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadCard;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadHistoryEntry;
@@ -22,6 +29,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveRefusedEx
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveResult;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadPlace;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadVersionConflictException;
+import vn.sunvibe.survey.core.application.shared.external.lead.OwnerFormFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.PlaceCheck;
 import vn.sunvibe.survey.core.application.shared.external.lead.PlaceViolation;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
@@ -92,6 +100,41 @@ public class AcquisitionSurveyLeadAdapter implements SurveyLeadPort {
                 check.violations().stream()
                         .map(violation -> new PlaceViolation(violation.field(), violation.message()))
                         .toList());
+    }
+
+    @Override
+    public Optional<LeadFacts> findVisibleForShare(String leadId, SurveyViewer viewer) {
+        return surveyLeadUseCase.findVisibleForShare(leadId, toProvider(viewer))
+                .map(AcquisitionSurveyLeadAdapter::facts);
+    }
+
+    @Override
+    public ChecklistActivityResult recordChecklistActivity(String leadId, ChecklistActivity activity) {
+        SurveyChecklistActivityResult result = surveyLeadUseCase.recordChecklistActivity(leadId,
+                new SurveyChecklistActivity(SurveyChecklistEvent.valueOf(activity.type().name()),
+                        activity.actorUserId(), activity.checklistId(), activity.checklistNo(),
+                        activity.detailOrNull(), activity.occurredAt()));
+        SurveyChecklistHistoryEntry entry = result.entry();
+        return new ChecklistActivityResult(result.lastActivityAt(), new ChecklistHistoryEntry(entry.type(),
+                entry.actorUserId(), entry.actorName(), entry.referenceId(), entry.referenceNo(),
+                entry.referenceDetail(), entry.occurredAt()));
+    }
+
+    @Override
+    public boolean leadExists(String leadId) {
+        return surveyLeadUseCase.leadExists(leadId);
+    }
+
+    @Override
+    public Optional<OwnerFormFacts> ownerForm(String leadId) {
+        return surveyLeadUseCase.ownerForm(leadId).map(form -> new OwnerFormFacts(form.submittedAt(),
+                form.addressDetail(), form.provinceCode(), form.wardCode(), form.latitude(), form.longitude(),
+                form.monthlyAskingPriceOrNull(), form.availableFromOrNull()));
+    }
+
+    @Override
+    public Set<String> leadStaffIds(String leadId) {
+        return surveyLeadUseCase.leadStaffIds(leadId);
     }
 
     private static SurveyLeadViewer toProvider(SurveyViewer viewer) {

@@ -32,7 +32,8 @@ public class OwnerLeadActivityEntityMapper {
                 entity.getNextActionAt(),
                 entity.getOccurredAt(),
                 entity.getReferenceId(),
-                entity.getReferenceNo()
+                entity.getReferenceNo(),
+                entity.getReferenceDetail()
         );
     }
 
@@ -56,6 +57,7 @@ public class OwnerLeadActivityEntityMapper {
                 .occurredAt(domain.getOccurredAt())
                 .referenceId(domain.getReferenceId())
                 .referenceNo(domain.getReferenceNo())
+                .referenceDetail(domain.getReferenceDetail())
                 .build();
     }
 }

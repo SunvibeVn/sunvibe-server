@@ -65,10 +65,16 @@ public class OwnerLeadActivityEntity {
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
 
-    /** The survey appointment the entry concerns (no foreign key: survey-service owns appointments). */
+    /**
+     * A survey appointment or a checklist, by type (no foreign key: survey-service owns both).
+     */
     @Column(name = "reference_id", length = 26)
     private String referenceId;
 
     @Column(name = "reference_no")
     private Integer referenceNo;
+
+    /** The checklist group of a CHECKLIST_SAVED entry (survey-checklist BR-15); null otherwise. */
+    @Column(name = "reference_detail", length = 30)
+    private String referenceDetail;
 }

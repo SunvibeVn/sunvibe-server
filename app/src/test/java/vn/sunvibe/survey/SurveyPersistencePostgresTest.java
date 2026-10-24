@@ -84,6 +84,11 @@ class SurveyPersistencePostgresTest {
 	@BeforeEach
 	@AfterEach
 	void cleanSurveyTables() {
+		jdbc.update("DELETE FROM survey_security_events");
+		jdbc.update("DELETE FROM survey_checklist_saves");
+		jdbc.update("DELETE FROM survey_checklist_takeovers");
+		jdbc.update("DELETE FROM survey_checklist_groups");
+		jdbc.update("DELETE FROM survey_checklists");
 		jdbc.update("DELETE FROM survey_access_logs");
 		jdbc.update("DELETE FROM survey_resumptions");
 		jdbc.update("DELETE FROM survey_appointment_events");

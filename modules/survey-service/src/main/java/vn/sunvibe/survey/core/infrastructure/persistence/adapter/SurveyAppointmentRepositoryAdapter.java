@@ -76,6 +76,11 @@ public class SurveyAppointmentRepositoryAdapter implements SurveyAppointmentDoma
     }
 
     @Override
+    public Optional<String> findLeadIdById(SurveyAppointmentId id) {
+        return jpaRepository.findLeadIdById(id.getValue());
+    }
+
+    @Override
     public List<SurveyAppointment> findByLeadId(String leadId) {
         return withHistory(jpaRepository.findByLeadIdOrderByAppointmentNoDesc(leadId));
     }

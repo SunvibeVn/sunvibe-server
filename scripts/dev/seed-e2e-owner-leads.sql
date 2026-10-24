@@ -4,7 +4,7 @@
 -- Needs the accounts of scripts/dev/seed-e2e-accounts.sql first (E2E Sale, E2E Trưởng nhóm, E2E Admin); it stops with
 -- a clear message when they are missing. It writes no password and no secret.
 --
--- Twelve leads of Đà Nẵng (province 48), each with its consent record and its SUBMITTED history entry:
+-- Thirteen leads of Đà Nẵng (province 48), each with its consent record and its SUBMITTED history entry:
 --   no  lead id                      request code  status      who holds it / what it shows
 --   L1  01JE2EHEAD0000000000000001   SV-E2EA-AA2A  NEW         nobody (unassigned), with coordinates
 --   L2  01JE2EHEAD0000000000000002   SV-E2EA-AA2B  ASSIGNED    E2E Sale; ward An Hải, the ward E2E Sale looks after
@@ -18,19 +18,27 @@
 --   L10 01JE2EHEAD0000000000000010   SV-E2EA-AA2K  NEW         nobody (unassigned), with coordinates
 --   L11 01JE2EHEAD0000000000000011   SV-E2EA-AA2L  CONTACTED   E2E Sale; long-term rent with a pin, ready for a survey
 --   L12 01JE2EHEAD0000000000000012   SV-E2EA-AA2M  ASSIGNED    E2E Sale; for sale, ready for a requirement change
--- Leads L2 to L5, L7 to L9, L11 and L12 also have the ASSIGNED history entry made by E2E Trưởng nhóm. L3, L4, L6 and
--- L11 have the STATUS_CHANGED entry that moved them to their status. Consent records are 01JE2EHCNT00000000000000nn
--- (nn = 01..12).
--- History ids are 20261018000001.., 20261018000101.., 20261018000201.. and the territory change is 20261018000301.
+--   L13 01JE2EHEAD0000000000000013   SV-E2EA-AA2N  SURVEY_SCHEDULED  E2E Sale; long-term rent with a pin, visited
+--                                                             yesterday 09:00 (Vietnam time), ready for a checklist
+-- Leads L2 to L5, L7 to L9 and L11 to L13 also have the ASSIGNED history entry made by E2E Trưởng nhóm. L3, L4, L6,
+-- L11 and L13 have the STATUS_CHANGED entry that moved them to their status. Consent records are
+-- 01JE2EHCNT00000000000000nn (nn = 01..13).
+-- L13 has one survey: appointment 01JE2ESVAPPT00000000000013, booked two days ago and visited yesterday by E2E Sale
+-- (an own visit record, revision 1, the BOOKED and VISITED events), with its SURVEY_BOOKED and SURVEY_VISITED history
+-- entries; its submission holds a monthly asking price and the available-from date of the lead (survey-checklist PD-7).
+-- History ids are 20261018000001.., 20261018000101.., 20261018000201.., the territory change is 20261018000301, L13's
+-- survey entries are 20261018000401 and 20261018000402, its revision 20261018000501 and its events 20261018000601 and
+-- 20261018000602.
 -- One ward is held: An Hải (20275, first by the Vietnamese collator when written), by E2E Sale, with its change
 -- (acquisition-owner-lead-queue BR-10); every other ward an E2E seed account held is freed.
 -- Times are relative to the moment of the run (a re-run moves them); versions follow what the application writes.
 --
 -- Idempotent: a re-run deletes the rows with the fixed ids above and inserts them again, whatever happened to them
--- since. Rows of these leads that other code added (history, access logs, idempotency keys, the duplicate links
--- the lead itself owns, requirement changes, survey appointments with their revisions, events, resumptions and
--- access logs) go with them. Wards held by an E2E seed account are freed first (an interrupted admin e2e
--- run); wards of other holders are left as they are. The change rows the application writes for An Hải stay as history.
+-- since. Rows of these leads that other code added (history, access logs, idempotency keys, the duplicate links the
+-- lead itself owns, requirement changes, survey appointments with their revisions, events, resumptions and access logs,
+-- survey checklists with their groups, takeovers and saves, survey security events) go with them. Wards held by an E2E
+-- seed account are freed first (an interrupted admin e2e run); wards of other holders are left as they are. The change
+-- rows the application writes for An Hải stay as history.
 -- It never changes any other lead, consent, user or territory. It refuses, before any change, when another lead
 -- already uses one of the request codes, when a lead outside the fixture names one of these leads as its original
 -- or owns a duplicate link to one, or when ward An Hải is held by someone who is not an E2E seed account.
@@ -175,12 +183,16 @@ VALUES
     (12, '01JE2EHEAD0000000000000012', 'SV-E2EA-AA2M', 'ASSIGNED', 'SALE', 'Lý Văn Phúc', '+84912000012', NULL,
      '20257', '18 Núi Thành', '18 núi thành', 16.043200, 108.219500, 'HOUSE', 3500000000, 'TOTAL', NULL, NULL,
      NULL, :'sale_id', NULL, NULL, 1,
-     now() - interval '1 day', now() - interval '1 day' + interval '1 hour');
+     now() - interval '1 day', now() - interval '1 day' + interval '1 hour'),
+    (13, '01JE2EHEAD0000000000000013', 'SV-E2EA-AA2N', 'SURVEY_SCHEDULED', 'LONG_TERM_RENT', 'Phan Thị Ngọc',
+     '+84912000013', 'ngoc.e2e@example.com', '20242', '40 Bạch Đằng', '40 bạch đằng', 16.072100, 108.224800,
+     'HOUSE', 14000000, 'MONTH', (now() + interval '30 days')::date, 'Nhà nguyên căn', NULL, :'sale_id', NULL,
+     NULL, 4, now() - interval '3 days', now() - interval '3 days');
 
 -- The wards and the province must be in the catalog (the property migrations seed them).
 DO $$
 BEGIN
-    IF (SELECT count(*) FROM seed_leads s JOIN wards w ON w.code = s.ward_code AND w.province_code = '48') <> 12 THEN
+    IF (SELECT count(*) FROM seed_leads s JOIN wards w ON w.code = s.ward_code AND w.province_code = '48') <> 13 THEN
         RAISE EXCEPTION 'seed-e2e-owner-leads.sql: a ward of Đà Nẵng is missing from the catalog; run the Flyway migrations first';
     END IF;
 END
@@ -210,6 +222,14 @@ $$;
 
 -- Delete the fixture rows (and only them), children first: the survey rows of the fixture leads, their requirement
 -- changes, then the lead rows.
+DELETE FROM survey_security_events WHERE lead_id IN (SELECT id FROM seed_leads);
+DELETE FROM survey_checklist_saves
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_checklist_takeovers
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_checklist_groups
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads);
 DELETE FROM survey_access_logs WHERE lead_id IN (SELECT id FROM seed_leads);
 DELETE FROM survey_resumptions WHERE lead_id IN (SELECT id FROM seed_leads);
 DELETE FROM survey_appointment_events
@@ -279,7 +299,7 @@ JOIN seed_leads l7 ON l7.n = 7
 WHERE l8.n = 8;
 
 -- History: SUBMITTED for every lead (no actor), ASSIGNED by the leader for the assigned ones, and the status change
--- that moved L3, L4, L6 and L11 to their status.
+-- that moved L3, L4, L6, L11 and L13 to their status.
 INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status, to_status, from_assignee_id,
                                    to_assignee_id, note, next_action_at, occurred_at)
 SELECT 20261018000000 + n, id, 'SUBMITTED', NULL, NULL, NULL, NULL, NULL, NULL, NULL, created_at
@@ -290,7 +310,7 @@ INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status
 SELECT 20261018000100 + n, id, 'ASSIGNED', :'leader_id', 'NEW', 'ASSIGNED', NULL, assigned_user_id, NULL, NULL,
        created_at + interval '1 hour'
 FROM seed_leads
-WHERE n IN (2, 3, 4, 5, 7, 8, 9, 11, 12);
+WHERE n IN (2, 3, 4, 5, 7, 8, 9, 11, 12, 13);
 
 INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status, to_status, from_assignee_id,
                                    to_assignee_id, note, next_action_at, occurred_at)
@@ -301,7 +321,75 @@ VALUES (20261018000203, '01JE2EHEAD0000000000000003', 'STATUS_CHANGED', :'sale_i
        (20261018000206, '01JE2EHEAD0000000000000006', 'STATUS_CHANGED', :'leader_id', 'NEW', 'REJECTED', NULL,
         NULL, NULL, NULL, now() - interval '3 days' + interval '2 hours'),
        (20261018000211, '01JE2EHEAD0000000000000011', 'STATUS_CHANGED', :'sale_id', 'ASSIGNED', 'CONTACTED', NULL,
-        NULL, 'Chủ nhà đồng ý cho khảo sát.', NULL, now() - interval '1 day');
+        NULL, 'Chủ nhà đồng ý cho khảo sát.', NULL, now() - interval '1 day'),
+       (20261018000213, '01JE2EHEAD0000000000000013', 'STATUS_CHANGED', :'sale_id', 'ASSIGNED', 'CONTACTED', NULL,
+        NULL, 'Chủ nhà hẹn khảo sát.', NULL, now() - interval '3 days' + interval '2 hours');
+
+-- L13's survey, as the application writes it: booked by E2E Sale two days ago at the lead's place (the History moves
+-- the lead to SURVEY_SCHEDULED), arrived at yesterday 09:00 Vietnam time and recorded as an own visit at 10:00 (the
+-- History keeps the status). Times are relative to the run; the lead's last change is the visit record.
+CREATE TEMPORARY TABLE seed_visit ON COMMIT DROP AS
+SELECT '01JE2ESVAPPT00000000000013'::VARCHAR(26) AS id,
+       '01JE2EHEAD0000000000000013'::VARCHAR(26) AS lead_id,
+       now() - interval '2 days' AS booked_at,
+       ((date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh') - interval '15 hours')
+           AT TIME ZONE 'Asia/Ho_Chi_Minh') AS arrived_at,
+       ((date_trunc('day', now() AT TIME ZONE 'Asia/Ho_Chi_Minh') - interval '14 hours')
+           AT TIME ZONE 'Asia/Ho_Chi_Minh') AS recorded_at;
+
+UPDATE owner_leads SET updated_at = (SELECT recorded_at FROM seed_visit)
+WHERE id = (SELECT lead_id FROM seed_visit);
+
+INSERT INTO survey_appointments (id, lead_id, appointment_no, kind, previous_visit_id, resurvey_reason, intent,
+                                 intent_cycle, status, start_at, duration_minutes, meeting_address,
+                                 meeting_province_code, meeting_province_name, meeting_ward_code, meeting_ward_name,
+                                 meeting_latitude, meeting_longitude, access_note, on_site_contact_name,
+                                 on_site_contact_role, current_revision_no, lead_address_detail, lead_province_code,
+                                 lead_province_name, lead_ward_code, lead_ward_name, lead_latitude, lead_longitude,
+                                 location_reason, surveyor_user_id, confirmation_state, confirmation_cause,
+                                 ever_confirmed, confirmation_changed_by, confirmation_changed_at, confirmation_note,
+                                 visit_record_kind, performed_by, arrived_at, visit_revision_no, visit_note,
+                                 visit_recorded_by, visit_recorded_at, proxy_reason, basis_confirmed_on, basis_text,
+                                 cancel_reason, cancel_description, cancelled_by, cancelled_at, created_by, created_at,
+                                 updated_at, version)
+SELECT v.id, l.id, 1, 'FIRST', NULL, NULL, l.intent, l.intent_cycle, 'VISITED', v.arrived_at, 60, l.address_detail,
+       l.province_code, l.province_name, l.ward_code, l.ward_name, l.latitude, l.longitude, NULL, NULL, NULL, 1,
+       l.address_detail, l.province_code, l.province_name, l.ward_code, l.ward_name, l.latitude, l.longitude, NULL,
+       :'sale_id', 'UNCONFIRMED', 'NEW', false, :'sale_id', v.booked_at, NULL, 'OWN', :'sale_id', v.arrived_at, 1,
+       'Đã gặp chủ nhà, xem toàn bộ căn nhà.', :'sale_id', v.recorded_at, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+       :'sale_id', v.booked_at, v.recorded_at, 1
+FROM seed_visit v
+JOIN owner_leads l ON l.id = v.lead_id;
+
+INSERT INTO survey_appointment_revisions (id, appointment_id, revision_no, valid_from, start_at, duration_minutes,
+                                          meeting_address, meeting_province_code, meeting_province_name,
+                                          meeting_ward_code, meeting_ward_name, meeting_latitude, meeting_longitude,
+                                          access_note, on_site_contact_name, on_site_contact_role, reason,
+                                          actor_user_id)
+SELECT 20261018000501, a.id, 1, a.created_at, a.start_at, a.duration_minutes, a.meeting_address,
+       a.meeting_province_code, a.meeting_province_name, a.meeting_ward_code, a.meeting_ward_name, a.meeting_latitude,
+       a.meeting_longitude, NULL, NULL, NULL, NULL, :'sale_id'
+FROM survey_appointments a
+WHERE a.id = (SELECT id FROM seed_visit);
+
+INSERT INTO survey_appointment_events (id, appointment_id, type, actor_user_id, occurred_at, revision_no,
+                                       from_surveyor_id, to_surveyor_id, confirmation_cause, note)
+SELECT 20261018000601, id, 'BOOKED', :'sale_id', booked_at, 1, NULL, :'sale_id', 'NEW', NULL FROM seed_visit;
+
+INSERT INTO survey_appointment_events (id, appointment_id, type, actor_user_id, occurred_at, revision_no,
+                                       from_surveyor_id, to_surveyor_id, confirmation_cause, note)
+SELECT 20261018000602, id, 'VISITED', :'sale_id', recorded_at, 1, NULL, NULL, NULL, NULL FROM seed_visit;
+
+INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status, to_status, from_assignee_id,
+                                   to_assignee_id, note, next_action_at, occurred_at, reference_id, reference_no)
+SELECT 20261018000401, lead_id, 'SURVEY_BOOKED', :'sale_id', 'CONTACTED', 'SURVEY_SCHEDULED', NULL, NULL, NULL, NULL,
+       booked_at, id, 1
+FROM seed_visit;
+
+INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status, to_status, from_assignee_id,
+                                   to_assignee_id, note, next_action_at, occurred_at, reference_id, reference_no)
+SELECT 20261018000402, lead_id, 'SURVEY_VISITED', :'sale_id', NULL, NULL, NULL, NULL, NULL, NULL, recorded_at, id, 1
+FROM seed_visit;
 
 -- The one territory: E2E Sale looks after An Hải, assigned by E2E Admin (only an ADMIN assigns wards), with its change.
 INSERT INTO sale_territories (ward_code, user_id, assigned_by, assigned_at)
@@ -319,8 +407,9 @@ SELECT (SELECT count(*) FROM owner_leads WHERE id IN (SELECT id FROM seed_leads)
         WHERE lead_id IN (SELECT id FROM seed_leads)) AS candidates,
        (SELECT count(*) FROM sale_territories
         WHERE ward_code = :'territory_ward' AND user_id = :'sale_id') AS territories,
-       (SELECT count(*) FROM sale_territory_changes WHERE id = 20261018000301) AS territory_changes \gset
+       (SELECT count(*) FROM sale_territory_changes WHERE id = 20261018000301) AS territory_changes,
+       (SELECT count(*) FROM survey_appointments WHERE lead_id IN (SELECT id FROM seed_leads)) AS appointments \gset
 
 COMMIT;
 
-\echo seed-e2e-owner-leads: leads=:leads consents=:consents activities=:activities candidates=:candidates territories=:territories territory_changes=:territory_changes
+\echo seed-e2e-owner-leads: leads=:leads consents=:consents activities=:activities candidates=:candidates territories=:territories territory_changes=:territory_changes appointments=:appointments

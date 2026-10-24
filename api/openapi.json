@@ -2958,6 +2958,104 @@
         "tags" : [ "Surveys (staff)" ]
       }
     },
+    "/api/v1/staff/survey-appointments/{appointmentId}/checklists" : {
+      "post" : {
+        "description" : "A DRAFT with every field unknown, held by the caller. An assignee who did not perform the visit sends an intake declaration (reason and basis); the performer sends intake null. Unknown keys are refused. The lead's status and version do not change.",
+        "operationId" : "startSurveyChecklist",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "appointmentId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistStartRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistStartedResponse"
+                }
+              }
+            },
+            "description" : "The checklist, the lead and its History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on intake or intake.* (a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such appointment, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_NOT_ALLOWED (field appointmentId: not the lead's current visit; intent, allowedValues [LONG_TERM_RENT]; status, allowedValues [SURVEY_SCHEDULED]); CHECKLIST_ALREADY_STARTED"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Start a survey checklist on the current visit (the lead's eligible assignee only)",
+        "tags" : [ "Surveys (staff)" ]
+      }
+    },
     "/api/v1/staff/survey-appointments/{appointmentId}/confirmation" : {
       "post" : {
         "description" : "The same value again changes nothing: 200 with historyEntry null and the lead version unchanged.",
@@ -3152,6 +3250,924 @@
         },
         "summary" : "Record the visit of a scheduled survey appointment (SALE: own visit only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN also for others)",
         "tags" : [ "Surveys (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}" : {
+      "get" : {
+        "description" : "The checklist as stored, with the viewer's editability, the readiness computed now, the effective terms per space, the earlier hazards of the requirement, takeovers, corrections and editors. Reading it is access-logged.",
+        "operationId" : "getSurveyChecklist",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistResponse"
+                }
+              }
+            },
+            "description" : "The checklist"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          }
+        },
+        "summary" : "Read a survey checklist (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/amenities" : {
+      "put" : {
+        "description" : "G6 amenities: furnishing and the checked items of the property and of each space. The same content again changes nothing (200, no new version). Every key is sent; unknown keys and server fields are refused. A change of what someone else observed or heard needs a correction.",
+        "operationId" : "saveSurveyChecklistAmenities",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistSaveAmenitiesRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistResponse"
+                }
+              }
+            },
+            "description" : "The checklist after the save"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED, every failing rule on its JSON path (content.*, expectedVersion, correction or correction.*; a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY (the reason is on the next read); CHECKLIST_TAKEOVER_REQUIRED: the caller must take the draft over first; CONCURRENT_MODIFICATION (field expectedVersion or otherGroupVersions.<group>)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Save the amenities group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/condition" : {
+      "put" : {
+        "description" : "G4 condition: occupancy, availability and the checks of the main space, kitchen and bathroom of each space; the shared wet areas in separate parts only. The same content again changes nothing (200, no new version). Every key is sent; unknown keys and server fields are refused. A change of what someone else observed or heard needs a correction.",
+        "operationId" : "saveSurveyChecklistCondition",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistSaveConditionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistResponse"
+                }
+              }
+            },
+            "description" : "The checklist after the save"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED, every failing rule on its JSON path (content.*, expectedVersion, correction or correction.*; a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY (the reason is on the next read); CHECKLIST_TAKEOVER_REQUIRED: the caller must take the draft over first; CONCURRENT_MODIFICATION (field expectedVersion or otherGroupVersions.<group>)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Save the condition group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/dimensions" : {
+      "put" : {
+        "description" : "G3 dimensions: area, bedrooms and bathrooms of each space. The same content again changes nothing (200, no new version). Every key is sent; unknown keys and server fields are refused. A change of what someone else observed or heard needs a correction.",
+        "operationId" : "saveSurveyChecklistDimensions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistSaveDimensionsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistResponse"
+                }
+              }
+            },
+            "description" : "The checklist after the save"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED, every failing rule on its JSON path (content.*, expectedVersion, correction or correction.*; a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY (the reason is on the next read); CHECKLIST_TAKEOVER_REQUIRED: the caller must take the draft over first; CONCURRENT_MODIFICATION (field expectedVersion or otherGroupVersions.<group>)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Save the dimensions group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/identification" : {
+      "put" : {
+        "description" : "G1 identification: observed address, asset type, fit, rental scope and spaces. A space left out of spaces is removed and its entries in the other groups go with it; a scope change clears what the new scope does not hold. otherGroupVersions names each group such a save changes. The same content again changes nothing (200, no new version). Every key is sent; unknown keys and server fields are refused. A change of what someone else observed or heard needs a correction.",
+        "operationId" : "saveSurveyChecklistIdentification",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistSaveIdentificationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistResponse"
+                }
+              }
+            },
+            "description" : "The checklist after the save"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED, every failing rule on its JSON path (content.*, expectedVersion, correction or correction.*; a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY (the reason is on the next read); CHECKLIST_TAKEOVER_REQUIRED: the caller must take the draft over first; CONCURRENT_MODIFICATION (field expectedVersion or otherGroupVersions.<group>)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Save the identification group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/parts" : {
+      "put" : {
+        "description" : "G2 parts: access route, shared areas, floors and the parts of each space. The same content again changes nothing (200, no new version). Every key is sent; unknown keys and server fields are refused. A change of what someone else observed or heard needs a correction.",
+        "operationId" : "saveSurveyChecklistParts",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistSavePartsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistResponse"
+                }
+              }
+            },
+            "description" : "The checklist after the save"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED, every failing rule on its JSON path (content.*, expectedVersion, correction or correction.*; a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY (the reason is on the next read); CHECKLIST_TAKEOVER_REQUIRED: the caller must take the draft over first; CONCURRENT_MODIFICATION (field expectedVersion or otherGroupVersions.<group>)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Save the parts group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/safety" : {
+      "put" : {
+        "description" : "G5 safety: egress, access restrictions and hazards (a new hazard carries a client ULID). The same content again changes nothing (200, no new version). Every key is sent; unknown keys and server fields are refused. A change of what someone else observed or heard needs a correction.",
+        "operationId" : "saveSurveyChecklistSafety",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistSaveSafetyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistResponse"
+                }
+              }
+            },
+            "description" : "The checklist after the save"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED, every failing rule on its JSON path (content.*, expectedVersion, correction or correction.*; a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY (the reason is on the next read); CHECKLIST_TAKEOVER_REQUIRED: the caller must take the draft over first; CONCURRENT_MODIFICATION (field expectedVersion or otherGroupVersions.<group>)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Save the safety group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/takeovers" : {
+      "post" : {
+        "description" : "The caller becomes the holder; every group as it was is kept as a checkpoint only readers of the lead can read. Unknown keys are refused.",
+        "operationId" : "takeOverSurveyChecklist",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistTakeoverRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistTakenOverResponse"
+                }
+              }
+            },
+            "description" : "The checklist and its History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on expectedVersion, reason, basis or basis.* (a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY (the reason is on the next read); CHECKLIST_NOT_ALLOWED (field holder): the caller already holds it; CONCURRENT_MODIFICATION (field expectedVersion)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Take a survey checklist draft over (the lead's eligible assignee only)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/takeovers/{takeoverNo}" : {
+      "get" : {
+        "description" : "The takeover and the groups as they were just before it. An intake declaration has no checkpoint. Reading it is access-logged.",
+        "operationId" : "getSurveyChecklistCheckpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "takeoverNo",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistCheckpointResponse"
+                }
+              }
+            },
+            "description" : "The takeover and its checkpoint"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on takeoverNo: not a number"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist or checkpoint, or the caller may not see its lead"
+          }
+        },
+        "summary" : "Read a takeover checkpoint (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/terms" : {
+      "put" : {
+        "description" : "G8 terms as surveyed or offered: rent, deposit, payment period, minimum term, charges, fees, house rules, pets and handover. The same content again changes nothing (200, no new version). Every key is sent; unknown keys and server fields are refused. A change of what someone else observed or heard needs a correction.",
+        "operationId" : "saveSurveyChecklistTerms",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistSaveTermsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistResponse"
+                }
+              }
+            },
+            "description" : "The checklist after the save"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED, every failing rule on its JSON path (content.*, expectedVersion, correction or correction.*; a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SecurityError"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY (the reason is on the next read); CHECKLIST_TAKEOVER_REQUIRED: the caller must take the draft over first; CONCURRENT_MODIFICATION (field expectedVersion or otherGroupVersions.<group>)"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          }
+        },
+        "summary" : "Save the terms group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
+        "tags" : [ "Survey checklists (staff)" ]
       }
     },
     "/api/v1/staff/users/{userId}/roles" : {
@@ -3706,6 +4722,4094 @@
         },
         "required" : [ "expectedVersion", "toStatus" ]
       },
+      "ChecklistActualAccess" : {
+        "type" : "object",
+        "description" : "The access actually had to a space",
+        "properties" : {
+          "extent" : {
+            "type" : "string",
+            "enum" : [ "ENTERED_ALL", "ENTERED_PART" ]
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters, required for ENTERED_PART"
+          }
+        },
+        "required" : [ "extent", "note" ]
+      },
+      "ChecklistActualAccessField" : {
+        "type" : "object",
+        "description" : "Actual access field of a survey checklist, as read",
+        "properties" : {
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistActualAccess"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistActualAccessFieldInput" : {
+        "type" : "object",
+        "description" : "Actual access field of a survey checklist, as sent",
+        "properties" : {
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistActualAccess"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "naReason", "state", "value" ]
+      },
+      "ChecklistAddressDifference" : {
+        "type" : "object",
+        "description" : "How the observed address differs from the lead and from the meeting place",
+        "properties" : {
+          "fromLead" : {
+            "type" : "boolean"
+          },
+          "fromMeetingPlace" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ChecklistAddressedBy" : {
+        "type" : "object",
+        "description" : "A later hazard that addresses an earlier one",
+        "properties" : {
+          "checklistId" : {
+            "type" : "string"
+          },
+          "checklistNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hazardId" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "RESOLVED", "CARRIED" ]
+          }
+        }
+      },
+      "ChecklistAmenitiesContent" : {
+        "type" : "object",
+        "description" : "G6 amenities, as read",
+        "properties" : {
+          "otherItems" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistOtherItem"
+            }
+          },
+          "sharedItems" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistAmenityItem"
+            }
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistAmenitiesSpace"
+            }
+          }
+        }
+      },
+      "ChecklistAmenitiesGroup" : {
+        "type" : "object",
+        "description" : "The amenities group: its version, last save and content",
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/ChecklistAmenitiesContent"
+          },
+          "updatedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "updatedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChecklistAmenitiesInput" : {
+        "type" : "object",
+        "description" : "G6 amenities, as sent",
+        "properties" : {
+          "otherItems" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistOtherItemInput"
+            }
+          },
+          "sharedItems" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistAmenityItemInput"
+            }
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistAmenitiesSpaceInput"
+            }
+          }
+        },
+        "required" : [ "otherItems", "sharedItems", "spaces" ]
+      },
+      "ChecklistAmenitiesSpace" : {
+        "type" : "object",
+        "description" : "G6 values of one space, as read",
+        "properties" : {
+          "furnishing" : {
+            "$ref" : "#/components/schemas/ChecklistFurnishingField"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistAmenityItem"
+            }
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistAmenitiesSpaceInput" : {
+        "type" : "object",
+        "description" : "G6 values of one space, as sent",
+        "properties" : {
+          "furnishing" : {
+            "$ref" : "#/components/schemas/ChecklistFurnishingFieldInput"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistAmenityItemInput"
+            }
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "furnishing", "items", "spaceId" ]
+      },
+      "ChecklistAmenityItem" : {
+        "type" : "object",
+        "description" : "A checked amenity of a level, as read",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "enum" : [ "AIR_CONDITIONER", "WATER_HEATER", "WASHING_MACHINE", "REFRIGERATOR", "BED", "WARDROBE", "DESK", "KITCHEN_EQUIPMENT", "INTERNET", "ELEVATOR", "MOTORBIKE_PARKING", "CAR_PARKING", "BALCONY", "WINDOW", "SECURITY", "CCTV", "POOL", "GARDEN" ]
+          },
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "presence" : {
+            "type" : "string",
+            "enum" : [ "YES", "NO" ]
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ]
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "Where an amenity or furnishing came from",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          }
+        }
+      },
+      "ChecklistAmenityItemInput" : {
+        "type" : "object",
+        "description" : "A checked amenity of a level, as sent",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "enum" : [ "AIR_CONDITIONER", "WATER_HEATER", "WASHING_MACHINE", "REFRIGERATOR", "BED", "WARDROBE", "DESK", "KITCHEN_EQUIPMENT", "INTERNET", "ELEVATOR", "MOTORBIKE_PARKING", "CAR_PARKING", "BALCONY", "WINDOW", "SECURITY", "CCTV", "POOL", "GARDEN" ]
+          },
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only"
+          },
+          "presence" : {
+            "type" : "string",
+            "enum" : [ "YES", "NO" ]
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it"
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "Where an amenity or furnishing came from",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          }
+        },
+        "required" : [ "code", "confirmedOn", "presence", "receivedByUserId", "relayBasis", "source" ]
+      },
+      "ChecklistAreaCheck" : {
+        "type" : "object",
+        "description" : "The check of a main space, kitchen, bathroom or shared wet area",
+        "properties" : {
+          "noneObserved" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "INSPECTED only"
+          },
+          "notEnteredReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "NOT_ENTERED only: what was not reached and why, 1..500 characters"
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..1000 characters; for NOT_ENTERED what was seen from outside or what the owner said"
+          },
+          "result" : {
+            "type" : "string",
+            "enum" : [ "INSPECTED", "NOT_ENTERED" ]
+          }
+        },
+        "required" : [ "noneObserved", "notEnteredReason", "note", "result" ]
+      },
+      "ChecklistAreaCheckField" : {
+        "type" : "object",
+        "description" : "Area check field of a survey checklist, as read",
+        "properties" : {
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistAreaCheck"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistAreaCheckFieldInput" : {
+        "type" : "object",
+        "description" : "Area check field of a survey checklist, as sent",
+        "properties" : {
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistAreaCheck"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "naReason", "state", "value" ]
+      },
+      "ChecklistAreaField" : {
+        "type" : "object",
+        "description" : "Area field in square metres with one decimal of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "MEASURED", "ESTIMATED", "OWNER_STATED" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "number", "null" ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistAreaFieldInput" : {
+        "type" : "object",
+        "description" : "Area field in square metres with one decimal of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "MEASURED", "ESTIMATED", "OWNER_STATED" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "number", "null" ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistBasis" : {
+        "type" : "object",
+        "description" : "The basis of a takeover, intake declaration or correction",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistBasisRequest" : {
+        "type" : "object",
+        "description" : "The basis of a takeover, intake declaration or correction",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "Vietnam date, from the visit's arrival date to today"
+          },
+          "text" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters, no phone number"
+          }
+        },
+        "required" : [ "confirmedOn", "text" ]
+      },
+      "ChecklistCharge" : {
+        "type" : "object",
+        "description" : "A charge: its basis and, exactly for AMOUNT, the amount and its unit",
+        "properties" : {
+          "amount" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistMoney"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "AMOUNT only"
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [ "AMOUNT", "INCLUDED", "PROVIDER_TARIFF", "NOT_OFFERED" ]
+          },
+          "chargeUnit" : {
+            "type" : [ "string", "null" ],
+            "description" : "AMOUNT only",
+            "enum" : [ "PER_MONTH", "PER_KWH", "PER_M3", "PER_PERSON_PER_MONTH", "PER_VEHICLE_PER_MONTH", "ONE_OFF" ]
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..200 characters"
+          }
+        },
+        "required" : [ "amount", "basis", "chargeUnit", "note" ]
+      },
+      "ChecklistChargeOverrides" : {
+        "type" : "object",
+        "description" : "The charges that differ for one space, each null for the common charge",
+        "properties" : {
+          "electricity" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTerm"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "internet" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTerm"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "parking" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTerm"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "serviceFee" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTerm"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "water" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTerm"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "ChecklistChargeOverridesInput" : {
+        "type" : "object",
+        "description" : "The charges that differ for one space, each null for the common charge, as sent",
+        "properties" : {
+          "electricity" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "internet" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "parking" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "serviceFee" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "water" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "electricity", "internet", "parking", "serviceFee", "water" ]
+      },
+      "ChecklistChargeTerm" : {
+        "type" : "object",
+        "description" : "Charge term of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCharge"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistChargeTermInput" : {
+        "type" : "object",
+        "description" : "Charge term of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCharge"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistCheckpointResponse" : {
+        "type" : "object",
+        "description" : "A takeover and its checkpoint",
+        "properties" : {
+          "snapshot" : {
+            "$ref" : "#/components/schemas/ChecklistSnapshotResponse"
+          },
+          "takeover" : {
+            "$ref" : "#/components/schemas/ChecklistTakeover"
+          }
+        }
+      },
+      "ChecklistConditionContent" : {
+        "type" : "object",
+        "description" : "G4 condition, as read; shared wet areas only in PARTS scope",
+        "properties" : {
+          "sharedBathroom" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistAreaCheckField"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null unless the property is in separate parts"
+          },
+          "sharedKitchen" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistAreaCheckField"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null unless the property is in separate parts"
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistConditionSpace"
+            }
+          }
+        }
+      },
+      "ChecklistConditionGroup" : {
+        "type" : "object",
+        "description" : "The condition group: its version, last save and content",
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/ChecklistConditionContent"
+          },
+          "updatedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "updatedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChecklistConditionInput" : {
+        "type" : "object",
+        "description" : "G4 condition, as sent",
+        "properties" : {
+          "sharedBathroom" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistAreaCheckFieldInput"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required in separate parts, null otherwise"
+          },
+          "sharedKitchen" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistAreaCheckFieldInput"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required in separate parts, null otherwise"
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistConditionSpaceInput"
+            }
+          }
+        },
+        "required" : [ "sharedBathroom", "sharedKitchen", "spaces" ]
+      },
+      "ChecklistConditionSpace" : {
+        "type" : "object",
+        "description" : "G4 values of one space, as read",
+        "properties" : {
+          "availableFrom" : {
+            "$ref" : "#/components/schemas/ChecklistDateTerm"
+          },
+          "bathroom" : {
+            "$ref" : "#/components/schemas/ChecklistAreaCheckField"
+          },
+          "expectedVacantFrom" : {
+            "$ref" : "#/components/schemas/ChecklistDateTerm"
+          },
+          "kitchen" : {
+            "$ref" : "#/components/schemas/ChecklistAreaCheckField"
+          },
+          "mainSpace" : {
+            "$ref" : "#/components/schemas/ChecklistAreaCheckField"
+          },
+          "occupancy" : {
+            "$ref" : "#/components/schemas/ChecklistOccupancyField"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistConditionSpaceInput" : {
+        "type" : "object",
+        "description" : "G4 values of one space, as sent",
+        "properties" : {
+          "availableFrom" : {
+            "$ref" : "#/components/schemas/ChecklistDateTermInput"
+          },
+          "bathroom" : {
+            "$ref" : "#/components/schemas/ChecklistAreaCheckFieldInput"
+          },
+          "expectedVacantFrom" : {
+            "$ref" : "#/components/schemas/ChecklistDateTermInput"
+          },
+          "kitchen" : {
+            "$ref" : "#/components/schemas/ChecklistAreaCheckFieldInput"
+          },
+          "mainSpace" : {
+            "$ref" : "#/components/schemas/ChecklistAreaCheckFieldInput"
+          },
+          "occupancy" : {
+            "$ref" : "#/components/schemas/ChecklistOccupancyFieldInput"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "availableFrom", "bathroom", "expectedVacantFrom", "kitchen", "mainSpace", "occupancy", "spaceId" ]
+      },
+      "ChecklistCorrectedUnit" : {
+        "type" : "object",
+        "description" : "A unit a correction covered, with the code its space had",
+        "properties" : {
+          "spaceCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "unitKey" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistCorrection" : {
+        "type" : "object",
+        "description" : "A correcting save",
+        "properties" : {
+          "actorName" : {
+            "type" : [ "string", "null" ]
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "basis" : {
+            "$ref" : "#/components/schemas/ChecklistBasis"
+          },
+          "group" : {
+            "type" : "string",
+            "enum" : [ "IDENTIFICATION", "PARTS", "DIMENSIONS", "CONDITION", "SAFETY", "AMENITIES", "EVIDENCE", "TERMS" ]
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "saveId" : {
+            "type" : "string"
+          },
+          "savedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "units" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistCorrectedUnit"
+            }
+          }
+        }
+      },
+      "ChecklistCorrectionRequest" : {
+        "type" : "object",
+        "description" : "Why a save corrects values someone else observed or heard, and on what basis",
+        "properties" : {
+          "basis" : {
+            "$ref" : "#/components/schemas/ChecklistBasisRequest"
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "1..500 characters, no phone number"
+          }
+        },
+        "required" : [ "basis", "reason" ]
+      },
+      "ChecklistCountField" : {
+        "type" : "object",
+        "description" : "Count field of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistCountFieldInput" : {
+        "type" : "object",
+        "description" : "Count field of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistDateTerm" : {
+        "type" : "object",
+        "description" : "Date term of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistDateTermInput" : {
+        "type" : "object",
+        "description" : "Date term of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistDeposit" : {
+        "type" : "object",
+        "description" : "A deposit as months (0..12) or an amount; 0 means no deposit",
+        "properties" : {
+          "amount" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistMoney"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "AMOUNT only"
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [ "MONTHS", "AMOUNT" ]
+          },
+          "months" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "MONTHS only, 0..12"
+          }
+        },
+        "required" : [ "amount", "basis", "months" ]
+      },
+      "ChecklistDepositTerm" : {
+        "type" : "object",
+        "description" : "Deposit term of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistDeposit"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistDepositTermInput" : {
+        "type" : "object",
+        "description" : "Deposit term of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistDeposit"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistDimensionsContent" : {
+        "type" : "object",
+        "description" : "G3 dimensions, as read; one entry per G1 space in G1 order",
+        "properties" : {
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistDimensionsSpace"
+            }
+          }
+        }
+      },
+      "ChecklistDimensionsFieldMeta" : {
+        "type" : "object",
+        "description" : "The metadata of the layout note of a space",
+        "properties" : {
+          "layoutNote" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "ChecklistDimensionsGroup" : {
+        "type" : "object",
+        "description" : "The dimensions group: its version, last save and content",
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/ChecklistDimensionsContent"
+          },
+          "updatedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "updatedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChecklistDimensionsInput" : {
+        "type" : "object",
+        "description" : "G3 dimensions, as sent",
+        "properties" : {
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistDimensionsSpaceInput"
+            }
+          }
+        },
+        "required" : [ "spaces" ]
+      },
+      "ChecklistDimensionsSpace" : {
+        "type" : "object",
+        "description" : "G3 values of one space, as read",
+        "properties" : {
+          "area" : {
+            "$ref" : "#/components/schemas/ChecklistAreaField"
+          },
+          "bedrooms" : {
+            "$ref" : "#/components/schemas/ChecklistCountField"
+          },
+          "fieldMeta" : {
+            "$ref" : "#/components/schemas/ChecklistDimensionsFieldMeta"
+          },
+          "layoutNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "privateBathrooms" : {
+            "$ref" : "#/components/schemas/ChecklistCountField"
+          },
+          "sharedBathroomUse" : {
+            "$ref" : "#/components/schemas/ChecklistYesNoCountField"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistDimensionsSpaceInput" : {
+        "type" : "object",
+        "description" : "G3 values of one space, as sent",
+        "properties" : {
+          "area" : {
+            "$ref" : "#/components/schemas/ChecklistAreaFieldInput"
+          },
+          "bedrooms" : {
+            "$ref" : "#/components/schemas/ChecklistCountFieldInput"
+          },
+          "layoutNote" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..1000 characters"
+          },
+          "privateBathrooms" : {
+            "$ref" : "#/components/schemas/ChecklistCountFieldInput"
+          },
+          "sharedBathroomUse" : {
+            "$ref" : "#/components/schemas/ChecklistYesNoCountFieldInput"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "area", "bedrooms", "layoutNote", "privateBathrooms", "sharedBathroomUse", "spaceId" ]
+      },
+      "ChecklistEarlierHazard" : {
+        "type" : "object",
+        "description" : "An important or unclassified hazard of an earlier checklist of the cycle, as recorded",
+        "properties" : {
+          "addressedBy" : {
+            "type" : "array",
+            "description" : "Empty: the hazard warns EARLIER_HAZARD_OPEN",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistAddressedBy"
+            }
+          },
+          "checklistId" : {
+            "type" : "string"
+          },
+          "checklistNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "hazard" : {
+            "$ref" : "#/components/schemas/ChecklistHazard"
+          }
+        }
+      },
+      "ChecklistEditor" : {
+        "type" : "object",
+        "description" : "Someone who saved the draft, with their latest save",
+        "properties" : {
+          "lastSavedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistEffectiveCharge" : {
+        "type" : "object",
+        "description" : "The charge a space gets and where it comes from",
+        "properties" : {
+          "origin" : {
+            "type" : "string",
+            "enum" : [ "COMMON", "SPACE" ]
+          },
+          "term" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTerm"
+          }
+        }
+      },
+      "ChecklistEffectiveFees" : {
+        "type" : "object",
+        "description" : "The fees a space gets: the common list and its own",
+        "properties" : {
+          "common" : {
+            "$ref" : "#/components/schemas/ChecklistFeeListTerm"
+          },
+          "space" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistFeeListTerm"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "ChecklistFee" : {
+        "type" : "object",
+        "description" : "One fee of a fee list",
+        "properties" : {
+          "amount" : {
+            "$ref" : "#/components/schemas/ChecklistMoney"
+          },
+          "chargeUnit" : {
+            "type" : "string",
+            "enum" : [ "PER_MONTH", "PER_KWH", "PER_M3", "PER_PERSON_PER_MONTH", "PER_VEHICLE_PER_MONTH", "ONE_OFF" ]
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "1..100 characters"
+          }
+        },
+        "required" : [ "amount", "chargeUnit", "name" ]
+      },
+      "ChecklistFeeListTerm" : {
+        "type" : "object",
+        "description" : "Fee list term; VALUE with an empty list means none of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "array", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistFee"
+            }
+          }
+        }
+      },
+      "ChecklistFeeListTermInput" : {
+        "type" : "object",
+        "description" : "Fee list term; VALUE with an empty list means none of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "array", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistFee"
+            }
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistFit" : {
+        "type" : "object",
+        "description" : "The fit judgement of the six-type rental scope with its reason",
+        "properties" : {
+          "assessment" : {
+            "type" : "string",
+            "enum" : [ "IN_SCOPE", "OUT_OF_SCOPE", "UNDETERMINED" ]
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "1..1000 characters"
+          }
+        },
+        "required" : [ "assessment", "reason" ]
+      },
+      "ChecklistFitField" : {
+        "type" : "object",
+        "description" : "Fit field of a survey checklist, as read",
+        "properties" : {
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistFit"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistFitFieldInput" : {
+        "type" : "object",
+        "description" : "Fit field of a survey checklist, as sent",
+        "properties" : {
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistFit"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "naReason", "state", "value" ]
+      },
+      "ChecklistFurnishingField" : {
+        "type" : "object",
+        "description" : "Furnishing field of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "enum" : [ "FULLY_FURNISHED", "BASIC", "UNFURNISHED" ]
+          }
+        }
+      },
+      "ChecklistFurnishingFieldInput" : {
+        "type" : "object",
+        "description" : "Furnishing field of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "enum" : [ "FULLY_FURNISHED", "BASIC", "UNFURNISHED" ]
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistGroups" : {
+        "type" : "object",
+        "description" : "The seven stored groups of a checklist",
+        "properties" : {
+          "amenities" : {
+            "$ref" : "#/components/schemas/ChecklistAmenitiesGroup"
+          },
+          "condition" : {
+            "$ref" : "#/components/schemas/ChecklistConditionGroup"
+          },
+          "dimensions" : {
+            "$ref" : "#/components/schemas/ChecklistDimensionsGroup"
+          },
+          "identification" : {
+            "$ref" : "#/components/schemas/ChecklistIdentificationGroup"
+          },
+          "parts" : {
+            "$ref" : "#/components/schemas/ChecklistPartsGroup"
+          },
+          "safety" : {
+            "$ref" : "#/components/schemas/ChecklistSafetyGroup"
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/ChecklistTermsGroup"
+          }
+        }
+      },
+      "ChecklistHazard" : {
+        "type" : "object",
+        "description" : "A hazard of G5, as read",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "hazardId" : {
+            "type" : "string"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "ownerReportedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "previous" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistHazardLink"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "receivedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ]
+          },
+          "severity" : {
+            "type" : "string",
+            "enum" : [ "IMPORTANT", "MINOR", "UNCLASSIFIED" ]
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ]
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "OPEN", "OWNER_REPORTED_FIXED", "OBSERVED_RESOLVED" ]
+          },
+          "statusNote" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "ChecklistHazardInput" : {
+        "type" : "object",
+        "description" : "A hazard of G5, as sent; a new hazard carries a client ULID",
+        "properties" : {
+          "description" : {
+            "type" : "string",
+            "description" : "1..500 characters"
+          },
+          "hazardId" : {
+            "type" : "string",
+            "description" : "ULID"
+          },
+          "ownerReportedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_REPORTED_FIXED only: the day the owner reported the fix"
+          },
+          "previous" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistHazardLink"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The hazard of an earlier checklist of this lead and requirement it continues"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_REPORTED_FIXED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "Exactly when someone else heard it: how it reached the person entering it"
+          },
+          "severity" : {
+            "type" : "string",
+            "enum" : [ "IMPORTANT", "MINOR", "UNCLASSIFIED" ]
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ],
+            "description" : "A space of this checklist, or null for the whole property"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "OPEN", "OWNER_REPORTED_FIXED", "OBSERVED_RESOLVED" ]
+          },
+          "statusNote" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters"
+          }
+        },
+        "required" : [ "description", "hazardId", "ownerReportedOn", "previous", "receivedByUserId", "relayBasis", "severity", "spaceId", "status", "statusNote" ]
+      },
+      "ChecklistHazardLink" : {
+        "type" : "object",
+        "description" : "A link to a hazard of an earlier checklist of the same lead and requirement",
+        "properties" : {
+          "checklistId" : {
+            "type" : "string"
+          },
+          "hazardId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "checklistId", "hazardId" ]
+      },
+      "ChecklistHazardListField" : {
+        "type" : "object",
+        "description" : "Hazard list field; VALUE with an empty list means none seen of a survey checklist, as read",
+        "properties" : {
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "array", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistHazard"
+            }
+          }
+        }
+      },
+      "ChecklistHazardListFieldInput" : {
+        "type" : "object",
+        "description" : "Hazard list field; VALUE with an empty list means none seen of a survey checklist, as sent",
+        "properties" : {
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "array", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistHazardInput"
+            }
+          }
+        },
+        "required" : [ "naReason", "state", "value" ]
+      },
+      "ChecklistHistoryEntryResponse" : {
+        "type" : "object",
+        "description" : "The lead History entry written by a checklist command",
+        "properties" : {
+          "actorName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Full name of the staff member; null when the id has no user row"
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "fromAssigneeId" : {
+            "type" : [ "string", "null" ],
+            "description" : "Always null"
+          },
+          "fromAssigneeName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Always null"
+          },
+          "fromStatus" : {
+            "type" : [ "string", "null" ],
+            "description" : "Always null: a checklist command keeps the lead's status"
+          },
+          "nextActionAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "Always null"
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Always null: checklist History entries carry no text"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "referenceDetail" : {
+            "type" : [ "string", "null" ],
+            "description" : "The group of a CHECKLIST_SAVED entry; null otherwise"
+          },
+          "referenceId" : {
+            "type" : "string",
+            "description" : "The checklist"
+          },
+          "referenceNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The checklist number"
+          },
+          "toAssigneeId" : {
+            "type" : [ "string", "null" ],
+            "description" : "Always null"
+          },
+          "toAssigneeName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Always null"
+          },
+          "toStatus" : {
+            "type" : [ "string", "null" ],
+            "description" : "Always null: a checklist command keeps the lead's status"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED" ]
+          }
+        }
+      },
+      "ChecklistIdentificationContent" : {
+        "type" : "object",
+        "description" : "G1 identification, as read",
+        "properties" : {
+          "difference" : {
+            "$ref" : "#/components/schemas/ChecklistAddressDifference"
+          },
+          "differenceNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "fieldMeta" : {
+            "$ref" : "#/components/schemas/ChecklistIdentificationFieldMeta"
+          },
+          "fit" : {
+            "$ref" : "#/components/schemas/ChecklistFitField"
+          },
+          "generalNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "observedAddress" : {
+            "$ref" : "#/components/schemas/ChecklistLocationField"
+          },
+          "otherPartsNote" : {
+            "type" : [ "string", "null" ]
+          },
+          "propertyType" : {
+            "$ref" : "#/components/schemas/ChecklistPropertyTypeField"
+          },
+          "provinceName" : {
+            "type" : [ "string", "null" ],
+            "description" : "The catalog name of the observed province; null while the address is unknown"
+          },
+          "rentalScope" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "WHOLE", "PARTS" ]
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistObservedSpace"
+            }
+          },
+          "wardName" : {
+            "type" : [ "string", "null" ],
+            "description" : "The catalog name of the observed ward; null while the address is unknown"
+          }
+        }
+      },
+      "ChecklistIdentificationFieldMeta" : {
+        "type" : "object",
+        "description" : "The metadata of the plain fields of G1",
+        "properties" : {
+          "differenceNote" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "generalNote" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "otherPartsNote" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "rentalScope" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "ChecklistIdentificationGroup" : {
+        "type" : "object",
+        "description" : "The identification group: its version, last save and content",
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/ChecklistIdentificationContent"
+          },
+          "updatedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "updatedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChecklistIdentificationInput" : {
+        "type" : "object",
+        "description" : "G1 identification, as sent",
+        "properties" : {
+          "differenceNote" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters"
+          },
+          "fit" : {
+            "$ref" : "#/components/schemas/ChecklistFitFieldInput"
+          },
+          "generalNote" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..2000 characters"
+          },
+          "observedAddress" : {
+            "$ref" : "#/components/schemas/ChecklistLocationFieldInput"
+          },
+          "otherPartsNote" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..1000 characters"
+          },
+          "propertyType" : {
+            "$ref" : "#/components/schemas/ChecklistPropertyTypeFieldInput"
+          },
+          "rentalScope" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "WHOLE", "PARTS" ]
+          },
+          "spaces" : {
+            "type" : "array",
+            "description" : "At most 50; WHOLE has exactly one",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistObservedSpaceInput"
+            }
+          }
+        },
+        "required" : [ "differenceNote", "fit", "generalNote", "observedAddress", "otherPartsNote", "propertyType", "rentalScope", "spaces" ]
+      },
+      "ChecklistIntakeRequest" : {
+        "type" : "object",
+        "description" : "The intake declaration of a starter who did not perform the visit",
+        "properties" : {
+          "basis" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistBasisRequest"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "reason" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters, no phone number"
+          }
+        },
+        "required" : [ "basis", "reason" ]
+      },
+      "ChecklistLeadSummary" : {
+        "type" : "object",
+        "description" : "The checklist's lead: its request code and status",
+        "properties" : {
+          "requestCode" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistLocationField" : {
+        "type" : "object",
+        "description" : "Address field of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistObservedLocation"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistLocationFieldInput" : {
+        "type" : "object",
+        "description" : "Address field of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistObservedLocation"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistMissingItem" : {
+        "type" : "object",
+        "description" : "A known gap before a full-assessment submission",
+        "properties" : {
+          "field" : {
+            "type" : [ "string", "null" ]
+          },
+          "group" : {
+            "type" : "string",
+            "enum" : [ "IDENTIFICATION", "PARTS", "DIMENSIONS", "CONDITION", "SAFETY", "AMENITIES", "EVIDENCE", "TERMS" ]
+          },
+          "problem" : {
+            "type" : "string",
+            "enum" : [ "NOT_CHECKED", "REQUIRED_AREA_NOT_ENTERED", "SCOPE_MISSING", "NO_SPACES", "NOT_IN_SCOPE", "DIFFERENCE_NOTE_MISSING", "EVIDENCE_PENDING" ]
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "ChecklistMoney" : {
+        "type" : "object",
+        "description" : "An amount in whole VND that is not a price per period",
+        "properties" : {
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "0 to 999999999999999; 0 means confirmed free or no deposit"
+          },
+          "currency" : {
+            "type" : "string",
+            "description" : "VND"
+          }
+        },
+        "required" : [ "amount", "currency" ]
+      },
+      "ChecklistMonthsTerm" : {
+        "type" : "object",
+        "description" : "Months term of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistMonthsTermInput" : {
+        "type" : "object",
+        "description" : "Months term of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistObservation" : {
+        "type" : "object",
+        "description" : "A checked result: nothing observed, or a note of what was",
+        "properties" : {
+          "noneObserved" : {
+            "type" : "boolean"
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..1000 characters, required when noneObserved is false"
+          }
+        },
+        "required" : [ "noneObserved", "note" ]
+      },
+      "ChecklistObservationField" : {
+        "type" : "object",
+        "description" : "Observation field of a survey checklist, as read",
+        "properties" : {
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistObservation"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistObservationFieldInput" : {
+        "type" : "object",
+        "description" : "Observation field of a survey checklist, as sent",
+        "properties" : {
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistObservation"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "naReason", "state", "value" ]
+      },
+      "ChecklistObservedLocation" : {
+        "type" : "object",
+        "description" : "An address seen or given at the survey: address text, province and ward codes of the catalog, optional pin",
+        "properties" : {
+          "addressText" : {
+            "type" : "string"
+          },
+          "latitude" : {
+            "type" : [ "number", "null" ],
+            "description" : "Give both latitude and longitude, or neither"
+          },
+          "longitude" : {
+            "type" : [ "number", "null" ]
+          },
+          "provinceCode" : {
+            "type" : "string"
+          },
+          "wardCode" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "addressText", "latitude", "longitude", "provinceCode", "wardCode" ]
+      },
+      "ChecklistObservedSpace" : {
+        "type" : "object",
+        "description" : "A viewed rentable space of G1, as read",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistObservedSpaceInput" : {
+        "type" : "object",
+        "description" : "A viewed rentable space of G1, as sent; a new space carries a client ULID",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "1..20 characters, unique ignoring case"
+          },
+          "description" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters"
+          },
+          "location" : {
+            "type" : "string",
+            "description" : "1..100 characters"
+          },
+          "spaceId" : {
+            "type" : "string",
+            "description" : "ULID; an id not stored yet is a new space"
+          }
+        },
+        "required" : [ "code", "description", "location", "spaceId" ]
+      },
+      "ChecklistOccupancyField" : {
+        "type" : "object",
+        "description" : "Occupancy field of a survey checklist, as read",
+        "properties" : {
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "enum" : [ "VACANT", "OCCUPIED", "UNDER_RENOVATION", "SUSPENDED" ]
+          }
+        }
+      },
+      "ChecklistOccupancyFieldInput" : {
+        "type" : "object",
+        "description" : "Occupancy field of a survey checklist, as sent",
+        "properties" : {
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "enum" : [ "VACANT", "OCCUPIED", "UNDER_RENOVATION", "SUSPENDED" ]
+          }
+        },
+        "required" : [ "naReason", "state", "value" ]
+      },
+      "ChecklistOtherGroupVersions" : {
+        "type" : "object",
+        "description" : "The versions of the groups a G1 save cascades into, as the caller read them",
+        "properties" : {
+          "amenities" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "condition" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "dimensions" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "parts" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "safety" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "terms" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          }
+        }
+      },
+      "ChecklistOtherItem" : {
+        "type" : "object",
+        "description" : "An amenity outside the v1 codes, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "itemId" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "presence" : {
+            "type" : "string",
+            "enum" : [ "YES", "NO" ]
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ]
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "Where an amenity or furnishing came from",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "ChecklistOtherItemInput" : {
+        "type" : "object",
+        "description" : "An amenity outside the v1 codes, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only"
+          },
+          "itemId" : {
+            "type" : "string",
+            "description" : "ULID"
+          },
+          "label" : {
+            "type" : "string",
+            "description" : "1..100 characters"
+          },
+          "presence" : {
+            "type" : "string",
+            "enum" : [ "YES", "NO" ]
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it"
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "Where an amenity or furnishing came from",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ],
+            "description" : "A space of this checklist, or null for the property"
+          }
+        },
+        "required" : [ "confirmedOn", "itemId", "label", "presence", "receivedByUserId", "relayBasis", "source", "spaceId" ]
+      },
+      "ChecklistOwnerForm" : {
+        "type" : "object",
+        "description" : "The owner's own web form values an owner's-form source may use",
+        "properties" : {
+          "addressDetail" : {
+            "type" : "string"
+          },
+          "availableFrom" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "latitude" : {
+            "type" : [ "number", "null" ]
+          },
+          "longitude" : {
+            "type" : [ "number", "null" ]
+          },
+          "monthlyAskingPrice" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistRentMoney"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null unless a price per month was submitted"
+          },
+          "provinceCode" : {
+            "type" : "string"
+          },
+          "submittedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "wardCode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistPartsContent" : {
+        "type" : "object",
+        "description" : "G2 parts, as read; one entry per G1 space in G1 order",
+        "properties" : {
+          "accessRoute" : {
+            "$ref" : "#/components/schemas/ChecklistTextField"
+          },
+          "sharedAreas" : {
+            "$ref" : "#/components/schemas/ChecklistTextField"
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistPartsSpace"
+            }
+          },
+          "totalFloors" : {
+            "$ref" : "#/components/schemas/ChecklistCountField"
+          }
+        }
+      },
+      "ChecklistPartsGroup" : {
+        "type" : "object",
+        "description" : "The parts group: its version, last save and content",
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/ChecklistPartsContent"
+          },
+          "updatedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "updatedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChecklistPartsInput" : {
+        "type" : "object",
+        "description" : "G2 parts, as sent",
+        "properties" : {
+          "accessRoute" : {
+            "$ref" : "#/components/schemas/ChecklistTextFieldInput"
+          },
+          "sharedAreas" : {
+            "$ref" : "#/components/schemas/ChecklistTextFieldInput"
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistPartsSpaceInput"
+            }
+          },
+          "totalFloors" : {
+            "$ref" : "#/components/schemas/ChecklistCountFieldInput"
+          }
+        },
+        "required" : [ "accessRoute", "sharedAreas", "spaces", "totalFloors" ]
+      },
+      "ChecklistPartsSpace" : {
+        "type" : "object",
+        "description" : "G2 values of one space, as read",
+        "properties" : {
+          "actualAccess" : {
+            "$ref" : "#/components/schemas/ChecklistActualAccessField"
+          },
+          "floor" : {
+            "$ref" : "#/components/schemas/ChecklistTextField"
+          },
+          "privateAreas" : {
+            "$ref" : "#/components/schemas/ChecklistTextField"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistPartsSpaceInput" : {
+        "type" : "object",
+        "description" : "G2 values of one space, as sent",
+        "properties" : {
+          "actualAccess" : {
+            "$ref" : "#/components/schemas/ChecklistActualAccessFieldInput"
+          },
+          "floor" : {
+            "$ref" : "#/components/schemas/ChecklistTextFieldInput"
+          },
+          "privateAreas" : {
+            "$ref" : "#/components/schemas/ChecklistTextFieldInput"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "actualAccess", "floor", "privateAreas", "spaceId" ]
+      },
+      "ChecklistPets" : {
+        "type" : "object",
+        "description" : "The pets policy",
+        "properties" : {
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters, required for CONDITIONAL"
+          },
+          "policy" : {
+            "type" : "string",
+            "enum" : [ "ALLOWED", "NOT_ALLOWED", "CONDITIONAL" ]
+          }
+        },
+        "required" : [ "note", "policy" ]
+      },
+      "ChecklistPetsTerm" : {
+        "type" : "object",
+        "description" : "Pets term of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistPets"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistPetsTermInput" : {
+        "type" : "object",
+        "description" : "Pets term of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistPets"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistPropertyTypeField" : {
+        "type" : "object",
+        "description" : "Asset type field of a survey checklist, as read",
+        "properties" : {
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+          }
+        }
+      },
+      "ChecklistPropertyTypeFieldInput" : {
+        "type" : "object",
+        "description" : "Asset type field of a survey checklist, as sent",
+        "properties" : {
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+          }
+        },
+        "required" : [ "naReason", "state", "value" ]
+      },
+      "ChecklistReadiness" : {
+        "type" : "object",
+        "description" : "The gaps known so far, computed on every read; submission is not available in this slice",
+        "properties" : {
+          "missing" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistMissingItem"
+            }
+          },
+          "submissionAvailable" : {
+            "type" : "boolean"
+          },
+          "submissionUnavailableReason" : {
+            "type" : "string"
+          },
+          "unconfirmedTerms" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistUnconfirmedTerm"
+            }
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistWarning"
+            }
+          }
+        }
+      },
+      "ChecklistRentMoney" : {
+        "type" : "object",
+        "description" : "A monthly rent in whole VND",
+        "properties" : {
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "1 to 999999999999999"
+          },
+          "currency" : {
+            "type" : "string",
+            "description" : "VND"
+          },
+          "unit" : {
+            "type" : "string",
+            "description" : "MONTH"
+          }
+        },
+        "required" : [ "amount", "currency", "unit" ]
+      },
+      "ChecklistRentTerm" : {
+        "type" : "object",
+        "description" : "Monthly rent term of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistRentMoney"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistRentTermInput" : {
+        "type" : "object",
+        "description" : "Monthly rent term of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistRentMoney"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistResponse" : {
+        "type" : "object",
+        "description" : "A survey checklist as a reader of its lead sees it",
+        "properties" : {
+          "checklistNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "corrections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistCorrection"
+            }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "createdByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "createdByUserId" : {
+            "type" : "string"
+          },
+          "earlierHazards" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistEarlierHazard"
+            }
+          },
+          "editable" : {
+            "type" : "boolean"
+          },
+          "editors" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistEditor"
+            }
+          },
+          "effectiveTerms" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistSpaceTerms"
+            }
+          },
+          "groups" : {
+            "$ref" : "#/components/schemas/ChecklistGroups"
+          },
+          "holderName" : {
+            "type" : [ "string", "null" ]
+          },
+          "holderUserId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "FULL_ASSESSMENT" ]
+          },
+          "lead" : {
+            "$ref" : "#/components/schemas/ChecklistLeadSummary"
+          },
+          "leadId" : {
+            "type" : "string"
+          },
+          "leadStaff" : {
+            "type" : "array",
+            "description" : "Empty unless the viewer can edit",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistStaffMember"
+            }
+          },
+          "ownerForm" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistOwnerForm"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "readOnlyReason" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "INTENT_CHANGED", "NEWER_VISIT", "LEAD_STATUS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", "TAKEOVER_REQUIRED" ]
+          },
+          "readiness" : {
+            "$ref" : "#/components/schemas/ChecklistReadiness"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT" ]
+          },
+          "takeovers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistTakeover"
+            }
+          },
+          "templateCode" : {
+            "type" : "string"
+          },
+          "templateVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The latest group save or takeover, else the creation"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "visit" : {
+            "$ref" : "#/components/schemas/ChecklistVisit"
+          }
+        }
+      },
+      "ChecklistSafetyContent" : {
+        "type" : "object",
+        "description" : "G5 safety, as read",
+        "properties" : {
+          "accessRestrictions" : {
+            "$ref" : "#/components/schemas/ChecklistObservationField"
+          },
+          "egress" : {
+            "$ref" : "#/components/schemas/ChecklistTextField"
+          },
+          "hazards" : {
+            "$ref" : "#/components/schemas/ChecklistHazardListField"
+          }
+        }
+      },
+      "ChecklistSafetyGroup" : {
+        "type" : "object",
+        "description" : "The safety group: its version, last save and content",
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/ChecklistSafetyContent"
+          },
+          "updatedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "updatedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChecklistSafetyInput" : {
+        "type" : "object",
+        "description" : "G5 safety, as sent",
+        "properties" : {
+          "accessRestrictions" : {
+            "$ref" : "#/components/schemas/ChecklistObservationFieldInput"
+          },
+          "egress" : {
+            "$ref" : "#/components/schemas/ChecklistTextFieldInput"
+          },
+          "hazards" : {
+            "$ref" : "#/components/schemas/ChecklistHazardListFieldInput",
+            "description" : "At most 30 hazards"
+          }
+        },
+        "required" : [ "accessRestrictions", "egress", "hazards" ]
+      },
+      "ChecklistSaveAmenitiesRequest" : {
+        "type" : "object",
+        "description" : "Save the amenities group",
+        "properties" : {
+          "content" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistAmenitiesInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCorrectionRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required when the save changes what someone else observed or heard"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The group version the caller read"
+          }
+        },
+        "required" : [ "content", "correction", "expectedVersion" ]
+      },
+      "ChecklistSaveConditionRequest" : {
+        "type" : "object",
+        "description" : "Save the condition group",
+        "properties" : {
+          "content" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistConditionInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCorrectionRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required when the save changes what someone else observed or heard"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The group version the caller read"
+          }
+        },
+        "required" : [ "content", "correction", "expectedVersion" ]
+      },
+      "ChecklistSaveDimensionsRequest" : {
+        "type" : "object",
+        "description" : "Save the dimensions group",
+        "properties" : {
+          "content" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistDimensionsInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCorrectionRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required when the save changes what someone else observed or heard"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The group version the caller read"
+          }
+        },
+        "required" : [ "content", "correction", "expectedVersion" ]
+      },
+      "ChecklistSaveIdentificationRequest" : {
+        "type" : "object",
+        "description" : "Save G1",
+        "properties" : {
+          "content" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistIdentificationInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCorrectionRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required when the save changes what someone else observed or heard"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The G1 version the caller read"
+          },
+          "otherGroupVersions" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistOtherGroupVersions"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required for each group a space removal or scope change clears"
+          }
+        },
+        "required" : [ "content", "correction", "expectedVersion" ]
+      },
+      "ChecklistSavePartsRequest" : {
+        "type" : "object",
+        "description" : "Save the parts group",
+        "properties" : {
+          "content" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistPartsInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCorrectionRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required when the save changes what someone else observed or heard"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The group version the caller read"
+          }
+        },
+        "required" : [ "content", "correction", "expectedVersion" ]
+      },
+      "ChecklistSaveSafetyRequest" : {
+        "type" : "object",
+        "description" : "Save the safety group",
+        "properties" : {
+          "content" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistSafetyInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCorrectionRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required when the save changes what someone else observed or heard"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The group version the caller read"
+          }
+        },
+        "required" : [ "content", "correction", "expectedVersion" ]
+      },
+      "ChecklistSaveTermsRequest" : {
+        "type" : "object",
+        "description" : "Save the terms group",
+        "properties" : {
+          "content" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistTermsInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistCorrectionRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required when the save changes what someone else observed or heard"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The group version the caller read"
+          }
+        },
+        "required" : [ "content", "correction", "expectedVersion" ]
+      },
+      "ChecklistSnapshotResponse" : {
+        "type" : "object",
+        "description" : "A checkpoint: every group as it was just before a takeover",
+        "properties" : {
+          "groups" : {
+            "$ref" : "#/components/schemas/ChecklistGroups"
+          }
+        }
+      },
+      "ChecklistSpaceTerms" : {
+        "type" : "object",
+        "description" : "The effective G8 values of one space in the preview",
+        "properties" : {
+          "electricity" : {
+            "$ref" : "#/components/schemas/ChecklistEffectiveCharge"
+          },
+          "fees" : {
+            "$ref" : "#/components/schemas/ChecklistEffectiveFees"
+          },
+          "internet" : {
+            "$ref" : "#/components/schemas/ChecklistEffectiveCharge"
+          },
+          "parking" : {
+            "$ref" : "#/components/schemas/ChecklistEffectiveCharge"
+          },
+          "serviceFee" : {
+            "$ref" : "#/components/schemas/ChecklistEffectiveCharge"
+          },
+          "spaceId" : {
+            "type" : "string"
+          },
+          "water" : {
+            "$ref" : "#/components/schemas/ChecklistEffectiveCharge"
+          }
+        }
+      },
+      "ChecklistStaffMember" : {
+        "type" : "object",
+        "description" : "A staff member of the lead who may be named as the receiver of an owner statement",
+        "properties" : {
+          "name" : {
+            "type" : [ "string", "null" ]
+          },
+          "userId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistStartRequest" : {
+        "type" : "object",
+        "description" : "Start a survey checklist on the current visit",
+        "properties" : {
+          "intake" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistIntakeRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null when the caller performed the visit, required otherwise"
+          }
+        },
+        "required" : [ "intake" ]
+      },
+      "ChecklistStartStateResponse" : {
+        "type" : "object",
+        "description" : "Whether the viewer can start a checklist on the current visit",
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "blockedBy" : {
+            "type" : [ "string", "null" ],
+            "description" : "The first block that applies, null when allowed",
+            "enum" : [ "NO_CURRENT_VISIT", "INTENT", "LEAD_STATUS", "ALREADY_STARTED", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE" ]
+          },
+          "intakeDeclarationRequired" : {
+            "type" : "boolean"
+          },
+          "visitAppointmentId" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "ChecklistStartedResponse" : {
+        "type" : "object",
+        "description" : "The answer of a checklist start",
+        "properties" : {
+          "checklist" : {
+            "$ref" : "#/components/schemas/ChecklistResponse"
+          },
+          "historyEntry" : {
+            "$ref" : "#/components/schemas/ChecklistHistoryEntryResponse"
+          },
+          "lead" : {
+            "$ref" : "#/components/schemas/SurveyLeadStateResponse"
+          }
+        }
+      },
+      "ChecklistSummaryResponse" : {
+        "type" : "object",
+        "description" : "A checklist of a VISITED appointment in the survey block",
+        "properties" : {
+          "checklistNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "editable" : {
+            "type" : "boolean"
+          },
+          "holderName" : {
+            "type" : [ "string", "null" ]
+          },
+          "holderUserId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "missingCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "readOnlyReason" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "INTENT_CHANGED", "NEWER_VISIT", "LEAD_STATUS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", "TAKEOVER_REQUIRED" ]
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT" ]
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "updatedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedByUserId" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "ChecklistTakenOverResponse" : {
+        "type" : "object",
+        "description" : "The answer of a takeover",
+        "properties" : {
+          "checklist" : {
+            "$ref" : "#/components/schemas/ChecklistResponse"
+          },
+          "historyEntry" : {
+            "$ref" : "#/components/schemas/ChecklistHistoryEntryResponse"
+          }
+        }
+      },
+      "ChecklistTakeover" : {
+        "type" : "object",
+        "description" : "A takeover of the draft",
+        "properties" : {
+          "basis" : {
+            "$ref" : "#/components/schemas/ChecklistBasis"
+          },
+          "fromName" : {
+            "type" : [ "string", "null" ]
+          },
+          "fromUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "hasSnapshot" : {
+            "type" : "boolean",
+            "description" : "Whether a checkpoint can be read (never for START_BY_OTHER)"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "START_BY_OTHER", "TAKEOVER" ]
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "takeoverNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "toName" : {
+            "type" : [ "string", "null" ]
+          },
+          "toUserId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistTakeoverRequest" : {
+        "type" : "object",
+        "description" : "Take a survey checklist draft over from its holder",
+        "properties" : {
+          "basis" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistBasisRequest"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The checklist version the caller read"
+          },
+          "reason" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters, no phone number"
+          }
+        },
+        "required" : [ "basis", "expectedVersion", "reason" ]
+      },
+      "ChecklistTermsCommon" : {
+        "type" : "object",
+        "description" : "The common G8 terms, as read",
+        "properties" : {
+          "electricity" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTerm"
+          },
+          "handoverMaintenance" : {
+            "$ref" : "#/components/schemas/ChecklistTextTerm"
+          },
+          "houseRules" : {
+            "$ref" : "#/components/schemas/ChecklistTextTerm"
+          },
+          "internet" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTerm"
+          },
+          "otherFees" : {
+            "$ref" : "#/components/schemas/ChecklistFeeListTerm"
+          },
+          "parking" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTerm"
+          },
+          "pets" : {
+            "$ref" : "#/components/schemas/ChecklistPetsTerm"
+          },
+          "serviceFee" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTerm"
+          },
+          "water" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTerm"
+          }
+        }
+      },
+      "ChecklistTermsCommonInput" : {
+        "type" : "object",
+        "description" : "The common G8 terms, as sent",
+        "properties" : {
+          "electricity" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+          },
+          "handoverMaintenance" : {
+            "$ref" : "#/components/schemas/ChecklistTextTermInput"
+          },
+          "houseRules" : {
+            "$ref" : "#/components/schemas/ChecklistTextTermInput"
+          },
+          "internet" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+          },
+          "otherFees" : {
+            "$ref" : "#/components/schemas/ChecklistFeeListTermInput"
+          },
+          "parking" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+          },
+          "pets" : {
+            "$ref" : "#/components/schemas/ChecklistPetsTermInput"
+          },
+          "serviceFee" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+          },
+          "water" : {
+            "$ref" : "#/components/schemas/ChecklistChargeTermInput"
+          }
+        },
+        "required" : [ "electricity", "handoverMaintenance", "houseRules", "internet", "otherFees", "parking", "pets", "serviceFee", "water" ]
+      },
+      "ChecklistTermsContent" : {
+        "type" : "object",
+        "description" : "G8 terms, as read; surveyed or offered, not agreed lease terms",
+        "properties" : {
+          "common" : {
+            "$ref" : "#/components/schemas/ChecklistTermsCommon"
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistTermsSpace"
+            }
+          }
+        }
+      },
+      "ChecklistTermsGroup" : {
+        "type" : "object",
+        "description" : "The terms group: its version, last save and content",
+        "properties" : {
+          "content" : {
+            "$ref" : "#/components/schemas/ChecklistTermsContent"
+          },
+          "updatedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "updatedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "updatedByUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "ChecklistTermsInput" : {
+        "type" : "object",
+        "description" : "G8 terms, as sent",
+        "properties" : {
+          "common" : {
+            "$ref" : "#/components/schemas/ChecklistTermsCommonInput"
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistTermsSpaceInput"
+            }
+          }
+        },
+        "required" : [ "common", "spaces" ]
+      },
+      "ChecklistTermsSpace" : {
+        "type" : "object",
+        "description" : "G8 values of one space, as read",
+        "properties" : {
+          "chargeOverrides" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeOverrides"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Separate parts only"
+          },
+          "deposit" : {
+            "$ref" : "#/components/schemas/ChecklistDepositTerm"
+          },
+          "minimumTermMonths" : {
+            "$ref" : "#/components/schemas/ChecklistMonthsTerm"
+          },
+          "monthlyRent" : {
+            "$ref" : "#/components/schemas/ChecklistRentTerm"
+          },
+          "paymentPeriodMonths" : {
+            "$ref" : "#/components/schemas/ChecklistMonthsTerm"
+          },
+          "spaceFees" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistFeeListTerm"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Separate parts only; adds to the common fees"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistTermsSpaceInput" : {
+        "type" : "object",
+        "description" : "G8 values of one space, as sent",
+        "properties" : {
+          "chargeOverrides" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistChargeOverridesInput"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Required in separate parts, null otherwise"
+          },
+          "deposit" : {
+            "$ref" : "#/components/schemas/ChecklistDepositTermInput"
+          },
+          "minimumTermMonths" : {
+            "$ref" : "#/components/schemas/ChecklistMonthsTermInput"
+          },
+          "monthlyRent" : {
+            "$ref" : "#/components/schemas/ChecklistRentTermInput"
+          },
+          "paymentPeriodMonths" : {
+            "$ref" : "#/components/schemas/ChecklistMonthsTermInput"
+          },
+          "spaceFees" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistFeeListTermInput"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Separate parts only; adds to the common fees"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "chargeOverrides", "deposit", "minimumTermMonths", "monthlyRent", "paymentPeriodMonths", "spaceFees", "spaceId" ]
+      },
+      "ChecklistTextField" : {
+        "type" : "object",
+        "description" : "Text field of a survey checklist, as read",
+        "properties" : {
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistTextFieldInput" : {
+        "type" : "object",
+        "description" : "Text field of a survey checklist, as sent",
+        "properties" : {
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "naReason", "state", "value" ]
+      },
+      "ChecklistTextTerm" : {
+        "type" : "object",
+        "description" : "Text term of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        }
+      },
+      "ChecklistTextTermInput" : {
+        "type" : "object",
+        "description" : "Text term of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE"
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
+      "ChecklistUnconfirmedTerm" : {
+        "type" : "object",
+        "description" : "A rental term or availability date still not confirmed",
+        "properties" : {
+          "field" : {
+            "type" : "string"
+          },
+          "group" : {
+            "type" : "string",
+            "enum" : [ "IDENTIFICATION", "PARTS", "DIMENSIONS", "CONDITION", "SAFETY", "AMENITIES", "EVIDENCE", "TERMS" ]
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "ChecklistUnitMeta" : {
+        "type" : "object",
+        "description" : "Who last changed a unit and who observed or heard its value",
+        "properties" : {
+          "correctionSaveId" : {
+            "type" : [ "string", "null" ],
+            "description" : "The save whose correction covered the last change"
+          },
+          "enteredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "enteredByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "enteredByUserId" : {
+            "type" : "string"
+          },
+          "formField" : {
+            "type" : [ "string", "null" ],
+            "description" : "address, askingPrice or availableFrom for an owner form value"
+          },
+          "lastSource" : {
+            "type" : [ "string", "null" ],
+            "description" : "The source the unit last held, also after it was cleared",
+            "enum" : [ "OBSERVED_ON_SITE", "MEASURED", "ESTIMATED", "OWNER_STATED", "OWNER_FORM" ]
+          },
+          "observedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "observedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "The performer for on-site values, the receiver for owner statements, null for the owner form or a note"
+          },
+          "observedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          }
+        }
+      },
+      "ChecklistVisit" : {
+        "type" : "object",
+        "description" : "The visit a checklist belongs to, as it was recorded",
+        "properties" : {
+          "appointmentId" : {
+            "type" : "string"
+          },
+          "appointmentNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "arrivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "intent" : {
+            "type" : "string",
+            "enum" : [ "SHORT_TERM_RENT", "LONG_TERM_RENT" ]
+          },
+          "intentCycle" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "FIRST", "RESURVEY" ]
+          },
+          "leadLocation" : {
+            "$ref" : "#/components/schemas/SurveyLocationResponse"
+          },
+          "meetingLocation" : {
+            "$ref" : "#/components/schemas/SurveyLocationResponse"
+          },
+          "performedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "performedByUserId" : {
+            "type" : "string"
+          },
+          "recordKind" : {
+            "type" : "string",
+            "enum" : [ "OWN", "PROXY" ]
+          },
+          "recordedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recordedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "recordedByUserId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistWarning" : {
+        "type" : "object",
+        "description" : "A warning of the preview",
+        "properties" : {
+          "checklistId" : {
+            "type" : [ "string", "null" ]
+          },
+          "checklistNo" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "hazardId" : {
+            "type" : [ "string", "null" ]
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ]
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "OPEN_IMPORTANT_HAZARD", "EARLIER_HAZARD_OPEN", "PARTIAL_ACCESS" ]
+          }
+        }
+      },
+      "ChecklistYesNoCountField" : {
+        "type" : "object",
+        "description" : "Yes or no field with a count source of a survey checklist, as read",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "meta" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistUnitMeta"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until the unit is first changed"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "enum" : [ "YES", "NO" ]
+          }
+        }
+      },
+      "ChecklistYesNoCountFieldInput" : {
+        "type" : "object",
+        "description" : "Yes or no field with a count source of a survey checklist, as sent",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_STATED only: the day the owner said it"
+          },
+          "naReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is NOT_APPLICABLE, 1..500 characters"
+          },
+          "receivedByUserId" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only: who heard it, one of the lead's staff"
+          },
+          "relayBasis" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_STATED only, exactly when someone else heard it: how it reached the person entering it"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "Required with VALUE",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNKNOWN", "VALUE", "NOT_APPLICABLE" ]
+          },
+          "value" : {
+            "type" : [ "string", "null" ],
+            "description" : "Present exactly when state is VALUE",
+            "enum" : [ "YES", "NO" ]
+          }
+        },
+        "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
+      },
       "CodeSentResponse" : {
         "type" : "object",
         "description" : "A verification code was sent",
@@ -3856,14 +8960,18 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "referenceDetail" : {
+            "type" : [ "string", "null" ],
+            "description" : "The checklist group a CHECKLIST_SAVED entry concerns; null otherwise"
+          },
           "referenceId" : {
             "type" : [ "string", "null" ],
-            "description" : "The survey appointment the entry concerns (survey-schedule); null when none"
+            "description" : "The survey appointment (survey types) or survey checklist (checklist types) the entry concerns; null when none"
           },
           "referenceNo" : {
             "type" : [ "integer", "null" ],
             "format" : "int32",
-            "description" : "That appointment's number within the lead; null when none"
+            "description" : "That appointment's or checklist's number within the lead; null when none"
           },
           "toAssigneeId" : {
             "type" : "string"
@@ -3878,7 +8986,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED" ]
+            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED", "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED" ]
           }
         }
       },
@@ -4962,6 +10070,13 @@
           "cannotBePerformed" : {
             "type" : "boolean"
           },
+          "checklists" : {
+            "type" : "array",
+            "description" : "The survey checklists of a VISITED appointment, newest first; empty otherwise (survey-checklist spec 7.2)",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistSummaryResponse"
+            }
+          },
           "confirmation" : {
             "$ref" : "#/components/schemas/SurveyConfirmationResponse"
           },
@@ -5087,6 +10202,10 @@
           },
           "booking" : {
             "$ref" : "#/components/schemas/SurveyBookingResponse"
+          },
+          "checklistStart" : {
+            "$ref" : "#/components/schemas/ChecklistStartStateResponse",
+            "description" : "Whether the viewer can start a survey checklist on the current visit (survey-checklist spec 7.2)"
           },
           "currentVisitId" : {
             "type" : "string"

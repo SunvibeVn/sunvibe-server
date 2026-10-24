@@ -39,6 +39,9 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // The API tests keep about twenty Spring contexts, each with its own PostgreSQL container, plus the checklist
+    // limits test's 50-space answers: more than Gradle's default 512 MB test heap holds
+    maxHeapSize = "1g"
 }
 
 // The contract export runs only through exportOpenApi, so a normal build never rewrites api/openapi.json.

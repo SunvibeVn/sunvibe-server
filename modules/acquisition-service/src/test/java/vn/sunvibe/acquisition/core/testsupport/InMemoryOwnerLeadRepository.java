@@ -26,7 +26,24 @@ import java.util.Optional;
 public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
 
     private final Map<OwnerLeadId, OwnerLead> leads = new LinkedHashMap<>();
+    private final List<OwnerLeadId> shareLocks = new ArrayList<>();
     public int saveCount;
+
+    /** The ids of each {@link #findByIdForShare} call, in call order. */
+    public List<OwnerLeadId> shareLocks() {
+        return new ArrayList<>(shareLocks);
+    }
+
+    @Override
+    public Optional<OwnerLead> findByIdForShare(OwnerLeadId id) {
+        shareLocks.add(id);
+        return findById(id);
+    }
+
+    @Override
+    public boolean existsById(OwnerLeadId id) {
+        return leads.containsKey(id);
+    }
 
     public List<OwnerLead> all() {
         return leads.values().stream().map(lead -> copy(lead, lead.getVersion())).toList();

@@ -1,6 +1,7 @@
 package vn.sunvibe.survey.core.presentation.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistStartStateResponse;
 
 import java.util.List;
 
@@ -12,5 +13,8 @@ import java.util.List;
 public record SurveyBlockResponse(String leadId, int intentCycle, SurveyBookingResponse booking,
                                   String currentVisitId, boolean resumeAllowed,
                                   List<SurveyAppointmentResponse> appointments,
-                                  List<SurveyResumptionResponse> resumptions) {
+                                  List<SurveyResumptionResponse> resumptions,
+                                  @Schema(description = "Whether the viewer can start a survey checklist on the "
+                                          + "current visit (survey-checklist spec 7.2)")
+                                  ChecklistStartStateResponse checklistStart) {
 }

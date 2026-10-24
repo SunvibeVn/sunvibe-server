@@ -46,8 +46,9 @@ import java.util.List;
 /**
  * Converter - SurveyResponseMapper
  * <p>
- * Turns the survey read models into the response bodies of survey-schedule spec 7.2. Staff names come from the
- * block's one name lookup; an unknown name is null.
+ * Turns the survey read models into the response bodies of survey-schedule spec 7.2, with the checklist state and
+ * summaries of survey-checklist spec 7.2. Staff names come from the block's one name lookup; an unknown name is
+ * null.
  */
 @Component
 public class SurveyResponseMapper {
@@ -66,7 +67,8 @@ public class SurveyResponseMapper {
                         block.booking().previousVisitId(), block.booking().blockedBy()),
                 block.currentVisitId(), block.resumeAllowed(),
                 block.appointments().stream().map(view -> toAppointment(view, block)).toList(),
-                block.resumptions().stream().map(resumption -> toResumption(resumption, block)).toList());
+                block.resumptions().stream().map(resumption -> toResumption(resumption, block)).toList(),
+                ChecklistResponseMapper.toStartState(block.checklistStart()));
     }
 
     public SurveyOverlapsResponse toOverlaps(List<OverlapView> overlaps) {
@@ -92,7 +94,9 @@ public class SurveyResponseMapper {
                 toCancellation(view.cancellation(), block),
                 view.revisions().stream().map(revision -> toRevision(revision, block)).toList(),
                 view.events().stream().map(event -> toEvent(event, block)).toList(), view.createdByUserId(),
-                block.nameOf(view.createdByUserId()), view.createdAt(), view.version());
+                block.nameOf(view.createdByUserId()), view.createdAt(), view.version(),
+                view.checklists().stream().map(summary -> ChecklistResponseMapper.toSummary(summary, block::nameOf))
+                        .toList());
     }
 
     private static SurveyConfirmationResponse toConfirmation(Confirmation confirmation, SurveyBlock block) {
@@ -162,14 +166,14 @@ public class SurveyResponseMapper {
         return basis == null ? null : new SurveyBasisResponse(basis.confirmedOn(), basis.text());
     }
 
-    private static SurveyLocationResponse toLocation(MeetingLocation location) {
+    static SurveyLocationResponse toLocation(MeetingLocation location) {
         Coordinates pin = location.coordinates();
         return new SurveyLocationResponse(location.addressText(), location.provinceCode(), location.provinceName(),
                 location.wardCode(), location.wardName(), pin == null ? null : pin.latitude(),
                 pin == null ? null : pin.longitude());
     }
 
-    private static SurveyLocationResponse toLocation(LeadLocationSnapshot location) {
+    static SurveyLocationResponse toLocation(LeadLocationSnapshot location) {
         Coordinates pin = location.coordinates();
         return new SurveyLocationResponse(location.addressDetail(), location.provinceCode(), location.provinceName(),
                 location.wardCode(), location.wardName(), pin == null ? null : pin.latitude(),
