@@ -87,9 +87,13 @@ public final class ChecklistApiTestSupport {
 		return visit(assignee, leadId);
 	}
 
-	/** Books a survey of the lead (CONTACTED) for the caller and records the caller's own visit a day back. */
+	/**
+	 * Books a survey of the lead (CONTACTED) for the caller and records the caller's own visit a day back: exactly 24
+	 * hours before the current hour, so its Vietnam date is yesterday at any time of day (two days back from the
+	 * booking an hour and a day ahead landed on today's date during the 23:00 hour in Vietnam, 16:00 UTC).
+	 */
 	public Visit visit(TestUser surveyor, String leadId) throws Exception {
-		return visit(surveyor, leadId, Duration.ofDays(2));
+		return visit(surveyor, leadId, Duration.ofDays(2).plusHours(1));
 	}
 
 	/** As {@link #visit(TestUser, String)}, the appointment moved back by {@code back} from a day ahead. */
