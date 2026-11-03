@@ -59,8 +59,8 @@ tasks.named<Test>("test") {
 }
 
 // ./gradlew :app:r2ContractTest: the object store contract against a Cloudflare R2 test bucket (survey-media spec
-// A-15, plan PD-7); needs R2_TEST_ENDPOINT, R2_TEST_ACCESS_KEY_ID, R2_TEST_SECRET_ACCESS_KEY, R2_TEST_QUARANTINE_BUCKET
-// and R2_TEST_MEDIA_BUCKET, and fails without them. Run before go-live.
+// A-15, plan PD-7); it reads the endpoint, the two bucket names and the access key pair from the R2_TEST_* variables
+// that R2MediaObjectStoreContractTest names, and fails without them. Run before go-live.
 tasks.register<Test>("r2ContractTest") {
     description = "Runs the media object store contract against a Cloudflare R2 test bucket (plan PD-7)."
     group = "verification"

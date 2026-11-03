@@ -3,6 +3,8 @@ package vn.sunvibe.survey;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -11,8 +13,8 @@ import vn.sunvibe.survey.core.application.shared.external.media.StoreUnavailable
 
 /**
  * The media tests' store: the configured one behind a test-only spy (plan Global Constraints: switches vary at run
- * time). It counts the serving reads, can make them fail like a store without a free GET connection, and records
- * whether the last served stream was closed (the R2 stream released, spec A-25).
+ * time). It counts the serving reads, can make them fail like a store without a free GET connection or slow them
+ * down, and records whether and when each served stream was closed (the R2 stream released, spec A-25).
  */
 public final class MediaTestStore implements MediaObjectStore {
 
@@ -30,6 +32,10 @@ public final class MediaTestStore implements MediaObjectStore {
 	public final AtomicBoolean emptyMediaBucket = new AtomicBoolean();
 	/** Listings of one photo's prefix answer nothing while the bucket listing still answers. */
 	public final AtomicBoolean emptyPhotoPrefixes = new AtomicBoolean();
+	/** Serving streams give at most 64 KB per 200 ms, like a slow store stream that still makes progress. */
+	public final AtomicBoolean slowServing = new AtomicBoolean();
+	/** The streams served since the last {@link #reset()}, in order; a stream of an earlier test is never in it. */
+	public final List<ServedStream> served = new CopyOnWriteArrayList<>();
 	public volatile boolean lastServedClosed;
 
 	public MediaTestStore(MediaObjectStore real) {
@@ -44,6 +50,33 @@ public final class MediaTestStore implements MediaObjectStore {
 		failProbe.set(false);
 		emptyMediaBucket.set(false);
 		emptyPhotoPrefixes.set(false);
+		slowServing.set(false);
+		served.clear();
+	}
+
+	/** One served stream: whether and when ({@link System#nanoTime()}) it was closed. */
+	public static final class ServedStream {
+
+		private boolean closed;
+		private long closedAtNanos;
+
+		/** True for the first close only. */
+		synchronized boolean close() {
+			if (closed) {
+				return false;
+			}
+			closed = true;
+			closedAtNanos = System.nanoTime();
+			return true;
+		}
+
+		public synchronized boolean closed() {
+			return closed;
+		}
+
+		public synchronized long closedAtNanos() {
+			return closedAtNanos;
+		}
 	}
 
 	@Override
@@ -63,15 +96,34 @@ public final class MediaTestStore implements MediaObjectStore {
 			throw new StoreUnavailableException(StoreUnavailableException.SERVER_ERROR);
 		}
 		StoredObject object = real.getForServing(key);
+		boolean slow = slowServing.get();
+		ServedStream record = new ServedStream();
+		served.add(record);
 		lastServedClosed = false;
 		openServingStreams.incrementAndGet();
 		return new StoredObject(new FilterInputStream(object.content()) {
-			private boolean closed;
+
+			// FilterInputStream.read(byte[]) ends here; read() of one byte is not throttled (the controller never uses it)
+			@Override
+			public int read(byte[] buffer, int offset, int length) throws IOException {
+				if (!slow) {
+					return super.read(buffer, offset, length);
+				}
+				try {
+					Thread.sleep(200);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					throw new IOException("Interrupted.", e);
+				}
+				if (record.closed()) {
+					throw new IOException("The stream is closed.");
+				}
+				return super.read(buffer, offset, Math.min(length, 64 * 1024));
+			}
 
 			@Override
 			public void close() throws IOException {
-				if (!closed) {
-					closed = true;
+				if (record.close()) {
 					lastServedClosed = true;
 					openServingStreams.decrementAndGet();
 				}

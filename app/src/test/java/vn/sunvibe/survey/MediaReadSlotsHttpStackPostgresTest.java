@@ -212,13 +212,19 @@ class MediaReadSlotsHttpStackPostgresTest {
 		assertEquals("429", refused.get(":status"), "the blocked request threads keep their slots: " + refused);
 	}
 
+	/**
+	 * spec A-25: a FULL whose store stream still makes progress (64 KB per 200 ms) is ended at its 6 s deadline, with
+	 * its store stream. The client reads at once, so the end it sees is the server's: a slow client would see the
+	 * bytes the kernel had already accepted long after the server stopped (about 2 MB on a Linux loopback, SV-068), and
+	 * the server would stop it by the 2 s no-progress timeout before the deadline.
+	 */
 	@Test
 	void slowFull_closedAtDeadline() throws Exception {
 		String id = ready(2);
+		store.slowServing.set(true);
 		long start = System.nanoTime();
 		long read = 0;
 		try (Socket socket = new Socket()) {
-			socket.setReceiveBufferSize(16 * 1024);
 			socket.connect(new InetSocketAddress("localhost", port));
 			socket.setSoTimeout(15_000);
 			socket.getOutputStream().write(("GET " + MediaApiTestSupport.MEDIA + "/" + id + "/content/full HTTP/1.1\r\n"
@@ -229,16 +235,21 @@ class MediaReadSlotsHttpStackPostgresTest {
 			try {
 				for (int n = in.read(chunk); n != -1; n = in.read(chunk)) {
 					read += n;
-					Thread.sleep(300);
 				}
 			} catch (IOException e) {
 				// the server closed the stream
 			}
 		}
-		long seconds = Duration.ofNanos(System.nanoTime() - start).toSeconds();
+		long clientMillis = Duration.ofNanos(System.nanoTime() - start).toMillis();
 
 		assertTrue(read < BIG_FULL.length, "stopped before the whole variant: " + read);
-		assertTrue(seconds >= 4 && seconds <= 20, "stopped near the 6 s deadline: " + seconds);
+		assertEquals(1, store.served.size(), "one store stream was opened");
+		MediaTestStore.ServedStream served = store.served.get(0);
+		assertTrue(served.closed(), "the store stream was closed");
+		long closedMillis = Duration.ofNanos(served.closedAtNanos() - start).toMillis();
+		assertTrue(closedMillis >= 5_000 && closedMillis <= 10_000,
+				"the store stream was closed at the 6 s deadline, not by the no-progress timeout: " + closedMillis);
+		assertTrue(clientMillis >= 5_000 && clientMillis <= 12_000, "the answer ended at the deadline: " + clientMillis);
 	}
 
 	@Test
