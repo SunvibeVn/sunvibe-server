@@ -138,6 +138,20 @@ def uid_processes(uid):
     return pids
 
 
+def describe(pids):
+    """pid, state and command name of each process: what a failed reset left (no argument, no file)."""
+    parts = []
+    for pid in pids[:10]:
+        try:
+            with open("/proc/%d/status" % pid, "rb") as handle:
+                fields = dict(line.split(b":", 1) for line in handle if b":" in line)
+            parts.append("%d %s %s" % (pid, fields[b"State"].split()[0].decode("ascii", "replace"),
+                                       fields[b"Name"].strip()[:16].decode("ascii", "replace")))
+        except (OSError, KeyError, IndexError):
+            parts.append(str(pid))
+    return ", ".join(parts) or "none"
+
+
 def kill_uid(uid):
     """Kills every process of uid from here (CAP_KILL), so no process of the slot can resist; True when none is left."""
     deadline = time.monotonic() + 10
@@ -162,17 +176,25 @@ def reset_slot(slot, answer_first=None):
     answer_first, when given, answers the run before that, so a run that defeats its reset is still a limit hit for the
     API (the two-strike rule and the expensive cap, survey-media spec A-7, A-27).
     """
+    step = "kill"
     try:
         clean = kill_uid(slot_uid(slot))
         if clean:
+            step = "helper"
             done = subprocess.run(as_slot(slot, [sys.executable, "-I", SLOT_TOOL, "reset", slot_dir(slot)]),
                                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                   env=CHILD_ENV, close_fds=True, timeout=30, check=False)
-            clean = done.returncode == 0 and kill_uid(slot_uid(slot))
-    except Exception:
+            step = "helper exit %d" % done.returncode
+            clean = done.returncode == 0
+            if clean:
+                step = "kill after the helper"
+                clean = kill_uid(slot_uid(slot))
+    except Exception as error:
+        step += " " + type(error).__name__
         clean = False
     if not clean:
-        log("run slot %d could not be reset; the supervisor stops" % slot)
+        log("run slot %d could not be reset (%s; left: %s); the supervisor stops"
+            % (slot, step, describe(uid_processes(slot_uid(slot)))))
         if answer_first is not None:
             try:
                 answer_first()

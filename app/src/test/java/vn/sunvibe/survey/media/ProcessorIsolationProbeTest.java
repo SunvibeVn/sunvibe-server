@@ -132,10 +132,11 @@ class ProcessorIsolationProbeTest {
 						+ " print(n, s.st_uid, oct(stat.S_IMODE(s.st_mode)))");
 		assertEquals("1 10101 0o700\n2 10102 0o700\n3 10103 0o700", owners.getStdout().trim(), owners.getStderr());
 
+		String before = slotTimes();
 		CompletableFuture<Reply> sleeping = CompletableFuture.supplyAsync(() -> exchange(0x71,
 				"source of a sleeping run".getBytes(StandardCharsets.US_ASCII)));
 		try {
-			String holder = awaitSourceHolder();
+			String holder = awaitSourceHolder(before);
 			for (int slot = 1; slot <= 3; slot++) {
 				String uid = String.valueOf(ProcessorImage.SLOT_UID + slot - 1);
 				if (uid.equals(holder)) {
@@ -294,20 +295,36 @@ class ProcessorIsolationProbeTest {
 		return files.toString();
 	}
 
-	/** The uid of the slot whose directory holds a source file, while a run sleeps. */
-	private String awaitSourceHolder() throws Exception {
+	/** The modification times of the slot directories, read as root (stat needs no access to their content). */
+	private String slotTimes() throws Exception {
+		return channel.execInContainer("python3", "-I", "-c",
+				"import os; print(' '.join(str(os.stat('/work/slot-%d' % n).st_mtime_ns) for n in (1, 2, 3)))")
+				.getStdout().trim();
+	}
+
+	/**
+	 * The uid of the slot whose directory changed since {@code before}: the one a sleeping run wrote its source into.
+	 * Watched as root, so no process of a slot uid races the slot's reset.
+	 */
+	private String awaitSourceHolder(String before) throws Exception {
+		String[] was = before.split(" ");
 		long deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
 		while (System.nanoTime() < deadline) {
+			String[] now = slotTimes().split(" ");
 			for (int slot = 1; slot <= 3; slot++) {
-				String uid = String.valueOf(ProcessorImage.SLOT_UID + slot - 1);
-				if (!channel.execInContainerWithUser(uid + ":" + uid, "ls", "-A", "/work/slot-" + slot).getStdout()
-						.isBlank()) {
-					return uid;
+				if (now.length == 3 && !now[slot - 1].equals(was[slot - 1])) {
+					return String.valueOf(ProcessorImage.SLOT_UID + slot - 1);
 				}
 			}
 			Thread.sleep(100);
 		}
-		throw new AssertionError("no run wrote its source");
+		throw new AssertionError("no run wrote its source: " + channelLog());
+	}
+
+	/** The end of the channel container's log (the supervisor's lines), for a failure message. */
+	private String channelLog() {
+		String log = channel.getLogs();
+		return log.substring(Math.max(0, log.length() - 2000));
 	}
 
 	private Reply exchange(int op, byte[] body) {
@@ -319,9 +336,13 @@ class ProcessorIsolationProbeTest {
 			out.writeInt(body.length);
 			out.write(body);
 			out.flush();
-			return Reply.read(new DataInputStream(socket.getInputStream()));
+			try {
+				return Reply.read(new DataInputStream(socket.getInputStream()));
+			} catch (AssertionError e) {
+				throw new AssertionError("no answer to op " + op + "; supervisor log: " + channelLog(), e);
+			}
 		} catch (IOException e) {
-			throw new IllegalStateException(e);
+			throw new IllegalStateException("op " + op + "; supervisor log: " + channelLog(), e);
 		}
 	}
 
