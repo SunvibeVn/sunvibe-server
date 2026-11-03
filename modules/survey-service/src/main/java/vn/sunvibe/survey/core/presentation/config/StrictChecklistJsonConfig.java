@@ -9,11 +9,12 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistStartRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.media.MediaCreateRequest;
 
 /**
- * Strict checklist bodies (survey-checklist spec A-4, plan PD-2): the request records of
- * {@code ..presentation.dto.request.checklist} are read with the application's JSON mapper plus
- * {@code FAIL_ON_UNKNOWN_PROPERTIES} and {@code FAIL_ON_NULL_FOR_PRIMITIVES}, so an unknown key (a {@code meta} or
+ * Strict checklist and survey-media bodies (survey-checklist spec A-4, plan PD-2; survey-media spec A-11): the request
+ * records of {@code ..presentation.dto.request.checklist} and {@code ..presentation.dto.request.media} are read with
+ * the application's JSON mapper plus {@code FAIL_ON_UNKNOWN_PROPERTIES} and {@code FAIL_ON_NULL_FOR_PRIMITIVES}, so an unknown key (a {@code meta} or
  * server field sent back) is a 400 on its path, and without {@code ACCEPT_FLOAT_AS_INT}, so a fraction sent for an
  * amount, a count or a version is a 400 on its path instead of being cut (spec 7.1: JSON integers). The converter
  * only reads those types and never writes; it is added ahead of the defaults and is not a bean, so Boot's own mapper
@@ -23,6 +24,8 @@ import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistStartR
 public class StrictChecklistJsonConfig implements WebMvcConfigurer {
 
     static final String REQUEST_PACKAGE = ChecklistStartRequest.class.getPackageName();
+    /** survey-media spec A-11, W16 A-4: the media request records are read as strictly. */
+    static final String MEDIA_REQUEST_PACKAGE = MediaCreateRequest.class.getPackageName();
 
     private final JsonMapper applicationMapper;
 
@@ -67,7 +70,8 @@ public class StrictChecklistJsonConfig implements WebMvcConfigurer {
         }
 
         private static boolean isChecklistRequest(Class<?> type) {
-            return type != null && REQUEST_PACKAGE.equals(type.getPackageName());
+            return type != null && (REQUEST_PACKAGE.equals(type.getPackageName())
+                    || MEDIA_REQUEST_PACKAGE.equals(type.getPackageName()));
         }
     }
 }

@@ -64,6 +64,7 @@ import vn.sunvibe.survey.core.domain.policy.checklist.LocationDifference;
 import vn.sunvibe.survey.core.domain.policy.checklist.Readiness;
 import vn.sunvibe.survey.core.domain.policy.checklist.SpaceTerms;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyLeadStateResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistMedia;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistActualAccess;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistActualAccessField;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistAddressDifference;
@@ -192,7 +193,8 @@ public class ChecklistResponseMapper {
                 checklist.getTemplateVersion(), visit(view.visit(), names), checklist.getHolderUserId(),
                 view.nameOf(checklist.getHolderUserId()), view.editability().editable(),
                 view.editability().reason(), groups(view.groups(), view.difference(), names),
-                readiness(view.readiness()),
+                readiness(view.readiness()), new ChecklistMedia(view.media().available(),
+                        view.media().uploadEnabled(), view.media().setVersion()),
                 view.effectiveTerms().stream().map(space -> spaceTerms(space, new Units(terms, names))).toList(),
                 view.earlierHazards().stream().map(hazard -> earlierHazard(hazard, names)).toList(),
                 ownerForm(view.ownerFormOrNull()),
@@ -241,7 +243,7 @@ public class ChecklistResponseMapper {
 
     // ==================== checklist parts ====================
 
-    private static ChecklistHistoryEntryResponse toEntry(ChecklistHistoryEntry entry) {
+    static ChecklistHistoryEntryResponse toEntry(ChecklistHistoryEntry entry) {
         return new ChecklistHistoryEntryResponse(entry.type(), entry.actorUserId(), entry.actorName(), null, null,
                 null, null, null, null, null, null, entry.occurredAt(), entry.referenceId(), entry.referenceNo(),
                 entry.referenceDetail());

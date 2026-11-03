@@ -1,12 +1,15 @@
 package vn.sunvibe.config;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.aopalliance.intercept.MethodInvocation;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
@@ -26,7 +29,11 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
+import tools.jackson.databind.json.JsonMapper;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
+import vn.sunvibe.shared.constant.error.ErrorCode;
+import vn.sunvibe.shared.dto.response.error.ErrorResponse;
+import vn.sunvibe.shared.web.MediaContentPaths;
 import vn.sunvibe.auth.core.infrastructure.security.filter.JWTRequestFilter;
 
 /**
@@ -82,6 +89,9 @@ public class SecurityConfig {
     };
 
     private static final String ADMIN_FEATURE_PATH = "/features/admin/**";
+    /** The fixed messages of the chain's 401 and 403 (survey-media plan PD-2). */
+    static final String UNAUTHORIZED_MESSAGE = "Authentication is required.";
+    static final String FORBIDDEN_MESSAGE = "You do not have permission to access this resource.";
 
     // ── Beans ────────────────────────────────────────────────
 
@@ -118,38 +128,38 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder(10);
     }
 
+    /**
+     * The chain's 401 (survey-media spec A-13, plan PD-2; SV-030): the ADR-010 envelope with code UNAUTHORIZED and a
+     * fixed message, written through the JSON mapper; never the request path or the exception message. The media
+     * content paths also close the connection, so an unread upload body is not drained.
+     */
     @Bean
-    public AuthenticationEntryPoint authenticationEntryPoint() {
+    public AuthenticationEntryPoint authenticationEntryPoint(JsonMapper jsonMapper) {
         return (request, response, authException) -> {
-            log.warn("Unauthorized request to {}: {}", request.getRequestURI(), authException.getMessage());
-
-            response.setContentType("application/json;charset=UTF-8");
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("""
-                    {
-                      "error": "Unauthorized",
-                      "message": "%s",
-                      "path": "%s"
-                    }
-                    """.formatted(authException.getMessage(), request.getRequestURI()));
+            log.warn("Unauthorized request to {}", request.getRequestURI());
+            writeSecurityError(jsonMapper, request, response, HttpServletResponse.SC_UNAUTHORIZED,
+                    ErrorCode.UNAUTHORIZED, UNAUTHORIZED_MESSAGE);
         };
     }
 
+    /** The chain's 403, on the same envelope with code FORBIDDEN (survey-media spec A-13, plan PD-2). */
     @Bean
-    public AccessDeniedHandler accessDeniedHandler() {
+    public AccessDeniedHandler accessDeniedHandler(JsonMapper jsonMapper) {
         return (request, response, accessDeniedException) -> {
-            log.warn("Access denied to {}: {}", request.getRequestURI(), accessDeniedException.getMessage());
-
-            response.setContentType("application/json;charset=UTF-8");
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.getWriter().write("""
-                    {
-                      "error": "Forbidden",
-                      "message": "You do not have permission to access this resource.",
-                      "path": "%s"
-                    }
-                    """.formatted(request.getRequestURI()));
+            log.warn("Access denied to {}", request.getRequestURI());
+            writeSecurityError(jsonMapper, request, response, HttpServletResponse.SC_FORBIDDEN, ErrorCode.FORBIDDEN,
+                    FORBIDDEN_MESSAGE);
         };
+    }
+
+    static void writeSecurityError(JsonMapper jsonMapper, HttpServletRequest request, HttpServletResponse response,
+            int status, String code, String message) throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType("application/json;charset=UTF-8");
+        if (MediaContentPaths.isContentPath(request.getRequestURI())) {
+            response.setHeader(HttpHeaders.CONNECTION, "close");
+        }
+        jsonMapper.writeValue(response.getOutputStream(), ErrorResponse.of(code, message, List.of()));
     }
 
     /**
@@ -161,7 +171,9 @@ public class SecurityConfig {
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
-            @Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource) throws Exception {
+            @Qualifier("corsConfigurationSource") CorsConfigurationSource corsConfigurationSource,
+            AuthenticationEntryPoint authenticationEntryPoint, AccessDeniedHandler accessDeniedHandler)
+            throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
@@ -178,8 +190,8 @@ public class SecurityConfig {
                 )
 
                 .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint(authenticationEntryPoint())
-                        .accessDeniedHandler(accessDeniedHandler())
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
                 )
 
                 .sessionManagement(session -> session

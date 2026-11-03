@@ -9,5 +9,15 @@ public enum SecurityAction {
     /** A group save. */
     SAVE,
     /** A takeover. */
-    TAKEOVER
+    TAKEOVER,
+    /** A photo create or content upload (survey-media spec 4.9). */
+    UPLOAD,
+    /** A photo removal (survey-media spec 4.9). */
+    REMOVE,
+    /** The malware scan of a photo's source by the worker (survey-media spec 4.9). */
+    SCAN,
+    /** An ADMIN's security hold of a photo (survey-media spec A-23). */
+    HOLD,
+    /** An ADMIN's release of a photo's hold (survey-media spec A-23). */
+    RELEASE
 }

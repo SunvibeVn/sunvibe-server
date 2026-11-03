@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.acquisition.core.application.usecase.LeadAssigneeQueryUseCase;
 import vn.sunvibe.acquisition.core.presentation.converter.LeadAssigneeResponseMapper;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadAssigneeResponse;
-import vn.sunvibe.acquisition.core.presentation.dto.response.SecurityError;
+import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 import java.util.List;
 
@@ -54,9 +54,9 @@ public class OwnerLeadAssigneeController {
                     content = @Content(array = @ArraySchema(
                             schema = @Schema(implementation = LeadAssigneeResponse.class)))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not SALE_LEADER, SALES_MANAGER or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class)))
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<List<LeadAssigneeResponse>> list() {
         return ResponseEntity.ok(responseMapper.toResponses(assigneeUseCase.listEligible()));

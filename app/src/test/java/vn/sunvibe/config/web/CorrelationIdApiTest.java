@@ -30,6 +30,16 @@ class CorrelationIdApiTest {
 
     private final HttpClient client = HttpClient.newHttpClient();
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.core.env.Environment environment;
+
+    /** survey-media plan PD-14: every log line carries the correlation id and the server request id. */
+    @Test
+    void loggingPattern_carriesCorrelationAndRequestIds() {
+        assertEquals("[%X{correlationId:-}] [%X{requestId:-}] ",
+                environment.getProperty("logging.pattern.correlation"));
+    }
+
     @Test
     void publicGet_noHeader_responseHasGeneratedCorrelationId() throws Exception {
         HttpResponse<String> response = get(null);

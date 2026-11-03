@@ -1,0 +1,27 @@
+# DEV ONLY: the survey-media processor for local development and the E2E API run (plan PD-5, Tasks A23, B6). Same
+# image and hardening as compose.yaml, but the channel is a port published on 127.0.0.1 only, so the API running on the
+# host JVM (Windows included) reaches it; nothing else on the network can. Never use this file outside a developer's
+# machine.
+#   docker compose -f docker/media-processor/compose.dev.yaml up --build
+#   app.survey.media.processor.kind=isolated
+#   app.survey.media.processor.host=127.0.0.1
+#   app.survey.media.processor.port=7300
+#   app.survey.media.processor.version=dev-8.16.1
+services:
+  media-processor:
+    build: .
+    image: sunvibe/media-processor:dev
+    read_only: true
+    tmpfs:
+      - /work:size=1g,mode=0700,uid=10001,gid=10001
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 64
+    mem_limit: 5g
+    memswap_limit: 5g
+    command: ["--listen", "tcp:0.0.0.0:7300"]
+    ports:
+      - "127.0.0.1:7300:7300"

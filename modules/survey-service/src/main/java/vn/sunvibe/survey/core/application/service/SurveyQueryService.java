@@ -3,6 +3,7 @@ package vn.sunvibe.survey.core.application.service;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -81,6 +82,7 @@ public class SurveyQueryService implements SurveyQueryUseCase {
      * unknown lead writes none. The access-log row names the survey block (spec A-10).
      */
     @Override
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public SurveyBlock block(SurveyViewer viewer, String leadId) {
         LeadFacts lead = leads.findVisible(leadId, viewer).orElseThrow(() -> {
             if (leads.leadExists(leadId)) {

@@ -25,7 +25,8 @@ import java.util.Map;
  */
 public record ChecklistView(SurveyChecklist checklist, String requestCode, String leadStatus, List<String> leadStaff,
                             SurveyAppointment visit, Editability editability, Map<ChecklistGroup, GroupState> groups,
-                            LocationDifference difference, Readiness readiness, List<SpaceTerms> effectiveTerms,
+                            LocationDifference difference, Readiness readiness, ChecklistMediaView media,
+                            List<SpaceTerms> effectiveTerms,
                             List<EarlierHazard> earlierHazards, OwnerFormFacts ownerFormOrNull,
                             List<ChecklistTakeover> takeovers, List<CorrectionView> corrections,
                             List<EditorView> editors, Instant updatedAt, Map<String, String> staffNames) {

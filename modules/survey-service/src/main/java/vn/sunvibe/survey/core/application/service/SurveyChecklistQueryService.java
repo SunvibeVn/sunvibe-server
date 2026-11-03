@@ -2,6 +2,7 @@ package vn.sunvibe.survey.core.application.service;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -56,7 +57,12 @@ public class SurveyChecklistQueryService implements SurveyChecklistQueryUseCase 
         this.snowflakes = snowflakes;
     }
 
+    /**
+     * survey-media spec 4.6, 5.4 (plan PD-9): the groups, the media-set row and the photos in one REPEATABLE READ
+     * snapshot, so missingCount matches missing[]; still read-write for the access-log row.
+     */
     @Override
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public ChecklistView read(SurveyViewer viewer, String checklistId) {
         ReadContext context = loader.loadForRead(viewer, checklistId, SecurityResourceType.CHECKLIST, checklistId);
         ChecklistView view = views.assemble(viewer, context.lead(), context.ofLead(), context.checklist());

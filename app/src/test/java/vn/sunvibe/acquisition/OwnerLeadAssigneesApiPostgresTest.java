@@ -170,7 +170,6 @@ class OwnerLeadAssigneesApiPostgresTest {
 			Result result = api.get(caller.getValue(), PATH);
 
 			assertSecurityBody(result, 403);
-			assertEquals(PATH, result.body().path("path").asString(), caller.getKey());
 		}
 	}
 

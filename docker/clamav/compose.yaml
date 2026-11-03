@@ -1,0 +1,42 @@
+# The survey-media malware scanner (ADR-011 decision 4; survey-media spec 4.5 scan row, A-27; plan Task A9).
+# clamd sits on the internal network "media-scanning", shared only with the API's worker, has no egress, reads its
+# signatures from a volume mounted read-only and holds no secret. freshclam is the only part with egress: it writes
+# the signatures volume. The API sets app.survey.media.scanner=clamav, clamav.host=clamd, clamav.port=3310.
+services:
+  clamd:
+    image: clamav/clamav:1.5.4@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a
+    entrypoint: ["clamd", "--foreground", "--config-file=/etc/clamav-sunvibe/clamd.conf"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+      - /run/clamav:size=1m,uid=100,gid=101
+    volumes:
+      - signatures:/var/lib/clamav:ro
+      - ./clamd.conf:/etc/clamav-sunvibe/clamd.conf:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 3g
+    restart: unless-stopped
+    networks:
+      - media-scanning
+
+  freshclam:
+    image: clamav/clamav:1.5.4@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a
+    entrypoint: ["freshclam", "--daemon", "--foreground", "--checks=12"]
+    volumes:
+      - signatures:/var/lib/clamav
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - updates
+
+volumes:
+  signatures:
+
+networks:
+  media-scanning:
+    internal: true
+  updates: {}

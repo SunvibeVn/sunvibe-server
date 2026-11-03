@@ -12,6 +12,7 @@ import vn.sunvibe.survey.core.application.service.SurveyChecklistCommandService;
 import vn.sunvibe.survey.core.application.service.SurveyChecklistQueryService;
 import vn.sunvibe.survey.core.application.service.SurveyQueryService;
 import vn.sunvibe.survey.core.application.shared.SurveyBlockAssembler;
+import vn.sunvibe.survey.core.application.shared.ChecklistMediaCascade;
 import vn.sunvibe.survey.core.application.shared.ChecklistContextLoader;
 import vn.sunvibe.survey.core.application.shared.ChecklistViewAssembler;
 import vn.sunvibe.survey.core.application.shared.SecurityEventRecorder;
@@ -23,6 +24,14 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.appointment.VisitRecordKind;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
+import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
+import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
+import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
+import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
+import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;
+import vn.sunvibe.survey.core.domain.model.media.MediaSet;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 
 import java.time.Duration;
@@ -31,6 +40,8 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static vn.sunvibe.survey.core.testsupport.AppointmentFixture.atLead;
@@ -67,22 +78,35 @@ public final class ChecklistServiceHarness {
     public final InMemorySurveyorDirectory directory = new InMemorySurveyorDirectory()
             .withEligible(SALE_A, "Sale A").withEligible(SALE_B, "Sale B").withEligible(LEADER, "Lead Er")
             .withName(MANAGER, "Man Ager");
+    /** The photo fakes write to the same journal, so lock order across groups, set and photos shows. */
+    public final List<String> mediaJournal = journal;
+    public final InMemoryMediaRepositories.Jobs mediaJobs = new InMemoryMediaRepositories.Jobs(journal);
+    public final InMemoryMediaRepositories.Media media = new InMemoryMediaRepositories.Media(mediaJournal);
+    public final InMemoryMediaRepositories.Sets mediaSets = new InMemoryMediaRepositories.Sets(mediaJournal);
+    public final InMemoryIntakeHealth health = new InMemoryIntakeHealth().open(now());
+    /** Uploads never on, as every profile's default (survey-media spec A-1): the W16 readiness. */
+    public final MutableMediaSwitches switches = new MutableMediaSwitches();
     public final SecurityEventRecorder recorder;
     public final ChecklistViewAssembler views;
     public final SurveyChecklistCommandService commands;
     public final SurveyChecklistQueryService queries;
     public final SurveyQueryService surveys;
     private final AtomicLong appointmentNo = new AtomicLong();
+    private final AtomicInteger photoHash = new AtomicInteger(7_000);
 
     public ChecklistServiceHarness() {
         IdGenerator<Long> snowflakes = new AtomicLong(5_000L)::incrementAndGet;
         IdGenerator<String> ulids = () -> com.github.f4b6a3.ulid.UlidCreator.getMonotonicUlid().toString();
-        recorder = new SecurityEventRecorder(securityEvents, new NoTransactions(), snowflakes);
+        recorder = new SecurityEventRecorder(securityEvents, noCounters(journal), new NoTransactions(), snowflakes,
+                ChecklistServiceHarness::now);
         ChecklistContextLoader loader = new ChecklistContextLoader(checklists, appointments, leads, directory,
                 recorder);
-        views = new ChecklistViewAssembler(checklists, groups, takeovers, saves, leads, directory);
+        switches.uploads = false;
+        views = new ChecklistViewAssembler(checklists, groups, takeovers, saves, leads, directory, mediaSets, media,
+                switches, health);
         commands = new SurveyChecklistCommandService(checklists, groups, takeovers, saves, appointments, accessLogs,
-                leads, directory, loader, views, ulids, snowflakes);
+                leads, directory, loader, views, new ChecklistMediaCascade(mediaSets, media, mediaJobs), ulids,
+                snowflakes);
         queries = new SurveyChecklistQueryService(takeovers, accessLogs, directory, loader, views, snowflakes);
         surveys = new SurveyQueryService(appointments, accessLogs, leads, directory, new SurveyBlockAssembler(
                 appointments, new InMemorySurveyHistoryRepositories.Resumptions(), directory, views), snowflakes,
@@ -145,18 +169,59 @@ public final class ChecklistServiceHarness {
         return commands.start(own(performer), new StartChecklistCommand(visit.getId().getValue(), null));
     }
 
+    /** G1 of the checklist set to WHOLE with one observed space SPACE_1 (code A1), as a save would store it. */
+    public void wholeWithSpaceOne(SurveyChecklistId checklistId) {
+        GroupState g1 = groups.get(checklistId, ChecklistGroup.IDENTIFICATION);
+        groups.put(checklistId, ChecklistGroup.IDENTIFICATION, new GroupState(new GroupDocument(
+                ChecklistGroup.IDENTIFICATION, ChecklistFixture.identificationWhole(), Map.of(), Map.of()),
+                g1.version() + 1, now(), SALE_A));
+    }
+
+    /** A usable photo stored on the checklist with its media-set row bumped, as a commit and the worker leave it. */
+    public SurveyMedia readyPhoto(SurveyChecklistId checklistId, EvidenceCategory category,
+                                  MediaPlacement placement) {
+        return photo(checklistId, category, placement, SALE_A, MediaFixture::ready);
+    }
+
+    /** A photo of the uploader in the state the function leaves a new one in, stored with its set row bumped. */
+    public SurveyMedia photo(SurveyChecklistId checklistId, EvidenceCategory category, MediaPlacement placement,
+                             String uploader, java.util.function.UnaryOperator<SurveyMedia> state) {
+        SurveyMedia photo = state.apply(MediaFixture.awaitingOn(checklistId.getValue(), category, placement,
+                uploader, MediaFixture.sha(photoHash.incrementAndGet())));
+        media.put(photo);
+        mediaSets.insertIgnoringExisting(checklistId.getValue(), now());
+        MediaSet set = mediaSets.findForRead(checklistId.getValue()).orElseThrow();
+        set.bump(now());
+        mediaSets.update(set);
+        return photo;
+    }
+
     /** A view assembler over empty checklist repositories, for the W15 tests of the survey block. */
     public static ChecklistViewAssembler noChecklists(InMemorySurveyLeadPort leads, InMemorySurveyorDirectory directory) {
         List<String> journal = new ArrayList<>();
+        MutableMediaSwitches off = new MutableMediaSwitches();
+        off.uploads = false;
         return new ChecklistViewAssembler(new InMemoryChecklistRepositories.Checklists(journal),
                 new InMemoryChecklistRepositories.Groups(journal), new InMemoryChecklistRepositories.Takeovers(journal),
-                new InMemoryChecklistRepositories.Saves(journal), leads, directory);
+                new InMemoryChecklistRepositories.Saves(journal), leads, directory,
+                new InMemoryMediaRepositories.Sets(journal), new InMemoryMediaRepositories.Media(journal), off,
+                new InMemoryIntakeHealth().open(now()));
     }
 
     /** A recorder over an in-memory event repository, for the W15 tests of the survey block. */
     public static SecurityEventRecorder noRecorder() {
-        return new SecurityEventRecorder(new InMemoryChecklistRepositories.SecurityEvents(), new NoTransactions(),
-                new AtomicLong(9_000L)::incrementAndGet);
+        return new SecurityEventRecorder(new InMemoryChecklistRepositories.SecurityEvents(),
+                noCounters(new ArrayList<>()), new NoTransactions(), new AtomicLong(9_000L)::incrementAndGet,
+                ChecklistServiceHarness::now);
+    }
+
+    /** The survey-media counters of the recorder's throttle (spec A-19), over no photos. */
+    private static InMemoryMediaRepositories.Counters noCounters(List<String> journal) {
+        return new InMemoryMediaRepositories.Counters(journal, new InMemoryMediaRepositories.Media(journal));
+    }
+
+    private static Instant now() {
+        return Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
     /** A transaction manager that never has a transaction: the recorder writes at once. */

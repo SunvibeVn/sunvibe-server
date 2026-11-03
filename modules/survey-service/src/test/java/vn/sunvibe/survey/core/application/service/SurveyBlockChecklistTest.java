@@ -7,10 +7,15 @@ import vn.sunvibe.survey.core.application.query.ChecklistSummaryView;
 import vn.sunvibe.survey.core.application.query.SurveyBlock;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
+import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
+import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
+import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStart;
+import vn.sunvibe.survey.core.domain.policy.checklist.MissingItem;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReadOnlyReason;
 import vn.sunvibe.survey.core.domain.policy.checklist.StartBlock;
 import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;
@@ -27,6 +32,7 @@ import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.SALE_A;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.SALE_B;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.all;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.own;
+import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.SPACE_1;
 
 /**
  * The checklist parts of the survey block (survey-checklist spec 7.2, 4.10, A-10; W16-19, W16-21): whether the viewer
@@ -79,6 +85,22 @@ class SurveyBlockChecklistTest {
         assertEquals(SALE_A, current.holderUserId());
         assertEquals(ReadOnlyReason.NEWER_VISIT, older.checklists().get(0).editability().reason());
         assertEquals("Sale A", block.nameOf(current.holderUserId()));
+    }
+
+    /** survey-media spec 4.6: the summary's missingCount counts the evidence items, as the checklist read lists them. */
+    @Test
+    void block_photosAvailable_missingCountEqualsTheReadsMissingItems() {
+        h.switches.uploads = true;
+        SurveyChecklist checklist = h.started(LEAD, SALE_A).view().checklist();
+        h.wholeWithSpaceOne(checklist.getId());
+        h.readyPhoto(checklist.getId(), EvidenceCategory.KITCHEN, MediaPlacement.space(SPACE_1, "A1"));
+
+        ChecklistSummaryView summary = h.surveys.block(own(SALE_A), LEAD).appointments().get(0).checklists().get(0);
+        List<MissingItem> missing = h.queries.read(own(SALE_A), checklist.getId().getValue()).readiness().missing();
+
+        assertEquals(missing.size(), summary.missingCount());
+        assertEquals(3, missing.stream().filter(item -> item.group() == ChecklistGroup.EVIDENCE).count(),
+                "exterior, main space and bathroom");
     }
 
     @Test

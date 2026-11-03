@@ -138,6 +138,31 @@ class ChecklistReadApiPostgresTest {
 		assertEquals("NOT_ASSIGNEE", asLeader.path("readOnlyReason").asString());
 	}
 
+	/**
+	 * survey-media spec A-1, 7.1 (plan Task A18): every checklist answer has the media block; uploads never on (the
+	 * default) and no photo: photos not available, no upload, set version 0, and readiness keeps W16's
+	 * EVIDENCE_PENDING and EVIDENCE_NOT_AVAILABLE.
+	 */
+	@Test
+	void read_hasTheMediaBlock_photosNotAvailableByDefault() throws Exception {
+		Visit visit = checklists.visited(leader, sale);
+		String id = checklists.started(sale, visit.appointmentId());
+
+		JsonNode read = checklists.readOk(sale, id).body();
+
+		assertEquals(List.of("available", "uploadEnabled", "setVersion"),
+				AcquisitionApiTestSupport.fieldNames(read.path("media")));
+		assertFalse(read.path("media").path("available").asBoolean());
+		assertFalse(read.path("media").path("uploadEnabled").asBoolean());
+		assertEquals(0, read.path("media").path("setVersion").asLong());
+		JsonNode missing = read.path("readiness").path("missing");
+		assertEquals("EVIDENCE_PENDING", missing.path(missing.size() - 1).path("problem").asString());
+		assertEquals("EVIDENCE_NOT_AVAILABLE", read.path("readiness").path("submissionUnavailableReason").asString());
+		JsonNode summary = SurveyApiTestSupport.appointmentOf(block(sale, visit.leadId()), visit.appointmentId())
+				.path("checklists").path(0);
+		assertEquals(missing.size(), summary.path("missingCount").asInt());
+	}
+
 	@Test
 	void block_checklistStart_asksANewAssigneeForTheIntake() throws Exception {
 		Visit visit = checklists.visited(leader, sale);

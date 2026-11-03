@@ -26,8 +26,13 @@ import vn.sunvibe.survey.core.domain.model.checklist.TermsCommon;
 import vn.sunvibe.survey.core.domain.model.checklist.TermsContent;
 import vn.sunvibe.survey.core.domain.model.checklist.TermsSpace;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
+import vn.sunvibe.survey.core.domain.policy.media.CoveragePair;
+import vn.sunvibe.survey.core.domain.policy.media.CoverageState;
+import vn.sunvibe.survey.core.domain.policy.media.EvidenceCoverageCalculator;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,15 +42,27 @@ import java.util.function.Function;
  * The preview lists, computed from the stored groups on every read (survey-checklist spec 4.7, US-2 AC-1, AC-2, AC-4,
  * BR-11, BR-17, BR-18, E-1). Every group is read as GET shows it ({@link InputForm#ofStored}), so a space without
  * entries lists each needed field. Missing items are in group order, then space order; a field of the direct-check
- * catalogue (spec A-28) counts only when checked on site. Nothing here blocks a save.
+ * catalogue (spec A-28) counts only when checked on site. Nothing here blocks a save. Evidence comes last: while the
+ * checklist's photos are available (survey-media spec A-1, 4.6) one item per required (placement, category) pair that
+ * is not COVERED, from the same coverage as the media list; otherwise the single EVIDENCE_PENDING of W16.
  */
 public final class ReadinessCalculator {
 
     private ReadinessCalculator() {
     }
 
+    /** Photos not available (survey-media spec A-1): the W16 readiness. */
     public static Readiness of(Map<ChecklistGroup, GroupDocument> groups, LocationDifference difference,
                                List<EarlierHazard> earlier) {
+        return of(groups, difference, earlier, null);
+    }
+
+    /**
+     * @param photosOrNull every photo row of the checklist read with the groups (survey-media spec 5.4), or null when
+     *                     the checklist's photos are not available (uploads never on and no media-set row, spec A-1)
+     */
+    public static Readiness of(Map<ChecklistGroup, GroupDocument> groups, LocationDifference difference,
+                               List<EarlierHazard> earlier, Collection<SurveyMedia> photosOrNull) {
         IdentificationContent g1 = (IdentificationContent) groups.get(ChecklistGroup.IDENTIFICATION).content();
         PartsContent parts = (PartsContent) read(groups, ChecklistGroup.PARTS, g1);
         DimensionsContent dimensions = (DimensionsContent) read(groups, ChecklistGroup.DIMENSIONS, g1);
@@ -82,10 +99,22 @@ public final class ReadinessCalculator {
         missing.field(ChecklistGroup.SAFETY, null, "egress", safety.egress());
         missing.field(ChecklistGroup.SAFETY, null, "accessRestrictions", safety.accessRestrictions());
         missing.field(ChecklistGroup.SAFETY, null, "hazards", safety.hazards());
-        missing.add(ChecklistGroup.EVIDENCE, null, null, MissingProblem.EVIDENCE_PENDING);
+        if (photosOrNull == null) {
+            missing.add(ChecklistGroup.EVIDENCE, null, null, MissingProblem.EVIDENCE_PENDING);
+        } else {
+            GroupDocument storedG4 = groups.get(ChecklistGroup.CONDITION);
+            // the stored G4, as the media list computes coverage[] from it (survey-media spec 4.6)
+            for (CoveragePair pair : EvidenceCoverageCalculator.of(g1, storedG4 == null ? null
+                    : (ConditionContent) storedG4.content(), photosOrNull).missing()) {
+                missing.add(ChecklistGroup.EVIDENCE, pair.spaceIdOrNull(), pair.category().name(),
+                        pair.state() == CoverageState.PROCESSING ? MissingProblem.EVIDENCE_PROCESSING
+                                : MissingProblem.EVIDENCE_MISSING);
+            }
+        }
 
-        return new Readiness(false, Readiness.EVIDENCE_NOT_AVAILABLE, List.copyOf(missing.items),
-                unconfirmed(condition, terms), warnings(parts, safety, earlier));
+        return new Readiness(false, photosOrNull == null ? Readiness.EVIDENCE_NOT_AVAILABLE
+                : Readiness.SUBMISSION_NOT_AVAILABLE, List.copyOf(missing.items), unconfirmed(condition, terms),
+                warnings(parts, safety, earlier));
     }
 
     private static void identification(Missing missing, IdentificationContent g1, LocationDifference difference) {

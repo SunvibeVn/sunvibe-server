@@ -53,4 +53,8 @@ public class SurveySecurityEventEntity {
 
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
+
+    /** survey-media spec A-19: the server request id of a media event; null on the checklist events. */
+    @Column(name = "request_id", length = 26)
+    private String requestId;
 }

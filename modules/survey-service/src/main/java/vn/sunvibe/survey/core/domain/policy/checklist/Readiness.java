@@ -9,8 +9,11 @@ import java.util.List;
 public record Readiness(boolean submissionAvailable, String submissionUnavailableReason, List<MissingItem> missing,
                         List<UnconfirmedTerm> unconfirmedTerms, List<ChecklistWarning> warnings) {
 
-    /** spec 4.7: photos and submission open with survey-media (spec C-1). */
+    /** spec 4.7: photos and submission open with survey-media (spec C-1); kept while photos are not available. */
     public static final String EVIDENCE_NOT_AVAILABLE = "EVIDENCE_NOT_AVAILABLE";
+
+    /** survey-media spec 4.6: photos are available, submission comes with the next slice. */
+    public static final String SUBMISSION_NOT_AVAILABLE = "SUBMISSION_NOT_AVAILABLE";
 
     public int missingCount() {
         return missing.size();

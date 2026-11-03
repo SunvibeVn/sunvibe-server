@@ -6,12 +6,14 @@ import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentHistoryDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistTakeoverDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyResumptionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveySecurityEventDomainRepository;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyAccessLogRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyAppointmentHistoryRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistSaveRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistTakeoverRepositoryAdapter;
+import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyMediaVariantRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyResumptionRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveySecurityEventRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAccessLogEntity;
@@ -19,6 +21,7 @@ import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmen
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmentRevisionEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistSaveEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistTakeoverEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaVariantEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyResumptionEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveySecurityEventEntity;
 
@@ -32,7 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The survey histories (revisions, events, resumptions, survey access log) are insert-only (survey BR-5,
+ * The survey histories (revisions, events, resumptions, survey access log) and the photo variants (survey-media
+ * spec 5.2) are insert-only (survey BR-5,
  * survey-schedule spec I-6, W15-29): their entities are Hibernate-immutable, their ports only save and find, and
  * their adapters offer no way to change or remove a row.
  */
@@ -44,7 +48,7 @@ class InsertOnlyRepositoriesTest {
     void entities_ofTheFourHistories_areHibernateImmutable() {
         for (Class<?> entity : List.of(SurveyAppointmentRevisionEntity.class, SurveyAppointmentEventEntity.class,
                 SurveyResumptionEntity.class, SurveyAccessLogEntity.class, SurveyChecklistTakeoverEntity.class,
-                SurveyChecklistSaveEntity.class, SurveySecurityEventEntity.class)) {
+                SurveyChecklistSaveEntity.class, SurveySecurityEventEntity.class, SurveyMediaVariantEntity.class)) {
             assertNotNull(entity.getAnnotation(Immutable.class), entity.getSimpleName() + " must be @Immutable");
         }
     }
@@ -54,7 +58,7 @@ class InsertOnlyRepositoriesTest {
         for (Class<?> port : List.of(SurveyAppointmentHistoryDomainRepository.class,
                 SurveyResumptionDomainRepository.class, SurveyAccessLogDomainRepository.class,
                 SurveyChecklistTakeoverDomainRepository.class, SurveyChecklistSaveDomainRepository.class,
-                SurveySecurityEventDomainRepository.class)) {
+                SurveySecurityEventDomainRepository.class, SurveyMediaVariantDomainRepository.class)) {
             Method[] methods = port.getDeclaredMethods();
             assertTrue(methods.length > 0, port.getSimpleName() + " declares no method");
             for (Method method : methods) {
@@ -69,7 +73,7 @@ class InsertOnlyRepositoriesTest {
         for (Class<?> adapter : List.of(SurveyAppointmentHistoryRepositoryAdapter.class,
                 SurveyResumptionRepositoryAdapter.class, SurveyAccessLogRepositoryAdapter.class,
                 SurveyChecklistTakeoverRepositoryAdapter.class, SurveyChecklistSaveRepositoryAdapter.class,
-                SurveySecurityEventRepositoryAdapter.class)) {
+                SurveySecurityEventRepositoryAdapter.class, SurveyMediaVariantRepositoryAdapter.class)) {
             Arrays.stream(adapter.getDeclaredMethods())
                     .filter(method -> Modifier.isPublic(method.getModifiers()))
                     .forEach(method -> assertFalse(

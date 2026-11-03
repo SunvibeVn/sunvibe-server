@@ -22,6 +22,8 @@ import vn.sunvibe.survey.core.application.shared.ChecklistContextLoader.CommandC
 import vn.sunvibe.survey.core.application.shared.ChecklistContextLoader.StartContext;
 import vn.sunvibe.survey.core.application.shared.ChecklistInputs;
 import vn.sunvibe.survey.core.application.shared.ChecklistInputs.ReasonBasis;
+import vn.sunvibe.survey.core.application.shared.ChecklistMediaCascade;
+import vn.sunvibe.survey.core.application.shared.ChecklistMediaCascade.Ended;
 import vn.sunvibe.survey.core.application.shared.ChecklistViewAssembler;
 import vn.sunvibe.survey.core.application.shared.StoredDataRules;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity;
@@ -70,6 +72,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.unit.UnitMeta;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
 import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.CascadeResult;
@@ -126,6 +129,7 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
     private final SurveyorDirectoryPort directory;
     private final ChecklistContextLoader loader;
     private final ChecklistViewAssembler views;
+    private final ChecklistMediaCascade mediaCascade;
     private final IdGenerator<String> ulids;
     private final IdGenerator<Long> snowflakes;
 
@@ -136,7 +140,8 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
                                          SurveyAppointmentDomainRepository appointments,
                                          SurveyAccessLogDomainRepository accessLogs, SurveyLeadPort leads,
                                          SurveyorDirectoryPort directory, ChecklistContextLoader loader,
-                                         ChecklistViewAssembler views, @Qualifier("Ulid") IdGenerator<String> ulids,
+                                         ChecklistViewAssembler views, ChecklistMediaCascade mediaCascade,
+                                         @Qualifier("Ulid") IdGenerator<String> ulids,
                                          @Qualifier("Snowflake") IdGenerator<Long> snowflakes) {
         this.checklists = checklists;
         this.groups = groups;
@@ -148,6 +153,7 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         this.directory = directory;
         this.loader = loader;
         this.views = views;
+        this.mediaCascade = mediaCascade;
         this.ulids = ulids;
         this.snowflakes = snowflakes;
     }
@@ -256,6 +262,8 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
             // spec 5.5: a concurrent takeover changed the row first; answered on the version the caller sent
             throw new SurveyConcurrentModificationException("expectedVersion");
         }
+        // survey-media spec 4.8, A-22: in this transaction, after the checklist update (spec 5.4)
+        mediaCascade.endOpenUploads(checklist.getId().getValue(), previousHolder, now);
         Map<ChecklistGroup, GroupState> before = groups.findAll(checklist.getId());
         takeovers.save(new ChecklistTakeover(snowflakes.generateId(), checklist.getId(),
                 takeovers.findNextTakeoverNo(checklist.getId()), TakeoverKind.TAKEOVER, previousHolder,
@@ -372,29 +380,46 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
                 viewer.userId(), context.visitFacts()));
         cascadeChanges.forEach((other, otherChanges) -> required.addAll(CorrectionPolicy.requiring(
                 cascaded.get(other).document(), otherChanges, viewer.userId(), context.visitFacts())));
+        // survey-media spec A-9: after the group rows, the set and the photos on the placements this save ends
+        Ended endedPhotos = group == ChecklistGroup.IDENTIFICATION
+                ? mediaCascade.lockEnded(id.getValue(), storedG1, nextG1) : null;
+        List<SurveyMedia> mediaRequired = endedPhotos == null ? List.of()
+                : endedPhotos.needingCorrection(viewer.userId());
         if (!required.isEmpty() && correction == null) {
             throw new ChecklistValidationException(List.of(new Violation("correction",
                     "Changing values someone else recorded needs a correction: reason, date and basis.")));
+        }
+        if (!mediaRequired.isEmpty() && correction == null) {
+            throw new ChecklistValidationException(List.of(new Violation("correction",
+                    "Removing photos someone else uploaded needs a correction: reason, date and basis.")));
         }
 
         long savedId = snowflakes.generateId();
         Set<UnitKey> covered = new LinkedHashSet<>();
         if (correction != null) {
-            if (required.isEmpty()) {
+            if (required.isEmpty() && mediaRequired.isEmpty()) {
                 changes.forEach(change -> covered.add(change.key()));
                 cascadeChanges.values().forEach(list -> list.forEach(change -> covered.add(change.key())));
             } else {
                 covered.addAll(required);
             }
         }
+        List<CorrectedUnit> correctedUnits = new ArrayList<>(covered.stream()
+                .map(key -> new CorrectedUnit(key.value(), spaceCode(key, storedG1))).toList());
+        // survey-media spec A-9: one unit per photo of another uploader the save removes
+        mediaRequired.forEach(photo -> correctedUnits.add(new CorrectedUnit("media/" + photo.getId().getValue(),
+                photo.getPlacement().spaceCodeAtUploadOrNull())));
         Correction recorded = correction == null ? null : new Correction(correction.reason(), correction.basis(),
-                covered.stream().map(key -> new CorrectedUnit(key.value(), spaceCode(key, storedG1))).toList());
-        write(id, group, stored, next, changes, covered, savedId, recorded, viewer, now, context, form,
+                List.copyOf(correctedUnits));
+        write(id, group, stored, next, changes, covered, savedId, true, recorded, viewer, now, context, form,
                 group == ChecklistGroup.IDENTIFICATION ? placeNames : null);
         for (Map.Entry<ChecklistGroup, GroupContent> entry : cascadedContent.entrySet()) {
             ChecklistGroup other = entry.getKey();
             write(id, other, cascaded.get(other), TemplateV1Rules.canonical(entry.getValue(), nextG1),
-                    cascadeChanges.get(other), covered, savedId, null, viewer, now, context, form, null);
+                    cascadeChanges.get(other), covered, savedId, false, null, viewer, now, context, form, null);
+        }
+        if (endedPhotos != null) {
+            mediaCascade.remove(endedPhotos, viewer.userId(), savedId, now);
         }
         finish(viewer, context.lead(), checklist, ChecklistActivityType.CHECKLIST_SAVED, group.name(), now);
         return views.assemble(viewer, context.lead(), context.ofLead(), checklist);
@@ -403,10 +428,12 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
     /**
      * One group's next document, row and save-log row (spec 5.2): meta for every changed unit that stays and the
      * removal stamp of every removed one (survey-checklist BR-29, spec A-29: the caller as last editor), pointing to
-     * the named row when a correction covered it; the correction itself only on the named group's row.
+     * the named row when a correction covered it; the correction itself only on the named group's row, which always
+     * has the save's id (a G1 cascade of photos names it, survey-media spec A-9).
      */
     private void write(SurveyChecklistId id, ChecklistGroup group, GroupState stored, GroupContent next,
-                       List<UnitChange> changes, Set<UnitKey> covered, long namedSaveId, Correction correction,
+                       List<UnitChange> changes, Set<UnitKey> covered, long namedSaveId, boolean named,
+                       Correction correction,
                        SurveyViewer viewer, Instant now, CommandContext context, Optional<SubmittedForm> form,
                        ObservedPlaceNames placeNames) {
         VisitFacts visit = context.visitFacts();
@@ -435,7 +462,7 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
             // spec 5.5: the row changed after its lock was read; answered on the version the caller sent
             throw new SurveyConcurrentModificationException("expectedVersion");
         }
-        long saveId = correction != null ? namedSaveId : snowflakes.generateId();
+        long saveId = named ? namedSaveId : snowflakes.generateId();
         saves.save(new ChecklistSave(saveId, id, group, written.version(), viewer.userId(), now, correction));
     }
 

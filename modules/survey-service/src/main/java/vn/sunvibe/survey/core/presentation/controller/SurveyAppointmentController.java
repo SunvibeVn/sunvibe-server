@@ -39,7 +39,6 @@ import vn.sunvibe.survey.core.presentation.dto.request.ChangeAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ConfirmationRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.RecordVisitRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistStartRequest;
-import vn.sunvibe.survey.core.presentation.dto.response.SecurityError;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyCommandResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyPageResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistStartedResponse;
@@ -93,10 +92,10 @@ public class SurveyAppointmentController {
                     + "scope all), page or size",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or a SALE asked "
                     + "for scope all",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class)))
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<SurveyPageResponse> list(
             @Parameter(schema = @Schema(allowableValues = {"mine", "all"}, defaultValue = "mine"))
@@ -136,9 +135,9 @@ public class SurveyAppointmentController {
                     + "required), or without field: Nothing changed; MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such appointment, or the caller may not "
                     + "see its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -171,9 +170,9 @@ public class SurveyAppointmentController {
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on a body field; MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such appointment, or the caller may not "
                     + "see its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -206,9 +205,9 @@ public class SurveyAppointmentController {
                     + "MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such appointment, or the caller may not "
                     + "see its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -239,10 +238,10 @@ public class SurveyAppointmentController {
                     + "performedByUserId, proxy or proxy.*; MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or a SALE records "
                     + "a visit for someone else or a proxy record",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such appointment, or the caller may not "
                     + "see its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -277,10 +276,10 @@ public class SurveyAppointmentController {
                     + "unknown key too); MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such appointment, or the caller may not "
                     + "see its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),

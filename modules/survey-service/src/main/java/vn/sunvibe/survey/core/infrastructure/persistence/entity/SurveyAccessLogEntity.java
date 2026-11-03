@@ -47,4 +47,8 @@ public class SurveyAccessLogEntity {
 
     @Column(name = "resource_id", length = 40)
     private String resourceId;
+
+    /** survey-media spec A-6, A-19: the server request id of a media row; null on the other rows. */
+    @Column(name = "request_id", length = 26)
+    private String requestId;
 }

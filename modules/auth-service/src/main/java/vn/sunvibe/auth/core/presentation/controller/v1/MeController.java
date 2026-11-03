@@ -47,7 +47,7 @@ import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 @RequiredArgsConstructor
 public class MeController {
 
-    private static final String SECURITY_ERROR = "#/components/schemas/SecurityError";
+    private static final String SECURITY_ERROR = "#/components/schemas/ErrorResponse";
 
     private final UserGetInfoUseCase userGetInfoUseCase;
     private final ContactVerificationUseCase contactVerificationUseCase;

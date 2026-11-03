@@ -22,6 +22,8 @@ import java.util.stream.Collectors;
 @Component
 public class SurveyViewerResolver {
 
+    private static final String ADMIN_AUTHORITY = "ROLE_ADMIN";
+
     private final SurveyLeadPort leads;
     private final RoleHierarchy roleHierarchy;
 
@@ -42,5 +44,16 @@ public class SurveyViewerResolver {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toSet());
         return leads.viewer(user.getUserId(), roles);
+    }
+
+    /** survey-media spec A-23, 7.2 {@code canHold}: the viewer is ADMIN (SUPER_ADMIN through the role hierarchy). */
+    public boolean currentCanHold() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return roleHierarchy.getReachableGrantedAuthorities(authentication.getAuthorities()).stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(ADMIN_AUTHORITY::equals);
     }
 }

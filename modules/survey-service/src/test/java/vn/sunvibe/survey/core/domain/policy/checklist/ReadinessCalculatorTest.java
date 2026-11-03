@@ -28,8 +28,16 @@ import vn.sunvibe.survey.core.domain.model.checklist.TermsContent;
 import vn.sunvibe.survey.core.domain.model.checklist.TermsSpace;
 import vn.sunvibe.survey.core.domain.model.checklist.YesNo;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
+import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
+import vn.sunvibe.survey.core.domain.model.media.HoldReason;
+import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;
+import vn.sunvibe.survey.core.domain.model.media.RemovalKind;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
+import vn.sunvibe.survey.core.domain.policy.media.CoverageState;
+import vn.sunvibe.survey.core.domain.policy.media.EvidenceCoverageCalculator;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,7 +47,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.DIFFERENCE_NOTE_MISSING;
+import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.BATHROOM;
+import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.EXTERIOR_ACCESS;
+import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.KITCHEN;
+import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.MAIN_SPACE;
+import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.SHARED_BATHROOM;
+import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.SHARED_KITCHEN;
+import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.EVIDENCE_MISSING;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.EVIDENCE_PENDING;
+import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.EVIDENCE_PROCESSING;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.NOT_CHECKED;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.NOT_IN_SCOPE;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.NO_SPACES;
@@ -53,6 +69,7 @@ import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.condition;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.conditionParts;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.conditionSpace;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.dimensions;
+import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.identification;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.identificationParts;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.identificationWhole;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.observedSpace;
@@ -63,12 +80,20 @@ import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.safety;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.terms;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.termsCommon;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.termsSpace;
+import static vn.sunvibe.survey.core.testsupport.MediaFixture.ADMIN;
+import static vn.sunvibe.survey.core.testsupport.MediaFixture.SALE;
+import static vn.sunvibe.survey.core.testsupport.MediaFixture.awaiting;
+import static vn.sunvibe.survey.core.testsupport.MediaFixture.processing;
+import static vn.sunvibe.survey.core.testsupport.MediaFixture.ready;
+import static vn.sunvibe.survey.core.testsupport.MediaFixture.sha;
 
 /** Missing items, unconfirmed terms and warnings, computed on every read (survey-checklist spec 4.7; W16-18). */
 class ReadinessCalculatorTest {
 
     private static final String H1 = "01JHAZARD00000000000000001";
     private static final IdentificationContent WHOLE = identificationWhole();
+    private static final Instant LATER = Instant.parse("2026-11-01T03:00:00Z");
+    private static int hash = 2000;
 
     @Test
     void newDraft_listsEveryNeededFieldScopeSpacesAndEvidence() {
@@ -229,6 +254,146 @@ class ReadinessCalculatorTest {
                 ReadinessCalculator.of(groups, LocationDifference.NONE, chain).warnings());
     }
 
+    // ==================== photos available (survey-media spec 4.6, A-1; SM-10) ====================
+
+    @Test
+    void photosAvailable_wholeKitchenNa_exactMissing() {
+        Map<ChecklistGroup, GroupDocument> groups = complete();
+        ConditionSpace s = conditionSpace(SPACE_1);
+        groups.put(ChecklistGroup.CONDITION, document(new ConditionContent(null, null, List.of(new ConditionSpace(
+                SPACE_1, s.occupancy(), s.expectedVacantFrom(), s.availableFrom(), s.mainSpace(),
+                Field.notApplicable("Không có bếp"), s.bathroom())))));
+        SurveyMedia exterior = ready(photo(EXTERIOR_ACCESS, MediaPlacement.asset()));
+
+        Readiness readiness = withPhotos(groups, exterior);
+
+        assertEquals(List.of(evidence(SPACE_1, MAIN_SPACE, EVIDENCE_MISSING),
+                evidence(SPACE_1, BATHROOM, EVIDENCE_MISSING)), readiness.missing());
+        assertEquals(2, readiness.missingCount());
+        assertEquals("SUBMISSION_NOT_AVAILABLE", readiness.submissionUnavailableReason());
+    }
+
+    @Test
+    void partsTwoSpacesSharedWetAreas_exactMissingAndCoverage() {
+        Map<ChecklistGroup, GroupDocument> groups = completeParts();
+        List<SurveyMedia> photos = List.of(ready(photo(EXTERIOR_ACCESS, MediaPlacement.asset())),
+                processing(photo(MAIN_SPACE, MediaPlacement.space(SPACE_2, "P102"))),
+                ready(photo(KITCHEN, MediaPlacement.space(SPACE_1, "P101"))));
+
+        Readiness readiness = ReadinessCalculator.of(groups, LocationDifference.NONE, List.of(), photos);
+
+        assertEquals(List.of(evidence(null, SHARED_KITCHEN, EVIDENCE_MISSING),
+                evidence(SPACE_1, MAIN_SPACE, EVIDENCE_MISSING), evidence(SPACE_1, BATHROOM, EVIDENCE_MISSING),
+                evidence(SPACE_2, MAIN_SPACE, EVIDENCE_PROCESSING), evidence(SPACE_2, KITCHEN, EVIDENCE_MISSING),
+                evidence(SPACE_2, BATHROOM, EVIDENCE_MISSING)), readiness.missing());
+        assertEquals(EvidenceCoverageCalculator.of((IdentificationContent) groups.get(ChecklistGroup.IDENTIFICATION)
+                        .content(), (ConditionContent) groups.get(ChecklistGroup.CONDITION).content(), photos)
+                        .missing().stream().map(pair -> evidence(pair.spaceIdOrNull(), pair.category(),
+                                pair.state() == CoverageState.PROCESSING ? EVIDENCE_PROCESSING : EVIDENCE_MISSING))
+                        .toList(), readiness.missing(), "the same pairs as the list's coverage[]");
+    }
+
+    @Test
+    void unknownG4_keepsRequired() {
+        Map<ChecklistGroup, GroupDocument> groups = completeParts();
+        groups.put(ChecklistGroup.CONDITION, document(condition(SPACE_1, SPACE_2)));
+
+        List<MissingItem> missing = withPhotos(groups).missing();
+
+        assertEquals(List.of(item(ChecklistGroup.CONDITION, null, "sharedKitchen", NOT_CHECKED),
+                item(ChecklistGroup.CONDITION, null, "sharedBathroom", NOT_CHECKED),
+                evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING), evidence(null, SHARED_KITCHEN, EVIDENCE_MISSING),
+                evidence(null, SHARED_BATHROOM, EVIDENCE_MISSING), evidence(SPACE_1, MAIN_SPACE, EVIDENCE_MISSING),
+                evidence(SPACE_1, KITCHEN, EVIDENCE_MISSING), evidence(SPACE_1, BATHROOM, EVIDENCE_MISSING),
+                evidence(SPACE_2, MAIN_SPACE, EVIDENCE_MISSING), evidence(SPACE_2, KITCHEN, EVIDENCE_MISSING),
+                evidence(SPACE_2, BATHROOM, EVIDENCE_MISSING)), missing);
+    }
+
+    @Test
+    void removedOnlyPhoto_missing() {
+        SurveyMedia removed = ready(photo(EXTERIOR_ACCESS, MediaPlacement.asset()));
+        removed.remove(RemovalKind.HOLDER, SALE, null, null, LATER);
+
+        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING)),
+                withPhotos(complete(), withSpaceOne(removed)).missing());
+    }
+
+    @Test
+    void processingOnly_processing() {
+        SurveyMedia exterior = processing(photo(EXTERIOR_ACCESS, MediaPlacement.asset()));
+
+        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_PROCESSING)),
+                withPhotos(complete(), withSpaceOne(exterior)).missing());
+    }
+
+    @Test
+    void heldOnly_missing() {
+        SurveyMedia held = ready(photo(EXTERIOR_ACCESS, MediaPlacement.asset()));
+        held.hold(ADMIN, HoldReason.SECURITY_INCIDENT, LATER);
+
+        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING)),
+                withPhotos(complete(), withSpaceOne(held)).missing());
+    }
+
+    @Test
+    void heldProcessingOnly_neverProcessing() {
+        SurveyMedia held = processing(photo(EXTERIOR_ACCESS, MediaPlacement.asset()));
+        held.hold(ADMIN, HoldReason.CREDENTIAL_EXPOSURE, LATER);
+
+        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING)),
+                withPhotos(complete(), withSpaceOne(held)).missing());
+    }
+
+    @Test
+    void partsToNull_dropsSharedPairs() {
+        Map<ChecklistGroup, GroupDocument> groups = completeParts();
+        SurveyMedia sharedKitchen = ready(photo(SHARED_KITCHEN, MediaPlacement.asset()));
+        assertTrue(withPhotos(groups, sharedKitchen).missing().stream()
+                .noneMatch(item -> SHARED_KITCHEN.name().equals(item.fieldOrNull())), "covered while PARTS");
+
+        groups.put(ChecklistGroup.IDENTIFICATION, document(identification(null, List.of(
+                observedSpace(SPACE_1, "P101"), observedSpace(SPACE_2, "P102")))));
+
+        List<MissingItem> evidence = withPhotos(groups, sharedKitchen).missing().stream()
+                .filter(item -> item.group() == ChecklistGroup.EVIDENCE).toList();
+        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING)), evidence);
+    }
+
+    @Test
+    void notEnteredKitchenWithPhoto_keepsRequiredAreaNotEntered() {
+        Map<ChecklistGroup, GroupDocument> groups = complete();
+        ConditionSpace s = conditionSpace(SPACE_1);
+        groups.put(ChecklistGroup.CONDITION, document(new ConditionContent(null, null, List.of(new ConditionSpace(
+                SPACE_1, s.occupancy(), s.expectedVacantFrom(), s.availableFrom(), s.mainSpace(), Field.value(
+                new AreaCheck(AreaCheckResult.NOT_ENTERED, null, null, "Chỉ nhìn từ cửa")), s.bathroom())))));
+
+        assertEquals(List.of(item(ChecklistGroup.CONDITION, SPACE_1, "kitchen", REQUIRED_AREA_NOT_ENTERED)),
+                withPhotos(groups, withSpaceOne(ready(photo(EXTERIOR_ACCESS, MediaPlacement.asset())))).missing());
+    }
+
+    @Test
+    void photosNotAvailable_keepsEvidencePending() {
+        Readiness readiness = ReadinessCalculator.of(complete(), LocationDifference.NONE, List.of(), null);
+
+        assertEquals(List.of(item(ChecklistGroup.EVIDENCE, null, null, EVIDENCE_PENDING)), readiness.missing());
+        assertEquals("EVIDENCE_NOT_AVAILABLE", readiness.submissionUnavailableReason());
+    }
+
+    @Test
+    void submissionAvailable_falseInEveryCase() {
+        Readiness none = ReadinessCalculator.of(complete(), LocationDifference.NONE, List.of(), null);
+        Readiness noPhotos = withPhotos(complete());
+        Readiness covered = withPhotos(complete(), withSpaceOne(ready(photo(EXTERIOR_ACCESS,
+                MediaPlacement.asset()))));
+
+        assertEquals(List.of(), covered.missing(), "every required pair covered");
+        for (Readiness readiness : List.of(none, noPhotos, covered)) {
+            assertFalse(readiness.submissionAvailable());
+        }
+        assertEquals("SUBMISSION_NOT_AVAILABLE", covered.submissionUnavailableReason());
+        assertEquals("SUBMISSION_NOT_AVAILABLE", noPhotos.submissionUnavailableReason());
+    }
+
     // ==================== helpers ====================
 
     private static MissingItem item(ChecklistGroup group, String spaceId, String field, MissingProblem problem) {
@@ -268,6 +433,25 @@ class ReadinessCalculatorTest {
             groups.put(content.group(), document(content));
         }
         return groups;
+    }
+
+    private static Readiness withPhotos(Map<ChecklistGroup, GroupDocument> groups, SurveyMedia... photos) {
+        return ReadinessCalculator.of(groups, LocationDifference.NONE, List.of(), List.of(photos));
+    }
+
+    /** The given asset photo and a usable main space, kitchen and bathroom photo of SPACE_1 (WHOLE, code A1). */
+    private static SurveyMedia[] withSpaceOne(SurveyMedia exterior) {
+        return new SurveyMedia[]{exterior, ready(photo(MAIN_SPACE, MediaPlacement.space(SPACE_1, "A1"))),
+                ready(photo(KITCHEN, MediaPlacement.space(SPACE_1, "A1"))),
+                ready(photo(BATHROOM, MediaPlacement.space(SPACE_1, "A1")))};
+    }
+
+    private static SurveyMedia photo(EvidenceCategory category, MediaPlacement placement) {
+        return awaiting(category, placement, SALE, sha(++hash));
+    }
+
+    private static MissingItem evidence(String spaceId, EvidenceCategory category, MissingProblem problem) {
+        return item(ChecklistGroup.EVIDENCE, spaceId, category.name(), problem);
     }
 
     private static GroupDocument document(GroupContent content) {

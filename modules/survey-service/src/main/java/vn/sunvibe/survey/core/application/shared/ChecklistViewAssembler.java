@@ -1,6 +1,7 @@
 package vn.sunvibe.survey.core.application.shared;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.survey.core.application.query.ChecklistMediaView;
 import vn.sunvibe.survey.core.application.query.ChecklistSummaryView;
 import vn.sunvibe.survey.core.application.query.ChecklistView;
 import vn.sunvibe.survey.core.application.query.CorrectionView;
@@ -35,7 +36,12 @@ import vn.sunvibe.survey.core.domain.policy.checklist.InputForm;
 import vn.sunvibe.survey.core.domain.policy.checklist.LocationDifference;
 import vn.sunvibe.survey.core.domain.policy.checklist.Readiness;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReadinessCalculator;
+import vn.sunvibe.survey.core.domain.model.media.MediaSet;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
+import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistTakeoverDomainRepository;
@@ -56,7 +62,9 @@ import java.util.Set;
  * Builds what a checklist answer shows, after the writes and outside the share lock's critical work (survey-checklist
  * spec 5.5, 7.2): the groups read in one statement, the viewer's editability, the address difference, readiness,
  * effective terms, the chain of earlier hazards, the owner's form, takeovers, corrections, editors and the lead's staff
- * for an editor (spec A-25); every staff name through one directory lookup.
+ * for an editor (spec A-25); every staff name through one directory lookup. The evidence part of readiness and the
+ * media block come from the media-set row and the photos read with the groups (survey-media spec 4.6, A-1): the two
+ * read endpoints run this in one REPEATABLE READ transaction, so {@code missingCount} matches {@code missing[]}.
  */
 @Component
 public class ChecklistViewAssembler {
@@ -67,18 +75,28 @@ public class ChecklistViewAssembler {
     private final SurveyChecklistSaveDomainRepository saves;
     private final SurveyLeadPort leads;
     private final SurveyorDirectoryPort directory;
+    private final SurveyMediaSetDomainRepository mediaSets;
+    private final SurveyMediaDomainRepository media;
+    private final MediaSwitches switches;
+    private final IntakeHealthRepository health;
 
     public ChecklistViewAssembler(SurveyChecklistDomainRepository checklists,
                                   SurveyChecklistGroupDomainRepository groups,
                                   SurveyChecklistTakeoverDomainRepository takeovers,
                                   SurveyChecklistSaveDomainRepository saves, SurveyLeadPort leads,
-                                  SurveyorDirectoryPort directory) {
+                                  SurveyorDirectoryPort directory, SurveyMediaSetDomainRepository mediaSets,
+                                  SurveyMediaDomainRepository media, MediaSwitches switches,
+                                  IntakeHealthRepository health) {
         this.checklists = checklists;
         this.groups = groups;
         this.takeovers = takeovers;
         this.saves = saves;
         this.leads = leads;
         this.directory = directory;
+        this.mediaSets = mediaSets;
+        this.media = media;
+        this.switches = switches;
+        this.health = health;
     }
 
     public ChecklistView assemble(SurveyViewer viewer, LeadFacts lead, List<SurveyAppointment> ofLead,
@@ -90,7 +108,11 @@ public class ChecklistViewAssembler {
         Editability editability = editability(viewer, lead, ofLead, checklist, eligible);
         LocationDifference difference = difference(g1, visit);
         List<EarlierHazard> earlier = earlierHazards(checklist, states);
-        Readiness readiness = ReadinessCalculator.of(documents(states), difference, earlier);
+        Evidence evidence = evidence(checklist.getId());
+        Readiness readiness = ReadinessCalculator.of(documents(states), difference, earlier, evidence.photosOrNull());
+        ChecklistMediaView mediaView = new ChecklistMediaView(evidence.photosOrNull() != null,
+                MediaViewerRights.uploadEnabled(switches.uploadsOn(), health.read(), editability),
+                evidence.setVersion());
         TermsContent terms = (TermsContent) InputForm.ofStored(states.get(ChecklistGroup.TERMS).document(), g1);
         List<ChecklistTakeover> takeoverRows = takeovers.findByChecklistId(checklist.getId());
         List<ChecklistSave> saveRows = saves.findByChecklistId(checklist.getId());
@@ -124,7 +146,7 @@ public class ChecklistViewAssembler {
         ids.remove(null);
         Map<String, String> names = ids.isEmpty() ? Map.of() : directory.displayNames(ids);
         return new ChecklistView(checklist, lead.requestCode(), lead.status(), leadStaff, visit, editability, states,
-                difference, readiness, EffectiveTerms.of(terms, g1.spaces()), earlier,
+                difference, readiness, mediaView, EffectiveTerms.of(terms, g1.spaces()), earlier,
                 leads.ownerForm(lead.leadId()).orElse(null), takeoverRows, corrections, editors, updatedAt, names);
     }
 
@@ -147,7 +169,8 @@ public class ChecklistViewAssembler {
                     Map<ChecklistGroup, GroupState> states = allGroups.get(checklist.getId());
                     SurveyAppointment visit = ChecklistContextLoader.visitOf(checklist, ofLead);
                     Readiness readiness = ReadinessCalculator.of(documents(states),
-                            difference(identification(states), visit), List.of());
+                            difference(identification(states), visit), List.of(),
+                            evidence(checklist.getId()).photosOrNull());
                     GroupState latest = states.values().stream().filter(state -> state.updatedAt() != null)
                             .max(Comparator.comparing(GroupState::updatedAt)).orElse(null);
                     byVisit.computeIfAbsent(checklist.getVisitAppointmentId().getValue(), id -> new ArrayList<>())
@@ -158,6 +181,23 @@ public class ChecklistViewAssembler {
                                     latest == null ? null : latest.updatedByUserId()));
                 });
         return byVisit;
+    }
+
+    /**
+     * survey-media spec A-1: the photos are available when uploads are on or the checklist has a media-set row; then
+     * every photo row of the checklist, read after the set row (evidence of spec 4.6), else null. Without a set row
+     * no photo exists (a photo is created under the set lock after the row).
+     */
+    private Evidence evidence(SurveyChecklistId checklistId) {
+        Optional<MediaSet> set = mediaSets.findForRead(checklistId.getValue());
+        if (set.isEmpty() && !switches.uploadsOn()) {
+            return new Evidence(null, 0L);
+        }
+        List<SurveyMedia> photos = set.isEmpty() ? List.of() : media.findForChecklist(checklistId.getValue());
+        return new Evidence(photos, set.map(MediaSet::getSetVersion).orElse(0L));
+    }
+
+    private record Evidence(List<SurveyMedia> photosOrNull, long setVersion) {
     }
 
     /**

@@ -40,5 +40,15 @@ public enum OwnerLeadActivityType {
     /** A new assignee took a survey checklist draft over from its holder (survey-checklist BR-14, BR-15). */
     CHECKLIST_TAKEN_OVER,
     /** The holder saved one group of a survey checklist draft (survey-checklist BR-15). */
-    CHECKLIST_SAVED
+    CHECKLIST_SAVED,
+    /**
+     * The holder's photo content was committed to a survey checklist draft; the detail is its evidence category
+     * (survey-media spec 5.3, A-10).
+     */
+    CHECKLIST_MEDIA_ADDED,
+    /**
+     * The holder removed a processing or ready photo of a survey checklist draft; the detail is its evidence category
+     * (survey-media spec 5.3, A-10).
+     */
+    CHECKLIST_MEDIA_REMOVED
 }

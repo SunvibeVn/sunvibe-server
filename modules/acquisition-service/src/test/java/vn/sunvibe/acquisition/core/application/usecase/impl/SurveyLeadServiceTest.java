@@ -358,6 +358,28 @@ class SurveyLeadServiceTest {
         assertEquals(T0, written.getOccurredAt());
     }
 
+    /** survey-media spec 5.3, A-10: an activity row only; the lead is neither loaded for a lock nor saved. */
+    @Test
+    void recordChecklistActivity_mediaAdded_writesActivityOnlyRow() {
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        leads.refuseSaves = true;
+        int savesBefore = leads.saveCount;
+
+        SurveyChecklistActivityResult result = service.recordChecklistActivity(id(lead), new SurveyChecklistActivity(
+                SurveyChecklistEvent.CHECKLIST_MEDIA_ADDED, SALE_A, CHECKLIST, 2, "BATHROOM", T0));
+
+        assertEquals(0L, leads.findById(lead.getId()).orElseThrow().getVersion());
+        assertEquals(List.of(), leads.shareLocks());
+        assertEquals(savesBefore, leads.saveCount);
+        assertEquals(1, activities.all().size());
+        OwnerLeadActivity written = activities.all().get(0);
+        assertEquals(OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED, written.getType());
+        assertEquals("BATHROOM", written.getReferenceDetail());
+        assertEquals(CHECKLIST, written.getReferenceId());
+        assertEquals("CHECKLIST_MEDIA_ADDED", result.entry().type());
+        assertEquals("BATHROOM", result.entry().referenceDetail());
+    }
+
     @Test
     void recordChecklistActivity_returnsReadBackLastActivityAt() {
         OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);

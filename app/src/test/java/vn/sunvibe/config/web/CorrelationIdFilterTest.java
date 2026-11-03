@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import vn.sunvibe.shared.logging.RequestId;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -99,6 +100,23 @@ class CorrelationIdFilterTest {
         assertEquals(longest, response.getHeader(CorrelationId.HEADER));
     }
 
+    /** survey-media plan PD-14, SV-052: a server request id per request, whatever the client sent. */
+    @Test
+    void filter_givesEachRequestAServerRequestId_evenWithAClientCorrelationId() throws Exception {
+        AtomicReference<String> first = new AtomicReference<>();
+        AtomicReference<String> second = new AtomicReference<>();
+        request.addHeader(CorrelationId.HEADER, "client-req-12345");
+
+        filter.doFilter(request, response, (req, res) -> first.set(RequestId.current()));
+        filter.doFilter(request, new MockHttpServletResponse(), (req, res) -> second.set(MDC.get(RequestId.MDC_KEY)));
+
+        assertTrue(first.get().matches(ULID_PATTERN), first.get());
+        assertTrue(second.get().matches(ULID_PATTERN), second.get());
+        assertNotEquals(first.get(), second.get());
+        assertNotEquals("client-req-12345", first.get());
+        assertNull(RequestId.current());
+    }
+
     @Test
     void filter_afterTheRequest_clearsTheMdc() throws Exception {
         filter.doFilter(request, response, new MockFilterChain());
@@ -116,6 +134,7 @@ class CorrelationIdFilterTest {
         assertThrows(ServletException.class, () -> filter.doFilter(request, response, failing));
 
         assertNull(MDC.get(CorrelationId.MDC_KEY));
+        assertNull(MDC.get(RequestId.MDC_KEY));
         assertNotNull(response.getHeader(CorrelationId.HEADER));
     }
 

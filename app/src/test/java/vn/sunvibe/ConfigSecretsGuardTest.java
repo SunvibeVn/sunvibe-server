@@ -70,6 +70,23 @@ class ConfigSecretsGuardTest {
 				() -> resolver.getProperty(key), key + " must not resolve without its env var"));
 	}
 
+	/** survey-media spec 5.1, ADR-002: the R2 credentials come only from env vars; no profile commits a value. */
+	@Test
+	void mediaS3Credentials_comeOnlyFromEnv() throws IOException {
+		Map<String, String> credentials = Map.of(
+				"app.survey.media.s3.access-key-id", "${SURVEY_MEDIA_S3_ACCESS_KEY_ID:}",
+				"app.survey.media.s3.secret-access-key", "${SURVEY_MEDIA_S3_SECRET_ACCESS_KEY:}");
+		List<PropertySource<?>> base = load("application.yml");
+
+		credentials.forEach((key, placeholder) -> assertEquals(placeholder, String.valueOf(rawValue(base, key)),
+				key + " must be the " + placeholder + " placeholder"));
+		for (String profile : List.of("application-prod.yml", "application-dev.yml", "application-test.yml",
+				"application-lan.yml")) {
+			List<PropertySource<?>> sources = load(profile);
+			credentials.keySet().forEach(key -> assertNull(rawValue(sources, key), key + " must not be in " + profile));
+		}
+	}
+
 	@Test
 	void prodProfile_secretKeys_areNotOverridden() throws IOException {
 		List<PropertySource<?>> prod = load("application-prod.yml");

@@ -27,7 +27,6 @@ import vn.sunvibe.survey.core.presentation.converter.SurveyResponseMapper;
 import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.BookAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ResumeSurveyRequest;
-import vn.sunvibe.survey.core.presentation.dto.response.SecurityError;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyBlockResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyCommandResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyOverlapsResponse;
@@ -70,9 +69,9 @@ public class LeadSurveyController {
             @ApiResponse(responseCode = "200", description = "The survey block",
                     content = @Content(schema = @Schema(implementation = SurveyBlockResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
@@ -101,9 +100,9 @@ public class LeadSurveyController {
                     + "MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION (field expectedLeadVersion), "
@@ -138,9 +137,9 @@ public class LeadSurveyController {
                     + "excludeAppointmentId",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
@@ -173,9 +172,9 @@ public class LeadSurveyController {
                     + "MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION (field expectedLeadVersion), "

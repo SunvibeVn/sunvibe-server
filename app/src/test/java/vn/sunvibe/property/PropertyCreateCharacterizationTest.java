@@ -298,7 +298,7 @@ class PropertyCreateCharacterizationTest {
 		Result result = post(landlordA, validBody(code, landlordB.userId()));
 
 		assertEquals(403, result.status(), result.rawBody());
-		assertEquals("Forbidden", result.body().path("error").asString());
+		assertEquals("FORBIDDEN", result.body().path("code").asString());
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
@@ -431,9 +431,9 @@ class PropertyCreateCharacterizationTest {
 		Result result = post(tenant, validBody(code, tenant.userId()));
 
 		assertEquals(403, result.status(), result.rawBody());
-		assertEquals("Forbidden", result.body().path("error").asString());
+		assertEquals("FORBIDDEN", result.body().path("code").asString());
 		assertEquals("You do not have permission to access this resource.", result.body().path("message").asString());
-		assertEquals(ENDPOINT, result.body().path("path").asString());
+		assertTrue(result.body().path("path").isMissingNode(), "no request path in the body (SV-030)");
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 
@@ -444,9 +444,9 @@ class PropertyCreateCharacterizationTest {
 		Result result = post(null, validBody(code, landlordA.userId()));
 
 		assertEquals(401, result.status(), result.rawBody());
-		assertEquals("Unauthorized", result.body().path("error").asString());
-		assertFalse(result.body().path("message").asString().isBlank(), "message");
-		assertEquals(ENDPOINT, result.body().path("path").asString());
+		assertEquals("UNAUTHORIZED", result.body().path("code").asString());
+		assertEquals("Authentication is required.", result.body().path("message").asString());
+		assertTrue(result.body().path("path").isMissingNode(), "no request path in the body (SV-030)");
 		assertEquals(0, countPropertiesWithCode(code));
 	}
 

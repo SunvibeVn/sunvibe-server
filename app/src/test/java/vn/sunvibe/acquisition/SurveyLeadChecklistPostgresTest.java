@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -176,6 +177,40 @@ class SurveyLeadChecklistPostgresTest {
 		assertEquals(at, result.entry().occurredAt());
 		assertEquals("Share Sale", result.entry().actorName());
 		assertEquals("TERMS", result.entry().referenceDetail());
+	}
+
+	/** survey-media spec 5.3, A-10: a photo History row round-trips with its category; the lead version stays. */
+	@Test
+	void mediaActivity_roundTripAndLeadVersionUnchanged() throws Exception {
+		String leadId = survey.lead(leader, sale, "CONTACTED");
+		long version = survey.version(leadId);
+		String status = survey.leadStatus(leadId);
+		Instant at = Instant.now().truncatedTo(ChronoUnit.MICROS);
+
+		for (SurveyChecklistEvent event : List.of(SurveyChecklistEvent.CHECKLIST_MEDIA_ADDED,
+				SurveyChecklistEvent.CHECKLIST_MEDIA_REMOVED)) {
+			SurveyChecklistActivityResult result = new TransactionTemplate(transactionManager).execute(tx -> {
+				surveyLeads.findVisibleForShare(leadId, viewer(sale)).orElseThrow();
+				return surveyLeads.recordChecklistActivity(leadId, new SurveyChecklistActivity(event, sale.userId(),
+						CHECKLIST, 2, "SHARED_KITCHEN", at));
+			});
+			assertEquals(event.name(), result.entry().type());
+			assertEquals("SHARED_KITCHEN", result.entry().referenceDetail());
+		}
+
+		assertEquals(version, survey.version(leadId));
+		assertEquals(status, survey.leadStatus(leadId));
+		List<Map<String, Object>> rows = jdbc.queryForList("select type, reference_id, reference_no,"
+				+ " reference_detail from owner_lead_activities where lead_id = ? and type like 'CHECKLIST_MEDIA_%'"
+				+ " order by type", leadId);
+		assertEquals(2, rows.size());
+		assertEquals("CHECKLIST_MEDIA_ADDED", rows.get(0).get("type"));
+		assertEquals("CHECKLIST_MEDIA_REMOVED", rows.get(1).get("type"));
+		for (Map<String, Object> row : rows) {
+			assertEquals(CHECKLIST, row.get("reference_id"));
+			assertEquals(2, row.get("reference_no"));
+			assertEquals("SHARED_KITCHEN", row.get("reference_detail"));
+		}
 	}
 
 	/** spec A-25: the staff ids named on the lead's History (actor, previous and new assignee), one query. */

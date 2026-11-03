@@ -389,7 +389,7 @@ class RoleAdminApiTest {
 
 	private void assertForbidden(Result result) {
 		assertEquals(403, result.status(), result.rawBody());
-		assertEquals("Forbidden", result.body().path("error").asString());
+		assertEquals("FORBIDDEN", result.body().path("code").asString());
 	}
 
 	private Set<String> dbRoles(String userId) {

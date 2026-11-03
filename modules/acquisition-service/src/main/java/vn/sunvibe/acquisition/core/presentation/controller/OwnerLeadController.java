@@ -46,7 +46,6 @@ import vn.sunvibe.acquisition.core.presentation.dto.response.LeadNoteResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadPageResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.OwnerLeadDetailResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.OwnerLeadSummaryResponse;
-import vn.sunvibe.acquisition.core.presentation.dto.response.SecurityError;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 import java.util.List;
@@ -94,10 +93,10 @@ public class OwnerLeadController {
                     + "size",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or a SALE asked "
                     + "for scope unassigned or all",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class)))
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<LeadPageResponse> list(
             @Parameter(schema = @Schema(allowableValues = {"mine", "unassigned", "all"}, defaultValue = "mine"))
@@ -172,9 +171,9 @@ public class OwnerLeadController {
             @ApiResponse(responseCode = "200", description = "The lead",
                     content = @Content(schema = @Schema(implementation = OwnerLeadDetailResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
@@ -198,9 +197,9 @@ public class OwnerLeadController {
                     + "or note; MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not SALE_LEADER, SALES_MANAGER or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION (field expectedVersion) or "
@@ -235,9 +234,9 @@ public class OwnerLeadController {
                     + "reason, duplicateOfLeadId or note; MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "INVALID_STATE_TRANSITION (field toStatus, "
@@ -271,9 +270,9 @@ public class OwnerLeadController {
                     + "the lead was created) or basis.text; MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION (field expectedVersion) or "
@@ -303,9 +302,9 @@ public class OwnerLeadController {
                     + "MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "INVALID_STATE_TRANSITION (field status): the lead is "

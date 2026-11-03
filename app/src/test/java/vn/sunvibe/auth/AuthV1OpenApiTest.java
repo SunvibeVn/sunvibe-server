@@ -31,7 +31,7 @@ import tools.jackson.databind.json.JsonMapper;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AuthV1OpenApiTest {
 
-	private static final String SECURITY_ERROR_REF = "#/components/schemas/SecurityError";
+	private static final String SECURITY_ERROR_REF = "#/components/schemas/ErrorResponse";
 
 	@Value("${local.server.port}")
 	private int port;
@@ -188,11 +188,13 @@ class AuthV1OpenApiTest {
 		v1.forEach((key, id) -> assertEquals(id, operation(key).path("operationId").asString(), key));
 	}
 
-	/** The 401/403 bodies of the security chain reference this schema by name; it must exist in the contract. */
+	/** survey-media plan PD-2: the 401/403 bodies are the ErrorResponse envelope; no SecurityError schema is left. */
 	@Test
-	void openApi_securityErrorSchema_exists() {
-		assertFalse(contract.path("components").path("schemas").path("SecurityError").isMissingNode(),
+	void openApi_securityErrorSchema_isReplacedByErrorResponse() {
+		assertTrue(contract.path("components").path("schemas").path("SecurityError").isMissingNode(),
 				"components.schemas.SecurityError");
+		assertFalse(contract.path("components").path("schemas").path("ErrorResponse").isMissingNode(),
+				"components.schemas.ErrorResponse");
 	}
 
 	/** The operation for {@code "method path"} (lower-case method). */

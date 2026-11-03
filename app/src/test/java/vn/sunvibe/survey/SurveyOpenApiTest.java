@@ -47,7 +47,7 @@ class SurveyOpenApiTest {
 	private static final String CHECKLISTS = "/api/v1/staff/survey-checklists";
 	private static final String START = "/api/v1/staff/survey-appointments/{appointmentId}/checklists";
 	/** Components the checklist operations may share with the earlier survey endpoints. */
-	private static final Set<String> SHARED_COMPONENTS = Set.of("ErrorResponse", "ValidationError", "SecurityError",
+	private static final Set<String> SHARED_COMPONENTS = Set.of("ErrorResponse", "ValidationError",
 			"SurveyLocationResponse", "SurveyLeadStateResponse");
 
 	@BeforeAll
@@ -91,7 +91,7 @@ class SurveyOpenApiTest {
 		Set<String> reached = new LinkedHashSet<>();
 		Deque<JsonNode> pending = new ArrayDeque<>();
 		contract.path("paths").properties().forEach(path -> {
-			if (path.getKey().startsWith(CHECKLISTS) || path.getKey().equals(START)) {
+			if ((path.getKey().startsWith(CHECKLISTS) || path.getKey().equals(START)) && !isMediaPath(path.getKey())) {
 				pending.add(path.getValue());
 			}
 		});
@@ -112,6 +112,49 @@ class SurveyOpenApiTest {
 		}
 	}
 
+	/**
+	 * The survey-media operations (survey-media spec 7.1; plan Task A13) are listed apart: their components are
+	 * {@code SurveyMedia*}, {@code Media*} and {@code ChecklistMedia*} ones, the checklist History entry they answer
+	 * (spec 7.2 {@code historyEntry}) and the shared error components.
+	 */
+	@Test
+	void openApi_mediaOperations_useOnlyMediaComponents() {
+		Set<String> reached = new LinkedHashSet<>();
+		Deque<JsonNode> pending = new ArrayDeque<>();
+		contract.path("paths").properties().forEach(path -> {
+			if (isMediaPath(path.getKey())) {
+				pending.add(path.getValue());
+			}
+		});
+		assertFalse(pending.isEmpty());
+		while (!pending.isEmpty()) {
+			JsonNode node = pending.poll();
+			if (node.isObject() && node.has("$ref")) {
+				String name = node.path("$ref").asString().substring("#/components/schemas/".length());
+				if (reached.add(name)) {
+					pending.add(contract.path("components").path("schemas").path(name));
+				}
+			}
+			node.forEach(pending::add);
+		}
+
+		assertTrue(reached.contains("SurveyMediaItem"), reached.toString());
+		for (String name : reached) {
+			assertTrue(name.startsWith("SurveyMedia") || name.startsWith("Media") || name.startsWith("ChecklistMedia")
+					|| name.startsWith("ChecklistHistoryEntry") || SHARED_COMPONENTS.contains(name), name);
+		}
+	}
+
+	private static List<String> fieldNames(JsonNode object) {
+		List<String> names = new java.util.ArrayList<>();
+		object.properties().forEach(entry -> names.add(entry.getKey()));
+		return names;
+	}
+
+	private static boolean isMediaPath(String path) {
+		return path.startsWith("/api/v1/staff/survey-media/") || (path.startsWith(CHECKLISTS) && path.endsWith("/media"));
+	}
+
 	@Test
 	void openApi_meta_isANullableReference_andNotReadOnly() {
 		for (String wrapper : List.of("ChecklistTextField", "ChecklistLocationField", "ChecklistRentTerm",
@@ -129,7 +172,9 @@ class SurveyOpenApiTest {
 		List<String> checked = new ArrayList<>();
 		contract.path("components").path("schemas").properties().forEach(entry -> {
 			String name = entry.getKey();
-			if (!name.startsWith("Checklist") || !(name.endsWith("Request") || name.endsWith("Input"))) {
+			boolean checklistBody = name.startsWith("Checklist") && (name.endsWith("Request") || name.endsWith("Input"));
+			boolean mediaBody = name.startsWith("Media") && name.endsWith("Request");
+			if (!checklistBody && !mediaBody) {
 				return;
 			}
 			Set<String> required = new LinkedHashSet<>();
@@ -142,7 +187,33 @@ class SurveyOpenApiTest {
 			checked.add(name);
 		});
 		assertTrue(checked.containsAll(List.of("ChecklistStartRequest", "ChecklistIntakeRequest",
-				"ChecklistBasisRequest", "ChecklistTakeoverRequest")), checked.toString());
+				"ChecklistBasisRequest", "ChecklistTakeoverRequest", "MediaCreateRequest")), checked.toString());
+	}
+
+	/**
+	 * survey-media spec 7.1, 7.2 (plan Task A18): the checklist answer carries {@code media {available, uploadEnabled,
+	 * setVersion}}, a missing item's problem may be EVIDENCE_MISSING or EVIDENCE_PROCESSING and the reason submission
+	 * is unavailable may be SUBMISSION_NOT_AVAILABLE.
+	 */
+	@Test
+	void openApi_checklistResponse_hasTheMediaBlockAndTheEvidenceProblems() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		assertEquals("#/components/schemas/ChecklistMedia", schemas.path("ChecklistResponse").path("properties")
+				.path("media").path("$ref").asString());
+		JsonNode media = schemas.path("ChecklistMedia").path("properties");
+		assertEquals(List.of("available", "setVersion", "uploadEnabled"), fieldNames(media).stream().sorted().toList());
+		assertEquals("boolean", media.path("available").path("type").asString());
+		assertEquals("boolean", media.path("uploadEnabled").path("type").asString());
+		assertEquals("integer", media.path("setVersion").path("type").asString());
+		List<String> problems = new java.util.ArrayList<>();
+		schemas.path("ChecklistMissingItem").path("properties").path("problem").path("enum")
+				.forEach(value -> problems.add(value.asString()));
+		assertTrue(problems.containsAll(List.of("EVIDENCE_PENDING", "EVIDENCE_MISSING", "EVIDENCE_PROCESSING")),
+				problems.toString());
+		List<String> reasons = new java.util.ArrayList<>();
+		schemas.path("ChecklistReadiness").path("properties").path("submissionUnavailableReason").path("enum")
+				.forEach(value -> reasons.add(value.asString()));
+		assertEquals(List.of("EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE"), reasons);
 	}
 
 	@Test
@@ -160,9 +231,12 @@ class SurveyOpenApiTest {
 		}
 	}
 
-	/** survey-checklist spec 7.2: the History entry of a checklist answer is a LeadActivityResponse of three types. */
+	/**
+	 * survey-checklist spec 7.2, survey-media spec 5.3: the History entry of a checklist answer is a
+	 * LeadActivityResponse of five types.
+	 */
 	@Test
-	void openApi_checklistHistoryEntry_hasTheActivityFields_andTheThreeChecklistTypes() {
+	void openApi_checklistHistoryEntry_hasTheActivityFields_andTheFiveChecklistTypes() {
 		List<String> activity = new ArrayList<>();
 		schema("LeadActivityResponse").path("properties").properties().forEach(p -> activity.add(p.getKey()));
 		List<String> entry = new ArrayList<>();
@@ -172,7 +246,8 @@ class SurveyOpenApiTest {
 		checklistEntry.path("properties").path("type").path("enum").forEach(t -> types.add(t.asString()));
 
 		assertEquals(activity, entry);
-		assertEquals(List.of("CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED"), types);
+		assertEquals(List.of("CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED", "CHECKLIST_MEDIA_ADDED",
+				"CHECKLIST_MEDIA_REMOVED"), types);
 	}
 
 	private JsonNode schema(String name) {

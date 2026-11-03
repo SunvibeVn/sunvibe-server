@@ -203,8 +203,13 @@ public final class SurveyApiTestSupport {
 	public static void deleteSurveyRows(JdbcTemplate jdbc, Collection<String> leadIds) {
 		for (String id : leadIds) {
 			jdbc.update("delete from survey_security_events where lead_id = ?", id);
-			for (String table : List.of("survey_checklist_saves", "survey_checklist_takeovers",
-					"survey_checklist_groups")) {
+			// survey-media rows go before their checklists (spec 6.4 order: jobs, variants, photos, sets)
+			jdbc.update("delete from survey_media_jobs where media_id in (select m.id from survey_media m"
+					+ " join survey_checklists c on c.id = m.checklist_id where c.lead_id = ?)", id);
+			jdbc.update("delete from survey_media_variants where media_id in (select m.id from survey_media m"
+					+ " join survey_checklists c on c.id = m.checklist_id where c.lead_id = ?)", id);
+			for (String table : List.of("survey_media", "survey_media_sets", "survey_checklist_saves",
+					"survey_checklist_takeovers", "survey_checklist_groups")) {
 				jdbc.update("delete from " + table + " where checklist_id in "
 						+ "(select id from survey_checklists where lead_id = ?)", id);
 			}

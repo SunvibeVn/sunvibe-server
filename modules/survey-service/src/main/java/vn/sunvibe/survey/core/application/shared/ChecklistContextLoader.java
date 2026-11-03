@@ -102,6 +102,12 @@ public class ChecklistContextLoader {
         requireAssignee(viewer, lead, SecurityResourceType.CHECKLIST, checklistId, action);
         List<SurveyAppointment> ofLead = appointments.findByLeadId(leadId);
         SurveyChecklist checklist = checklists.findById(id).orElseThrow(ChecklistNotFoundException::new);
+        return editableContext(viewer, lead, checklist, ofLead);
+    }
+
+    /** Steps (4) read-only 409 and (5) ineligible 422 of a command (spec 5.5). */
+    private CommandContext editableContext(SurveyViewer viewer, LeadFacts lead, SurveyChecklist checklist,
+                                           List<SurveyAppointment> ofLead) {
         Optional<String> currentVisit = CurrentVisitPolicy.currentVisit(ofLead, lead.intentCycle())
                 .map(visit -> visit.getId().getValue());
         Editability editability = ChecklistEditability.of(checklist.snapshot(), lead.status(), lead.intentCycle(),
@@ -114,6 +120,72 @@ public class ChecklistContextLoader {
         }
         SurveyAppointment visit = visitOf(checklist, ofLead);
         return new CommandContext(lead, checklist, ofLead, visit, visitFacts(visit));
+    }
+
+    /**
+     * A survey-media command on a checklist (survey-media plan PD-10, spec 5.4): {@link #loadForCommand}'s order, but
+     * the checklist's first load is its share lock (after the lead's), and the refusal events are the throttled media
+     * ones (spec A-19) of the given resource: (2) checklist or lead not visible 404, (3) not the assignee 403, (4)
+     * read-only 409, (5) ineligible 422. A malformed or unknown checklist id is 404 without an event.
+     */
+    public CommandContext loadForMediaCommand(SurveyViewer viewer, String checklistId,
+                                              SecurityResourceType resourceType, String resourceId,
+                                              SecurityAction action) {
+        LeadFacts lead = requireMediaAuthority(viewer, checklistId, resourceType, resourceId, action);
+        SurveyChecklist checklist = checklists.findByIdForShare(SurveyChecklistId.of(checklistId))
+                .orElseThrow(ChecklistNotFoundException::new);
+        List<SurveyAppointment> ofLead = appointments.findByLeadId(lead.leadId());
+        return editableContext(viewer, lead, checklist, ofLead);
+    }
+
+    /**
+     * An ADMIN hold or release (survey-media spec A-23, 5.4): the lead and the checklist {@code FOR SHARE}; no
+     * assignee, read-only, eligibility or takeover check (a hold works on every checklist state).
+     */
+    public LeadFacts lockForAdminMediaCommand(SurveyViewer viewer, String checklistId) {
+        SurveyChecklistId id = checklistId(checklistId);
+        String leadId = checklists.findLeadIdById(id).orElseThrow(ChecklistNotFoundException::new);
+        LeadFacts lead = leads.findVisibleForShare(leadId, viewer).orElseThrow(ChecklistNotFoundException::new);
+        checklists.findByIdForShare(id).orElseThrow(ChecklistNotFoundException::new);
+        return lead;
+    }
+
+    /**
+     * Step (2) of a survey-media read (spec 5.4 list order, 4.3): the checklist exists (an unknown or malformed id is
+     * 404 without an event) and its lead is visible to the caller (404 with a throttled NOT_VISIBLE event of the
+     * resource).
+     */
+    public LeadFacts requireMediaVisible(SurveyViewer viewer, String checklistId, SecurityResourceType resourceType,
+                                         String resourceId, SecurityAction action) {
+        SurveyChecklistId id = checklistId(checklistId);
+        String leadId = checklists.findLeadIdById(id).orElseThrow(ChecklistNotFoundException::new);
+        return leads.findVisible(leadId, viewer).orElseThrow(() -> {
+            securityEvents.refusedThrottled(viewer.userId(), leadId, resourceType, resourceId, action,
+                    SecurityOutcome.NOT_VISIBLE);
+            return new ChecklistNotFoundException();
+        });
+    }
+
+    /**
+     * Steps (2) and (3) of a survey-media command (spec 5.4): the checklist's lead visible to the caller under its
+     * share lock (404, throttled NOT_VISIBLE event) and the caller its assignee (403, throttled NOT_ASSIGNEE event).
+     * The content upload answers these before it takes its body slots.
+     */
+    public LeadFacts requireMediaAuthority(SurveyViewer viewer, String checklistId, SecurityResourceType resourceType,
+                                           String resourceId, SecurityAction action) {
+        SurveyChecklistId id = checklistId(checklistId);
+        String leadId = checklists.findLeadIdById(id).orElseThrow(ChecklistNotFoundException::new);
+        LeadFacts lead = leads.findVisibleForShare(leadId, viewer).orElseThrow(() -> {
+            securityEvents.refusedThrottled(viewer.userId(), leadId, resourceType, resourceId, action,
+                    SecurityOutcome.NOT_VISIBLE);
+            return new ChecklistNotFoundException();
+        });
+        if (!viewer.userId().equals(lead.assignedUserId())) {
+            securityEvents.refusedThrottled(viewer.userId(), lead.leadId(), resourceType, resourceId, action,
+                    SecurityOutcome.NOT_ASSIGNEE);
+            throw new AccessDeniedException("Only the lead's assignee uploads or removes its photos.");
+        }
+        return lead;
     }
 
     /** A read: checklist exists (no event when not) and its lead is visible (404 with an event of the resource). */

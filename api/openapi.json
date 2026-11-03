@@ -730,7 +730,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -740,7 +740,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -819,7 +819,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -829,7 +829,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -897,7 +897,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -907,7 +907,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -963,7 +963,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -973,7 +973,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1052,7 +1052,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1062,7 +1062,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1134,7 +1134,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1144,7 +1144,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1223,7 +1223,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1233,7 +1233,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1549,7 +1549,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1559,7 +1559,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1675,7 +1675,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1685,7 +1685,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1723,7 +1723,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1733,7 +1733,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1801,7 +1801,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1811,7 +1811,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1889,7 +1889,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1899,7 +1899,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1987,7 +1987,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -1997,7 +1997,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2075,7 +2075,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2085,7 +2085,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2143,7 +2143,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2153,7 +2153,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2221,7 +2221,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2231,7 +2231,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2335,7 +2335,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2345,7 +2345,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2413,7 +2413,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2423,7 +2423,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2496,7 +2496,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2506,7 +2506,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2559,7 +2559,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2569,7 +2569,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2637,7 +2637,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2647,7 +2647,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2751,7 +2751,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2761,7 +2761,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2819,7 +2819,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2829,7 +2829,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2907,7 +2907,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2917,7 +2917,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3005,7 +3005,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3015,7 +3015,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3103,7 +3103,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3113,7 +3113,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3201,7 +3201,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3211,7 +3211,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3279,7 +3279,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3289,7 +3289,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3357,7 +3357,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3367,7 +3367,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3455,7 +3455,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3465,7 +3465,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3553,7 +3553,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3563,7 +3563,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3651,7 +3651,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3661,7 +3661,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3700,6 +3700,249 @@
         },
         "summary" : "Save the identification group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
         "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/media" : {
+      "get" : {
+        "description" : "Selected photos by number, the newest 100 not accepted and removed ones, totals, limits, coverage and the switches as they apply to the viewer. Send the version of the last answer as knownVersion to get 204 while nothing changed.",
+        "operationId" : "listSurveyMedia",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "setVersion.identificationVersion.conditionVersion.checklistVersion.stateEpoch.viewDigest of the last answer",
+          "in" : "query",
+          "name" : "knownVersion",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistMediaResponse"
+                }
+              }
+            },
+            "description" : "The photos"
+          },
+          "204" : {
+            "description" : "Nothing changed since knownVersion"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on knownVersion (malformed)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED (field budget): the hourly list budget",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "schema" : {
+                  "type" : "integer"
+                },
+                "style" : "simple"
+              }
+            }
+          }
+        },
+        "summary" : "Read the photos of a survey checklist (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Survey photos (staff)" ]
+      },
+      "post" : {
+        "description" : "Declares the file (size and SHA-256) with its placement, category and an optional caption. The photo then waits up to 60 minutes for its bytes. The same uploadKey and body again answers the same photo (200). Unknown keys are refused; the body is at most 16 KiB.",
+        "operationId" : "createSurveyMedia",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MediaCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyMediaCreateResponse"
+                }
+              }
+            },
+            "description" : "Replay: the photo this uploadKey created with the same body"
+          },
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyMediaCreateResponse"
+                }
+              }
+            },
+            "description" : "The photo record, awaiting its content"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on uploadKey, spaceId (also not a space of the checklist's G1), category (also not allowed at the placement), caption, sizeBytes or contentSha256; a missing or unknown key too"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY; CHECKLIST_TAKEOVER_REQUIRED; IDEMPOTENCY_KEY_REUSED (field uploadKey); MEDIA_UPLOAD_DISABLED; MEDIA_DUPLICATE_CONTENT or MEDIA_FROM_OTHER_VISIT (field contentSha256, allowedValues = the matching photo id); MEDIA_LIMIT_REACHED (field selected or pending)"
+          },
+          "413" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: the body is above 16 KiB"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: field records or bytes (the caller's rolling hour) or expensive (processing outcomes of the hour)",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "schema" : {
+                  "type" : "integer"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MEDIA_INTAKE_PAUSED: uploads are paused for a moment; send the same request again later"
+          }
+        },
+        "summary" : "Create a survey photo record before sending its bytes (the checklist holder only)",
+        "tags" : [ "Survey photos (staff)" ]
       }
     },
     "/api/v1/staff/survey-checklists/{checklistId}/parts" : {
@@ -3749,7 +3992,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3759,7 +4002,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3847,7 +4090,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3857,7 +4100,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3945,7 +4188,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -3955,7 +4198,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4041,7 +4284,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4051,7 +4294,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4119,7 +4362,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4129,7 +4372,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/SecurityError"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4168,6 +4411,625 @@
         },
         "summary" : "Save the terms group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
         "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-media/{mediaId}/content" : {
+      "put" : {
+        "description" : "The raw file, exactly the declared size and SHA-256. Errors decided from the headers, 401, 403, 404 and the slot refusals answer at once and close the connection; every later answer comes after the server read the rest of the body. A network error means the state is unknown: read the photos before sending again.",
+        "operationId" : "uploadSurveyMediaContent",
+        "parameters" : [ {
+          "description" : "Equal to the declared sizeBytes, at most 20971520",
+          "in" : "header",
+          "name" : "Content-Length",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "description" : "RFC 9530: sha-256=:<base64>:, equal to the declared contentSha256",
+          "in" : "header",
+          "name" : "Content-Digest",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "mediaId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/octet-stream" : {
+              "schema" : {
+                "type" : "string",
+                "format" : "binary"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyMediaContentResponse"
+                }
+              }
+            },
+            "description" : "The bytes are received; the photo is PROCESSING"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: field Content-Length (missing or not the declared size), Content-Digest (missing, malformed, not the declared hash or not matching the body) or body (ended early); VALIDATION_FAILED on spaceId when the space left G1"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such photo, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY; CHECKLIST_TAKEOVER_REQUIRED; MEDIA_NOT_AVAILABLE (field uploadedBy or status); MEDIA_CONTENT_ALREADY_RECEIVED; MEDIA_UPLOAD_IN_PROGRESS; MEDIA_UPLOAD_EXPIRED; MEDIA_UPLOAD_DISABLED; MEDIA_DUPLICATE_CONTENT or MEDIA_FROM_OTHER_VISIT (field contentSha256, allowedValues = the matching photo id)"
+          },
+          "413" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: Content-Length above 20 MiB"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST (field Content-Type): only application/octet-stream"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take leads"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: field expensive (processing outcomes of the hour) or bodies (3 uploads at once per user); at once, the connection closes",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "schema" : {
+                  "type" : "integer"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MEDIA_SERVER_BUSY (at once, with Retry-After); MEDIA_INTAKE_PAUSED or MEDIA_STORE_UNAVAILABLE: send the same request again later",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait, on MEDIA_SERVER_BUSY",
+                "schema" : {
+                  "type" : "integer"
+                },
+                "style" : "simple"
+              }
+            }
+          }
+        },
+        "summary" : "Send the bytes of a survey photo record (its creator, the checklist holder)",
+        "tags" : [ "Survey photos (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-media/{mediaId}/content/{variant}" : {
+      "get" : {
+        "description" : "The whole JPEG variant (Range is ignored). Serving off answers 503 at once. Each read is access-logged (a thumbnail is covered by the list's row) and counted in the hourly budget of its variant.",
+        "operationId" : "getSurveyMediaContent",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "mediaId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "variant",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "true for an attachment; only on full",
+          "in" : "query",
+          "name" : "download",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "image/jpeg" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            },
+            "description" : "The image"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED: field variant (not thumbnail, preview or full) or download (not true or false, or not on full)"
+          },
+          "401" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such photo, or the caller may not see its lead"
+          },
+          "405" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "METHOD_NOT_ALLOWED: HEAD; GET only"
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MEDIA_NOT_AVAILABLE (field status): not ready, removed, held, deleted or missing"
+          },
+          "429" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: field concurrency (6 reads at once) or budget (the hourly budget of the variant)",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "schema" : {
+                  "type" : "integer"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "503" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MEDIA_SERVING_DISABLED or MEDIA_SERVER_BUSY (with Retry-After); MEDIA_STORE_UNAVAILABLE: try again later",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "schema" : {
+                  "type" : "integer"
+                },
+                "style" : "simple"
+              }
+            }
+          }
+        },
+        "summary" : "Read one image of a survey photo (anyone who can see the lead)",
+        "tags" : [ "Survey photos (staff)" ]
+      },
+      "head" : {
+        "operationId" : "head",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "Survey photos (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-media/{mediaId}/hold" : {
+      "post" : {
+        "description" : "Puts a security hold on a processing or ready photo: only an ADMIN can then read it, its caption is hidden from others and its content is kept until the release. A photo already held answers unchanged, keeping the first reason.",
+        "operationId" : "holdSurveyMedia",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "mediaId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MediaHoldRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyMediaStateResponse"
+                }
+              }
+            },
+            "description" : "The held photo (unchanged when already held)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on reason; MALFORMED_REQUEST for another reason value or an unknown or missing key"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not an ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such photo"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MEDIA_NOT_AVAILABLE (field status): the photo is removed, or not processing or ready"
+          },
+          "413" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: the body is above 16 KiB"
+          }
+        },
+        "summary" : "Hold a survey photo (ADMIN)",
+        "tags" : [ "Survey photos (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-media/{mediaId}/hold-release" : {
+      "post" : {
+        "description" : "Ends the hold: the photo is served again unless it was removed, in which case its content deletion is requested now. A photo not held answers unchanged.",
+        "operationId" : "releaseSurveyMediaHold",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "mediaId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MediaHoldReleaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyMediaStateResponse"
+                }
+              }
+            },
+            "description" : "The photo after the release (unchanged when not held)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST for an unknown key"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not an ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such photo"
+          },
+          "413" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: the body is above 16 KiB"
+          }
+        },
+        "summary" : "Release the hold of a survey photo (ADMIN)",
+        "tags" : [ "Survey photos (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-media/{mediaId}/removal" : {
+      "post" : {
+        "description" : "The checklist holder removes a photo. A photo whose bytes were received and that another person uploaded needs a correction. The removed photo is no longer served; its record stays in the removed list. Removing it again answers it as it is.",
+        "operationId" : "removeSurveyMedia",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "mediaId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MediaRemovalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SurveyMediaContentResponse"
+                }
+              }
+            },
+            "description" : "The removed photo"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on correction (missing where needed), correction.reason, correction.basis.confirmedOn (not from the visit's arrival date to today) or correction.basis.text; MALFORMED_REQUEST for an unknown or missing key"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not sale staff or ADMIN, or not the lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such photo, or the caller may not see its lead"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CHECKLIST_READ_ONLY; CHECKLIST_TAKEOVER_REQUIRED; MEDIA_REFERENCED: a submission uses the photo"
+          },
+          "413" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "PAYLOAD_TOO_LARGE: the body is above 16 KiB"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "SURVEYOR_INELIGIBLE: the assignee can no longer take the lead"
+          }
+        },
+        "summary" : "Remove a survey photo",
+        "tags" : [ "Survey photos (staff)" ]
       }
     },
     "/api/v1/staff/users/{userId}/roles" : {
@@ -6545,7 +7407,7 @@
           },
           "referenceDetail" : {
             "type" : [ "string", "null" ],
-            "description" : "The group of a CHECKLIST_SAVED entry; null otherwise"
+            "description" : "The group of a CHECKLIST_SAVED entry, or the evidence category of a CHECKLIST_MEDIA_ADDED or CHECKLIST_MEDIA_REMOVED entry; null otherwise"
           },
           "referenceId" : {
             "type" : "string",
@@ -6570,7 +7432,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED" ]
+            "enum" : [ "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED", "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED" ]
           }
         }
       },
@@ -6837,6 +7699,186 @@
         },
         "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
       },
+      "ChecklistMedia" : {
+        "type" : "object",
+        "description" : "Whether the checklist's photos are available and this viewer could upload now",
+        "properties" : {
+          "available" : {
+            "type" : "boolean",
+            "description" : "Uploads are on or the checklist already has photos; readiness then lists evidence per required pair"
+          },
+          "setVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The set version the evidence items of readiness were computed from; 0 without photos"
+          },
+          "uploadEnabled" : {
+            "type" : "boolean",
+            "description" : "Uploads on, intake not paused and the viewer could create a photo now; the same value as uploadEnabled of the media list"
+          }
+        }
+      },
+      "ChecklistMediaBasis" : {
+        "type" : "object",
+        "properties" : {
+          "checklistVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "conditionVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "identificationVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "stateEpoch" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "viewDigest" : {
+            "type" : "string",
+            "description" : "8 hex characters over this viewer's editability and switches"
+          }
+        }
+      },
+      "ChecklistMediaCoverage" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string",
+            "enum" : [ "EXTERIOR_ACCESS", "MAIN_SPACE", "KITCHEN", "BATHROOM", "SHARED_KITCHEN", "SHARED_BATHROOM", "SHARED_AMENITY", "DETAIL" ]
+          },
+          "notRequiredReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "The G4 reason that exempts a required category"
+          },
+          "processingCount" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Selected, not held PROCESSING photos of the pair"
+          },
+          "readyCount" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "Usable photos of the pair"
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null for the whole asset"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "COVERED", "PROCESSING", "MISSING", "NOT_REQUIRED", "OPTIONAL" ]
+          }
+        }
+      },
+      "ChecklistMediaLimits" : {
+        "type" : "object",
+        "properties" : {
+          "maxFileBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "maxPending" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maxSelected" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pendingCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "selectedCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ChecklistMediaResponse" : {
+        "type" : "object",
+        "description" : "The photos of a survey checklist",
+        "properties" : {
+          "basis" : {
+            "$ref" : "#/components/schemas/ChecklistMediaBasis"
+          },
+          "canHold" : {
+            "type" : "boolean",
+            "description" : "The viewer may hold photos (ADMIN)"
+          },
+          "checklistId" : {
+            "type" : "string"
+          },
+          "coverage" : {
+            "type" : "array",
+            "description" : "Every allowed placement and category pair",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistMediaCoverage"
+            }
+          },
+          "intakePaused" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "Every selected photo, by number",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyMediaItem"
+            }
+          },
+          "limits" : {
+            "$ref" : "#/components/schemas/ChecklistMediaLimits"
+          },
+          "notAcceptedItems" : {
+            "type" : "array",
+            "description" : "REJECTED, FAILED, CANCELLED and UPLOAD_EXPIRED photos that are not removed; newest 100",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyMediaItem"
+            }
+          },
+          "removedItems" : {
+            "type" : "array",
+            "description" : "Removed photos; newest 100",
+            "items" : {
+              "$ref" : "#/components/schemas/SurveyMediaItem"
+            }
+          },
+          "servingEnabled" : {
+            "type" : "boolean"
+          },
+          "setVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totals" : {
+            "$ref" : "#/components/schemas/ChecklistMediaTotals"
+          },
+          "uploadEnabled" : {
+            "type" : "boolean",
+            "description" : "Uploads on, intake not paused and the viewer could create a photo now"
+          }
+        }
+      },
+      "ChecklistMediaTotals" : {
+        "type" : "object",
+        "properties" : {
+          "notAccepted" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "removed" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "ChecklistMissingItem" : {
         "type" : "object",
         "description" : "A known gap before a full-assessment submission",
@@ -6850,7 +7892,7 @@
           },
           "problem" : {
             "type" : "string",
-            "enum" : [ "NOT_CHECKED", "REQUIRED_AREA_NOT_ENTERED", "SCOPE_MISSING", "NO_SPACES", "NOT_IN_SCOPE", "DIFFERENCE_NOTE_MISSING", "EVIDENCE_PENDING" ]
+            "enum" : [ "NOT_CHECKED", "REQUIRED_AREA_NOT_ENTERED", "SCOPE_MISSING", "NO_SPACES", "NOT_IN_SCOPE", "DIFFERENCE_NOTE_MISSING", "EVIDENCE_PENDING", "EVIDENCE_MISSING", "EVIDENCE_PROCESSING" ]
           },
           "spaceId" : {
             "type" : [ "string", "null" ]
@@ -7558,7 +8600,9 @@
             "type" : "boolean"
           },
           "submissionUnavailableReason" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "EVIDENCE_NOT_AVAILABLE while the checklist's photos are not available, else SUBMISSION_NOT_AVAILABLE",
+            "enum" : [ "EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE" ]
           },
           "unconfirmedTerms" : {
             "type" : "array",
@@ -7756,6 +8800,9 @@
             "items" : {
               "$ref" : "#/components/schemas/ChecklistStaffMember"
             }
+          },
+          "media" : {
+            "$ref" : "#/components/schemas/ChecklistMedia"
           },
           "ownerForm" : {
             "anyOf" : [ {
@@ -8962,7 +10009,7 @@
           },
           "referenceDetail" : {
             "type" : [ "string", "null" ],
-            "description" : "The checklist group a CHECKLIST_SAVED entry concerns; null otherwise"
+            "description" : "The checklist group of a CHECKLIST_SAVED entry, or the evidence category of a CHECKLIST_MEDIA_ADDED or CHECKLIST_MEDIA_REMOVED entry; null otherwise"
           },
           "referenceId" : {
             "type" : [ "string", "null" ],
@@ -8986,7 +10033,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED", "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED" ]
+            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED", "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED", "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED" ]
           }
         }
       },
@@ -9184,6 +10231,103 @@
             "example" : "0901234567"
           }
         }
+      },
+      "MediaCreateRequest" : {
+        "type" : "object",
+        "description" : "Create a survey photo record before sending its bytes",
+        "properties" : {
+          "caption" : {
+            "type" : [ "string", "null" ],
+            "description" : "Optional, 1..200 characters, no phone number"
+          },
+          "category" : {
+            "type" : [ "string", "null" ],
+            "description" : "The evidence category; allowed at the placement's level and, for SHARED_*, only while the rental scope is PARTS",
+            "enum" : [ "EXTERIOR_ACCESS", "MAIN_SPACE", "KITCHEN", "BATHROOM", "SHARED_KITCHEN", "SHARED_BATHROOM", "SHARED_AMENITY", "DETAIL" ]
+          },
+          "contentSha256" : {
+            "type" : [ "string", "null" ],
+            "description" : "The SHA-256 of the file, 64 hexadecimal characters"
+          },
+          "sizeBytes" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The file size in bytes, 1..20971520 (20 MiB)"
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ],
+            "description" : "A space of the checklist's current G1, or null for the whole asset"
+          },
+          "uploadKey" : {
+            "type" : [ "string", "null" ],
+            "description" : "A ULID the client generates once per file: the same key and body again answers the same photo (200)"
+          }
+        },
+        "required" : [ "caption", "category", "contentSha256", "sizeBytes", "spaceId", "uploadKey" ]
+      },
+      "MediaHoldReleaseRequest" : {
+        "description" : "Release the hold of a survey photo: an empty object"
+      },
+      "MediaHoldRequest" : {
+        "type" : "object",
+        "description" : "Hold a survey photo for a security reason",
+        "properties" : {
+          "reason" : {
+            "type" : [ "string", "null" ],
+            "description" : "SECURITY_INCIDENT: a malicious or exploit-suspected file, or one produced under a decoder CVE; CREDENTIAL_EXPOSURE: a Sunvibe system secret in the photo or caption",
+            "enum" : [ "SECURITY_INCIDENT", "CREDENTIAL_EXPOSURE" ]
+          }
+        },
+        "required" : [ "reason" ]
+      },
+      "MediaRemovalBasisRequest" : {
+        "type" : "object",
+        "description" : "The basis of a removal correction",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "Vietnam date, from the visit's arrival date to today"
+          },
+          "text" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters, no phone number"
+          }
+        },
+        "required" : [ "confirmedOn", "text" ]
+      },
+      "MediaRemovalCorrectionRequest" : {
+        "type" : "object",
+        "description" : "Why a photo another person uploaded is removed, and on what basis",
+        "properties" : {
+          "basis" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/MediaRemovalBasisRequest"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "reason" : {
+            "type" : [ "string", "null" ],
+            "description" : "1..500 characters, no phone number"
+          }
+        },
+        "required" : [ "basis", "reason" ]
+      },
+      "MediaRemovalRequest" : {
+        "type" : "object",
+        "description" : "Remove a survey photo from the checklist",
+        "properties" : {
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/MediaRemovalCorrectionRequest"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Needed when the photo's content was received and another person uploaded it; otherwise null"
+          }
+        },
+        "required" : [ "correction" ]
       },
       "MeetingLocationRequest" : {
         "type" : "object",
@@ -9971,24 +11115,6 @@
           }
         }
       },
-      "SecurityError" : {
-        "type" : "object",
-        "description" : "401/403 body written by Spring Security",
-        "properties" : {
-          "error" : {
-            "type" : "string",
-            "example" : "Forbidden"
-          },
-          "message" : {
-            "type" : "string",
-            "example" : "You do not have permission to access this resource."
-          },
-          "path" : {
-            "type" : "string",
-            "example" : "/api/v1/staff/owner-leads"
-          }
-        }
-      },
       "SessionResponse" : {
         "type" : "object",
         "description" : "A started or refreshed session: the access token and the account",
@@ -10554,6 +11680,223 @@
           },
           "wardName" : {
             "type" : "string"
+          }
+        }
+      },
+      "SurveyMediaContentResponse" : {
+        "type" : "object",
+        "description" : "The photo after a change: its bytes received or its removal",
+        "properties" : {
+          "historyEntry" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistHistoryEntryResponse"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "CHECKLIST_MEDIA_ADDED for received bytes, CHECKLIST_MEDIA_REMOVED for the removal of a processing or ready photo; null for a replay, a repeated removal or a removal that only tidies the list"
+          },
+          "media" : {
+            "$ref" : "#/components/schemas/SurveyMediaItem"
+          },
+          "setVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SurveyMediaCorrection" : {
+        "type" : "object",
+        "description" : "The correction of a photo removal",
+        "properties" : {
+          "basis" : {
+            "$ref" : "#/components/schemas/SurveyMediaCorrectionBasis"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyMediaCorrectionBasis" : {
+        "type" : "object",
+        "description" : "The basis of a photo removal's correction",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "text" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SurveyMediaCreateResponse" : {
+        "type" : "object",
+        "description" : "The created survey photo record (201) or its replay (200)",
+        "properties" : {
+          "media" : {
+            "$ref" : "#/components/schemas/SurveyMediaItem"
+          },
+          "setVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "SurveyMediaHold" : {
+        "type" : "object",
+        "description" : "The current hold of a survey photo; who and why only for a viewer who may hold photos",
+        "properties" : {
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "byName" : {
+            "type" : [ "string", "null" ]
+          },
+          "byUserId" : {
+            "type" : [ "string", "null" ]
+          },
+          "reason" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "SECURITY_INCIDENT", "CREDENTIAL_EXPOSURE" ]
+          }
+        }
+      },
+      "SurveyMediaItem" : {
+        "type" : "object",
+        "description" : "A survey photo as the viewer may see it",
+        "properties" : {
+          "caption" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null when absent or hidden from this viewer (captionHidden)"
+          },
+          "captionHidden" : {
+            "type" : "boolean"
+          },
+          "category" : {
+            "type" : "string",
+            "enum" : [ "EXTERIOR_ACCESS", "MAIN_SPACE", "KITCHEN", "BATHROOM", "SHARED_KITCHEN", "SHARED_BATHROOM", "SHARED_AMENITY", "DETAIL" ]
+          },
+          "contentAvailable" : {
+            "type" : "boolean"
+          },
+          "contentReceivedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "height" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Of the FULL image, once READY"
+          },
+          "held" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/SurveyMediaHold"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "While an ADMIN holds the photo; only `at` for a viewer who may not hold photos"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "mediaNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "readyAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "removed" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/SurveyMediaRemoval"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "spaceCodeAtUpload" : {
+            "type" : [ "string", "null" ],
+            "description" : "The space's code when the photo was created"
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ],
+            "description" : "The G1 space of the photo; null for the whole asset"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "AWAITING_CONTENT", "RECEIVING", "PROCESSING", "READY", "REJECTED", "FAILED", "CANCELLED", "UPLOAD_EXPIRED" ]
+          },
+          "statusReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "The reason of a final status other than READY",
+            "enum" : [ "UNSUPPORTED_FORMAT", "UNREADABLE", "ANIMATED", "MOTION_PHOTO", "COMPOSITE_FILE", "TOO_MANY_PIXELS", "MALWARE_DETECTED", "SCAN_LIMIT_EXCEEDED", "PROCESSING_UNAVAILABLE", "REMOVED", "CONTENT_NOT_RECEIVED" ]
+          },
+          "unavailableReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Why the content cannot be read now; null when contentAvailable",
+            "enum" : [ "REMOVED", "HELD", "NOT_READY", "CONTENT_DELETED", "CONTENT_MISSING" ]
+          },
+          "uploadedByName" : {
+            "type" : [ "string", "null" ]
+          },
+          "uploadedByUserId" : {
+            "type" : "string"
+          },
+          "width" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Of the FULL image, once READY"
+          }
+        }
+      },
+      "SurveyMediaRemoval" : {
+        "type" : "object",
+        "description" : "The removal of a survey photo",
+        "properties" : {
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "byName" : {
+            "type" : [ "string", "null" ]
+          },
+          "bySaveId" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The G1 save of a CASCADE removal"
+          },
+          "byUserId" : {
+            "type" : "string"
+          },
+          "correction" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/SurveyMediaCorrection"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The correction BR-12 asked for when another uploader's photo was removed"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "HOLDER", "CASCADE" ]
+          }
+        }
+      },
+      "SurveyMediaStateResponse" : {
+        "type" : "object",
+        "description" : "The photo after a hold or a release; a no-op answers it unchanged with the same setVersion",
+        "properties" : {
+          "media" : {
+            "$ref" : "#/components/schemas/SurveyMediaItem"
+          },
+          "setVersion" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },

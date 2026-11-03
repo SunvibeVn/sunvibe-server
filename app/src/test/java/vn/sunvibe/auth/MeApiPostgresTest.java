@@ -122,8 +122,8 @@ class MeApiPostgresTest {
 
 		assertEquals(401, response.statusCode(), "status " + response.statusCode());
 		JsonNode body = api.body(response);
-		assertEquals("Unauthorized", body.path("error").asString());
-		assertEquals(ME, body.path("path").asString());
+		assertEquals("UNAUTHORIZED", body.path("code").asString());
+		assertTrue(body.path("path").isMissingNode());
 	}
 
 	/**
@@ -149,9 +149,9 @@ class MeApiPostgresTest {
 
 		assertEquals(401, response.statusCode(), operation + " status " + response.statusCode());
 		JsonNode body = api.body(response);
-		assertEquals("Unauthorized", body.path("error").asString(), operation);
+		assertEquals("UNAUTHORIZED", body.path("code").asString(), operation);
 		assertFalse(body.path("message").asString().isBlank(), operation);
-		assertEquals(path, body.path("path").asString(), operation);
+		assertTrue(body.path("path").isMissingNode(), operation);
 	}
 
 	/** The default rule of the chain still covers an unlisted v1 auth path: anonymous, it answers 401. */

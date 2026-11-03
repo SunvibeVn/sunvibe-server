@@ -28,7 +28,6 @@ import vn.sunvibe.acquisition.core.presentation.converter.LeadViewerConverter;
 import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseMapper;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignTerritoryRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.response.SaleTerritoryResponse;
-import vn.sunvibe.acquisition.core.presentation.dto.response.SecurityError;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 import java.util.List;
@@ -67,9 +66,9 @@ public class SaleTerritoryController {
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on provinceCode",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: the province is not in the catalog",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
@@ -98,9 +97,9 @@ public class SaleTerritoryController {
                     + "MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: the ward is not in the catalog",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "422", description = "INELIGIBLE_ASSIGNEE (field userId): unknown user, "
@@ -128,9 +127,9 @@ public class SaleTerritoryController {
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on wardCode",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: the ward is not in the catalog",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
