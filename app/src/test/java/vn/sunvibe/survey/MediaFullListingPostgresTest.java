@@ -120,7 +120,11 @@ class MediaFullListingPostgresTest extends MediaApiTestBase {
 	 */
 	@Test
 	void overdueOrphanOnFirstPage_recordedAndPausedBeforeTheRunEnds_failedListAsksStoreProbe() {
-		orphan(Duration.ofHours(25));
+		String key = orphan(Duration.ofHours(25));
+		// an open run that resumes just below the orphan, so its first page holds it whatever the shared store holds
+		jdbc.update("insert into survey_media_listing_runs (started_at, lease_token, lease_until, start_after_key,"
+				+ " keys_seen, undeleted_count) values (?, 'KILLEDRUNNER0000000000000B', ?, ?, 0, 0)", ts(-3600),
+				ts(-60), key.substring(0, key.indexOf("/1/FULL")));
 		store.mediaPagesBeforeListFailure.set(1);
 		RecordingProbeRequests probes = new RecordingProbeRequests();
 
