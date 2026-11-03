@@ -140,9 +140,10 @@ public class SurveyMediaReadController {
 
     /**
      * spec A-25: copies the variant, closing the store stream when no chunk was written for the no-progress timeout or
-     * the deadline passed; the answer then ends early and the client sees an incomplete body.
+     * the deadline passed; the answer then ends early and the client sees an incomplete body. Package-private for its
+     * unit test.
      */
-    private static void stream(MediaRead read, OutputStream out) throws IOException {
+    static void stream(MediaRead read, OutputStream out) throws IOException {
         AtomicLong lastProgress = new AtomicLong(System.nanoTime());
         long noProgressNanos = read.noProgressTimeout().toNanos();
         ScheduledFuture<?> watchdog = WATCHDOG.scheduleAtFixedRate(() -> {

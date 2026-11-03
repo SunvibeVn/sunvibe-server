@@ -21,7 +21,7 @@ import java.util.stream.Stream;
 
 /**
  * The media store on a local directory: dev, test and lan only (survey-media spec A-1). Each bucket is a directory;
- * a create-only put writes a temporary file and moves it to the key, which fails when the key exists. Errors carry a
+ * a create-only put writes a temporary file and links it to the key, which fails when the key exists. Errors carry a
  * code only: an I/O message holds the path, so it is never attached.
  */
 public class LocalMediaObjectStore implements MediaObjectStore {
@@ -48,8 +48,10 @@ public class LocalMediaObjectStore implements MediaObjectStore {
             if (written != length) {
                 throw new StoreUnavailableException(StoreUnavailableException.WRONG_ANSWER);
             }
-            Files.move(temp, target);
-            temp = null;
+            // spec I-3: a hard link is created only when the key does not exist, in one step; a move is no
+            // create-only write on Linux, where rename replaces its target (SV-068). The temporary name is removed
+            // in finally.
+            Files.createLink(target, temp);
             return PutOutcome.CREATED;
         } catch (FileAlreadyExistsException e) {
             return PutOutcome.EXISTS;
@@ -155,7 +157,8 @@ public class LocalMediaObjectStore implements MediaObjectStore {
             try {
                 Files.deleteIfExists(path);
             } catch (IOException ignored) {
-                // a leftover temporary file is skipped by listings and swept with its directory
+                // a leftover temporary name is skipped by listings and nothing removes it; after a put that
+                // created its key it is a second name of the key's bytes (dev, test and lan only, spec A-1)
             }
         }
     }
