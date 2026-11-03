@@ -7,5 +7,12 @@ public enum ChecklistActivityType {
     /** A new assignee took a checklist draft over. */
     CHECKLIST_TAKEN_OVER,
     /** The holder saved one group of a checklist draft. */
-    CHECKLIST_SAVED
+    CHECKLIST_SAVED,
+    /** The holder's photo content was committed; the detail is its evidence category (survey-media spec 5.3, A-10). */
+    CHECKLIST_MEDIA_ADDED,
+    /**
+     * The holder removed a processing or ready photo; the detail is its evidence category (survey-media spec 5.3,
+     * A-10).
+     */
+    CHECKLIST_MEDIA_REMOVED
 }

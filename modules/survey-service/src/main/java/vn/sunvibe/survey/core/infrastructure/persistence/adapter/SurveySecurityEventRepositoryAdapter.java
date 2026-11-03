@@ -28,6 +28,7 @@ public class SurveySecurityEventRepositoryAdapter implements SurveySecurityEvent
                 .outcome(event.outcome())
                 .correlationId(event.correlationIdOrNull())
                 .occurredAt(event.occurredAt())
+                .requestId(event.requestIdOrNull())
                 .build());
     }
 
@@ -36,7 +37,7 @@ public class SurveySecurityEventRepositoryAdapter implements SurveySecurityEvent
         return jpaRepository.findByLeadIdOrderByOccurredAtAscIdAsc(leadId).stream()
                 .map(row -> new SurveySecurityEvent(row.getId(), row.getUserId(), row.getLeadId(),
                         row.getResourceType(), row.getResourceId(), row.getAction(), row.getOutcome(),
-                        row.getCorrelationId(), row.getOccurredAt()))
+                        row.getCorrelationId(), row.getOccurredAt(), row.getRequestId()))
                 .toList();
     }
 }

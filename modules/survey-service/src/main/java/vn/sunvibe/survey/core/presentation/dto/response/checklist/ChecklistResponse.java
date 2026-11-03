@@ -30,6 +30,7 @@ public record ChecklistResponse(
         ReadOnlyReason readOnlyReason,
         ChecklistGroups groups,
         ChecklistReadiness readiness,
+        ChecklistMedia media,
         List<ChecklistSpaceTerms> effectiveTerms,
         List<ChecklistEarlierHazard> earlierHazards,
         @Schema(nullable = true)

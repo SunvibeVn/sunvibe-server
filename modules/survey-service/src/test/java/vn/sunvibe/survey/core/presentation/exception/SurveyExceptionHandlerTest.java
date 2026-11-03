@@ -28,6 +28,20 @@ import vn.sunvibe.survey.core.application.exception.ChecklistNotFoundException;
 import vn.sunvibe.survey.core.application.exception.ChecklistReadOnlyException;
 import vn.sunvibe.survey.core.application.exception.ChecklistTakeoverRequiredException;
 import vn.sunvibe.survey.core.application.exception.InvalidSurveyStateException;
+import vn.sunvibe.survey.core.application.exception.MediaBodyIncompleteException;
+import vn.sunvibe.survey.core.application.exception.MediaContentIdentityException;
+import vn.sunvibe.survey.core.application.exception.MediaContentTooLargeException;
+import vn.sunvibe.survey.core.application.exception.MediaNotAvailableException;
+import vn.sunvibe.survey.core.application.exception.MediaNotFoundException;
+import vn.sunvibe.survey.core.application.exception.MediaRequestMalformedException;
+import vn.sunvibe.survey.core.application.exception.MediaServerBusyException;
+import vn.sunvibe.survey.core.application.exception.MediaStoreUnavailableException;
+import vn.sunvibe.survey.core.application.exception.MediaUploadStateException;
+import vn.sunvibe.survey.core.application.exception.MediaIntakePausedException;
+import vn.sunvibe.survey.core.application.exception.MediaLimitReachedException;
+import vn.sunvibe.survey.core.application.exception.MediaRateLimitedException;
+import vn.sunvibe.survey.core.application.exception.MediaUploadDisabledException;
+import vn.sunvibe.survey.core.application.exception.MediaUploadKeyReusedException;
 import vn.sunvibe.survey.core.application.exception.NoCurrentVisitException;
 import vn.sunvibe.survey.core.application.exception.SurveyConcurrentModificationException;
 import vn.sunvibe.survey.core.application.exception.SurveyLeadNotFoundException;
@@ -40,6 +54,8 @@ import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.exception.PerformerMismatchException;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
+import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
+import vn.sunvibe.survey.core.presentation.filter.MediaBodyTooLargeException;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -255,6 +271,121 @@ class SurveyExceptionHandlerTest {
         assertEquals(500, response.getStatusCode().value());
         assertEquals("INTERNAL_ERROR", response.getBody().code());
         assertFalse(response.getBody().message().contains("secret"));
+    }
+
+    // ==================== survey-media spec 7.3 ====================
+
+    @Test
+    void mediaUploadDisabled_is409WithoutField() throws Exception {
+        assertCode(handle(new MediaUploadDisabledException()), 409, "MEDIA_UPLOAD_DISABLED", null);
+    }
+
+    @Test
+    void mediaIntakePaused_is503WithoutFieldOrRetryAfter() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new MediaIntakePausedException(true));
+
+        assertCode(response, 503, "MEDIA_INTAKE_PAUSED", null);
+        assertNull(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER), "spec 7.3: no Retry-After here");
+    }
+
+    @Test
+    void mediaDuplicateContent_is409OnTheHashWithTheMatchingId() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new MediaContentIdentityException(
+                IdentityVerdict.Kind.DUPLICATE_CONTENT, "01JMED1A000000000000000007"));
+
+        assertCode(response, 409, "MEDIA_DUPLICATE_CONTENT", "contentSha256");
+        assertEquals(List.of("01JMED1A000000000000000007"), response.getBody().errors().get(0).allowedValues());
+    }
+
+    @Test
+    void mediaFromOtherVisit_is409OnTheHashWithTheMatchingId() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new MediaContentIdentityException(
+                IdentityVerdict.Kind.FROM_OTHER_VISIT, "01JMED1A000000000000000008"));
+
+        assertCode(response, 409, "MEDIA_FROM_OTHER_VISIT", "contentSha256");
+        assertEquals(List.of("01JMED1A000000000000000008"), response.getBody().errors().get(0).allowedValues());
+    }
+
+    @Test
+    void mediaLimitReached_is409OnSelectedOrPending() throws Exception {
+        assertCode(handle(new MediaLimitReachedException("selected")), 409, "MEDIA_LIMIT_REACHED", "selected");
+        assertCode(handle(new MediaLimitReachedException("pending")), 409, "MEDIA_LIMIT_REACHED", "pending");
+    }
+
+    @Test
+    void mediaUploadKeyReused_is409OnTheKey() throws Exception {
+        assertCode(handle(new MediaUploadKeyReusedException()), 409, "IDEMPOTENCY_KEY_REUSED", "uploadKey");
+    }
+
+    @Test
+    void mediaRateLimited_is429OnTheFieldWithRetryAfter() throws Exception {
+        for (String field : List.of("records", "bytes", "expensive")) {
+            ResponseEntity<ErrorResponse<ValidationError>> response = handle(new MediaRateLimitedException(field,
+                    600));
+
+            assertCode(response, 429, "RATE_LIMITED", field);
+            assertEquals("600", response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER), field);
+        }
+    }
+
+    @Test
+    void mediaBodyTooLarge_is413_alsoWhenJacksonWrapsIt() throws Exception {
+        assertCode(handle(new MediaBodyTooLargeException()), 413, "PAYLOAD_TOO_LARGE", null);
+        assertCode(handle(new HttpMessageNotReadableException("I/O error", new MediaBodyTooLargeException(), INPUT)),
+                413, "PAYLOAD_TOO_LARGE", null);
+    }
+
+    @Test
+    void mediaContentHeaders_415OnContentType_400OnLengthDigestOrBody_413() throws Exception {
+        assertCode(handle(new MediaRequestMalformedException("Content-Type", true)), 415, "MALFORMED_REQUEST",
+                "Content-Type");
+        for (String field : List.of("Content-Length", "Content-Digest", "body")) {
+            assertCode(handle(new MediaRequestMalformedException(field, false)), 400, "MALFORMED_REQUEST", field);
+        }
+        assertCode(handle(new MediaBodyIncompleteException()), 400, "MALFORMED_REQUEST", "body");
+        assertCode(handle(new MediaContentTooLargeException()), 413, "PAYLOAD_TOO_LARGE", null);
+    }
+
+    @Test
+    void mediaUploadStates_409WithTheirCodes() throws Exception {
+        assertCode(handle(new MediaNotAvailableException("uploadedBy")), 409, "MEDIA_NOT_AVAILABLE", "uploadedBy");
+        assertCode(handle(new MediaNotAvailableException("status")), 409, "MEDIA_NOT_AVAILABLE", "status");
+        assertCode(handle(new MediaUploadStateException(MediaUploadStateException.Kind.UPLOAD_EXPIRED)), 409,
+                "MEDIA_UPLOAD_EXPIRED", null);
+        assertCode(handle(new MediaUploadStateException(MediaUploadStateException.Kind.UPLOAD_IN_PROGRESS)), 409,
+                "MEDIA_UPLOAD_IN_PROGRESS", null);
+        assertCode(handle(new MediaUploadStateException(MediaUploadStateException.Kind.CONTENT_ALREADY_RECEIVED)),
+                409, "MEDIA_CONTENT_ALREADY_RECEIVED", null);
+    }
+
+    @Test
+    void mediaServerBusy_503WithRetryAfter_storeUnavailable_503Without() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> busy = handle(new MediaServerBusyException(10));
+        assertCode(busy, 503, "MEDIA_SERVER_BUSY", null);
+        assertEquals("10", busy.getHeaders().getFirst(HttpHeaders.RETRY_AFTER));
+        ResponseEntity<ErrorResponse<ValidationError>> store = handle(new MediaStoreUnavailableException());
+        assertCode(store, 503, "MEDIA_STORE_UNAVAILABLE", null);
+        assertNull(store.getHeaders().getFirst(HttpHeaders.RETRY_AFTER));
+    }
+
+    @Test
+    void mediaNotFound_404_closesTheConnectionOnAContentPath() {
+        org.springframework.mock.web.MockHttpServletRequest content =
+                new org.springframework.mock.web.MockHttpServletRequest("PUT",
+                        "/api/v1/staff/survey-media/01JMED1A000000000000000001/content");
+        org.springframework.mock.web.MockHttpServletRequest removal =
+                new org.springframework.mock.web.MockHttpServletRequest("POST",
+                        "/api/v1/staff/survey-media/01JMED1A000000000000000001/removal");
+
+        ResponseEntity<ErrorResponse<ValidationError>> onContent = handler.handleMediaNotFound(
+                new MediaNotFoundException(), content);
+        ResponseEntity<ErrorResponse<ValidationError>> onRemoval = handler.handleMediaNotFound(
+                new MediaNotFoundException(), removal);
+
+        assertCode(onContent, 404, "NOT_FOUND", null);
+        assertEquals("close", onContent.getHeaders().getFirst(HttpHeaders.CONNECTION));
+        assertNull(onRemoval.getHeaders().getFirst(HttpHeaders.CONNECTION));
+        assertEquals(onContent.getBody().message(), onRemoval.getBody().message());
     }
 
     private static void assertCode(ResponseEntity<ErrorResponse<ValidationError>> response, int status, String code,

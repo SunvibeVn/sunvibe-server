@@ -24,13 +24,21 @@ import java.util.List;
 @Log4j2
 public class GlobalServerExceptionHandler {
 
+    /**
+     * The 403 of {@code @PreAuthorize} and class-level role rules, also when a module handler rethrows it: the same
+     * ADR-010 envelope as the security chain's 403 (survey-media spec A-13, plan PD-2; SV-030), without the request
+     * path or the exception message; a media content path also closes the connection.
+     */
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<java.util.Map<String, String>> handleAccessDenied(AccessDeniedException e,
-            jakarta.servlet.http.HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of(
-                "error", "Forbidden",
-                "message", "You do not have permission to access this resource.",
-                "path", request.getRequestURI()));
+    public ResponseEntity<vn.sunvibe.shared.dto.response.error.ErrorResponse<Object>> handleAccessDenied(
+            AccessDeniedException e, jakarta.servlet.http.HttpServletRequest request) {
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.FORBIDDEN);
+        if (vn.sunvibe.shared.web.MediaContentPaths.isContentPath(request.getRequestURI())) {
+            response.header(org.springframework.http.HttpHeaders.CONNECTION, "close");
+        }
+        return response.body(vn.sunvibe.shared.dto.response.error.ErrorResponse.of(
+                vn.sunvibe.shared.constant.error.ErrorCode.FORBIDDEN,
+                "You do not have permission to access this resource.", java.util.List.of()));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
@@ -44,7 +52,8 @@ public class GlobalServerExceptionHandler {
     // wrong method 405, body type 415, missing parameter 400, ...) keeps that status and its headers (Allow, Accept):
     // it is the caller's mistake, not a server failure. The body keeps the BaseErrorModel shape (ADR-010)
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<BaseErrorModel> handleGlobalException(Exception e) {
+    public ResponseEntity<BaseErrorModel> handleGlobalException(Exception e,
+            jakarta.servlet.http.HttpServletRequest request) {
         if (e instanceof org.springframework.web.ErrorResponse springError
                 && springError.getStatusCode().is4xxClientError()) {
             int status = springError.getStatusCode().value();
@@ -54,9 +63,13 @@ public class GlobalServerExceptionHandler {
             } else {
                 log.warn("Request refused by the framework: {} ({})", e.getClass().getSimpleName(), status);
             }
-            return ResponseEntity.status(status)
-                    .headers(springError.getHeaders())
-                    .body(new BaseErrorModel(status, clientErrorMessage(status), AppClock.currentUTC()));
+            ResponseEntity.BodyBuilder response = ResponseEntity.status(status).headers(springError.getHeaders());
+            // survey-media spec A-13: a 404 on a media content path closes the connection (no body is drained)
+            if (status == HttpStatus.NOT_FOUND.value()
+                    && vn.sunvibe.shared.web.MediaContentPaths.isContentPath(request.getRequestURI())) {
+                response.header(org.springframework.http.HttpHeaders.CONNECTION, "close");
+            }
+            return response.body(new BaseErrorModel(status, clientErrorMessage(status), AppClock.currentUTC()));
         }
         log.error("Unhandled System Error: ", e);
 

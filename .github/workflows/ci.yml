@@ -5,6 +5,10 @@ on:
   push:
     branches: [main]
 
+# No job writes to the repository (survey-media security review M-5); a job that needs more asks for it itself.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -29,6 +33,21 @@ jobs:
             echo "::error file=api/openapi.json::api/openapi.json is stale: run ./gradlew exportOpenApi and commit it."
             exit 1
           }
+
+  # survey-media plan PD-7: the ClamAV adapter and the clamd boundary against a real clamd container. Its own job:
+  # the image loads its signatures at start, which the build does not wait for.
+  real-clamd:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew :app:realClamdTest --no-daemon
 
   migration-history:
     runs-on: ubuntu-latest

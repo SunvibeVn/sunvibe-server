@@ -85,6 +85,14 @@ class SurveyPersistencePostgresTest {
 	@AfterEach
 	void cleanSurveyTables() {
 		jdbc.update("DELETE FROM survey_security_events");
+		// survey-media rows before the checklists they name; incidents and listing runs name no checklist
+		jdbc.update("DELETE FROM survey_media_read_budgets");
+		jdbc.update("DELETE FROM survey_media_body_slots");
+		jdbc.update("DELETE FROM survey_media_jobs");
+		jdbc.update("DELETE FROM survey_media_variants");
+		jdbc.update("DELETE FROM survey_media");
+		jdbc.update("DELETE FROM survey_media_sets");
+		jdbc.update("TRUNCATE survey_media_incidents, survey_media_listing_runs");
 		jdbc.update("DELETE FROM survey_checklist_saves");
 		jdbc.update("DELETE FROM survey_checklist_takeovers");
 		jdbc.update("DELETE FROM survey_checklist_groups");

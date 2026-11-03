@@ -33,6 +33,7 @@ public class SurveyAccessLogRepositoryAdapter implements SurveyAccessLogDomainRe
                 .accessedAt(log.accessedAt())
                 .resourceType(log.resourceTypeOrNull())
                 .resourceId(log.resourceIdOrNull())
+                .requestId(log.requestIdOrNull())
                 .build());
     }
 
@@ -40,7 +41,7 @@ public class SurveyAccessLogRepositoryAdapter implements SurveyAccessLogDomainRe
     public List<SurveyAccessLog> findByLeadId(String leadId) {
         return jpaRepository.findByLeadIdOrderByAccessedAtAscIdAsc(leadId).stream()
                 .map(row -> new SurveyAccessLog(row.getId(), row.getLeadId(), row.getUserId(), row.getAccessedAt(),
-                        row.getResourceType(), row.getResourceId()))
+                        row.getResourceType(), row.getResourceId(), row.getRequestId()))
                 .toList();
     }
 }

@@ -236,6 +236,24 @@ class AcquisitionSurveyLeadAdapterTest {
 		assertEquals(AT, result.entry().occurredAt());
 	}
 
+	/** survey-media spec 5.3, plan PD-13: the two media types keep their names through both enums. */
+	@Test
+	void recordChecklistActivity_mediaTypes_mapByName() {
+		for (ChecklistActivityType type : List.of(ChecklistActivityType.CHECKLIST_MEDIA_ADDED,
+				ChecklistActivityType.CHECKLIST_MEDIA_REMOVED)) {
+			calls.clear();
+			adapter.recordChecklistActivity(LEAD, new ChecklistActivity(type, SALE, "01JCHECKLISTAAAAAAAAAAAAAA", 3,
+					"KITCHEN", AT));
+
+			assertEquals(new SurveyChecklistActivity(SurveyChecklistEvent.valueOf(type.name()), SALE,
+					"01JCHECKLISTAAAAAAAAAAAAAA", 3, "KITCHEN", AT), calls.get(0));
+		}
+		assertEquals(SurveyChecklistEvent.CHECKLIST_MEDIA_ADDED,
+				SurveyChecklistEvent.valueOf(ChecklistActivityType.CHECKLIST_MEDIA_ADDED.name()));
+		assertEquals(SurveyChecklistEvent.CHECKLIST_MEDIA_REMOVED,
+				SurveyChecklistEvent.valueOf(ChecklistActivityType.CHECKLIST_MEDIA_REMOVED.name()));
+	}
+
 	@Test
 	void everyChecklistActivityType_hasItsCounterpart() {
 		for (ChecklistActivityType type : ChecklistActivityType.values()) {

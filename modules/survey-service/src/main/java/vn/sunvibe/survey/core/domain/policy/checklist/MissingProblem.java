@@ -14,6 +14,10 @@ public enum MissingProblem {
     NOT_IN_SCOPE,
     /** The address differs from the lead and no note says how (BR-19). */
     DIFFERENCE_NOTE_MISSING,
-    /** Photos: always in this slice, survey photos do not exist yet (US-2 AC-4). */
-    EVIDENCE_PENDING
+    /** Photos not available for the checklist (survey-media spec A-1): one item, as survey-checklist US-2 AC-4. */
+    EVIDENCE_PENDING,
+    /** A required (placement, category) pair without a usable or processing photo (survey-media spec 4.6). */
+    EVIDENCE_MISSING,
+    /** A required pair whose only photos are still processing (survey-media spec 4.6). */
+    EVIDENCE_PROCESSING
 }

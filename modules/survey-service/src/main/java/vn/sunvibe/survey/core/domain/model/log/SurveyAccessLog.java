@@ -8,7 +8,8 @@ import java.time.Instant;
  * resource (both null). Insert-only. The id is a Snowflake number given by the caller.
  */
 public record SurveyAccessLog(long id, String leadId, String userId, Instant accessedAt,
-                              AccessResourceType resourceTypeOrNull, String resourceIdOrNull) {
+                              AccessResourceType resourceTypeOrNull, String resourceIdOrNull,
+                              String requestIdOrNull) {
 
     public SurveyAccessLog {
         if (leadId == null || userId == null || accessedAt == null) {
@@ -17,6 +18,12 @@ public record SurveyAccessLog(long id, String leadId, String userId, Instant acc
         if ((resourceTypeOrNull == null) != (resourceIdOrNull == null)) {
             throw new IllegalArgumentException("A resource has its type and id.");
         }
+    }
+
+    /** A row without the server request id (rows of the survey and checklist reads, survey-media spec A-19). */
+    public SurveyAccessLog(long id, String leadId, String userId, Instant accessedAt,
+                           AccessResourceType resourceTypeOrNull, String resourceIdOrNull) {
+        this(id, leadId, userId, accessedAt, resourceTypeOrNull, resourceIdOrNull, null);
     }
 
     /** A read of the lead's survey block (survey-checklist spec A-10: resource SURVEY_BLOCK, id = the lead id). */
@@ -28,5 +35,11 @@ public record SurveyAccessLog(long id, String leadId, String userId, Instant acc
     public static SurveyAccessLog create(long id, String leadId, String userId, Instant accessedAt,
                                          AccessResourceType resourceType, String resourceId) {
         return new SurveyAccessLog(id, leadId, userId, accessedAt, resourceType, resourceId);
+    }
+
+    /** A delivered media read or list, with the server request id (survey-media spec A-6, A-19). */
+    public static SurveyAccessLog create(long id, String leadId, String userId, Instant accessedAt,
+                                         AccessResourceType resourceType, String resourceId, String requestId) {
+        return new SurveyAccessLog(id, leadId, userId, accessedAt, resourceType, resourceId, requestId);
     }
 }

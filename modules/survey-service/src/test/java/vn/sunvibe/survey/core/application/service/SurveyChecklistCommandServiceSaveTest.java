@@ -23,6 +23,12 @@ import vn.sunvibe.survey.core.domain.model.checklist.AmenityItem;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSource;
+import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
+import vn.sunvibe.survey.core.domain.model.media.HoldReason;
+import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;
+import vn.sunvibe.survey.core.domain.model.media.RemovalKind;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
+import vn.sunvibe.survey.core.testsupport.MediaFixture;
 import vn.sunvibe.survey.core.domain.model.checklist.DimensionsContent;
 import vn.sunvibe.survey.core.domain.model.checklist.DimensionsSpace;
 import vn.sunvibe.survey.core.domain.model.checklist.GroupContent;
@@ -51,6 +57,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -58,6 +65,7 @@ import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.SPACE_1;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.SPACE_2;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.dimensions;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.dimensionsSpace;
+import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.identification;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.identificationParts;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.identificationWhole;
 import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.observedSpace;
@@ -451,6 +459,107 @@ class SurveyChecklistCommandServiceSaveTest {
         assertEquals(SALE_B, tombstone.enteredByUserId());
         assertEquals(SALE_A, tombstone.observedByUserId());
         assertEquals(g1Row.id(), tombstone.correctionSaveId());
+    }
+
+    // ==================== the G1 photo cascade (survey-media spec A-9, 5.4; SM-25) ====================
+
+    @Test
+    void save_g1EndingASpace_locksTheSetAndItsPhotosAfterTheGroupRows_removesThemByTheSave() {
+        startParts();
+        SurveyMedia ready = h.photo(checklist.getId(), EvidenceCategory.KITCHEN, MediaPlacement.space(SPACE_2,
+                "P102"), SALE_A, MediaFixture::ready);
+        SurveyMedia awaiting = h.photo(checklist.getId(), EvidenceCategory.MAIN_SPACE, MediaPlacement.space(SPACE_2,
+                "P102"), SALE_A, photo -> photo);
+        SurveyMedia kept = h.photo(checklist.getId(), EvidenceCategory.KITCHEN, MediaPlacement.space(SPACE_1,
+                "P101"), SALE_A, MediaFixture::ready);
+        long before = h.mediaSets.findForRead(id()).orElseThrow().getSetVersion();
+        h.journal.clear();
+
+        h.commands.save(own(SALE_A), new SaveChecklistGroupCommand(id(), ChecklistGroup.IDENTIFICATION, 1L,
+                Map.of(), null, identificationParts(observedSpace(SPACE_1, "P101"))));
+
+        int g1Lock = h.journal.indexOf("group:update-lock:IDENTIFICATION");
+        int setLock = h.journal.indexOf("set:lock");
+        int photoLock = h.journal.stream().filter(entry -> entry.startsWith("media:lock")).findFirst()
+                .map(h.journal::indexOf).orElse(-1);
+        assertTrue(g1Lock >= 0 && g1Lock < setLock && setLock < photoLock, h.journal.toString());
+        ChecklistSave g1Row = last(h.saves.all().stream().filter(row -> row.group() == ChecklistGroup.IDENTIFICATION)
+                .toList());
+        for (SurveyMedia removed : List.of(ready, awaiting)) {
+            SurveyMedia stored = h.media.stored(removed.getId()).orElseThrow();
+            assertEquals(RemovalKind.CASCADE, stored.getRemoval().kind());
+            assertEquals(SALE_A, stored.getRemoval().byUserId());
+            assertEquals(g1Row.id(), stored.getRemoval().bySaveIdOrNull());
+        }
+        assertNotNull(h.media.stored(ready.getId()).orElseThrow().getContentDeleteRequestedAt());
+        assertEquals(1, h.mediaJobs.findByMedia(ready.getId()).size());
+        assertFalse(h.media.stored(kept.getId()).orElseThrow().isRemoved());
+        assertEquals(before + 1, h.mediaSets.findForRead(id()).orElseThrow().getSetVersion());
+        assertEquals(1, h.leads.checklistActivities().stream()
+                .filter(activity -> activity.type() == ChecklistActivityType.CHECKLIST_SAVED).count() - 1,
+                "one CHECKLIST_SAVED of this save besides the first; no media History row");
+        assertTrue(h.leads.checklistActivities().stream()
+                .noneMatch(activity -> activity.type() == ChecklistActivityType.CHECKLIST_MEDIA_REMOVED));
+    }
+
+    @Test
+    void save_g1EndingAPlacementOfOthersCommittedPhoto_needsCorrection_listsTheMediaUnit() {
+        startParts();
+        SurveyMedia others = h.photo(checklist.getId(), EvidenceCategory.BATHROOM, MediaPlacement.space(SPACE_2,
+                "P102"), SALE_B, MediaFixture::ready);
+
+        ChecklistValidationException refused = assertThrows(ChecklistValidationException.class, () ->
+                h.commands.save(own(SALE_A), new SaveChecklistGroupCommand(id(), ChecklistGroup.IDENTIFICATION, 1L,
+                        Map.of(), null, identificationParts(observedSpace(SPACE_1, "P101")))));
+        assertEquals("correction", refused.violations().get(0).path());
+        assertFalse(h.media.stored(others.getId()).orElseThrow().isRemoved());
+
+        h.commands.save(own(SALE_A), new SaveChecklistGroupCommand(id(), ChecklistGroup.IDENTIFICATION, 1L,
+                Map.of(), correction(), identificationParts(observedSpace(SPACE_1, "P101"))));
+
+        ChecklistSave g1Row = last(h.saves.all().stream().filter(row -> row.group() == ChecklistGroup.IDENTIFICATION)
+                .toList());
+        assertEquals(List.of(new CorrectedUnit("media/" + others.getId().getValue(), "P102")),
+                g1Row.correctionOrNull().units());
+        assertTrue(h.media.stored(others.getId()).orElseThrow().isRemoved());
+        assertNull(h.media.stored(others.getId()).orElseThrow().getRemoval().correctionOrNull(),
+                "the save keeps the correction");
+    }
+
+    @Test
+    void save_g1PartsToNull_removesSharedPhotos_aRenameTakesNoMediaLock() {
+        startParts();
+        SurveyMedia shared = h.photo(checklist.getId(), EvidenceCategory.SHARED_KITCHEN, MediaPlacement.asset(),
+                SALE_A, MediaFixture::ready);
+        SurveyMedia exterior = h.photo(checklist.getId(), EvidenceCategory.EXTERIOR_ACCESS, MediaPlacement.asset(),
+                SALE_A, MediaFixture::ready);
+        h.journal.clear();
+
+        h.commands.save(own(SALE_A), new SaveChecklistGroupCommand(id(), ChecklistGroup.IDENTIFICATION, 1L,
+                Map.of(), null, identificationParts(observedSpace(SPACE_1, "P101"), observedSpace(SPACE_2,
+                "P103"))));
+        assertFalse(h.journal.contains("set:lock"), "a rename ends no placement: " + h.journal);
+
+        save(SALE_A, ChecklistGroup.IDENTIFICATION, 2L, identification(null, List.of(
+                observedSpace(SPACE_1, "P101"), observedSpace(SPACE_2, "P103"))), null);
+
+        assertTrue(h.media.stored(shared.getId()).orElseThrow().isRemoved());
+        assertFalse(h.media.stored(exterior.getId()).orElseThrow().isRemoved());
+    }
+
+    @Test
+    void save_g1HeldPhotoOnAnEndedPlacement_removedWithoutDeletionRequest() {
+        startParts();
+        SurveyMedia held = h.photo(checklist.getId(), EvidenceCategory.KITCHEN, MediaPlacement.space(SPACE_2,
+                "P102"), SALE_A, photo -> MediaFixture.held(MediaFixture.ready(photo), HoldReason.SECURITY_INCIDENT));
+
+        h.commands.save(own(SALE_A), new SaveChecklistGroupCommand(id(), ChecklistGroup.IDENTIFICATION, 1L,
+                Map.of(), null, identificationParts(observedSpace(SPACE_1, "P101"))));
+
+        SurveyMedia stored = h.media.stored(held.getId()).orElseThrow();
+        assertTrue(stored.isRemoved());
+        assertNull(stored.getContentDeleteRequestedAt());
+        assertEquals(List.of(), h.mediaJobs.findByMedia(held.getId()));
     }
 
     // ==================== helpers ====================

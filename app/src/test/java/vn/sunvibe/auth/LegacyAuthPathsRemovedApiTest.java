@@ -110,11 +110,11 @@ class LegacyAuthPathsRemovedApiTest {
 			HttpResponse<String> response = api.send(request);
 
 			assertEquals(401, response.statusCode(), method + " " + path + ": status " + response.statusCode());
-			// The security chain's entry-point body (SecurityError), so no handler answering 401 can pass
+			// The security chain's entry-point body (the ADR-010 envelope), so no handler answering 401 can pass
 			JsonNode body = api.body(response);
-			assertEquals("Unauthorized", body.path("error").asString(), method + " " + path);
+			assertEquals("UNAUTHORIZED", body.path("code").asString(), method + " " + path);
 			assertFalse(body.path("message").asString().isBlank(), method + " " + path);
-			assertEquals(path, body.path("path").asString(), method + " " + path);
+			assertTrue(body.path("path").isMissingNode(), method + " " + path);
 		}
 	}
 

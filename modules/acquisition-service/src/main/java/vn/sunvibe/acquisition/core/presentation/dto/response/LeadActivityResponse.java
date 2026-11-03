@@ -38,7 +38,8 @@ public record LeadActivityResponse(
         @Schema(description = "That appointment's or checklist's number within the lead; null when none",
                 nullable = true)
         Integer referenceNo,
-        @Schema(description = "The checklist group a CHECKLIST_SAVED entry concerns; null otherwise", nullable = true)
+        @Schema(description = "The checklist group of a CHECKLIST_SAVED entry, or the evidence category of a "
+                + "CHECKLIST_MEDIA_ADDED or CHECKLIST_MEDIA_REMOVED entry; null otherwise", nullable = true)
         String referenceDetail) {
 
     /** The note is staff text: never print it. */

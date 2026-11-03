@@ -1,0 +1,35 @@
+# The production form of the survey-media processor (ADR-011 decision 4 form (a); survey-media spec 4.5, A-27;
+# plan PD-1). Operators run it beside the API: the API joins the internal network "media-processing", which holds
+# nothing but the API and this container, and sets
+#   app.survey.media.processor.kind=isolated
+#   app.survey.media.processor.host=media-processor
+#   app.survey.media.processor.port=7300
+#   app.survey.media.processor.version=<this image's digest>
+# The container has no egress (internal network), no secret (no environment beyond the image's), a read-only root, a
+# tmpfs work area, the non-root user, no new privileges, the default seccomp profile, every capability dropped, and
+# process, memory and CPU limits; the memory limit is at least the sum of the run limits: 2 worker runs and the probe
+# at 1.5 GiB each (spec A-27).
+services:
+  media-processor:
+    build: .
+    image: sunvibe/media-processor:local
+    read_only: true
+    tmpfs:
+      - /work:size=1g,mode=0700,uid=10001,gid=10001
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 64
+    mem_limit: 5g
+    memswap_limit: 5g
+    cpus: 2
+    restart: unless-stopped
+    command: ["--listen", "tcp:0.0.0.0:7300"]
+    networks:
+      - media-processing
+
+networks:
+  media-processing:
+    internal: true

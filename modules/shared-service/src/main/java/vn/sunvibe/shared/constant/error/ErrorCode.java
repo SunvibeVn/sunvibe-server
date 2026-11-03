@@ -57,8 +57,54 @@ public final class ErrorCode {
     /** The caller is the new assignee and must take the survey checklist over before saving. */
     public static final String CHECKLIST_TAKEOVER_REQUIRED = "CHECKLIST_TAKEOVER_REQUIRED";
 
+    /** Survey photo uploads are switched off on the server, so no photo can be created or sent (survey-media A-1). */
+    public static final String MEDIA_UPLOAD_DISABLED = "MEDIA_UPLOAD_DISABLED";
+
+    /** Survey photo uploads are paused for a moment; the same request may be sent again later (survey-media A-18). */
+    public static final String MEDIA_INTAKE_PAUSED = "MEDIA_INTAKE_PAUSED";
+
+    /** The same file is already a selected photo of this checklist; the error names that photo (survey-media A-16). */
+    public static final String MEDIA_DUPLICATE_CONTENT = "MEDIA_DUPLICATE_CONTENT";
+
+    /** The same file is a photo of another visit of the lead, which this checklist may not use (survey-media A-16). */
+    public static final String MEDIA_FROM_OTHER_VISIT = "MEDIA_FROM_OTHER_VISIT";
+
+    /** The checklist already has the most selected or pending photos allowed (survey-media BR-6, A-3). */
+    public static final String MEDIA_LIMIT_REACHED = "MEDIA_LIMIT_REACHED";
+
+    /** The photo cannot take this action: another person created it, or it is removed (field says which). */
+    public static final String MEDIA_NOT_AVAILABLE = "MEDIA_NOT_AVAILABLE";
+
+    /** A submission uses the photo, so it cannot be removed (survey-media 4.7, BR-8). */
+    public static final String MEDIA_REFERENCED = "MEDIA_REFERENCED";
+
+    /** The photo waited too long for its bytes; create it again (survey-media A-5). */
+    public static final String MEDIA_UPLOAD_EXPIRED = "MEDIA_UPLOAD_EXPIRED";
+
+    /** Another upload of the photo's bytes is in progress. */
+    public static final String MEDIA_UPLOAD_IN_PROGRESS = "MEDIA_UPLOAD_IN_PROGRESS";
+
+    /** The photo already received other bytes. */
+    public static final String MEDIA_CONTENT_ALREADY_RECEIVED = "MEDIA_CONTENT_ALREADY_RECEIVED";
+
+    /** The server has no room for another photo body now; retry after the given time (survey-media A-3, A-25). */
+    public static final String MEDIA_SERVER_BUSY = "MEDIA_SERVER_BUSY";
+
+    /** The photo storage did not answer; send the same request again later (survey-media A-18). */
+    public static final String MEDIA_STORE_UNAVAILABLE = "MEDIA_STORE_UNAVAILABLE";
+
+    /** Photo images are not served for now; retry after the given time (survey-media A-24). */
+    public static final String MEDIA_SERVING_DISABLED = "MEDIA_SERVING_DISABLED";
+
+    /** The HTTP method is not allowed on this path; the Allow header names the ones that are. */
+    public static final String METHOD_NOT_ALLOWED = "METHOD_NOT_ALLOWED";
+
     /** An unexpected server error; the details are only in the server log, found by the correlation id. */
     public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
+    /** The request needs an authenticated caller: no valid access token was sent (survey-media spec A-13). */
+    public static final String UNAUTHORIZED = "UNAUTHORIZED";
+    /** The caller's role does not allow this request (survey-media spec A-13). */
+    public static final String FORBIDDEN = "FORBIDDEN";
 
     /** Sign-in refused: unknown phone number, wrong password, or an account that may not sign in. */
     public static final String INVALID_CREDENTIALS = "INVALID_CREDENTIALS";

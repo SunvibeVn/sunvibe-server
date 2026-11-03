@@ -16,6 +16,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 
 /**
  * Layer direction inside survey-service (backend-architecture.md, layer-guide.md), the same rules as
@@ -66,7 +67,7 @@ class SurveyLayerArchTest {
 	void domain_usesNoFramework() {
 		noClasses().that().resideInAPackage(DOMAIN)
 				.should().dependOnClassesThat().resideInAnyPackage("org.springframework..", "jakarta..",
-						"tools.jackson..", "com.fasterxml..", "org.hibernate..")
+						"tools.jackson..", "com.fasterxml..", "org.hibernate..", "software.amazon..")
 				.check(classes);
 	}
 
@@ -82,7 +83,8 @@ class SurveyLayerArchTest {
 		noClasses().that().resideOutsideOfPackage(ROOT + ".infrastructure.persistence..")
 				.and().resideOutsideOfPackage(ROOT + ".domain..")
 				.should().callMethodWhere(target(name("load")).and(target(owner(type(SurveyAppointment.class)))
-						.or(target(owner(type(SurveyChecklist.class))))))
+						.or(target(owner(type(SurveyChecklist.class))))
+						.or(target(owner(type(SurveyMedia.class))))))
 				.allowEmptyShould(true)
 				.check(classes);
 	}

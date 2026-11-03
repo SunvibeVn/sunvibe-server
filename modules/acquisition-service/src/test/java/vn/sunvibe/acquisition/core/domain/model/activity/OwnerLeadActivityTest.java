@@ -64,6 +64,39 @@ class OwnerLeadActivityTest {
                 OwnerLeadActivityType.CHECKLIST_SAVED, ACTOR, CHECKLIST, 1, null, AT));
     }
 
+    /** survey-media spec 5.3, A-10: a photo added or removed carries its evidence category as the detail. */
+    @Test
+    void checklistEvent_mediaAddedWithCategory_carriesDetail() {
+        OwnerLeadActivity added = OwnerLeadActivity.checklistEvent(10L, LEAD,
+                OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED, ACTOR, CHECKLIST, 1, "KITCHEN", AT);
+        OwnerLeadActivity removed = OwnerLeadActivity.checklistEvent(11L, LEAD,
+                OwnerLeadActivityType.CHECKLIST_MEDIA_REMOVED, ACTOR, CHECKLIST, 1, "EXTERIOR_ACCESS", AT);
+
+        assertEquals(OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED, added.getType());
+        assertEquals("KITCHEN", added.getReferenceDetail());
+        assertEquals(CHECKLIST, added.getReferenceId());
+        assertEquals(1, added.getReferenceNo());
+        assertNull(added.getNote());
+        assertNull(added.getToStatus());
+        assertEquals("EXTERIOR_ACCESS", removed.getReferenceDetail());
+    }
+
+    @Test
+    void checklistEvent_mediaRemovedWithoutDetail_isRefused() {
+        assertThrows(IllegalArgumentException.class, () -> OwnerLeadActivity.checklistEvent(7L, LEAD,
+                OwnerLeadActivityType.CHECKLIST_MEDIA_REMOVED, ACTOR, CHECKLIST, 1, null, AT));
+        assertThrows(IllegalArgumentException.class, () -> OwnerLeadActivity.checklistEvent(7L, LEAD,
+                OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED, ACTOR, CHECKLIST, 1, null, AT));
+    }
+
+    @Test
+    void checklistEvent_startedWithDetail_isStillRefused() {
+        assertThrows(IllegalArgumentException.class, () -> OwnerLeadActivity.checklistEvent(7L, LEAD,
+                OwnerLeadActivityType.CHECKLIST_TAKEN_OVER, ACTOR, CHECKLIST, 1, "KITCHEN", AT));
+        assertThrows(IllegalArgumentException.class, () -> OwnerLeadActivity.checklistEvent(7L, LEAD,
+                OwnerLeadActivityType.CHECKLIST_STARTED, ACTOR, CHECKLIST, 1, "KITCHEN", AT));
+    }
+
     @Test
     void load_detailWithoutReference_isRefused() {
         assertThrows(IllegalArgumentException.class, () -> OwnerLeadActivity.load(7L, LEAD,

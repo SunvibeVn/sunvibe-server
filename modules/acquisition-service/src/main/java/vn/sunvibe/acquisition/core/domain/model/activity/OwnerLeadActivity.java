@@ -34,7 +34,12 @@ public final class OwnerLeadActivity {
 
     private static final Set<OwnerLeadActivityType> CHECKLIST_TYPES = EnumSet.of(
             OwnerLeadActivityType.CHECKLIST_STARTED, OwnerLeadActivityType.CHECKLIST_TAKEN_OVER,
-            OwnerLeadActivityType.CHECKLIST_SAVED);
+            OwnerLeadActivityType.CHECKLIST_SAVED, OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED,
+            OwnerLeadActivityType.CHECKLIST_MEDIA_REMOVED);
+    /** The checklist types whose entry carries a detail: the group of a save, the category of a photo. */
+    private static final Set<OwnerLeadActivityType> DETAILED_CHECKLIST_TYPES = EnumSet.of(
+            OwnerLeadActivityType.CHECKLIST_SAVED, OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED,
+            OwnerLeadActivityType.CHECKLIST_MEDIA_REMOVED);
 
     private OwnerLeadActivity(Long id, OwnerLeadId leadId, OwnerLeadActivityType type, String actorUserId,
                               OwnerLeadStatus fromStatus, OwnerLeadStatus toStatus, String fromAssigneeId,
@@ -89,11 +94,11 @@ public final class OwnerLeadActivity {
     }
 
     /**
-     * A survey checklist event (survey-checklist BR-15, spec A-13): the actor, the checklist and its number and, only
-     * and always for a save, the group as the detail; no note, statuses or assignees, because the event never moves
-     * the lead.
+     * A survey checklist event (survey-checklist BR-15, spec A-13; survey-media spec 5.3): the actor, the checklist
+     * and its number and, only and always for a save, the group as the detail, and for a photo added or removed its
+     * evidence category; no note, statuses or assignees, because the event never moves the lead.
      *
-     * @throws IllegalArgumentException for a type other than the three checklist types, or a detail that does not
+     * @throws IllegalArgumentException for a type other than the five checklist types, or a detail that does not
      *                                  match the type
      */
     public static OwnerLeadActivity checklistEvent(long id, OwnerLeadId leadId, OwnerLeadActivityType type,
@@ -102,8 +107,9 @@ public final class OwnerLeadActivity {
         if (!CHECKLIST_TYPES.contains(type)) {
             throw new IllegalArgumentException("Not a checklist activity type: " + type);
         }
-        if ((type == OwnerLeadActivityType.CHECKLIST_SAVED) != (detailOrNull != null)) {
-            throw new IllegalArgumentException("Only a checklist save carries the group, and it always does.");
+        if (DETAILED_CHECKLIST_TYPES.contains(type) != (detailOrNull != null)) {
+            throw new IllegalArgumentException("Only a checklist save (its group) and a photo entry (its category) "
+                    + "carry a detail, and they always do.");
         }
         return new OwnerLeadActivity(id, leadId, type, required(actorUserId, "actorUserId"), null, null, null, null,
                 null, null, occurredAt, required(checklistId, "checklistId"), checklistNo, detailOrNull);

@@ -5,19 +5,27 @@ import vn.sunvibe.survey.core.application.command.BasisInput;
 import vn.sunvibe.survey.core.application.command.StartChecklistCommand;
 import vn.sunvibe.survey.core.application.command.TakeOverChecklistCommand;
 import vn.sunvibe.survey.core.application.exception.ChecklistNotFoundException;
+import vn.sunvibe.survey.core.application.query.ChecklistMediaView;
 import vn.sunvibe.survey.core.application.query.ChecklistView;
 import vn.sunvibe.survey.core.application.query.CheckpointView;
 import vn.sunvibe.survey.core.application.shared.external.lead.OwnerFormFacts;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
+import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
+import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;
+import vn.sunvibe.survey.core.domain.model.media.PauseReason;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
 import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.model.security.SurveySecurityEvent;
+import vn.sunvibe.survey.core.domain.policy.checklist.MissingItem;
+import vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReadOnlyReason;
+import vn.sunvibe.survey.core.domain.policy.checklist.Readiness;
 import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;
 
 import java.math.BigDecimal;
@@ -40,6 +48,7 @@ import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.all;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.arrivalDate;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.intake;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.own;
+import static vn.sunvibe.survey.core.testsupport.ChecklistFixture.SPACE_1;
 
 /** Reading a checklist and a takeover checkpoint (survey-checklist spec 4.4, 4.10, A-10, A-25, A-27). */
 class SurveyChecklistQueryServiceTest {
@@ -118,6 +127,68 @@ class SurveyChecklistQueryServiceTest {
         assertEquals(AccessResourceType.CHECKLIST, log.resourceTypeOrNull());
         assertEquals(checklist.getId().getValue(), log.resourceIdOrNull());
         assertEquals(LEADER, log.userId());
+    }
+
+    // ==================== evidence and the media block (survey-media spec 4.6, 7.1, A-1; SM-10) ====================
+
+    @Test
+    void read_uploadsNeverOn_keepsEvidencePendingAndPhotosUnavailable() {
+        SurveyChecklist checklist = h.started(LEAD, SALE_A).view().checklist();
+
+        ChecklistView view = h.queries.read(own(SALE_A), checklist.getId().getValue());
+
+        assertEquals(new ChecklistMediaView(false, false, 0L), view.media());
+        assertEquals(MissingProblem.EVIDENCE_PENDING, last(view).problem());
+        assertEquals(Readiness.EVIDENCE_NOT_AVAILABLE, view.readiness().submissionUnavailableReason());
+    }
+
+    @Test
+    void read_uploadsOn_evidenceItemsAndTheHoldersMediaBlock() {
+        h.switches.uploads = true;
+        SurveyChecklist checklist = h.started(LEAD, SALE_A).view().checklist();
+        h.wholeWithSpaceOne(checklist.getId());
+        h.readyPhoto(checklist.getId(), EvidenceCategory.EXTERIOR_ACCESS, MediaPlacement.asset());
+        long setVersion = h.mediaSets.findForRead(checklist.getId().getValue()).orElseThrow().getSetVersion();
+
+        ChecklistView holder = h.queries.read(own(SALE_A), checklist.getId().getValue());
+        ChecklistView leader = h.queries.read(all(LEADER), checklist.getId().getValue());
+
+        assertEquals(new ChecklistMediaView(true, true, setVersion), holder.media());
+        assertEquals(new ChecklistMediaView(true, false, setVersion), leader.media(), "not the holder");
+        List<MissingItem> evidence = holder.readiness().missing().stream()
+                .filter(item -> item.group() == ChecklistGroup.EVIDENCE).toList();
+        assertEquals(List.of(new MissingItem(ChecklistGroup.EVIDENCE, SPACE_1, "MAIN_SPACE",
+                        MissingProblem.EVIDENCE_MISSING), new MissingItem(ChecklistGroup.EVIDENCE, SPACE_1, "KITCHEN",
+                        MissingProblem.EVIDENCE_MISSING), new MissingItem(ChecklistGroup.EVIDENCE, SPACE_1, "BATHROOM",
+                        MissingProblem.EVIDENCE_MISSING)), evidence);
+        assertEquals(Readiness.SUBMISSION_NOT_AVAILABLE, holder.readiness().submissionUnavailableReason());
+    }
+
+    @Test
+    void read_uploadsOffWithASetRow_photosStayAvailableUploadDisabled() {
+        SurveyChecklist checklist = h.started(LEAD, SALE_A).view().checklist();
+        h.readyPhoto(checklist.getId(), EvidenceCategory.EXTERIOR_ACCESS, MediaPlacement.asset());
+
+        ChecklistView view = h.queries.read(own(SALE_A), checklist.getId().getValue());
+
+        assertTrue(view.media().available());
+        assertFalse(view.media().uploadEnabled());
+        assertTrue(view.readiness().missing().stream().noneMatch(item -> item.problem()
+                == MissingProblem.EVIDENCE_PENDING));
+    }
+
+    @Test
+    void read_intakePaused_uploadDisabledForTheHolder() {
+        h.switches.uploads = true;
+        SurveyChecklist checklist = h.started(LEAD, SALE_A).view().checklist();
+        h.health.pause(PauseReason.STORE, Instant.now());
+
+        assertFalse(h.queries.read(own(SALE_A), checklist.getId().getValue()).media().uploadEnabled());
+    }
+
+    private static MissingItem last(ChecklistView view) {
+        List<MissingItem> missing = view.readiness().missing();
+        return missing.get(missing.size() - 1);
     }
 
     // ==================== checkpoints ====================

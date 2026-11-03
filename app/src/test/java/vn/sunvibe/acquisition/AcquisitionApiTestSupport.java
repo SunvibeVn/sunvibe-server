@@ -311,9 +311,14 @@ public final class AcquisitionApiTestSupport {
 		}
 	}
 
-	/** The body of the security chain's 401 and 403 (ADR-010 leaves it as it was): exactly error, message, path. */
+	/**
+	 * The body of the security chain's 401 and 403: the ADR-010 envelope without the request path (survey-media spec
+	 * A-13, SV-030): exactly code, message, errors, correlationId.
+	 */
 	static void assertSecurityBody(Result result, int status) {
 		assertEquals(status, result.status(), result.rawBody());
-		assertEquals(List.of("error", "message", "path"), fieldNames(result.body()), result.rawBody());
+		assertEquals(List.of("code", "message", "errors", "correlationId"), fieldNames(result.body()),
+				result.rawBody());
+		assertEquals(status == 401 ? "UNAUTHORIZED" : "FORBIDDEN", result.body().path("code").asString());
 	}
 }

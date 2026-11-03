@@ -1,0 +1,36 @@
+name: R2 contract
+
+# survey-media plan PD-7 (spec 4.12, A-15): the media object store contract against a Cloudflare R2 test bucket. MinIO
+# in the build is not R2, so this runs by hand before go-live and after an AWS SDK or R2 change; never on pull requests.
+# It needs the five repository secrets below and fails without them (it never skips silently). The token is an R2 API
+# token limited to Object Read & Write on the two test buckets only: never a production bucket, never an account-wide
+# token. The test deletes what it writes; its errors carry no key, bucket or credential.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r2-contract
+  cancel-in-progress: false
+
+jobs:
+  r2-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew :app:r2ContractTest --no-daemon
+        env:
+          # https://<account id>.r2.cloudflarestorage.com
+          R2_TEST_ENDPOINT: ${{ secrets.R2_TEST_ENDPOINT }}
+          R2_TEST_ACCESS_KEY_ID: ${{ secrets.R2_TEST_ACCESS_KEY_ID }}
+          R2_TEST_SECRET_ACCESS_KEY: ${{ secrets.R2_TEST_SECRET_ACCESS_KEY }}
+          R2_TEST_QUARANTINE_BUCKET: ${{ secrets.R2_TEST_QUARANTINE_BUCKET }}
+          R2_TEST_MEDIA_BUCKET: ${{ secrets.R2_TEST_MEDIA_BUCKET }}

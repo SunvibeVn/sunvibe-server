@@ -1,0 +1,2 @@
+# survey-media plan PD-3: caps the AWS SDK and HTTP wire loggers at WARN after Boot's logging initialisation
+org.springframework.context.ApplicationListener=vn.sunvibe.config.logging.LogFilterRegistrar

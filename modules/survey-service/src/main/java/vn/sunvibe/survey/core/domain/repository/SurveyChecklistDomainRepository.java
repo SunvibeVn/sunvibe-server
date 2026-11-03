@@ -24,6 +24,12 @@ public interface SurveyChecklistDomainRepository {
 
     Optional<SurveyChecklist> findById(SurveyChecklistId id);
 
+    /**
+     * The checklist with a PostgreSQL {@code FOR SHARE} lock, as the first load of the row in its persistence context
+     * (survey-media spec 5.4, plan PD-10): the media commands' read; the takeover keeps the plain read.
+     */
+    Optional<SurveyChecklist> findByIdForShare(SurveyChecklistId id);
+
     /** The lead of a checklist by a scalar query, without loading it (spec 5.5); empty when unknown. */
     Optional<String> findLeadIdById(SurveyChecklistId id);
 

@@ -57,6 +57,11 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
     }
 
     @Override
+    public Optional<SurveyChecklist> findByIdForShare(SurveyChecklistId id) {
+        return jpaRepository.findForShareById(id.getValue()).map(SurveyChecklistRepositoryAdapter::toDomain);
+    }
+
+    @Override
     public Optional<String> findLeadIdById(SurveyChecklistId id) {
         return jpaRepository.findLeadIdById(id.getValue());
     }

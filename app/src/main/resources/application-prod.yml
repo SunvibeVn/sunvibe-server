@@ -6,6 +6,10 @@ app:
     refresh-cookie:
       # The __Secure- prefix makes the browser accept the cookie only over HTTPS
       name: __Secure-sv_refresh
+  survey:
+    media:
+      # survey-media spec A-1, 7.4: processing stays off (with every adapter none) until go-live
+      processing-enabled: false
 
 # Do not publish the API contract or Swagger UI in production.
 springdoc:

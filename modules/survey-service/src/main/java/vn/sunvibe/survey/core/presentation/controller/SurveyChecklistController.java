@@ -31,7 +31,6 @@ import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSaveSa
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSaveAmenitiesRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSaveTermsRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistTakeoverRequest;
-import vn.sunvibe.survey.core.presentation.dto.response.SecurityError;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistCheckpointResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistTakenOverResponse;
@@ -79,9 +78,9 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "200", description = "The checklist",
                     content = @Content(schema = @Schema(implementation = ChecklistResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -107,10 +106,10 @@ public class SurveyChecklistController {
                     + "basis.* (a missing or unknown key too); MALFORMED_REQUEST",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -145,9 +144,9 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on takeoverNo: not a number",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist or checkpoint, or the "
                     + "caller may not see its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -179,10 +178,10 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "400", description = SAVE_400,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -216,10 +215,10 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "400", description = SAVE_400,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -253,10 +252,10 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "400", description = SAVE_400,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -291,10 +290,10 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "400", description = SAVE_400,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -329,10 +328,10 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "400", description = SAVE_400,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -367,10 +366,10 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "400", description = SAVE_400,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
@@ -405,10 +404,10 @@ public class SurveyChecklistController {
             @ApiResponse(responseCode = "400", description = SAVE_400,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
                     + "assignee",
-                    content = @Content(schema = @Schema(implementation = SecurityError.class))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist, or the caller may not see "
                     + "its lead",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),

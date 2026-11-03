@@ -65,6 +65,12 @@ public final class InMemoryChecklistRepositories {
         }
 
         @Override
+        public Optional<SurveyChecklist> findByIdForShare(SurveyChecklistId id) {
+            journal.add("checklist:share");
+            return Optional.ofNullable(stored.get(id)).map(Checklists::copy);
+        }
+
+        @Override
         public void update(SurveyChecklist checklist) {
             journal.add("checklist:update");
             if (failNextUpdate != null) {

@@ -11,7 +11,8 @@ import java.time.Instant;
  */
 @Schema(description = "The lead History entry written by a checklist command")
 public record ChecklistHistoryEntryResponse(
-        @Schema(allowableValues = {"CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED"})
+        @Schema(allowableValues = {"CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED",
+                "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED"})
         String type,
         String actorUserId,
         @Schema(nullable = true, description = "Full name of the staff member; null when the id has no user row")
@@ -37,7 +38,8 @@ public record ChecklistHistoryEntryResponse(
         String referenceId,
         @Schema(description = "The checklist number")
         Integer referenceNo,
-        @Schema(nullable = true, description = "The group of a CHECKLIST_SAVED entry; null otherwise")
+        @Schema(nullable = true, description = "The group of a CHECKLIST_SAVED entry, or the evidence category of a "
+                + "CHECKLIST_MEDIA_ADDED or CHECKLIST_MEDIA_REMOVED entry; null otherwise")
         String referenceDetail) {
 
     /** Survey data may be private: never print it. */

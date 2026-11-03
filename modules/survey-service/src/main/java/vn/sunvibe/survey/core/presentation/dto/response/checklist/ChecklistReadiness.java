@@ -10,6 +10,9 @@ import java.util.List;
 @Schema(description = "The gaps known so far, computed on every read; submission is not available in this slice")
 public record ChecklistReadiness(
         boolean submissionAvailable,
+        @Schema(allowableValues = {"EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE"},
+                description = "EVIDENCE_NOT_AVAILABLE while the checklist's photos are not available, else"
+                        + " SUBMISSION_NOT_AVAILABLE")
         String submissionUnavailableReason,
         List<ChecklistMissingItem> missing,
         List<ChecklistUnconfirmedTerm> unconfirmedTerms,

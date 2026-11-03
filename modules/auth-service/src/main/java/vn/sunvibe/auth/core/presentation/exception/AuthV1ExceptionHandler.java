@@ -246,7 +246,7 @@ public class AuthV1ExceptionHandler {
     }
 
     /**
-     * Spring Security exceptions are rethrown so the chain's {@code SecurityError} bodies are kept. Another Spring
+     * Spring Security exceptions are rethrown so the chain's 401/403 envelope bodies are kept. Another Spring
      * MVC error (for example {@code MissingRequestCookieException}) keeps its status and headers, with
      * {@code MALFORMED_REQUEST}. Anything else, a
      * failed e-mail or SMS hand-off included, is a 500 whose details stay out of the response.

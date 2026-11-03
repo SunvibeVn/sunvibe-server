@@ -27,12 +27,17 @@ import vn.sunvibe.survey.core.domain.model.checklist.TakeoverKind;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
+import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
+import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;
+import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.model.security.SurveySecurityEvent;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;
+import vn.sunvibe.survey.core.testsupport.MediaFixture;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -40,6 +45,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -255,6 +261,50 @@ class SurveyChecklistCommandServiceStartTakeoverTest {
     }
 
     // ==================== takeover: check order ====================
+
+    /** survey-media spec 4.8, A-22, 5.4 (SM-8): the takeover ends the previous holder's open uploads, after its update. */
+    @Test
+    void takeOver_endsThePreviousHoldersOpenUploads_afterTheChecklistUpdate() {
+        SurveyChecklist checklist = h.started(LEAD, SALE_A).view().checklist();
+        SurveyMedia awaiting = h.photo(checklist.getId(), EvidenceCategory.EXTERIOR_ACCESS, MediaPlacement.asset(),
+                SALE_A, photo -> photo);
+        SurveyMedia receiving = h.photo(checklist.getId(), EvidenceCategory.DETAIL, MediaPlacement.asset(), SALE_A,
+                photo -> {
+                    photo.claim(MediaFixture.TOKEN, "quarantine/" + photo.getId() + "/1", MediaFixture.T0.plusSeconds(60));
+                    return photo;
+                });
+        SurveyMedia processing = h.photo(checklist.getId(), EvidenceCategory.DETAIL, MediaPlacement.asset(), SALE_A,
+                MediaFixture::processing);
+        long before = h.mediaSets.findForRead(checklist.getId().getValue()).orElseThrow().getSetVersion();
+        h.lead(LEAD, "SURVEY_SCHEDULED", SALE_B);
+        SurveyAppointment visit = h.appointments.all().get(0);
+        h.journal.clear();
+
+        h.commands.takeOver(own(SALE_B), new TakeOverChecklistCommand(checklist.getId().getValue(), 0L,
+                "Được giao lại lead", new BasisInput(arrivalDate(visit), "Quản lý giao lại hôm nay")));
+
+        assertEquals(MediaStatus.UPLOAD_EXPIRED, h.media.stored(awaiting.getId()).orElseThrow().getStatus());
+        assertEquals(MediaStatus.UPLOAD_EXPIRED, h.media.stored(receiving.getId()).orElseThrow().getStatus());
+        assertEquals(MediaStatus.PROCESSING, h.media.stored(processing.getId()).orElseThrow().getStatus());
+        assertEquals(before + 1, h.mediaSets.findForRead(checklist.getId().getValue()).orElseThrow()
+                .getSetVersion());
+        int update = h.journal.indexOf("checklist:update");
+        int setLock = h.journal.indexOf("set:lock");
+        assertTrue(update >= 0 && update < setLock, h.journal.toString());
+    }
+
+    @Test
+    void takeOver_withoutPhotos_takesNoMediaLock() {
+        SurveyChecklist checklist = h.started(LEAD, SALE_A).view().checklist();
+        h.lead(LEAD, "SURVEY_SCHEDULED", SALE_B);
+        SurveyAppointment visit = h.appointments.all().get(0);
+        h.journal.clear();
+
+        h.commands.takeOver(own(SALE_B), new TakeOverChecklistCommand(checklist.getId().getValue(), 0L,
+                "Được giao lại lead", new BasisInput(arrivalDate(visit), "Quản lý giao lại hôm nay")));
+
+        assertFalse(h.journal.contains("media:lock:"), h.journal.toString());
+    }
 
     @Test
     void takeOver_readOnlyBefore422_422BeforeHolder_holderBeforeVersion_versionBeforeDate() {
