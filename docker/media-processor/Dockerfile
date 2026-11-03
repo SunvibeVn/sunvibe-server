@@ -1,7 +1,9 @@
 # The isolated survey-media processor (ADR-011 decision 4, form (a); survey-media spec 4.5, A-27, A-28; plan PD-1).
 # It holds no secret and gets no egress: the API sends source bytes over a private channel and gets variants back.
 # A supervisor starts one child per run with OS limits; the decoders (libvips with libheif and the libde265 HEVC
-# plugin, libjpeg-turbo, libspng/libpng, libwebp) run only in those children, as the non-root user, on a tmpfs work area.
+# plugin, libjpeg-turbo, libspng/libpng, libwebp) run only in those children, each run slot as its own non-root uid
+# (10101 and up) without capabilities in its own 0700 directory of a tmpfs work area (security review M-1, SV-069).
+# The supervisor starts as root so it can give each slot its uid; compose.yaml leaves it SETUID, SETGID, CHOWN and KILL.
 # Base and packages are pinned; a Debian security update replaces the pins (rebuild, new digest, new processor.version).
 FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 
@@ -27,7 +29,7 @@ ENV VIPS_CONCURRENCY=1 \
     TMPDIR=/work \
     PYTHONDONTWRITEBYTECODE=1
 
-USER 10001:10001
+USER 0:0
 EXPOSE 7300
 ENTRYPOINT ["python3", "-I", "/opt/sv/supervisor.py"]
 CMD ["--listen", "tcp:0.0.0.0:7300"]

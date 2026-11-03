@@ -23,20 +23,25 @@ configuration switch; direct SQL on the hold columns is not the procedure (spec 
 ## 2. Bulk hold: `hold-media.sh`
 
 ```bash
-export SUNVIBE_ADMIN_TOKEN='<access token of an ADMIN account>'   # never paste it into a file or a ticket
 scripts/ops/hold-media.sh affected.txt SECURITY_INCIDENT https://api.sunvibe.vn
-unset SUNVIBE_ADMIN_TOKEN
+# it asks for the access token of an ADMIN account and does not show it (read -rs)
 ```
 
 - `affected.txt`: one `checklistId mediaId` per line; blank lines and `#` comments are skipped; an id listed twice is
   held once.
-- Each id is reported as `held`, `already-held` (the hold was a no-op: the checklist's `setVersion` did not move),
-  `not-found` or `refused <status>`; a summary line follows. The exit status is 1 when any id was not found or
-  refused (re-run the script with those lines after checking them), 2 on a usage error or a missing token.
+- One hold request per id and no other request (no list read, which would count in the ADMIN's read budget).
+- Each id is reported as `held` (the photo is held now), `already-held <REASON>` (it was held earlier with that other
+  reason, which stays: a hold on a held photo is a no-op that keeps the first reason, so check before releasing a
+  `CREDENTIAL_EXPOSURE` hold), `not-found` or `refused <status>`; a summary line follows. The exit status is 1 when
+  any id was not found or refused (re-run the script with those lines after checking them), 2 on a usage error or a
+  missing token.
 - Each hold is checked, versioned and written as one security event by the server (spec A-23), exactly like a hold
   from the page.
-- The token is read only from `SUNVIBE_ADMIN_TOKEN` and reaches `curl` through a config on stdin: it is never
-  printed, stored or put on a command line. Needs `bash` and `curl`.
+- The token is typed at the script's prompt (not shown, never in the shell history), or taken from
+  `SUNVIBE_ADMIN_TOKEN` when that is already set (to set it by hand: `read -rs SUNVIBE_ADMIN_TOKEN; export
+  SUNVIBE_ADMIN_TOKEN`, never `export SUNVIBE_ADMIN_TOKEN=<token>`). It reaches `curl` through a config on stdin: it is
+  never printed, stored or put on a command line. The base URL must be `https://` (`http://` only for this machine).
+  Needs `bash` and `curl`.
 
 ## 3. Serving switch restart
 
@@ -61,9 +66,13 @@ A restore can bring back photo rows whose stored objects were deleted after the 
 3. **How long:** one store listing per READY photo. Measured on the local test store (Task A22): 10,000 photos in
    about 9 seconds; on R2 each listing is one request, so expect minutes per 10,000 photos (and one Class A
    operation each).
-   Before the start, note the time and the count of photos it may mark:
+   Before the start, take the start time from the database, five minutes early for clock skew between the API and the
+   database (the mark is written with the API's clock), in the psql session you use for the later queries:
+   `SELECT now() - interval '5 minutes' AS start_time;` (it carries its offset; a time typed without one is read in the
+   session's time zone). Note the count of photos it may mark:
    `SELECT count(*) FROM survey_media WHERE status = 'READY' AND content_missing_at IS NULL AND content_deleted_at IS NULL;`
-   after it: `SELECT count(*) FROM survey_media WHERE content_missing_at >= '<start time>';`.
+   after it: `SELECT count(*) FROM survey_media WHERE content_missing_at >= '<start time>';` with the value of
+   `start_time` as written by psql.
 4. **Undo a mistaken run:** the application never clears the mark. Only this job writes `content_missing_at`, so
    one run's marks are found by its start time; in one transaction:
    `UPDATE survey_media_sets SET set_version = set_version + 1 WHERE checklist_id IN (SELECT checklist_id FROM
@@ -89,7 +98,9 @@ id, error code; at most 10 per page, then the page's count). The block ends by i
 to the end decides with its own count, and a run abandoned after 24 hours blocks nothing, so no run blocks for ever
 (at worst about two days from the blocking run's start: the next run starts 24 hours after it, and is abandoned 24
 hours later). An abandoned run lifts the block without those deletions confirmed; the next complete run finds them
-again. Read only (no write to these tables is part of this procedure):
+again. A run also pauses intake (`DELETION_OVERDUE`) and opens or counts in an `ORPHAN_OVERDUE` incident with each
+page that finds an orphan over 24 hours, so a pause can come back within one run after a sweep resumed. Read only (no
+write to these tables is part of this procedure):
 
 ```sql
 -- the runs, newest first: OPEN, COMPLETE (listed to the end) or ABANDONED
@@ -111,3 +122,27 @@ lock). Several ABANDONED runs in a row mean the listing cannot finish within 24 
 trigger far exceeded, or a page that fails every time (see the run's "stopped a run" error log), and it goes to the
 owner. Changing `undeleted_count`, `start_after_key`, `started_at` or `finished_at` by hand is not the procedure: they
 encode the run's outcome and the next due time.
+
+## 7. Go-live and deploy checks
+
+Before uploads are turned on in production (spec 9.4), and at each deploy where noted:
+
+- **clamd timeout and threads** (deployed values, not the committed ones; `ClamdTimeoutRelationTest` checks only the
+  defaults): the API's `app.survey.media.clamav.timeout` (default 30 s) is at least clamd's `MaxScanTime` + 10 s
+  (`docker/clamav/clamd.conf`: 20000 ms), and clamd's `MaxThreads` (there 8) is at least the scans that can run at once
+  plus 1 for the probe: the worker concurrency (`app.survey.media.worker.concurrency`, default 2) times the number of
+  API instances, + 1. A scan waiting for a clamd thread counts against the client timeout. Read the deployed values
+  with `docker exec <clamd container> clamconf | grep -E 'MaxScanTime|MaxThreads'` and the API's environment.
+- **`survey_access_logs` size before `V202611021403`** (the deploy that brings the media-list index): the index is
+  built inside the migration's transaction and holds a SHARE lock on the table (writes wait, reads go on) while it
+  builds; it took about 5 s on 12 M rows. The migration waits at most 5 s for that lock (`lock_timeout`), during which
+  writes queue too, then fails and the deploy rolls back. Check the size first (the estimate is -1 on a table never
+  analyzed; then use `SELECT count(*) FROM survey_access_logs;`):
+  `SELECT c.reltuples::bigint, s.n_live_tup, s.last_autoanalyze FROM pg_class c JOIN pg_stat_user_tables s ON
+  s.relid = c.oid WHERE c.oid = 'survey_access_logs'::regclass;` Above about 10 M rows, deploy in a quiet window.
+- **The processor at start-up:** each API instance retries the processor self-probe every 5 s for about a minute
+  before it records a PROCESSOR pause and runs without a worker until restarted. No compose file here starts the API;
+  a deployment that does starts the processor first (`depends_on`) so the probe passes within that minute.
+- **The spool** (`app.survey.media.spool-dir`, on tmpfs or a volume outside backups): each instance keeps its bodies
+  in a subdirectory named by its instance id and locks it while it runs, so instances may share the directory; set
+  `app.survey.media.instance-id` per instance when its logs should name it across restarts.

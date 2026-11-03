@@ -61,11 +61,12 @@ public class InMemoryIntakeHealth implements IntakeHealthRepository {
     }
 
     @Override
-    public void clearScanBlocked() {
-        calls.add("scanUnblocked");
+    public void recordProbePassed(boolean clearScanBlock, Instant appNow) {
+        calls.add(clearScanBlock ? "probePassed:scanUnblocked" : "probePassed");
         if (row != null) {
-            row = new IntakeHealth(row.failureSeq(), row.stateEpoch(), row.lastSweepOkAt(), row.lastProbeOkAt(),
-                    row.lastFailureAt(), row.lastWorkerBeatAt(), row.lastDeletionBeatAt(), null,
+            row = new IntakeHealth(row.failureSeq(), row.stateEpoch(), row.lastSweepOkAt(), appNow,
+                    row.lastFailureAt(), row.lastWorkerBeatAt(), row.lastDeletionBeatAt(),
+                    clearScanBlock ? null : row.scanBlockedSince(),
                     row.intakePausedSince(), row.pauseReason());
         }
     }

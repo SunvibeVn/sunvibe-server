@@ -3,6 +3,7 @@ package vn.sunvibe.survey.core.application.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -19,6 +20,7 @@ import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.Bucket;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.ListedObject;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.ObjectPage;
+import vn.sunvibe.survey.core.application.shared.external.media.MediaProbeRequests;
 import vn.sunvibe.survey.core.application.shared.external.media.StoreUnavailableException;
 import vn.sunvibe.survey.core.domain.model.media.ListingRun;
 import vn.sunvibe.survey.core.domain.model.media.MediaIncidentKind;
@@ -32,7 +34,8 @@ import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainReposito
  * of at most 1,000 keys from the run's stored key, listed and deleted outside any transaction, each page's progress
  * written by a fenced update, so a killed run resumes and a fenced-out runner stops. It deletes orphans as the sweep
  * does (no stored variant row, over 60 minutes); an orphan over 24 hours opens or counts in ORPHAN_OVERDUE and pauses
- * intake; the orphans it could not delete stay counted in the run, which blocks a resume (A-18). A run open over 24
+ * intake once its page's progress is written; the orphans it could not delete stay counted in the run, which blocks a
+ * resume (A-18), and a failed listing or delete asks for a store probe. A run open over 24
  * hours is abandoned with an ids-only error log. Its duration is logged (an upgrade trigger, spec 4.12).
  */
 @Service
@@ -57,10 +60,12 @@ public class MediaFullListingJob {
     private final IntakeHealthRepository health;
     private final MediaClock clock;
     private final IdGenerator<String> ulids;
+    private final MediaProbeRequests probes;
 
     public MediaFullListingJob(SurveyMediaListingRunDomainRepository runs, SurveyMediaVariantDomainRepository variants,
                                MediaObjectStore store, MediaIncidentRecorder incidents, IntakeHealthRepository health,
-                               MediaClock clock, @Qualifier("Ulid") IdGenerator<String> ulids) {
+                               MediaClock clock, @Qualifier("Ulid") IdGenerator<String> ulids,
+                               MediaProbeRequests probes) {
         this.runs = runs;
         this.variants = variants;
         this.store = store;
@@ -68,6 +73,7 @@ public class MediaFullListingJob {
         this.health = health;
         this.clock = clock;
         this.ulids = ulids;
+        this.probes = probes;
     }
 
     /** The scheduled poll: a failing run is logged; its lease runs out and the next poll resumes it. */
@@ -101,13 +107,16 @@ public class MediaFullListingJob {
     private void list(ListingRun run, String token) {
         long started = System.nanoTime();
         String after = run.startAfterKeyOrNull();
-        List<String> overdue = new ArrayList<>();
+        // one entry per photo, not per variant key (migration re-review of SV-069)
+        Set<String> overdue = new LinkedHashSet<>();
         while (true) {
             Instant now = clock.now();
             ObjectPage page;
             try {
                 page = store.list(Bucket.MEDIA, "media/", after, PAGE);
             } catch (StoreUnavailableException e) {
+                // survey-media spec A-18: a store failure asks for a store probe
+                probes.requestStoreProbe();
                 log.warn("Survey media full listing run {} could not list ({}); it resumes later", run.id(), e.code());
                 return;
             }
@@ -115,6 +124,7 @@ public class MediaFullListingJob {
                     && !object.lastModified().isAfter(now.minus(ORPHAN_AGE))).toList();
             Set<String> stored = variants.findStoredKeys(old.stream().map(ListedObject::key).toList());
             int undeleted = 0;
+            int overdueBefore = overdue.size();
             for (ListedObject object : old) {
                 if (stored.contains(object.key())) {
                     continue;
@@ -125,6 +135,9 @@ public class MediaFullListingJob {
                 try {
                     store.delete(Bucket.MEDIA, object.key());
                 } catch (StoreUnavailableException e) {
+                    if (undeleted == 0) {
+                        probes.requestStoreProbe();
+                    }
                     undeleted++;
                     if (undeleted <= LOGGED_PER_PAGE) {
                         // migration review I-2: which photo's objects stayed, by id and code only (never the key)
@@ -142,16 +155,20 @@ public class MediaFullListingJob {
                 log.warn("Survey media full listing run {} lost its lease; another runner goes on", run.id());
                 return;
             }
+            if (overdue.size() > overdueBefore) {
+                // survey-media spec A-18, survey-media BR-18: recorded with the page that found them, so a run that
+                // stops later keeps the record
+                // the pause first: a failed incident write must not skip it
+                Instant recorded = clock.now();
+                health.recordFailure(PauseReason.DELETION_OVERDUE, true, recorded);
+                incidents.overdue(MediaIncidentKind.ORPHAN_OVERDUE, recorded, new ArrayList<>(overdue), recorded);
+            }
             after = last;
             if (!page.truncated() || page.objects().isEmpty()) {
                 break;
             }
         }
         Instant now = clock.now();
-        if (!overdue.isEmpty()) {
-            incidents.overdue(MediaIncidentKind.ORPHAN_OVERDUE, now, overdue, now);
-            health.recordFailure(PauseReason.DELETION_OVERDUE, true, now);
-        }
         if (runs.finish(run.id(), token, now)) {
             log.info("Survey media full listing run {} listed to the end in {} ms", run.id(),
                     Duration.ofNanos(System.nanoTime() - started).toMillis());

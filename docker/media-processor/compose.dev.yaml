@@ -13,13 +13,30 @@ services:
     image: sunvibe/media-processor:dev
     read_only: true
     tmpfs:
-      - /work:size=1g,mode=0700,uid=10001,gid=10001
-    user: "10001:10001"
+      - /work:size=1g,mode=0711,uid=0,gid=0
+    # the supervisor starts as root with four capabilities to run each slot as its own uid in its own directory and
+    # to end every process of a slot between runs; the runs (the decoders) get none (security review M-1, SV-069)
+    user: "0:0"
+    # an init as process 1 reaps what a killed run leaves behind, so no zombie holds a pid (pids_limit)
+    init: true
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    pids_limit: 64
+    cap_add:
+      - SETUID
+      - SETGID
+      - CHOWN
+      - KILL
+    # no /dev/shm; System V shared memory, message queues and semaphores are switched off in the container's own IPC
+    # namespace, so nothing of a run outlives its reset there (POSIX queues are removed by the reset)
+    ipc: none
+    sysctls:
+      kernel.shmmni: 0
+      kernel.msgmni: 0
+      kernel.sem: "0 0 0 0"
+    # 3 slots of at most 16 processes each (prlimit --nproc, counted per uid on the host) and the supervisor's threads
+    pids_limit: 96
     mem_limit: 5g
     memswap_limit: 5g
     command: ["--listen", "tcp:0.0.0.0:7300"]

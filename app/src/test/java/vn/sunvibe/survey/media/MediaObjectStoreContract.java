@@ -48,6 +48,11 @@ public abstract class MediaObjectStoreContract {
 	/** A store whose backend refuses or cannot be reached, to check the failure messages. */
 	protected abstract MediaObjectStore brokenStore();
 
+	/** The connections of the store's serving pool; 0 for a store without one. */
+	protected int servingConnections() {
+		return 0;
+	}
+
 	/** A prefix of its own per test, so runs on a shared bucket never meet. */
 	protected String prefix() {
 		return "media/" + UlidCreator.getMonotonicUlid() + "/";
@@ -113,6 +118,40 @@ public abstract class MediaObjectStoreContract {
 		}
 		store().delete(Bucket.QUARANTINE, key);
 		store().delete(Bucket.MEDIA, mediaKey);
+	}
+
+	/**
+	 * spec A-25 (SV-069): the read watchdog ends a stalled read with abort(), which returns at once without reading the
+	 * rest of a 12 MiB FULL and frees its serving connection: more aborted reads than the pool has connections leave a
+	 * whole read possible, and the aborted stream gives no more bytes.
+	 */
+	@Test
+	void abort_returnsAtOnceWithoutReadingTheRest_servingConnectionFreed() throws Exception {
+		String key = prefix() + "1/FULL";
+		byte[] body = new byte[12 * 1024 * 1024];
+		for (int i = 0; i < body.length; i++) {
+			body[i] = (byte) (i * 17);
+		}
+		store().putCreateOnly(Bucket.MEDIA, key, new ByteArrayInputStream(body), body.length);
+		try {
+			for (int round = 0; round <= servingConnections(); round++) {
+				StoredObject served = store().getForServing(key);
+				assertTrue(served.content().read(new byte[16 * 1024]) > 0);
+
+				long start = System.nanoTime();
+				served.abort().run();
+				long abortMillis = java.time.Duration.ofNanos(System.nanoTime() - start).toMillis();
+
+				assertTrue(abortMillis < 500, "abort returned at once: " + abortMillis + " ms");
+				assertThrows(IOException.class, () -> served.content().readAllBytes(), "no more bytes after abort");
+				served.close();
+			}
+			try (StoredObject whole = store().getForServing(key)) {
+				assertEquals(sha256(body), sha256(whole.content().readAllBytes()), "the connections were freed");
+			}
+		} finally {
+			store().delete(Bucket.MEDIA, key);
+		}
 	}
 
 	@Test

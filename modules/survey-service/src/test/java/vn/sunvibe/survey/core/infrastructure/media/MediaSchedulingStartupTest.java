@@ -54,6 +54,8 @@ class MediaSchedulingStartupTest {
             return ProbeResult.PASSED;
         }
     };
+    private static final int RETRY_ATTEMPTS = 4;
+
     private MediaScheduling scheduling;
 
     @AfterEach
@@ -85,15 +87,37 @@ class MediaSchedulingStartupTest {
                 start(new MediaRuntimeMode(true, false, true, false, true)));
     }
 
+    /** spec A-1, A-18 (code review M9, SV-069): the self-probe is retried for a bounded time before it gives up. */
     @Test
-    void processorSelfProbeFailsAtStart_stopsOnlyThatWorker_intakeStaysPaused_instanceStarts() {
+    void processorSelfProbeFailsThroughEveryRetry_stopsOnlyThatWorker_intakeStaysPaused_instanceStarts()
+            throws Exception {
         normalizer.probe = ProbeResult.INCOMPLETE;
 
         List<String> tasks = start(new MediaRuntimeMode(true, false, true, true, true));
+        await(() -> h.health.calls.contains("failure:PROCESSOR:pause"));
 
         assertEquals(List.of("media-deletion", "media-sweeper", "media-probes", "media-full-listing"), tasks);
-        assertTrue(h.health.calls.contains("failure:PROCESSOR:pause"), h.health.calls.toString());
+        assertEquals(RETRY_ATTEMPTS, normalizer.probes.get(), "every attempt of the bounded retry was made");
+        assertEquals(List.of("media-deletion", "media-sweeper", "media-probes", "media-full-listing"),
+                scheduling.registeredTasks(), "no worker after the last attempt");
         assertTrue(h.health.row.intakePausedSince() != null, "intake stays paused");
+    }
+
+    /** code review M9 (SV-069): a processor container up a few seconds after the API still gets this instance's worker. */
+    @Test
+    void processorUpAfterTheApi_selfProbeRetried_workerScheduledWithoutPause() throws Exception {
+        normalizer.probe = ProbeResult.INCOMPLETE;
+        normalizer.passAfter = 2;
+
+        List<String> tasks = start(new MediaRuntimeMode(true, false, true, true, true));
+        // the retry runs on its own thread: only membership is checked, never the order against a slow start
+        assertTrue(tasks.containsAll(List.of("media-deletion", "media-sweeper", "media-probes", "media-full-listing")),
+                tasks.toString());
+        await(() -> scheduling.registeredTasks().contains("media-worker"));
+
+        assertEquals(3, normalizer.probes.get());
+        assertTrue(h.health.calls.stream().noneMatch(call -> call.startsWith("failure:PROCESSOR")),
+                h.health.calls.toString());
     }
 
     @Test
@@ -141,21 +165,33 @@ class MediaSchedulingStartupTest {
         MediaSweeper sweeper = new MediaSweeper(h.media, h.sets, h.jobs, h.variants, h.store, h.counters, h.slots,
                 h.health, incidents, h.switches, probes, new NoListingRuns(), h.clock, h.transactions);
         MediaFullListingJob listing = new MediaFullListingJob(new NoListingRuns(), h.variants, h.store, incidents,
-                h.health, h.clock, () -> com.github.f4b6a3.ulid.UlidCreator.getMonotonicUlid().toString());
+                h.health, h.clock, () -> com.github.f4b6a3.ulid.UlidCreator.getMonotonicUlid().toString(), probes);
         MediaRestoreReconciliation reconciliation = new MediaRestoreReconciliation(h.media, h.sets, h.variants,
                 h.store, h.clock, h.transactions, false, false);
         MediaContentDeletionJob deletion = new MediaContentDeletionJob(h.jobs, h.media, h.sets, h.store, h.health,
                 h.clock, () -> com.github.f4b6a3.ulid.UlidCreator.getMonotonicUlid().toString(), h.transactions);
 
-        new MediaWorkerRegistration(scheduling, worker, normalizer, h.health, h.clock).register();
+        new MediaWorkerRegistration(scheduling, worker, normalizer, h.health, h.clock, RETRY_ATTEMPTS,
+                Duration.ofMillis(20)).register();
         new MediaDeletionRegistration(scheduling, deletion, properties).register();
         new MediaHousekeepingRegistration(scheduling, sweeper, probes, listing, reconciliation, properties)
                 .register();
         return scheduling.registeredTasks();
     }
 
+    private static void await(java.util.function.BooleanSupplier condition) throws InterruptedException {
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertTrue(condition.getAsBoolean(), "within 10 s");
+    }
+
     private static final class Normalizer implements ImageNormalizer {
         volatile ProbeResult probe = ProbeResult.PASSED;
+        /** When set, the probe passes after this many answers of {@link #probe}. */
+        volatile int passAfter = -1;
+        final java.util.concurrent.atomic.AtomicInteger probes = new java.util.concurrent.atomic.AtomicInteger();
 
         @Override
         public Optional<SourceFormat> detect(InputStream source, long length) {
@@ -169,7 +205,8 @@ class MediaSchedulingStartupTest {
 
         @Override
         public ProbeResult probe() {
-            return probe;
+            int answered = probes.getAndIncrement();
+            return passAfter >= 0 && answered >= passAfter ? ProbeResult.PASSED : probe;
         }
 
         @Override

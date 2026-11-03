@@ -179,8 +179,8 @@ class MediaPoliciesTest {
 
         @Test
         void bodies_threePerUser() {
-            assertFalse(MediaLimits.bodiesFull(2));
-            assertTrue(MediaLimits.bodiesFull(3));
+            assertFalse(MediaLimits.bodiesFull(2, 3));
+            assertTrue(MediaLimits.bodiesFull(3, 3));
         }
 
         @Test

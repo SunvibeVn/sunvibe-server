@@ -17,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -33,6 +34,12 @@ import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore
 import vn.sunvibe.survey.core.domain.model.media.ListingRun;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaListingRunDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
+import vn.sunvibe.survey.core.application.shared.MediaClock;
+import vn.sunvibe.survey.core.application.shared.MediaIncidentRecorder;
+import vn.sunvibe.survey.core.application.shared.external.media.MediaProbeRequests;
+import vn.sunvibe.shared.generator.id.IdGenerator;
 
 /**
  * The daily full listing of {@code media/} (survey-media spec 4.4 step 4, A-18; SM-14 listing part; plan Task A22):
@@ -56,6 +63,22 @@ class MediaFullListingPostgresTest extends MediaApiTestBase {
 
 	@Autowired
 	private MediaSweeper sweeper;
+
+	@Autowired
+	private SurveyMediaVariantDomainRepository variants;
+
+	@Autowired
+	private MediaIncidentRecorder incidents;
+
+	@Autowired
+	private IntakeHealthRepository health;
+
+	@Autowired
+	private MediaClock clock;
+
+	@Autowired
+	@Qualifier("Ulid")
+	private IdGenerator<String> ulids;
 
 	@BeforeEach
 	void clean() {
@@ -88,6 +111,45 @@ class MediaFullListingPostgresTest extends MediaApiTestBase {
 		assertNotNull(run.get("finished_at"));
 		assertNull(run.get("start_after_key"), "listed to the end");
 		assertTrue(((Number) run.get("keys_seen")).longValue() > 5);
+	}
+
+	/**
+	 * survey-media spec A-18, BR-18 (migration re-review m-2 and m-3, SV-069): an overdue orphan is recorded and pauses
+	 * intake once its page's progress is written, not only when a run lists to the end; a listing that fails asks for a
+	 * store probe.
+	 */
+	@Test
+	void overdueOrphanOnFirstPage_recordedAndPausedBeforeTheRunEnds_failedListAsksStoreProbe() {
+		orphan(Duration.ofHours(25));
+		store.mediaPagesBeforeListFailure.set(1);
+		RecordingProbeRequests probes = new RecordingProbeRequests();
+
+		assertTrue(job(probes).runOnce());
+
+		assertNull(jdbc.queryForObject("select finished_at from survey_media_listing_runs", Timestamp.class),
+				"the run stopped at its second page");
+		assertTrue(jdbc.queryForObject("select media_count from survey_media_incidents where kind = 'ORPHAN_OVERDUE'"
+				+ " and resolved_at is null", Integer.class) >= 1);
+		assertNotNull(pausedSince());
+		assertEquals("DELETION_OVERDUE", jdbc.queryForObject("select pause_reason from survey_media_health where"
+				+ " id = 1", String.class));
+		assertEquals(1, probes.store);
+	}
+
+	/** survey-media spec A-18 (migration re-review m-3, SV-069): an orphan the store does not delete asks for a probe. */
+	@Test
+	void undeletableOrphan_asksStoreProbe() {
+		String key = orphan(Duration.ofHours(2));
+		store.failDeletes.set(true);
+		RecordingProbeRequests probes = new RecordingProbeRequests();
+		try {
+			assertTrue(job(probes).runOnce());
+		} finally {
+			store.failDeletes.set(false);
+			store.delete(Bucket.MEDIA, key);
+		}
+
+		assertTrue(probes.store >= 1);
 	}
 
 	@Test
@@ -266,6 +328,24 @@ class MediaFullListingPostgresTest extends MediaApiTestBase {
 	}
 
 	// ==================== helpers ====================
+
+	/** The full listing as the context builds it, with probe requests recorded. */
+	private MediaFullListingJob job(MediaProbeRequests probes) {
+		return new MediaFullListingJob(runs, variants, store, incidents, health, clock, ulids, probes);
+	}
+
+	private static final class RecordingProbeRequests implements MediaProbeRequests {
+		int store;
+
+		@Override
+		public void requestStoreProbe() {
+			store++;
+		}
+
+		@Override
+		public void requestScannerProbe() {
+		}
+	}
 
 	/** An object under media/ that no variant row references, its age set. */
 	private String orphan(Duration age) {

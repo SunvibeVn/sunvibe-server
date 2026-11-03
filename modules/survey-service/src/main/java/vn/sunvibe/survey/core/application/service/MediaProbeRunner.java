@@ -134,9 +134,9 @@ public class MediaProbeRunner implements MediaProbeRequests {
         switch (result) {
             case PASSED -> {
                 incompleteInARow.put(kind, 0);
-                if (kind == ProbeKind.SCANNER) {
-                    health.clearScanBlocked();
-                }
+                // survey-media spec 5.2: operators read the last passing probe in an incident; only a scanner pass
+                // ends a scan block
+                health.recordProbePassed(kind == ProbeKind.SCANNER, now);
                 return true;
             }
             case WRONG_ANSWER -> {

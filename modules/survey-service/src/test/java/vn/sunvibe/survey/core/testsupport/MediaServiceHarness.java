@@ -16,6 +16,7 @@ import vn.sunvibe.survey.core.application.service.SurveyMediaCommandService;
 import vn.sunvibe.survey.core.application.service.SurveyMediaContentService;
 import vn.sunvibe.survey.core.application.service.SurveyMediaQueryService;
 import vn.sunvibe.survey.core.application.shared.MediaAccessLogger;
+import vn.sunvibe.survey.core.application.shared.MediaReadBudgetLimits;
 import vn.sunvibe.survey.core.application.shared.MediaReadBudgets;
 import vn.sunvibe.survey.core.application.shared.ChecklistContextLoader;
 import vn.sunvibe.survey.core.application.shared.IntakeGate;
@@ -85,12 +86,12 @@ public final class MediaServiceHarness {
                 new MediaLimitCounter(counters), gate, switches, new MediaItemAssembler(base.directory), clock,
                 () -> UlidCreator.getMonotonicUlid().toString(), transactions);
         bodySlots = new MediaBodySlots(slots, counters, clock, transactions,
-                new MediaInstanceSettings(INSTANCE, 2));
+                new MediaInstanceSettings(INSTANCE, 3, 2));
         contents = new SurveyMediaContentService(commands, bodySlots, store, spool, probes, clock);
         counters.accessLogSource = base.accessLogs::all;
         lists = new SurveyMediaQueryService(loader, base.checklists, base.appointments, base.groups, media, sets,
                 health, base.directory, switches, new MediaItemAssembler(base.directory),
-                new MediaReadBudgets(counters, recorder, clock, transactions),
+                new MediaReadBudgets(counters, recorder, clock, transactions, MediaReadBudgetLimits.SPEC),
                 new MediaAccessLogger(base.accessLogs, counters, snowflakes, clock, transactions), recorder,
                 transactions);
     }

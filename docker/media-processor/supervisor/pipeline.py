@@ -1,14 +1,17 @@
 """One processing run, as a child of the supervisor under OS limits (survey-media spec 4.5, A-3, A-4).
 
-    pipeline.py detect    WORKDIR SOURCE   format from the bytes: JPEG, PNG, WEBP, HEIF or UNSUPPORTED_FORMAT
-    pipeline.py normalize WORKDIR SOURCE   structure, header and pixel bounds, then the three JPEG variants
+    pipeline.py detect    WORKDIR   format from the bytes: JPEG, PNG, WEBP, HEIF or UNSUPPORTED_FORMAT
+    pipeline.py normalize WORKDIR   structure, header and pixel bounds, the loader, then the three JPEG variants
 
-Writes WORKDIR/result.json: {"status": "OK" | "REJECTED" | "FAILED", "code": ..., ...}. The decoders run as child
-processes of this one ("vips"/"vipsheader", argument lists, never a shell) and inherit its limits; a decoder killed
-by a signal ends this run with a non-zero exit, which the supervisor reports as a limit hit.
+Runs as its run slot's own uid in the slot's directory WORKDIR (SV-069). Reads the source from stdin into a
+random-named file there and answers on stdout: SVP1, the length and bytes of the result JSON
+({"status": "OK" | "REJECTED" | "FAILED", "code": ..., ...}), then the length and bytes of each variant it names. The
+decoders run as child processes of this one ("vips"/"vipsheader", argument lists, never a shell) and inherit its
+limits; a decoder killed by a signal ends this run with a non-zero exit, which the supervisor reports as a limit hit.
 """
 import json
 import os
+import secrets
 import struct
 import subprocess
 import sys
@@ -24,6 +27,10 @@ HEIF_BRANDS = {b"heic", b"heix", b"heim", b"heis", b"hevc", b"hevx", b"mif1", b"
 IMAGE_ITEM_TYPES = {b"hvc1", b"grid", b"iden", b"iovl", b"av01", b"jpeg", b"unci", b"j2k1", b"vvc1", b"avc1",
                     b"tmap"}
 TOOL_TIMEOUT_SECONDS = 110
+MAX_SOURCE_BYTES = 20 * 1024 * 1024  # spec A-2
+MAGIC_CHILD = b"SVP1"
+# security review M-2 (SV-069): the loader libvips picks must be the one of the format detected from the bytes
+LOADERS = {"JPEG": {"jpegload"}, "PNG": {"pngload"}, "WEBP": {"webpload"}, "HEIF": {"heifload"}}
 
 
 class LimitHit(Exception):
@@ -280,7 +287,7 @@ def tool(arguments):
     return done.returncode == 0
 
 
-def header_field(path, field):
+def header_text(path, field):
     try:
         done = subprocess.run(["vipsheader", "-f", field, path], stdin=subprocess.DEVNULL, capture_output=True,
                               timeout=TOOL_TIMEOUT_SECONDS)
@@ -290,10 +297,20 @@ def header_field(path, field):
         raise LimitHit()
     if done.returncode != 0:
         return None
+    return done.stdout.strip()[:64].decode("ascii", "replace")
+
+
+def header_field(path, field):
+    text = header_text(path, field)
     try:
-        return int(done.stdout.strip()[:20])
+        return int(text[:20]) if text is not None else None
     except ValueError:
         return None
+
+
+def loader_matches(fmt, path):
+    """True when libvips opens the file with the loader of the format detected from its bytes."""
+    return header_text(path, "vips-loader") in LOADERS.get(fmt, set())
 
 
 def normalize(workdir, source, data):
@@ -306,6 +323,8 @@ def normalize(workdir, source, data):
         return {"status": "REJECTED", "code": "UNREADABLE"}
     if reason:
         return {"status": "REJECTED", "code": reason}
+    if not loader_matches(fmt, source):
+        return {"status": "REJECTED", "code": "UNSUPPORTED_FORMAT"}
     width, height = header_field(source, "width"), header_field(source, "height")
     if not width or not height:
         return {"status": "REJECTED", "code": "UNREADABLE"}
@@ -328,17 +347,73 @@ def normalize(workdir, source, data):
     return {"status": "OK", "code": fmt, "width": width, "height": height, "variants": variants}
 
 
+def write_source(workdir, data):
+    source = os.path.join(workdir, secrets.token_hex(16))
+    descriptor = os.open(source, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "wb") as handle:
+        handle.write(data)
+    return source
+
+
+def answer(workdir, result):
+    """SVP1, the result JSON and the bytes of each variant it names, on stdout."""
+    encoded = json.dumps(result).encode("ascii")
+    out = sys.stdout.buffer
+    out.write(MAGIC_CHILD + struct.pack(">I", len(encoded)) + encoded)
+    for variant in result.get("variants", []) if result.get("status") == "OK" else []:
+        with open(os.path.join(workdir, variant["file"]), "rb") as handle:
+            data = handle.read()
+        out.write(struct.pack(">I", len(data)) + data)
+    out.flush()
+
+
 def main():
-    op, workdir, source = sys.argv[1], sys.argv[2], sys.argv[3]
+    op, workdir = sys.argv[1], sys.argv[2]
+    data = sys.stdin.buffer.read(MAX_SOURCE_BYTES + 1)
+    source = write_source(workdir, data)
     if op == "test-sleep":
         import time
         time.sleep(3600)
     if op == "test-memory":
         hog = bytearray(4 * 1024 * 1024 * 1024)
         hog[-1] = 1
-    with open(source, "rb") as handle:
-        data = handle.read()
-    if op == "detect":
+    if op == "test-daemon":
+        # a run that leaves a process behind: the supervisor ends it before the slot is used again
+        subprocess.Popen(["sleep", "3600"], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+        result = {"status": "OK", "code": "DAEMON"}
+    elif op == "test-hostile":
+        # a leftover that kills every other process of its uid, the reset helper included (security review M-1)
+        killer = "\n".join([
+            "import os, time",
+            "spared = {os.getpid(), os.getppid()}",
+            "end = time.time() + 60",
+            "while time.time() < end:",
+            "    for p in os.listdir('/proc'):",
+            "        if p.isdigit() and int(p) not in spared:",
+            "            try:",
+            "                os.kill(int(p), 9)",
+            "            except OSError:",
+            "                pass",
+            "    time.sleep(0.002)",
+        ])
+        subprocess.Popen([sys.executable, "-I", "-c", killer], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                         stderr=subprocess.DEVNULL, start_new_session=True)
+        result = {"status": "OK", "code": "HOSTILE"}
+    elif op == "test-deep-tree":
+        # files left deep in a nest of directories, one of them without permissions (security review M-1)
+        path = workdir
+        for _ in range(1500):
+            path = os.path.join(path, "d")
+            os.mkdir(path)
+        with open(os.path.join(path, "left"), "w") as handle:
+            handle.write("left")
+        os.chmod(os.path.join(workdir, "d", "d"), 0)
+        result = {"status": "OK", "code": "DEEP"}
+    elif op == "test-bad-output":
+        # a result the supervisor cannot pack: dimensions out of range and of the wrong type (N-2)
+        result = {"status": "OK", "code": "JPEG", "width": 2 ** 40, "height": [1], "variants": []}
+    elif op == "detect":
         fmt = detect(data)
         result = {"status": "OK", "code": fmt} if fmt else {"status": "REJECTED", "code": "UNSUPPORTED_FORMAT"}
     else:
@@ -346,8 +421,7 @@ def main():
             result = normalize(workdir, source, data)
         except LimitHit:
             sys.exit(3)
-    with open(os.path.join(workdir, "result.json"), "w") as handle:
-        json.dump(result, handle)
+    answer(workdir, result)
 
 
 if __name__ == "__main__":

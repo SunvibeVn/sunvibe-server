@@ -233,6 +233,86 @@ class MediaUploadHttpStackPostgresTest {
 		assertEquals("AWAITING_CONTENT", status(id), "refused before the claim");
 	}
 
+	/**
+	 * survey-media spec 5.4 (the commit re-checks 2 to 11, code review M1, SV-069): the A-27 cap reached while the body
+	 * streams refuses the commit with 429 field expensive; the claim is released and nothing is attached.
+	 */
+	@Test
+	void expensiveCapReachedWhileStreaming_commit429ExpensiveNothingAttached() throws Exception {
+		TestUser capped = survey.user("Stack Late Capped Sale", "SALE");
+		Visit visit = checklists.visited(leader, capped);
+		String checklistId = checklists.started(capped, visit.appointmentId());
+		String id = media.created(capped, checklistId, PHOTO);
+
+		try (RawUpload upload = media.openUpload(capped, id, PHOTO.length, MediaApiTestSupport.digest(PHOTO))) {
+			upload.send(Arrays.copyOf(PHOTO, 1024 * 1024));
+			awaitStatus(id, "RECEIVING");
+			Instant hour = Instant.now().truncatedTo(ChronoUnit.HOURS);
+			for (Instant start : List.of(hour, hour.plus(Duration.ofHours(1)))) {
+				jdbc.update("insert into survey_media_read_budgets (user_id, hour_start, kind, read_count) values (?,"
+						+ " ?, 'EXPENSIVE', 20)", capped.userId(), Timestamp.from(start));
+			}
+			upload.send(Arrays.copyOfRange(PHOTO, 1024 * 1024, PHOTO.length));
+			Map<String, String> answer = upload.answer(30_000);
+			assertEquals("429", answer.get(":status"), answer.toString());
+			String body = upload.answerBody(5_000);
+			assertTrue(body.contains("\"code\":\"RATE_LIMITED\"") && body.contains("\"field\":\"expensive\""), body);
+		} finally {
+			jdbc.update("delete from survey_media_read_budgets where user_id = ?", capped.userId());
+		}
+
+		assertEquals("AWAITING_CONTENT", status(id), "nothing attached: the claim is released");
+		assertEquals(0, jdbc.queryForObject("select count(*) from survey_media where id = ? and source_storage_key is"
+				+ " not null", Integer.class, id));
+		assertEquals(List.of(), checklists.activities(visit.leadId(), "CHECKLIST_MEDIA_ADDED"));
+	}
+
+	/**
+	 * survey-media security re-review (SV-069; keeps SV-030 resolved): a body read that fails because the client ended
+	 * the body early answers the ADR-010 envelope, never Spring Boot's default error body with its path.
+	 */
+	@Test
+	void contentBodyEndsEarly_answersEnvelopeWithoutPath() throws Exception {
+		Draft draft = draft(saleA);
+		String id = media.created(saleA, draft.id(), PHOTO);
+
+		try (RawUpload upload = media.openUpload(saleA, id, PHOTO.length, MediaApiTestSupport.digest(PHOTO))) {
+			upload.send(Arrays.copyOf(PHOTO, 1024 * 1024));
+			awaitStatus(id, "RECEIVING");
+			upload.halfClose();
+			Map<String, String> answer = upload.answer(30_000);
+			String body = upload.answerBody(5_000);
+
+			assertEquals("400", answer.get(":status"), answer + " " + body);
+			assertTrue(body.contains("\"code\":\"MALFORMED_REQUEST\"") && body.contains("\"field\":\"body\"")
+					&& body.contains("\"correlationId\":"), body);
+			assertFalse(body.contains("\"path\"") || body.contains("\"timestamp\""), body);
+		}
+		assertEquals("AWAITING_CONTENT", status(id), "the claim is released");
+	}
+
+	/** As above for a JSON body whose chunked framing breaks while it is read (the 16 KiB body filter's stream). */
+	@Test
+	void jsonBodyWithBrokenChunks_answersEnvelopeWithoutPath() throws Exception {
+		Draft draft = draft(saleA);
+		try (java.net.Socket socket = new java.net.Socket("localhost", port)) {
+			socket.setSoTimeout(10_000);
+			String head = "POST " + ChecklistApiTestSupport.CHECKLISTS + "/" + draft.id() + "/media HTTP/1.1\r\n"
+					+ "Host: localhost\r\nAuthorization: Bearer " + saleA.secret() + "\r\n"
+					+ "Content-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n"
+					+ "5\r\n{\"upl\r\nzz-not-a-chunk-size\r\n";
+			socket.getOutputStream().write(head.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+			socket.getOutputStream().flush();
+			socket.shutdownOutput();
+			String answer = new String(socket.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+
+			assertTrue(answer.startsWith("HTTP/1.1 400"), answer);
+			assertTrue(answer.contains("\"code\":\"MALFORMED_REQUEST\"") && answer.contains("\"field\":\"body\"")
+					&& answer.contains("\"correlationId\":"), answer);
+			assertFalse(answer.contains("\"path\"") || answer.contains("\"timestamp\""), answer);
+		}
+	}
+
 	// ==================== SM-20 ====================
 
 	@Test

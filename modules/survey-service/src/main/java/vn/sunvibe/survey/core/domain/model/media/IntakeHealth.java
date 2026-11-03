@@ -8,7 +8,7 @@ import java.time.Instant;
  * adapter mirrors in SQL. Every failure bumps {@code failureSeq}; a pause bumps {@code stateEpoch} only when intake
  * was open; a resume needs the {@code failureSeq} read before the sweep's probes, so a failure during the sweep is
  * never overwritten. {@code scanBlockedSince} is set by a wrong scanner answer and cleared only by a passing scanner
- * probe, independently of the pause.
+ * probe, independently of the pause. The probe verdicts are applied by MediaProbeRunner through the repository.
  */
 public record IntakeHealth(long failureSeq, long stateEpoch, Instant lastSweepOkAt, Instant lastProbeOkAt,
                            Instant lastFailureAt, Instant lastWorkerBeatAt, Instant lastDeletionBeatAt,
@@ -65,28 +65,5 @@ public record IntakeHealth(long failureSeq, long stateEpoch, Instant lastSweepOk
         }
         return new IntakeHealth(failureSeq, stateEpoch + 1, now, lastProbeOkAt, lastFailureAt, lastWorkerBeatAt,
                 lastDeletionBeatAt, scanBlockedSince, null, null);
-    }
-
-    /**
-     * The verdict of one probe run (spec A-18): a pass records the probe time (a scanner pass also clears the scan
-     * block); a wrong answer pauses at once (a scanner one also blocks scans); an incomplete run bumps
-     * {@code failureSeq} and pauses only when the previous run of that probe on this instance was incomplete too.
-     */
-    public IntakeHealth afterProbe(ProbeKind kind, ProbeResult result, boolean previousRunIncomplete, Instant now) {
-        return switch (result) {
-            case PASSED -> new IntakeHealth(failureSeq, stateEpoch, lastSweepOkAt, now, lastFailureAt,
-                    lastWorkerBeatAt, lastDeletionBeatAt, kind == ProbeKind.SCANNER ? null : scanBlockedSince,
-                    intakePausedSince, pauseReason);
-            case WRONG_ANSWER -> {
-                IntakeHealth paused = failure(kind.pauseReason(), now);
-                yield kind != ProbeKind.SCANNER || paused.scanBlocked() ? paused : paused.withScanBlockedSince(now);
-            }
-            case INCOMPLETE -> failure(previousRunIncomplete ? kind.pauseReason() : null, now);
-        };
-    }
-
-    private IntakeHealth withScanBlockedSince(Instant since) {
-        return new IntakeHealth(failureSeq, stateEpoch, lastSweepOkAt, lastProbeOkAt, lastFailureAt,
-                lastWorkerBeatAt, lastDeletionBeatAt, since, intakePausedSince, pauseReason);
     }
 }

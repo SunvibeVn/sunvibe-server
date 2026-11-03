@@ -22,13 +22,25 @@ services:
     networks:
       - media-scanning
 
+  # The only part with egress, writing the signatures clamd trusts (security review M-4, SV-069): the image's clamav
+  # user (100:101), every capability dropped, a read-only root with its log and temporary files on tmpfs, limits.
   freshclam:
     image: clamav/clamav:1.5.4@sha256:6d87c712e3391e13c1ba6e05dfb074d4b1ddb5a6834b23bb9da990d2a4ef042a
     entrypoint: ["freshclam", "--daemon", "--foreground", "--checks=12"]
+    user: "100:101"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,uid=100,gid=101
+      - /var/log/clamav:size=16m,uid=100,gid=101
     volumes:
       - signatures:/var/lib/clamav
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 32
+    # its database test loads a whole new database as clamd does (TestDatabases): the same headroom as clamd
+    mem_limit: 3g
     restart: unless-stopped
     networks:
       - updates

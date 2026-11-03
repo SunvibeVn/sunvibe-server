@@ -101,65 +101,6 @@ class IntakeHealthTest {
     }
 
     @Test
-    void firstIncompleteProbe_bumpsSeqWithoutPause() {
-        IntakeHealth after = open().afterProbe(ProbeKind.STORE, ProbeResult.INCOMPLETE, false, T0.plusSeconds(5));
-
-        assertEquals(4, after.failureSeq());
-        assertFalse(after.paused());
-    }
-
-    @Test
-    void secondIncomplete_pauses() {
-        IntakeHealth after = open().afterProbe(ProbeKind.PROCESSOR, ProbeResult.INCOMPLETE, true,
-                T0.plusSeconds(5));
-
-        assertTrue(after.paused());
-        assertEquals(PauseReason.PROCESSOR, after.pauseReason());
-        assertFalse(after.scanBlocked());
-    }
-
-    @Test
-    void wrongAnswer_pausesAtOnce() {
-        IntakeHealth store = open().afterProbe(ProbeKind.STORE, ProbeResult.WRONG_ANSWER, false, T0.plusSeconds(5));
-        IntakeHealth scanner = open().afterProbe(ProbeKind.SCANNER, ProbeResult.WRONG_ANSWER, false,
-                T0.plusSeconds(5));
-
-        assertEquals(PauseReason.STORE, store.pauseReason());
-        assertFalse(store.scanBlocked());
-        assertEquals(PauseReason.SCANNER, scanner.pauseReason());
-        assertTrue(scanner.scanBlocked());
-        assertEquals(T0.plusSeconds(5), scanner.scanBlockedSince());
-    }
-
-    @Test
-    void scanBlocked_clearedOnlyByPassingScannerProbe() {
-        IntakeHealth blocked = open().afterProbe(ProbeKind.SCANNER, ProbeResult.WRONG_ANSWER, false,
-                T0.plusSeconds(5));
-
-        IntakeHealth afterStore = blocked.afterProbe(ProbeKind.STORE, ProbeResult.PASSED, false, T0.plusSeconds(6));
-        IntakeHealth afterResume = afterStore.resumed(afterStore.failureSeq(), T0.plusSeconds(7));
-        IntakeHealth afterIncompleteScanner = afterResume.afterProbe(ProbeKind.SCANNER, ProbeResult.INCOMPLETE,
-                false, T0.plusSeconds(8));
-        IntakeHealth afterScanner = afterIncompleteScanner.afterProbe(ProbeKind.SCANNER, ProbeResult.PASSED, false,
-                T0.plusSeconds(9));
-
-        assertTrue(afterStore.scanBlocked());
-        assertTrue(afterResume.scanBlocked());
-        assertTrue(afterIncompleteScanner.scanBlocked());
-        assertFalse(afterScanner.scanBlocked());
-        assertEquals(T0.plusSeconds(5), afterResume.scanBlockedSince());
-    }
-
-    @Test
-    void passingProbe_recordsTheProbeTimeAndChangesNoPause() {
-        IntakeHealth after = paused(PauseReason.STORE).afterProbe(ProbeKind.STORE, ProbeResult.PASSED, false,
-                T0.plusSeconds(9));
-
-        assertEquals(T0.plusSeconds(9), after.lastProbeOkAt());
-        assertTrue(after.paused());
-    }
-
-    @Test
     void sweepStale_whenNeverSweptOrOlderThanTenMinutes() {
         assertTrue(IntakeHealth.seed(T0).sweepStale(T0));
         assertFalse(open().sweepStale(T0.plus(Duration.ofMinutes(10))));

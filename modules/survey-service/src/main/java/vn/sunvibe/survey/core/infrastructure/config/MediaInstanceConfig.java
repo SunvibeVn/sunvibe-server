@@ -11,6 +11,7 @@ public class MediaInstanceConfig {
 
     @Bean
     MediaInstanceSettings mediaInstanceSettings(MediaProperties media) {
-        return new MediaInstanceSettings(media.getInstanceId(), media.getBodies().getPerInstance());
+        return new MediaInstanceSettings(media.getInstanceId(), media.getBodies().getPerUser(),
+                media.getBodies().getPerInstance());
     }
 }

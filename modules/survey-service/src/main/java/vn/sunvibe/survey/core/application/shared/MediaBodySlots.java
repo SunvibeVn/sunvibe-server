@@ -61,7 +61,7 @@ public class MediaBodySlots {
         Long slotId = ownTransaction.execute(status -> {
             counters.lockUser(userId);
             Instant now = clock.now();
-            if (MediaLimits.bodiesFull(slots.countLive(userId, now))) {
+            if (MediaLimits.bodiesFull(slots.countLive(userId, now), instance.bodiesPerUser())) {
                 throw new MediaRateLimitedException("bodies", RETRY_AFTER_SECONDS);
             }
             return slots.take(userId, instance.instanceId(), now, now.plus(SLOT_LIFETIME));
