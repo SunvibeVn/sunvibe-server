@@ -54,6 +54,11 @@ class R2MediaObjectStoreContractTest extends MediaObjectStoreContract {
 		return broken;
 	}
 
+	@Override
+	protected int servingConnections() {
+		return 32;
+	}
+
 	private static String required(String name) {
 		String value = System.getenv(name);
 		if (value == null || value.isBlank()) {

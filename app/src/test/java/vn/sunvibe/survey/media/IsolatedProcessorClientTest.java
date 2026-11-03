@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -109,6 +110,18 @@ class IsolatedProcessorClientTest {
 				Duration.ofSeconds(1), Duration.ofSeconds(1));
 		assertThrows(ProcessorUnavailableException.class, () -> dead.normalize(new ByteArrayInputStream(new byte[1]),
 				1));
+	}
+
+	/** survey-media SV-069 (security, with I-1): a processor that stops reading the source ends the call by the timeout. */
+	@Test
+	void peerStopsReading_normalizeUnavailableWithinTimeout() throws Exception {
+		try (ClamAvScannerTest.NonReadingPeer stalled = new ClamAvScannerTest.NonReadingPeer()) {
+			IsolatedProcessorClient stalledClient = new IsolatedProcessorClient("127.0.0.1", stalled.port(),
+					"dev-8.16.1", Duration.ofSeconds(1), Duration.ofSeconds(1));
+
+			assertTimeoutPreemptively(Duration.ofSeconds(20), () -> assertThrows(ProcessorUnavailableException.class,
+					() -> stalledClient.normalize(ClamAvScannerTest.endless(20L * 1024 * 1024), 20L * 1024 * 1024)));
+		}
 	}
 
 	@Test

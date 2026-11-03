@@ -16,8 +16,6 @@ public final class MediaLimits {
     public static final int MAX_RECORDS_PER_HOUR = 300;
     /** spec A-3: at most 3 GiB of declared size per user per rolling hour. */
     public static final long MAX_BYTES_PER_HOUR = 3L * 1024 * 1024 * 1024;
-    /** spec A-3: at most 3 content bodies per user at once. */
-    public static final int MAX_BODIES_PER_USER = 3;
     /** spec A-27: at most 20 expensive outcomes per uploader per hour. */
     public static final int MAX_EXPENSIVE_PER_HOUR = 20;
 
@@ -46,9 +44,9 @@ public final class MediaLimits {
         return Optional.empty();
     }
 
-    /** spec A-3: true when the user already has all content bodies in use. */
-    public static boolean bodiesFull(int bodiesInUse) {
-        return bodiesInUse >= MAX_BODIES_PER_USER;
+    /** survey-media spec A-3: true when the user has all content bodies in use (3 by default, spec 9 setting). */
+    public static boolean bodiesFull(int bodiesInUse, int bodiesPerUser) {
+        return bodiesInUse >= bodiesPerUser;
     }
 
     /** spec A-27: true when the uploader reached the expensive outcomes of the hour. */

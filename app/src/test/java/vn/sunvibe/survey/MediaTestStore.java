@@ -32,6 +32,11 @@ public final class MediaTestStore implements MediaObjectStore {
 	public final AtomicBoolean emptyMediaBucket = new AtomicBoolean();
 	/** Listings of one photo's prefix answer nothing while the bucket listing still answers. */
 	public final AtomicBoolean emptyPhotoPrefixes = new AtomicBoolean();
+	/**
+	 * When at least 0, listings of the media bucket answer this many pages as if more followed, then fail like a store
+	 * that stops answering in the middle of a run.
+	 */
+	public final AtomicInteger mediaPagesBeforeListFailure = new AtomicInteger(-1);
 	/** Serving streams give at most 64 KB per 200 ms, like a slow store stream that still makes progress. */
 	public final AtomicBoolean slowServing = new AtomicBoolean();
 	/** The streams served since the last {@link #reset()}, in order; a stream of an earlier test is never in it. */
@@ -51,6 +56,7 @@ public final class MediaTestStore implements MediaObjectStore {
 		emptyMediaBucket.set(false);
 		emptyPhotoPrefixes.set(false);
 		slowServing.set(false);
+		mediaPagesBeforeListFailure.set(-1);
 		served.clear();
 	}
 
@@ -153,6 +159,12 @@ public final class MediaTestStore implements MediaObjectStore {
 		if (bucket == Bucket.MEDIA && (emptyMediaBucket.get()
 				|| (emptyPhotoPrefixes.get() && prefix.matches("media/[^/]+/")))) {
 			return new ObjectPage(java.util.List.of(), false);
+		}
+		if (bucket == Bucket.MEDIA && mediaPagesBeforeListFailure.get() >= 0) {
+			if (mediaPagesBeforeListFailure.getAndDecrement() == 0) {
+				throw new StoreUnavailableException(StoreUnavailableException.SERVER_ERROR);
+			}
+			return new ObjectPage(real.list(bucket, prefix, startAfterOrNull, maxKeys).objects(), true);
 		}
 		return real.list(bucket, prefix, startAfterOrNull, maxKeys);
 	}

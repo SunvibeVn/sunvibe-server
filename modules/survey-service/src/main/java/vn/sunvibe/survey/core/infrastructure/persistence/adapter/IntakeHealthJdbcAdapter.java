@@ -36,7 +36,8 @@ public class IntakeHealthJdbcAdapter implements IntakeHealthRepository {
             + " pause_reason = COALESCE(pause_reason, :reason) WHERE id = 1";
     static final String SET_SCAN_BLOCKED = "UPDATE survey_media_health"
             + " SET scan_blocked_since = COALESCE(scan_blocked_since, :now) WHERE id = 1";
-    static final String CLEAR_SCAN_BLOCKED = "UPDATE survey_media_health SET scan_blocked_since = NULL WHERE id = 1";
+    static final String PROBE_PASSED = "UPDATE survey_media_health SET last_probe_ok_at = :now,"
+            + " scan_blocked_since = CASE WHEN :clearScanBlock THEN NULL ELSE scan_blocked_since END WHERE id = 1";
     static final String RESUME_IF = "UPDATE survey_media_health SET intake_paused_since = NULL, pause_reason = NULL,"
             + " state_epoch = state_epoch + 1, last_sweep_ok_at = :now"
             + " WHERE id = 1 AND failure_seq = :seqAtStart AND intake_paused_since IS NOT NULL";
@@ -72,8 +73,8 @@ public class IntakeHealthJdbcAdapter implements IntakeHealthRepository {
     }
 
     @Override
-    public void clearScanBlocked() {
-        write(CLEAR_SCAN_BLOCKED, new MapSqlParameterSource());
+    public void recordProbePassed(boolean clearScanBlock, Instant appNow) {
+        write(PROBE_PASSED, new MapSqlParameterSource("now", time(appNow)).addValue("clearScanBlock", clearScanBlock));
     }
 
     @Override

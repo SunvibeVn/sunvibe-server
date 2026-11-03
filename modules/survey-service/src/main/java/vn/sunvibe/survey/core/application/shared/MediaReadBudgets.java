@@ -17,8 +17,9 @@ import vn.sunvibe.survey.core.domain.policy.media.ReadBudgetArithmetic;
 import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
 
 /**
- * The per-user hourly read budgets (survey-media spec A-26): FULL 600, PREVIEW 1,200, THUMBNAIL 6,000 and the media
- * list 1,200 an hour, in fixed clock hours with a weighted carry-over of the previous hour. Counted in the database in a
+ * The per-user hourly read budgets (survey-media spec A-26, {@link MediaReadBudgetLimits}; by default FULL 600, PREVIEW
+ * 1,200, THUMBNAIL 6,000 and the media list 1,200 an hour), in fixed clock hours with a weighted carry-over of the
+ * previous hour. Counted in the database in a
  * short READ COMMITTED transaction of its own, never inside a list's repeatable-read snapshot, so the budgets are per
  * user whatever the number of instances. The first refusal of a user, kind and hour writes the one BUDGET_EXCEEDED
  * event in that transaction.
@@ -32,25 +33,17 @@ public class MediaReadBudgets {
     private final SecurityEventRecorder events;
     private final MediaClock clock;
     private final TransactionTemplate ownTransaction;
+    private final MediaReadBudgetLimits limits;
 
     public MediaReadBudgets(MediaCountersRepository counters, SecurityEventRecorder events, MediaClock clock,
-                            PlatformTransactionManager transactionManager) {
+                            PlatformTransactionManager transactionManager, MediaReadBudgetLimits limits) {
         this.counters = counters;
         this.events = events;
         this.clock = clock;
         this.ownTransaction = new TransactionTemplate(transactionManager);
         this.ownTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.ownTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-    }
-
-    /** spec A-26: the hourly budget of a kind of read. */
-    public static long budgetOf(MediaCounterKind kind) {
-        return switch (kind) {
-            case FULL -> 600;
-            case PREVIEW, LIST -> 1_200;
-            case THUMBNAIL -> 6_000;
-            case EXPENSIVE, PROC_MS -> throw new IllegalArgumentException(kind + " is no read budget");
-        };
+        this.limits = limits;
     }
 
     /**
@@ -64,7 +57,7 @@ public class MediaReadBudgets {
         Instant hourStart = ReadBudgetArithmetic.hourStart(now);
         Boolean allowed = ownTransaction.execute(status -> {
             long previous = counters.counterValue(userId, hourStart.minus(HOUR), kind);
-            long effective = ReadBudgetArithmetic.effectiveLimit(budgetOf(kind), previous, now);
+            long effective = ReadBudgetArithmetic.effectiveLimit(limits.of(kind), previous, now);
             if (!ReadBudgetArithmetic.refusesWithoutCounting(effective)
                     && counters.countIfBelow(userId, hourStart, kind, effective).isPresent()) {
                 return true;

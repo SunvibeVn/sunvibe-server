@@ -32,9 +32,12 @@ public class MediaProperties {
     private final Clamav clamav = new Clamav();
     private final Processor processor = new Processor();
     private final Worker worker = new Worker();
-    /** The private spool of raw bodies (spec A-13); on tmpfs or a volume outside backups (go-live check 9.4). */
+    /**
+     * The private spool of raw bodies (survey-media spec A-13); on tmpfs or a volume outside backups (go-live check
+     * 9.4). Each instance keeps its bodies in a subdirectory named by its instance id, so instances may share it.
+     */
     private String spoolDir = System.getProperty("java.io.tmpdir") + "/sunvibe-media-spool";
-    /** plan PD-12: this instance's id in body slots and error logs; a ULID per start unless configured. */
+    /** plan PD-12: this instance's id in body slots, error logs and its spool directory; by default a new ULID. */
     private String instanceId = UlidCreator.getMonotonicUlid().toString();
     private final Reads reads = new Reads();
     private final Budgets budgets = new Budgets();

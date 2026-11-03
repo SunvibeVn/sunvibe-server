@@ -169,8 +169,26 @@ class IntakeHealthPostgresTest extends MediaApiTestBase {
 		assertEquals(PauseReason.STORE, row.pauseReason());
 		health.resumeIf(row.failureSeq(), T.plusSeconds(3));
 		assertTrue(health.read().scanBlocked());
-		health.clearScanBlocked();
+		health.recordProbePassed(false, T.plusSeconds(4));
+		assertTrue(health.read().scanBlocked(), "a passing store or processor probe keeps the scan block");
+		health.recordProbePassed(true, T.plusSeconds(5));
 		assertFalse(health.read().scanBlocked());
+	}
+
+	/** spec 5.2, A-18 (code review M3, SV-069): a passing probe writes its time and changes nothing else. */
+	@Test
+	void probePassed_writesLastProbeOkAt_keepsPauseAndSequence() {
+		health.recordFailure(PauseReason.STORE, true, T);
+		IntakeHealth before = health.read();
+
+		health.recordProbePassed(false, T.plusSeconds(7));
+
+		IntakeHealth row = health.read();
+		assertEquals(T.plusSeconds(7), row.lastProbeOkAt());
+		assertEquals(before.failureSeq(), row.failureSeq());
+		assertEquals(before.stateEpoch(), row.stateEpoch());
+		assertEquals(before.intakePausedSince(), row.intakePausedSince());
+		assertEquals(PauseReason.STORE, row.pauseReason());
 	}
 
 	@Test

@@ -356,6 +356,8 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
                                                    ContentClaim claim, long sizeBytes) {
         Instant now = clock.now();
         CommandContext context = mediaContext(viewer, target);
+        // survey-media spec 5.4 (3b), A-27: the cap of expensive outcomes may have been reached while the body streamed
+        limits.requireExpensiveBelowCap(viewer.userId(), now);
         SurveyChecklist checklist = context.checklist();
         if (!viewer.userId().equals(checklist.getHolderUserId())) {
             throw new ChecklistTakeoverRequiredException();

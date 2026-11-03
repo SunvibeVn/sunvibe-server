@@ -181,6 +181,42 @@ class MediaProbeRunnerTest {
         assertEquals(0, normalizer.probes.get());
     }
 
+    /**
+     * spec 5.2, A-18 (code review M3, SV-069): a passing probe records its time for the operators and changes no pause;
+     * a passing store probe keeps the scan block, only a passing scanner probe clears it.
+     */
+    @Test
+    void passingProbe_recordsProbeTimeKeepsPause_storePassKeepsScanBlock() {
+        scanner.result = ProbeResult.WRONG_ANSWER;
+        now.set(T0.plusSeconds(10));
+        runner.runAll();
+        scanner.result = ProbeResult.PASSED;
+
+        now.set(T0.plusSeconds(90));
+        runner.requestStoreProbe();
+        runner.poll();
+
+        assertEquals(T0.plusSeconds(90), health.row.lastProbeOkAt());
+        assertNotNull(health.row.intakePausedSince(), "a passing probe never resumes intake (only a sweep does)");
+        assertNotNull(health.row.scanBlockedSince(), "a passing store probe keeps the scan block");
+
+        store.failProbe = true;
+        now.set(T0.plusSeconds(160));
+        runner.requestStoreProbe();
+        runner.poll();
+        store.failProbe = false;
+
+        assertEquals(T0.plusSeconds(90), health.row.lastProbeOkAt(), "a failing probe records no probe time");
+
+        now.set(T0.plusSeconds(200));
+        runner.requestScannerProbe();
+        runner.poll();
+
+        assertEquals(T0.plusSeconds(200), health.row.lastProbeOkAt());
+        assertNull(health.row.scanBlockedSince());
+        assertNotNull(health.row.intakePausedSince());
+    }
+
     @Test
     void allPassing_runAllTrue_noFailure() {
         assertTrue(runner.runAll());

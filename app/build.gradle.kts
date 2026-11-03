@@ -44,6 +44,10 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    // A failure shows its message and cause in the build output, also on the CI runner (SV-068, SV-069)
+    testLogging {
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
     // The API tests keep about twenty Spring contexts, each with its own PostgreSQL container, plus the checklist
     // limits test's 50-space answers: more than Gradle's default 512 MB test heap holds
     maxHeapSize = "1g"

@@ -91,8 +91,8 @@ class IntakeGateTest {
         }
 
         @Override
-        public void clearScanBlocked() {
-            calls.add("scanCleared");
+        public void recordProbePassed(boolean clearScanBlock, Instant appNow) {
+            calls.add("probePassed");
         }
 
         @Override

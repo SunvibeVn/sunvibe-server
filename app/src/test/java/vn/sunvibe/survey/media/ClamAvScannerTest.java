@@ -3,6 +3,7 @@ package vn.sunvibe.survey.media;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -115,6 +116,17 @@ class ClamAvScannerTest {
 				Duration.ofSeconds(1)).scan(sample("x")));
 	}
 
+	/** survey-media SV-069 (security, with I-1): a clamd that stops reading the stream ends the scan by the timeout. */
+	@Test
+	void peerStopsReading_scanEndsAsSilenceWithinTimeout() throws Exception {
+		try (NonReadingPeer stalled = new NonReadingPeer()) {
+			ClamAvScanner stalledScanner = new ClamAvScanner("127.0.0.1", stalled.port(), null, Duration.ofSeconds(1));
+
+			assertTimeoutPreemptively(Duration.ofSeconds(20), () -> assertThrows(ScannerSilentException.class,
+					() -> stalledScanner.scan(endless(256L * 1024 * 1024))));
+		}
+	}
+
 	@Test
 	void version_parsesSignatureDate() {
 		clamd.version("ClamAV 1.4.1/27450/Mon Oct  3 08:24:01 2026");
@@ -179,5 +191,62 @@ class ClamAvScannerTest {
 		try (ServerSocket socket = new ServerSocket(0)) {
 			return socket.getLocalPort();
 		}
+	}
+	/** A peer that takes the connection and never reads it, so the client's writes block once the buffers are full. */
+	static final class NonReadingPeer implements AutoCloseable {
+
+		private final ServerSocket server;
+		private final java.util.List<java.net.Socket> accepted = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+		NonReadingPeer() throws IOException {
+			server = new ServerSocket();
+			server.setReceiveBufferSize(4 * 1024);
+			server.bind(new java.net.InetSocketAddress(java.net.InetAddress.getLoopbackAddress(), 0));
+			Thread acceptor = new Thread(() -> {
+				try {
+					while (true) {
+						accepted.add(server.accept());
+					}
+				} catch (IOException e) {
+					// closed
+				}
+			});
+			acceptor.setDaemon(true);
+			acceptor.start();
+		}
+
+		int port() {
+			return server.getLocalPort();
+		}
+
+		@Override
+		public void close() throws IOException {
+			server.close();
+			for (java.net.Socket socket : accepted) {
+				socket.close();
+			}
+		}
+	}
+
+	/** {@code length} bytes made on demand. */
+	static java.io.InputStream endless(long length) {
+		return new java.io.InputStream() {
+			private long left = length;
+
+			@Override
+			public int read() {
+				return left-- > 0 ? 0 : -1;
+			}
+
+			@Override
+			public int read(byte[] buffer, int offset, int count) {
+				if (left <= 0) {
+					return -1;
+				}
+				int n = (int) Math.min(count, left);
+				left -= n;
+				return n;
+			}
+		};
 	}
 }

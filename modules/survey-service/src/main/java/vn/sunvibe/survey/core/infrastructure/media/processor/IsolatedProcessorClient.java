@@ -7,6 +7,7 @@ import vn.sunvibe.survey.core.domain.model.media.ProbeResult;
 import vn.sunvibe.survey.core.domain.model.media.SourceFormat;
 import vn.sunvibe.survey.core.domain.model.media.VariantKind;
 import vn.sunvibe.survey.core.domain.policy.media.VariantJpegCheck;
+import vn.sunvibe.survey.core.infrastructure.media.WriteDeadline;
 import vn.sunvibe.survey.core.infrastructure.media.scan.ScanSamples;
 
 import java.io.ByteArrayInputStream;
@@ -61,7 +62,7 @@ public class IsolatedProcessorClient implements ImageNormalizer {
     @Override
     public Optional<SourceFormat> detect(InputStream source, long length) {
         try (Socket socket = open(connectAndDetectTimeout)) {
-            send(socket, OP_DETECT, source, length);
+            send(socket, OP_DETECT, source, length, connectAndDetectTimeout);
             DataInputStream in = new DataInputStream(socket.getInputStream());
             Header header = readHeader(in);
             if (header.status() == OK) {
@@ -83,7 +84,7 @@ public class IsolatedProcessorClient implements ImageNormalizer {
     @Override
     public NormalizeResult normalize(InputStream source, long length) {
         try (Socket socket = open(normalizeTimeout)) {
-            send(socket, OP_NORMALIZE, source, length);
+            send(socket, OP_NORMALIZE, source, length, normalizeTimeout);
             DataInputStream in = new DataInputStream(socket.getInputStream());
             Header header = readHeader(in);
             return switch (header.status()) {
@@ -185,16 +186,20 @@ public class IsolatedProcessorClient implements ImageNormalizer {
         }
     }
 
-    private static void send(Socket socket, int op, InputStream source, long length) throws IOException {
-        DataOutputStream out = new DataOutputStream(socket.getOutputStream());
-        out.write(MAGIC_REQUEST);
-        out.writeByte(op);
-        out.writeInt((int) length);
-        long sent = source.transferTo(out);
-        if (sent != length) {
-            throw new IOException("source length differs");
+    /** One request; a processor that stops reading it fails the call when the timeout passes (SV-069). */
+    private static void send(Socket socket, int op, InputStream source, long length, Duration timeout)
+            throws IOException {
+        try (WriteDeadline sending = WriteDeadline.arm(socket, timeout)) {
+            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+            out.write(MAGIC_REQUEST);
+            out.writeByte(op);
+            out.writeInt((int) length);
+            long sent = source.transferTo(out);
+            if (sent != length) {
+                throw new IOException("source length differs");
+            }
+            out.flush();
         }
-        out.flush();
     }
 
     private static Header readHeader(DataInputStream in) throws IOException {

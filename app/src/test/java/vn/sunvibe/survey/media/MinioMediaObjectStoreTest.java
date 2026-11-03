@@ -82,6 +82,11 @@ class MinioMediaObjectStoreTest extends MediaObjectStoreContract {
 		return broken;
 	}
 
+	@Override
+	protected int servingConnections() {
+		return 2;
+	}
+
 	@Test
 	void getPoolExhausted_answersUnavailableWithin2Seconds() throws Exception {
 		String prefix = prefix();

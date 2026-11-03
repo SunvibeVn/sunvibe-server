@@ -279,6 +279,12 @@ class MediaWorkerPostgresTest extends MediaApiTestBase {
 					"test-fake", Duration.ofSeconds(5), Duration.ofSeconds(10)));
 			MediaProcessingWorker validWorker = worker(new IsolatedProcessorClient("127.0.0.1", valid.port(),
 					"test-fake", Duration.ofSeconds(5), Duration.ofSeconds(10)));
+			// each worker claims any due job: only this test's two may be due when they start (a job of an earlier
+			// test that became due meanwhile would take a worker, SV-069 CI)
+			jdbc.update("update survey_media_jobs set state = 'DONE', lease_token = null where state = 'PENDING'"
+					+ " and media_id not in (?, ?)", one, two);
+			assertEquals(2, jdbc.queryForObject("select count(*) from survey_media_jobs where state = 'PENDING'"
+					+ " and kind = 'PROCESS'", Integer.class), "only this test's jobs are due");
 			CountDownLatch start = new CountDownLatch(1);
 			Future<Boolean> a = pool.submit(() -> {
 				start.await();
@@ -295,9 +301,12 @@ class MediaWorkerPostgresTest extends MediaApiTestBase {
 
 		List<String> statuses = new ArrayList<>(List.of(status(one), status(two)));
 		Collections.sort(statuses);
-		assertEquals(List.of("PROCESSING", "READY"), statuses, "the child's limit hit fails only its own run");
+		String jobs = jdbc.queryForList("select media_id, kind, state, attempts, limit_hits, last_error_code from"
+				+ " survey_media_jobs where kind = 'PROCESS' and (state = 'PENDING' or media_id in (?, ?))", one, two)
+				.toString();
+		assertEquals(List.of("PROCESSING", "READY"), statuses, "the child's limit hit fails only its own run: " + jobs);
 		assertEquals(1, jdbc.queryForObject("select count(*) from survey_media_jobs where media_id in (?, ?)"
-				+ " and limit_hits = 1 and state = 'PENDING'", Integer.class, one, two));
+				+ " and limit_hits = 1 and state = 'PENDING'", Integer.class, one, two), one + " " + two + " " + jobs);
 	}
 
 	// ==================== A-17, SM-3 ====================

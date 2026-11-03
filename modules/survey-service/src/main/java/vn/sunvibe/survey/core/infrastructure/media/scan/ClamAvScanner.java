@@ -3,8 +3,10 @@ package vn.sunvibe.survey.core.infrastructure.media.scan;
 import vn.sunvibe.survey.core.application.shared.external.media.MalwareScanner;
 import vn.sunvibe.survey.core.application.shared.external.media.ScannerSilentException;
 import vn.sunvibe.survey.core.domain.model.media.ProbeResult;
+import vn.sunvibe.survey.core.infrastructure.media.WriteDeadline;
 
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -107,12 +109,15 @@ public class ClamAvScanner implements MalwareScanner {
     private String exchange(String command, Body body) {
         try (Connection connection = connect()) {
             DataOutputStream out = new DataOutputStream(connection.out());
-            out.write((command + "\0").getBytes(StandardCharsets.US_ASCII));
-            try {
-                body.write(out);
-                out.flush();
-            } catch (IOException e) {
-                // clamd may answer (a size limit) and close while the body is still being sent: read that answer
+            // a clamd that stops reading would block a write forever: the request is sent within the timeout (SV-069)
+            try (WriteDeadline sending = WriteDeadline.arm(connection, timeout)) {
+                out.write((command + "\0").getBytes(StandardCharsets.US_ASCII));
+                try {
+                    body.write(out);
+                    out.flush();
+                } catch (IOException e) {
+                    // clamd may answer (a size limit) and close while the body is still being sent: read that answer
+                }
             }
             String reply = readReply(connection.in());
             if (reply.isEmpty()) {
@@ -156,7 +161,7 @@ public class ClamAvScanner implements MalwareScanner {
         void write(DataOutputStream out) throws IOException;
     }
 
-    private record Connection(InputStream in, OutputStream out, AutoCloseable resource) implements AutoCloseable {
+    private record Connection(InputStream in, OutputStream out, AutoCloseable resource) implements Closeable {
 
         @Override
         public void close() throws IOException {

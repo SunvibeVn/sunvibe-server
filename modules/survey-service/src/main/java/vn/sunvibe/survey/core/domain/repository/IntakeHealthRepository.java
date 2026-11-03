@@ -25,8 +25,11 @@ public interface IntakeHealthRepository {
     /** A wrong scanner answer blocks every scan (kept when already blocked). */
     void setScanBlocked(Instant appNow);
 
-    /** A passing scanner probe clears the scan block. */
-    void clearScanBlocked();
+    /**
+     * A passing probe (survey-media spec 5.2, A-18): its time in {@code last_probe_ok_at}; a passing scanner probe also
+     * clears the scan block. No pause changes.
+     */
+    void recordProbePassed(boolean clearScanBlock, Instant appNow);
 
     /**
      * The resume of a complete sweep: only while paused and with the {@code failure_seq} read before the sweep's

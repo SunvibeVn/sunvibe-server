@@ -177,6 +177,11 @@ public final class MediaApiTestSupport {
 			return this;
 		}
 
+		/** Ends the request body here (the client sends no more) while the answer can still be read. */
+		public void halfClose() throws java.io.IOException {
+			socket.shutdownOutput();
+		}
+
 		/** The status line and headers of the answer, lower-case header names, or empty when none came in time. */
 		public Map<String, String> answer(int timeoutMillis) throws java.io.IOException {
 			socket.setSoTimeout(timeoutMillis);

@@ -34,6 +34,7 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.core.application.exception.MediaRateLimitedException;
+import vn.sunvibe.survey.core.application.shared.MediaReadBudgetLimits;
 import vn.sunvibe.survey.core.application.shared.MediaReadBudgets;
 import vn.sunvibe.survey.core.application.shared.SecurityEventRecorder;
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
@@ -153,6 +154,21 @@ class MediaReadBudgetPostgresTest extends MediaApiTestBase {
 		assertEquals(600, count(sale, hour));
 	}
 
+	/** survey-media spec A-26 and 9 (configuration), code review M2 (SV-069): the configured budget is the one enforced. */
+	@Test
+	void configuredListBudgetOfTwo_thirdListRefused() {
+		TestUser sale = userWithoutDraft("Budget Sale Configured");
+		Instant hour = ReadBudgetArithmetic.hourStart(Instant.now()).minus(Duration.ofHours(5));
+		MediaReadBudgets budgets = budgets(hour, new MediaReadBudgetLimits(600, 1_200, 6_000, 2));
+
+		count(budgets, sale);
+		count(budgets, sale);
+
+		MediaRateLimitedException refused = assertThrows(MediaRateLimitedException.class, () -> count(budgets, sale));
+		assertEquals("budget", refused.getField());
+		assertEquals(2, count(sale, hour));
+	}
+
 	@Test
 	void twoInstancesShareBudget() {
 		TestUser sale = userWithoutDraft("Budget Sale Shared");
@@ -247,8 +263,12 @@ class MediaReadBudgetPostgresTest extends MediaApiTestBase {
 	}
 
 	private MediaReadBudgets budgets(Instant at) {
+		return budgets(at, MediaReadBudgetLimits.SPEC);
+	}
+
+	private MediaReadBudgets budgets(Instant at, MediaReadBudgetLimits limits) {
 		Instant fixed = at.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
-		return new MediaReadBudgets(counters, events, () -> fixed, transactionManager);
+		return new MediaReadBudgets(counters, events, () -> fixed, transactionManager, limits);
 	}
 
 	private void count(MediaReadBudgets budgets, TestUser sale) {
