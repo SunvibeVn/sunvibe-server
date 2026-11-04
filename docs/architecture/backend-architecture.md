@@ -89,18 +89,24 @@ modules/{module-name}/src/main/java/vn/sunvibe/{module}/core/
     └── utils/            # Utility classes
 ```
 
-### Variants in use (observed 2026-10-13)
+### Variants in use (observed 2026-11-05)
 
-| Concern | property-service (matches the reference) | auth-service |
-|---|---|---|
-| Use case implementations | `application/service/<Op>Service` | `application/usecase/<area>/impl/<Op>Service` |
-| Ports to external systems | `application/shared/external/<system>/` | `application/usecase/external/<system>/` |
-| Queries | — | `application/query/<area>/` |
-| Domain ↔ entity mappers | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/converter/{auto,manual}/` (auto = MapStruct) |
-| Security | — | `infrastructure/security/{config,filter,provider,ratelimit,userdetails}` |
+| Concern | property-service (matches the reference) | auth-service | acquisition-service | survey-service |
+|---|---|---|---|---|
+| Use case interfaces | one per operation, `execute(...)`; the area catalog groups named reads (`AdministrativeAreaQueryUseCase`) | per operation or area, mixed method names | per aggregate (`OwnerLeadCommandUseCase`), named methods | per aggregate (`SurveyMediaCommandUseCase`), named methods |
+| Use case implementations | `application/service/<Op>Service`; area catalog in `application/usecase/area/impl/` | `application/usecase/<area>/impl/<Op>Service` | `application/usecase/impl/` | `application/service/` |
+| Ports to external systems | `application/shared/external/<system>/` | `application/usecase/external/<system>/` | `application/shared/external/` | `application/shared/external/` |
+| Queries | — | `application/query/<area>/` | `application/query/` | `application/query/` |
+| Aggregates | `Property` in `domain/model/aggregate/`; `Unit`, `PropertyOwnership` in `domain/model/<concept>/` | `AppUser` in `domain/model/user/aggregate/`; others in `domain/model/auth/` | `domain/model/<concept>/` | `domain/model/<concept>/` |
+| Value objects | extend `ValueObject<T>`, in `domain/model/vo/` | extend `ValueObject<T>`, in `domain/model/user/vo/` | extend `ValueObject<T>`, or records, in `domain/model/<concept>/` | records in `domain/model/<concept>/` |
+| Domain ↔ entity mappers | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/converter/{auto,manual}/` (auto = MapStruct) | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/mapper/manual/` |
+| Security | — | `infrastructure/security/{config,filter,provider,ratelimit,userdetails}` | `infrastructure/security/` (consent hashing only) | — |
 
 **Decision (owner, 2026-10-13): new modules follow the property-service layout (the reference above).**
-auth-service keeps its existing variant; do not restructure it unless a plan says so.
+auth-service keeps its existing variant; do not restructure it unless a plan says so. The acquisition-service and
+survey-service columns record what their approved specs and plans built after that decision: extend those modules in
+their own shape and do not restructure them in passing. Keep this table in step with `.claude/rules/` (upkeep:
+`.claude/rules/README.md`).
 
 ## Dependency rules
 

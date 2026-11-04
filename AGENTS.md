@@ -69,7 +69,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   `BR-8`, and the comment states the rule in words. Tests keep feature-prefixed AC/BR ids and spec ACs (`W9-7`).
 
 ## Hard rules
-- NEVER edit a committed Flyway migration. Add a new one (see .claude/rules/flyway.md).
+- NEVER edit a committed versioned Flyway migration. Add a new one (see .claude/rules/flyway.md).
 - NEVER read or print .env, secrets, or JWT signing keys.
 - NEVER commit a secret: CI gitleaks-scans new commits (.github/workflows/secret-scan.yml). A false positive goes
   into .gitleaksignore as a fingerprint (never the value), only after owner review.
@@ -91,8 +91,9 @@ Each step is its own evidence; a passing compile (the Claude Stop hook) is not a
 2. API changed: ./gradlew exportOpenApi and commit api/openapi.json; a second export leaves it unchanged.
 3. No migration of the base branch changed: bash scripts/ci/check-migration-history.sh origin/main --include-worktree
    (it compares with the fork point; a migration committed earlier on this branch is protected only by review).
-4. Independent review without open Blocker or Major findings, against ../docs/setup/checklists/be-review.md
-   (Claude: code-reviewer, plus security-reviewer / migration-specialist when their triggers apply).
+4. Independent review without open Blocker or Major findings, against ../docs/setup/checklists/be-review.md and
+   .claude/rules/review-policy.md (Claude: code-reviewer, plus security-reviewer / migration-specialist when their
+   triggers apply).
 5. Docs: run /update-docs <module>/<feature> in this session when the feature or fix is finished (it edits ../docs;
    the hub is loaded via --add-dir), unless a flow run (hub scripts/flow) does it in its docs stage. A Stop hook
    reminds you once per session on feature/*, fix/* and rebuild/* branches. Then remind the owner to commit the hub docs.
@@ -104,5 +105,7 @@ a merge depends on GitHub branch protection, which is not assumed here.
   only; as-built = current behavior; impl/ = spec, plan, handoff; latest spec and plan only). Shared module rules:
   ../docs/features/<module>/brief/ if present. Read only the feature you work on.
 - Past bugs: ../docs/known-issues.md
+- Layer, review and security rules: .claude/rules/ (index and upkeep: .claude/rules/README.md). Claude Code loads them
+  by file path; other tools read them directly.
 - Business terms: ../docs/product/glossary.md
 - Auth flow details: ../docs/features/auth/ (original Vietnamese docs: assets/dev_docs/); DB schema notes: docs/dev_docs/database/
