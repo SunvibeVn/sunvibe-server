@@ -76,6 +76,9 @@ public final class MediaSql {
      * spec 4.4 step 3, A-27: the next due PROCESS job, fair by the uploader's processing milliseconds of the hour among
      * the earliest due {@link #CLAIM_WINDOW} pending jobs (read through the partial index on kind and due_at, literal
      * predicates, so done jobs are never scanned), skipping busy uploaders; claimed with SKIP LOCKED.
+     * {@code j.due_at} repeats the due test on the locked row (SV-093): a claim, renewal, retry or deferral moves due_at
+     * while the job stays PENDING, and for a row changed after this statement's snapshot PostgreSQL re-checks only the
+     * conditions on {@code j}, not the inner list, so such a row is skipped for the next candidate.
      */
     public static final String CLAIM_NEXT_PROCESS = "UPDATE survey_media_jobs SET lease_token = :token,"
             + " due_at = :leaseUntil, attempts = attempts + 1, updated_at = :now WHERE id = (SELECT j.id"
@@ -84,7 +87,7 @@ public final class MediaSql {
             + " AND b.hour_start = :hourStart AND b.kind = 'PROC_MS'"
             + " WHERE j.id IN (SELECT p.id FROM survey_media_jobs p WHERE p.state = 'PENDING'"
             + " AND p.kind = 'PROCESS' AND p.due_at <= :now ORDER BY p.due_at LIMIT " + CLAIM_WINDOW + ")"
-            + " AND j.state = 'PENDING' AND m.uploaded_by_user_id NOT IN (:excluded)"
+            + " AND j.state = 'PENDING' AND j.due_at <= :now AND m.uploaded_by_user_id NOT IN (:excluded)"
             + " ORDER BY coalesce(b.read_count, 0), j.due_at, j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED)"
             + " RETURNING id, media_id, kind, state, attempts, limit_hits, lease_token, due_at, last_error_code,"
             + " created_at, updated_at";
