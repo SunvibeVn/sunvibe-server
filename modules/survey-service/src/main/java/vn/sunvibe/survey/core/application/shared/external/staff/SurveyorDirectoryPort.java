@@ -12,6 +12,9 @@ public interface SurveyorDirectoryPort {
 
     boolean isEligible(String userId);
 
+    /** The account exists and may sign in, whatever its roles (survey-checklist submission spec 4.2, plan PD-6). */
+    boolean canSignIn(String userId);
+
     /** The ids among these that are eligible now; one lookup. */
     Set<String> eligibleAmong(Set<String> userIds);
 

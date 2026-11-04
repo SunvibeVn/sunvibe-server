@@ -2,6 +2,7 @@ package vn.sunvibe.survey.core.presentation.dto.response.checklist;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
+import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReadOnlyReason;
 
 import java.time.Instant;
@@ -12,6 +13,8 @@ public record ChecklistSummaryResponse(
         String id,
         int checklistNo,
         ChecklistStatus status,
+        @Schema(nullable = true)
+        DecisionOutcome outcome,
         boolean editable,
         @Schema(nullable = true)
         ReadOnlyReason readOnlyReason,

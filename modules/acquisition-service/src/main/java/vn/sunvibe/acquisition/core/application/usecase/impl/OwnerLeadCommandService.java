@@ -19,7 +19,9 @@ import vn.sunvibe.acquisition.core.application.shared.external.staff.LeadAssigne
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyPort;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyStop;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyAppointmentRef;
+import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyState;
 import vn.sunvibe.acquisition.core.application.usecase.OwnerLeadCommandUseCase;
+import vn.sunvibe.acquisition.core.domain.exception.IntentChangeNotAllowedException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadTransitionException;
 import vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivity;
@@ -59,7 +61,9 @@ import java.util.Optional;
  * <p>
  * A reassignment, a hold or a close of a SURVEY_SCHEDULED lead and a requirement change also move or cancel the
  * lead's scheduled survey appointment through {@link LeadSurveyPort}, in the same transaction and after the lead row
- * was saved and flushed (survey-schedule spec 4.6, 5.5); their one History entry names that appointment.
+ * was saved and flushed (survey-schedule spec 4.6, 5.5); their one History entry names that appointment. A held lead
+ * going back to CONTACTED and a requirement change ask the survey record the same way: the row write is the lock that
+ * makes them wait for a running decision or submit (survey-checklist submission spec 4.8, 5.4).
  */
 @Service
 @Transactional
@@ -134,6 +138,10 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
                 command.nextActionAt());
         Instant now = AppClock.currentUTC();
         leads.save(lead);
+        // survey-checklist D3-13: asked with the row written, so a running decision or submit is waited for first
+        if (from == OwnerLeadStatus.ON_HOLD && command.toStatus() == OwnerLeadStatus.CONTACTED) {
+            requireNoReviewedRecord(lead);
+        }
         // survey-schedule BR-3: holding or closing a lead with survey work cancels its scheduled appointment, keeping
         // the hold note or the close reason on it
         if (from == OwnerLeadStatus.SURVEY_SCHEDULED) {
@@ -160,9 +168,15 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         ConfirmationBasis basis = command.basis().requireValid(null, OwnerLead.vietnamToday());
         OwnerLead lead = visibility.requireVisible(viewer, command.leadId());
         requireVersion(lead, command.expectedVersion());
+        OwnerLeadStatus from = lead.getStatus();
         IntentChange change = lead.changeIntent(command.newIntent(), command.askingPrice(), basis);
         Instant now = AppClock.currentUTC();
         leads.save(lead);
+        // survey-checklist D3-13: a PASSED of the cycle that would end refuses the change, in any status; a SUBMITTED
+        // revision does not, it ends with its cycle (D3-7)
+        if (surveys.surveyState(lead.getId().getValue(), change.newIntentCycle() - 1).hasPassed()) {
+            throw new IntentChangeNotAllowedException(from, List.of());
+        }
         Optional<SurveyAppointmentRef> cancelled = surveys.onIntentChanged(lead.getId().getValue(),
                 change.newIntentCycle(), viewer.userId(), now);
         intentChanges.save(OwnerLeadIntentChange.create(idGenerator.generateId(), lead.getId(), change, reason,
@@ -186,6 +200,18 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         staffIds.add(lead.getAssignedUserId());
         Map<String, String> names = staffNames.lookup(staffIds);
         return new LeadNoteResult(LeadActivityView.of(activity, names), summary(viewer, lead, names));
+    }
+
+    /**
+     * survey-checklist D3-13, submission spec 4.8: a held lead with a PASSED or SUBMITTED revision of its cycle does
+     * not go back to CONTACTED. The caller wrote the lead row, so the refusal rolls the move back.
+     */
+    private void requireNoReviewedRecord(OwnerLead lead) {
+        SurveyState state = surveys.surveyState(lead.getId().getValue(), lead.getIntentCycle());
+        if (state.hasPassed() || state.hasSubmitted()) {
+            throw new InvalidLeadTransitionException(OwnerLeadStatus.ON_HOLD, OwnerLeadStatus.CONTACTED,
+                    List.of(OwnerLeadStatus.DUPLICATE, OwnerLeadStatus.REJECTED, OwnerLeadStatus.WITHDRAWN));
+        }
     }
 
     /**

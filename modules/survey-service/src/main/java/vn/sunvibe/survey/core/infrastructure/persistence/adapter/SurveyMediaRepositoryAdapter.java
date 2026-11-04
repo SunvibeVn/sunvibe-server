@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.survey.core.domain.exception.MediaDuplicateContentException;
 import vn.sunvibe.survey.core.domain.exception.MediaUploadKeyTakenException;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
 import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 import vn.sunvibe.survey.core.domain.model.media.PlacedMedia;
@@ -90,6 +91,24 @@ public class SurveyMediaRepositoryAdapter implements SurveyMediaDomainRepository
     @Override
     public List<SurveyMedia> findForChecklist(String checklistId) {
         return withVariants(jpaRepository.findByChecklistIdOrderByMediaNoAsc(checklistId));
+    }
+
+    @Override
+    public List<ChecklistPerson> findUploaders(Collection<String> checklistIds) {
+        return checklistIds.isEmpty() ? List.of() : jpaRepository.findUploaders(checklistIds);
+    }
+
+    @Override
+    public List<ChecklistPerson> findRemovers(Collection<String> checklistIds) {
+        return checklistIds.isEmpty() ? List.of() : jpaRepository.findRemovers(checklistIds);
+    }
+
+    @Override
+    public List<SurveyMedia> findByIds(Collection<SurveyMediaId> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return withVariants(jpaRepository.findByIdInOrderByIdAsc(ids.stream().map(SurveyMediaId::getValue).toList()));
     }
 
     @Override

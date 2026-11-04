@@ -62,7 +62,7 @@ class MediaRestoreReconciliationPostgresTest extends MediaApiTestBase {
 	private vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository mediaRepository;
 
 	@Autowired
-	private vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository sets;
+	private vn.sunvibe.survey.core.application.shared.MediaSetLocks setLocks;
 
 	@Autowired
 	private vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository variants;
@@ -189,7 +189,7 @@ class MediaRestoreReconciliationPostgresTest extends MediaApiTestBase {
 				assertNull(media.row(id).get("content_missing_at"));
 			}
 
-			MediaRestoreReconciliation forced = new MediaRestoreReconciliation(mediaRepository, sets, variants, store,
+			MediaRestoreReconciliation forced = new MediaRestoreReconciliation(mediaRepository, setLocks, variants, store,
 					clock, transactionManager, false, true);
 			assertTrue(forced.run() >= ids.size(), "the operator's override marks them");
 		} finally {

@@ -45,7 +45,10 @@ public record SurveyMediaItem(
         SurveyMediaHold held,
         boolean contentAvailable,
         @Schema(nullable = true, description = "Why the content cannot be read now; null when contentAvailable")
-        MediaUnavailableReason unavailableReason) {
+        MediaUnavailableReason unavailableReason,
+        @Schema(nullable = true, description = "The number of the revision a carried photo came from; null for a "
+                + "photo uploaded into this revision")
+        Integer carriedFromChecklistNo) {
 
     /** Staff text: ids only. */
     @Override

@@ -3,9 +3,12 @@ package vn.sunvibe.survey.core.presentation.converter;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.command.BasisInput;
 import vn.sunvibe.survey.core.application.command.CorrectionInput;
+import vn.sunvibe.survey.core.application.command.DecideChecklistCommand;
 import vn.sunvibe.survey.core.application.command.IntakeInput;
 import vn.sunvibe.survey.core.application.command.SaveChecklistGroupCommand;
 import vn.sunvibe.survey.core.application.command.StartChecklistCommand;
+import vn.sunvibe.survey.core.application.command.StartRevisionCommand;
+import vn.sunvibe.survey.core.application.command.SubmitChecklistCommand;
 import vn.sunvibe.survey.core.application.command.TakeOverChecklistCommand;
 import vn.sunvibe.survey.core.domain.model.checklist.ActualAccess;
 import vn.sunvibe.survey.core.domain.model.checklist.AmenitiesContent;
@@ -57,6 +60,7 @@ import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistCondit
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistCorrectionRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistCountFieldInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistDateTermInput;
+import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistDecisionRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistDepositTermInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistDimensionsInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistDimensionsSpaceInput;
@@ -79,6 +83,7 @@ import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistPartsS
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistPetsTermInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistPropertyTypeFieldInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRentTermInput;
+import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRevisionRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSafetyInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSaveAmenitiesRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSaveConditionRequest;
@@ -88,6 +93,7 @@ import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSavePa
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSaveSafetyRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSaveTermsRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistStartRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSubmitRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistTakeoverRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistTermsCommonInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistTermsInput;
@@ -134,6 +140,25 @@ public class ChecklistRequestMapper {
     public TakeOverChecklistCommand toCommand(String checklistId, ChecklistTakeoverRequest request) {
         return new TakeOverChecklistCommand(checklistId, request.expectedVersion(), request.reason(),
                 basis(request.basis()));
+    }
+
+    public SubmitChecklistCommand toCommand(String checklistId, ChecklistSubmitRequest request) {
+        return new SubmitChecklistCommand(checklistId, request.expectedVersion());
+    }
+
+    public StartRevisionCommand toCommand(String checklistId, ChecklistRevisionRequest request) {
+        ChecklistIntakeRequest intake = request.intake();
+        return new StartRevisionCommand(checklistId,
+                intake == null ? null : new IntakeInput(intake.reason(), basis(intake.basis())));
+    }
+
+    public DecideChecklistCommand toCommand(String checklistId, ChecklistDecisionRequest request) {
+        return new DecideChecklistCommand(checklistId, request.expectedVersion(), request.outcome(),
+                request.needsChangesKind(), request.failedKind(), request.reason(), request.notes(),
+                request.limitations(), request.rejectedEvidence() == null ? null : request.rejectedEvidence().stream()
+                .map(mark -> mark == null ? null
+                        : new DecideChecklistCommand.RejectedEvidence(mark.mediaId(), mark.reason()))
+                .toList());
     }
 
     // ==================== group saves ====================

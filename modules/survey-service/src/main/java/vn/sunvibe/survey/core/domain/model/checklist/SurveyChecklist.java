@@ -6,9 +6,10 @@ import java.time.Instant;
 
 /**
  * Aggregate - SurveyChecklist (survey-checklist spec 4.1, 4.2): one checklist revision of a lead, bound to one VISITED
- * long-term appointment and its intent cycle, numbered within the lead. In this slice it is a DRAFT of template
- * LONG_TERM_RENT v1, kind FULL_ASSESSMENT. The row changes only at start and at each takeover (I-7): the holder is the
- * starter, then each person who took the draft over. Group contents live in their own rows.
+ * long-term appointment and its intent cycle, numbered within the lead, of template LONG_TERM_RENT v1, kind
+ * FULL_ASSESSMENT. The holder is the starter, then each person who took the draft over. A revision goes from DRAFT to
+ * SUBMITTED to one decided status and never back (submission spec 4.1); submit and decide write the row too (A-1). Group
+ * contents live in their own rows.
  */
 public final class SurveyChecklist {
 
@@ -21,15 +22,20 @@ public final class SurveyChecklist {
     private final String templateCode;
     private final int templateVersion;
     private final ChecklistKind kind;
-    private final ChecklistStatus status;
+    private ChecklistStatus status;
     private final String createdBy;
     private final Instant createdAt;
+    private final SurveyChecklistId previousChecklistIdOrNull;
+    private Instant submittedAt;
+    private String submittedByUserId;
+    private Instant decidedAt;
     private Long version;
 
     private SurveyChecklist(SurveyChecklistId id, String leadId, int checklistNo,
                             SurveyAppointmentId visitAppointmentId, int intentCycle, String holderUserId,
                             String templateCode, int templateVersion, ChecklistKind kind, ChecklistStatus status,
-                            String createdBy, Instant createdAt, Long version) {
+                            String createdBy, Instant createdAt, SurveyChecklistId previousChecklistIdOrNull,
+                            Instant submittedAt, String submittedByUserId, Instant decidedAt, Long version) {
         if (id == null || leadId == null || visitAppointmentId == null || holderUserId == null
                 || templateCode == null || kind == null || status == null || createdBy == null
                 || createdAt == null) {
@@ -51,6 +57,10 @@ public final class SurveyChecklist {
         this.status = status;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
+        this.previousChecklistIdOrNull = previousChecklistIdOrNull;
+        this.submittedAt = submittedAt;
+        this.submittedByUserId = submittedByUserId;
+        this.decidedAt = decidedAt;
         this.version = version;
     }
 
@@ -60,16 +70,31 @@ public final class SurveyChecklist {
                                         Instant now) {
         return new SurveyChecklist(id, leadId, checklistNo, visitAppointmentId, intentCycle, starterUserId,
                 TemplateV1.CODE, TemplateV1.VERSION, ChecklistKind.FULL_ASSESSMENT, ChecklistStatus.DRAFT,
-                starterUserId, now, null);
+                starterUserId, now, null, null, null, null, null);
+    }
+
+    /**
+     * A new DRAFT linked to the last submitted revision of the cycle (submission spec 4.6, A-2): the next revision of the
+     * same visit after a return for documents, or the first of a later visit after a return for a re-survey.
+     */
+    public static SurveyChecklist startAfter(SurveyChecklistId id, String leadId, int checklistNo,
+                                             SurveyAppointmentId visitAppointmentId, int intentCycle,
+                                             String starterUserId, Instant now, SurveyChecklistId previousChecklistId) {
+        return new SurveyChecklist(id, leadId, checklistNo, visitAppointmentId, intentCycle, starterUserId,
+                TemplateV1.CODE, TemplateV1.VERSION, ChecklistKind.FULL_ASSESSMENT, ChecklistStatus.DRAFT,
+                starterUserId, now, previousChecklistId, null, null, null, null);
     }
 
     /** Load from database (reconstruct). */
     public static SurveyChecklist load(SurveyChecklistId id, String leadId, int checklistNo,
                                        SurveyAppointmentId visitAppointmentId, int intentCycle, String holderUserId,
                                        String templateCode, int templateVersion, ChecklistKind kind,
-                                       ChecklistStatus status, String createdBy, Instant createdAt, Long version) {
+                                       ChecklistStatus status, String createdBy, Instant createdAt,
+                                       SurveyChecklistId previousChecklistIdOrNull, Instant submittedAt,
+                                       String submittedByUserId, Instant decidedAt, Long version) {
         return new SurveyChecklist(id, leadId, checklistNo, visitAppointmentId, intentCycle, holderUserId,
-                templateCode, templateVersion, kind, status, createdBy, createdAt, version);
+                templateCode, templateVersion, kind, status, createdBy, createdAt, previousChecklistIdOrNull,
+                submittedAt, submittedByUserId, decidedAt, version);
     }
 
     /**
@@ -81,9 +106,41 @@ public final class SurveyChecklist {
         if (newHolderUserId == null || newHolderUserId.equals(holderUserId)) {
             throw new IllegalStateException("The caller already holds the draft.");
         }
+        requireDraft("be taken over");
         String previous = holderUserId;
         holderUserId = newHolderUserId;
         return previous;
+    }
+
+    /**
+     * survey-checklist US-2 AC-3: the revision is frozen.
+     *
+     * @throws IllegalStateException the revision left DRAFT (checked before by the use case)
+     */
+    public void submit(String byUserId, Instant at) {
+        requireDraft("be submitted");
+        status = ChecklistStatus.SUBMITTED;
+        submittedByUserId = byUserId;
+        submittedAt = at;
+    }
+
+    /**
+     * survey-checklist submission spec I-3: a submitted revision is decided once.
+     *
+     * @throws IllegalStateException the revision is not SUBMITTED (checked before by the use case)
+     */
+    public void decide(DecisionOutcome outcome, Instant at) {
+        if (status != ChecklistStatus.SUBMITTED) {
+            throw new IllegalStateException("A " + status + " checklist cannot be decided.");
+        }
+        status = outcome.status();
+        decidedAt = at;
+    }
+
+    private void requireDraft(String action) {
+        if (status != ChecklistStatus.DRAFT) {
+            throw new IllegalStateException("A " + status + " checklist cannot " + action + ".");
+        }
     }
 
     /** What the editability rule reads (spec 4.4). */
@@ -143,6 +200,22 @@ public final class SurveyChecklist {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public SurveyChecklistId getPreviousChecklistIdOrNull() {
+        return previousChecklistIdOrNull;
+    }
+
+    public Instant getSubmittedAt() {
+        return submittedAt;
+    }
+
+    public String getSubmittedByUserId() {
+        return submittedByUserId;
+    }
+
+    public Instant getDecidedAt() {
+        return decidedAt;
     }
 
     public Long getVersion() {

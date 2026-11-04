@@ -19,5 +19,13 @@ public enum SecurityAction {
     /** An ADMIN's security hold of a photo (survey-media spec A-23). */
     HOLD,
     /** An ADMIN's release of a photo's hold (survey-media spec A-23). */
-    RELEASE
+    RELEASE,
+    /** A checklist submission (survey-checklist submission spec 4.9). */
+    SUBMIT,
+    /** A decision on a submitted revision (survey-checklist submission spec 4.9). */
+    REVIEW,
+    /** The start of a new revision on a visit (survey-checklist submission spec 4.9). */
+    REVISION,
+    /** The deselection of a carried photo (survey-checklist submission spec 4.9). */
+    DESELECT
 }

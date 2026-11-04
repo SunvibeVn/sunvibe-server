@@ -44,7 +44,16 @@ public record ChecklistResponse(
         Instant createdAt,
         long version,
         @Schema(description = "The latest group save or takeover, else the creation")
-        Instant updatedAt) {
+        Instant updatedAt,
+        @Schema(nullable = true, description = "The last submitted revision of the cycle this one follows")
+        String previousChecklistId,
+        @Schema(nullable = true)
+        ChecklistSubmissionResponse submission,
+        @Schema(nullable = true)
+        ChecklistDecisionResponse decision,
+        ChecklistReviewResponse review,
+        @Schema(nullable = true, description = "Only on a PASSED revision")
+        ChecklistPassedResponse passed) {
 
     /** Survey data may be private: never print it. */
     @Override

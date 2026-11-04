@@ -381,6 +381,24 @@ public final class MediaApiTestSupport {
 	}
 
 	/** A holder removal (spec 7.1): {@code {correction}}, null when none is sent. */
+	/**
+	 * A submission row of the checklist, if it has none yet, whose frozen set holds the photo (checklist spec I-5). The
+	 * checklist stays a DRAFT, so the media command reaches the reference check behind the read-only one.
+	 */
+	public void evidenceRow(String checklistId, String mediaId) {
+		jdbc.update("insert into survey_checklist_submissions (checklist_id, submitted_by_user_id, submitted_at,"
+				+ " template_code, template_version, kind, lead_intent, intent_cycle, visit_appointment_id,"
+				+ " visit_performed_by, visit_arrived_at, visit_recorded_by, visit_recorded_at, rental_scope, spaces,"
+				+ " group_versions, media_policy, content_sha256)"
+				+ " select c.id, c.holder_user_id, now(), c.template_code, c.template_version, c.kind, 'LONG_TERM_RENT',"
+				+ " c.intent_cycle, c.visit_appointment_id, c.holder_user_id, now(), c.holder_user_id, now(), 'WHOLE',"
+				+ " '[]', '{}', 'MEDIA_V1_NO_PERMISSION', ? from survey_checklists c where c.id = ?"
+				+ " on conflict do nothing", "c".repeat(64), checklistId);
+		jdbc.update("insert into survey_checklist_evidence (checklist_id, media_id, category, full_sha256)"
+				+ " select ?, m.id, m.category, ? from survey_media m where m.id = ?", checklistId, "d".repeat(64),
+				mediaId);
+	}
+
 	public Result remove(TestUser caller, String mediaId, Map<String, Object> correctionOrNull) throws Exception {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("correction", correctionOrNull);
@@ -403,8 +421,8 @@ public final class MediaApiTestSupport {
 
 	/** The photo's jobs: kind, state and due time. */
 	public List<Map<String, Object>> jobs(String mediaId) {
-		return jdbc.queryForList("select kind, state, due_at from survey_media_jobs where media_id = ? order by id",
-				mediaId);
+		return jdbc.queryForList("select kind, state, due_at, last_error_code from survey_media_jobs"
+				+ " where media_id = ? order by id", mediaId);
 	}
 
 	/** One photo row with every column. */

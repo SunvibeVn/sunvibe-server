@@ -8,6 +8,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmentEntity;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,6 +28,8 @@ public interface SurveyAppointmentJpaRepository extends JpaRepository<SurveyAppo
             + " WHEN a.start_at < :tomorrowStart THEN 1 ELSE 2 END";
 
     List<SurveyAppointmentEntity> findByLeadIdOrderByAppointmentNoDesc(String leadId);
+
+    List<SurveyAppointmentEntity> findByLeadIdIn(Collection<String> leadIds);
 
     Optional<SurveyAppointmentEntity> findByLeadIdAndStatus(String leadId, AppointmentStatus status);
 

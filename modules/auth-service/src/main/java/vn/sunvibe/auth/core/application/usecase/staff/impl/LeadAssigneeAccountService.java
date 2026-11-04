@@ -54,6 +54,16 @@ public class LeadAssigneeAccountService implements LeadAssigneeAccountUseCase {
 
     @Transactional(readOnly = true)
     @Override
+    public boolean canSignIn(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return false;
+        }
+        // findById skips soft-deleted accounts
+        return userRepository.findById(UserId.from(userId)).filter(AppUser::canAuthenticate).isPresent();
+    }
+
+    @Transactional(readOnly = true)
+    @Override
     public List<LeadAssigneeAccount> listEligibleOwnerLeadAssignees() {
         // One more than the cap: getting 501 accounts back is how the service knows the list is cut, while exactly
         // 500 is a complete list.

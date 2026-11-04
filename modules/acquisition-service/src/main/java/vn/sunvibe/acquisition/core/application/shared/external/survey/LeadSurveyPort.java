@@ -11,6 +11,13 @@ import java.util.Optional;
  */
 public interface LeadSurveyPort {
 
+    /**
+     * The survey record of the lead's intent cycle (survey-checklist submission spec 4.7, 4.8, plan PD-3). Asked after
+     * the lead row is locked by the command; acquisition passes the cycle, so survey never calls the lead back.
+     */
+    SurveyState surveyState(String leadId, int intentCycle);
+
+
     /** The lead got another assignee: its scheduled appointment follows (survey-schedule US-2 AC-3). */
     Optional<SurveyAppointmentRef> onReassigned(String leadId, String newAssigneeUserId, String actorUserId,
                                                 Instant at);

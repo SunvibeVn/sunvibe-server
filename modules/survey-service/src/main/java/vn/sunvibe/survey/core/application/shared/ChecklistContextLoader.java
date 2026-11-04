@@ -43,7 +43,7 @@ import java.util.function.Supplier;
 public class ChecklistContextLoader {
 
     private static final Set<ReadOnlyReason> READ_ONLY = EnumSet.of(ReadOnlyReason.INTENT_CHANGED,
-            ReadOnlyReason.NEWER_VISIT, ReadOnlyReason.LEAD_STATUS);
+            ReadOnlyReason.SUBMITTED, ReadOnlyReason.DECIDED, ReadOnlyReason.NEWER_VISIT, ReadOnlyReason.LEAD_STATUS);
 
     private final SurveyChecklistDomainRepository checklists;
     private final SurveyAppointmentDomainRepository appointments;
@@ -101,8 +101,65 @@ public class ChecklistContextLoader {
                 ChecklistNotFoundException::new);
         requireAssignee(viewer, lead, SecurityResourceType.CHECKLIST, checklistId, action);
         List<SurveyAppointment> ofLead = appointments.findByLeadId(leadId);
-        SurveyChecklist checklist = checklists.findById(id).orElseThrow(ChecklistNotFoundException::new);
+        // submission spec 5.4: a save takes the row FOR SHARE first, so it waits for a running submit and then answers
+        // read-only; the groups of a SUBMITTED revision can therefore not change after the freeze
+        SurveyChecklist checklist = (action == SecurityAction.SAVE ? checklists.findByIdForShare(id)
+                : checklists.findById(id)).orElseThrow(ChecklistNotFoundException::new);
         return editableContext(viewer, lead, checklist, ofLead);
+    }
+
+    /**
+     * A command that writes the revision row (submission spec 5.4, 5.5, plan PD-8): the steps of
+     * {@link #loadForCommand} up to the assignee, then the checklist's first load under {@code FOR NO KEY UPDATE}. The
+     * caller decides what the row's state means, then asks {@link #requireEditable}.
+     */
+    public ReadContext lockForWrite(SurveyViewer viewer, String checklistId, SecurityAction action) {
+        SurveyChecklistId id = checklistId(checklistId);
+        String leadId = checklists.findLeadIdById(id).orElseThrow(ChecklistNotFoundException::new);
+        LeadFacts lead = visibleForShare(viewer, leadId, SecurityResourceType.CHECKLIST, checklistId, action,
+                ChecklistNotFoundException::new);
+        requireAssignee(viewer, lead, SecurityResourceType.CHECKLIST, checklistId, action);
+        List<SurveyAppointment> ofLead = appointments.findByLeadId(leadId);
+        SurveyChecklist checklist = checklists.findByIdForUpdate(id).orElseThrow(ChecklistNotFoundException::new);
+        return new ReadContext(lead, checklist, ofLead);
+    }
+
+    /**
+     * A command that moves the lead (submission spec 5.4, 5.5): the lead's first load under {@code FOR NO KEY UPDATE}
+     * (404 with an event when hidden), then the checklist's under the same lock. Two decisions on one revision serialise
+     * on the lead row, and an ADMIN hold, which takes the lead {@code FOR SHARE} first, waits.
+     */
+    public ReadContext lockForDecision(SurveyViewer viewer, String checklistId) {
+        SurveyChecklistId id = checklistId(checklistId);
+        String leadId = checklists.findLeadIdById(id).orElseThrow(ChecklistNotFoundException::new);
+        LeadFacts lead = leads.findVisibleForUpdate(leadId, viewer).orElseThrow(() -> {
+            securityEvents.refused(viewer.userId(), leadId, SecurityResourceType.CHECKLIST, checklistId,
+                    SecurityAction.REVIEW, SecurityOutcome.NOT_VISIBLE);
+            return new ChecklistNotFoundException();
+        });
+        List<SurveyAppointment> ofLead = appointments.findByLeadId(leadId);
+        SurveyChecklist checklist = checklists.findByIdForUpdate(id).orElseThrow(ChecklistNotFoundException::new);
+        return new ReadContext(lead, checklist, ofLead);
+    }
+
+    /**
+     * The start of a revision (submission spec 5.4, 5.5): the steps of {@link #lockForWrite}, with the previous revision
+     * taken {@code FOR SHARE}: it is never written.
+     */
+    public ReadContext lockPrevious(SurveyViewer viewer, String checklistId) {
+        SurveyChecklistId id = checklistId(checklistId);
+        String leadId = checklists.findLeadIdById(id).orElseThrow(ChecklistNotFoundException::new);
+        LeadFacts lead = visibleForShare(viewer, leadId, SecurityResourceType.CHECKLIST, checklistId,
+                SecurityAction.REVISION, ChecklistNotFoundException::new);
+        requireAssignee(viewer, lead, SecurityResourceType.CHECKLIST, checklistId, SecurityAction.REVISION);
+        List<SurveyAppointment> ofLead = appointments.findByLeadId(leadId);
+        SurveyChecklist previous = checklists.findByIdForShare(id).orElseThrow(ChecklistNotFoundException::new);
+        return new ReadContext(lead, previous, ofLead);
+    }
+
+    /** Steps (4) read-only 409 and (5) ineligible 422 on the context of {@link #lockForWrite}. */
+    public CommandContext requireEditable(SurveyViewer viewer, ReadContext context) {
+        return editableContext(viewer, context.lead(), context.checklist(), context.ofLead());
     }
 
     /** Steps (4) read-only 409 and (5) ineligible 422 of a command (spec 5.5). */
@@ -131,7 +188,12 @@ public class ChecklistContextLoader {
     public CommandContext loadForMediaCommand(SurveyViewer viewer, String checklistId,
                                               SecurityResourceType resourceType, String resourceId,
                                               SecurityAction action) {
-        LeadFacts lead = requireMediaAuthority(viewer, checklistId, resourceType, resourceId, action);
+        return editableForMedia(viewer, requireMediaAuthority(viewer, checklistId, resourceType, resourceId, action),
+                checklistId);
+    }
+
+    /** Steps (4) and (5) of a survey-media command, for a lead {@link #requireMediaAuthority} let through. */
+    public CommandContext editableForMedia(SurveyViewer viewer, LeadFacts lead, String checklistId) {
         SurveyChecklist checklist = checklists.findByIdForShare(SurveyChecklistId.of(checklistId))
                 .orElseThrow(ChecklistNotFoundException::new);
         List<SurveyAppointment> ofLead = appointments.findByLeadId(lead.leadId());

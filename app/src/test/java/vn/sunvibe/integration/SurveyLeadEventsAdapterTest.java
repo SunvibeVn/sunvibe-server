@@ -11,9 +11,11 @@ import org.junit.jupiter.api.Test;
 
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyStop;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyAppointmentRef;
+import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyState;
 import vn.sunvibe.survey.core.application.usecase.AppointmentRef;
 import vn.sunvibe.survey.core.application.usecase.LeadStopReason;
 import vn.sunvibe.survey.core.application.usecase.LeadSurveyEventsUseCase;
+import vn.sunvibe.survey.core.application.usecase.LeadSurveyState;
 
 /**
  * The adapter forwards acquisition's lead hooks to survey's published use case (survey-schedule spec 5.4) and
@@ -29,6 +31,8 @@ class SurveyLeadEventsAdapterTest {
 
 	private final List<String> calls = new ArrayList<>();
 	private Optional<AppointmentRef> answer = Optional.of(REF);
+	private LeadSurveyState state = new LeadSurveyState(true, false, true, false);
+
 	private final SurveyLeadEventsAdapter adapter = new SurveyLeadEventsAdapter(new LeadSurveyEventsUseCase() {
 		@Override
 		public Optional<AppointmentRef> onReassigned(String leadId, String newAssigneeUserId, String actorUserId,
@@ -50,7 +54,20 @@ class SurveyLeadEventsAdapterTest {
 			calls.add("intent:" + leadId + ":" + newIntentCycle + ":" + actorUserId + ":" + at);
 			return answer;
 		}
+	}, (leadId, intentCycle) -> {
+		calls.add("state:" + leadId + ":" + intentCycle);
+		return state;
 	});
+
+	@Test
+	void surveyState_forwardsTheCycleAndMapsEveryFact() {
+		assertEquals(new SurveyState(true, false, true, false), adapter.surveyState(LEAD, 3));
+		assertEquals(List.of("state:" + LEAD + ":3"), calls);
+
+		state = new LeadSurveyState(false, true, false, true);
+
+		assertEquals(new SurveyState(false, true, false, true), adapter.surveyState(LEAD, 3));
+	}
 
 	@Test
 	void onReassigned_forwardsAndTranslatesTheReference() {

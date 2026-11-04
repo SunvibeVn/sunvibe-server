@@ -1,8 +1,10 @@
 package vn.sunvibe.acquisition.core.testsupport;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import vn.sunvibe.acquisition.core.domain.model.lead.LeadCycle;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntent;
 import vn.sunvibe.acquisition.core.domain.repository.LeadSearchCriteria;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadDomainRepository;
@@ -68,6 +70,19 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
     @Override
     public Optional<OwnerLead> findById(OwnerLeadId id) {
         return Optional.ofNullable(leads.get(id)).map(lead -> copy(lead, lead.getVersion()));
+    }
+
+    @Override
+    public Optional<OwnerLead> findByIdForUpdate(OwnerLeadId id) {
+        return findById(id);
+    }
+
+    @Override
+    public List<LeadCycle> findCycles(Collection<OwnerLeadStatus> statuses, Optional<String> assigneeUserId) {
+        return leads.values().stream().filter(lead -> statuses.contains(lead.getStatus()))
+                .filter(lead -> assigneeUserId.isEmpty() || assigneeUserId.get().equals(lead.getAssignedUserId()))
+                .map(lead -> new LeadCycle(lead.getId().getValue(), lead.getIntentCycle(), lead.getStatus(),
+                        lead.getAssignedUserId(), lead.getRequestCode().getValue())).toList();
     }
 
     @Override

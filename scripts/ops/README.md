@@ -140,6 +140,20 @@ Before uploads are turned on in production (spec 9.4), and at each deploy where 
   analyzed; then use `SELECT count(*) FROM survey_access_logs;`):
   `SELECT c.reltuples::bigint, s.n_live_tup, s.last_autoanalyze FROM pg_class c JOIN pg_stat_user_tables s ON
   s.relid = c.oid WHERE c.oid = 'survey_access_logs'::regclass;` Above about 10 M rows, deploy in a quiet window.
+- **The checklist review deploy (`V202611041530` to `V202611041534`; owner decision 2026-11-04):** stop every old API
+  instance before the new one starts, in a quiet window; no overlap. `V202611041530` and `V202611041532` change the type
+  of `owner_lead_activities.reference_detail` and `survey_checklists.status`, and an old instance that keeps serving can
+  fail reads with `cached plan must not change result type`. `V202611041532` also takes four table locks in one
+  transaction: reads of `survey_checklists` stop while it runs, and each lock wait is bounded by the 5 s `lock_timeout`,
+  after which the file rolls back. These times were not measured.
+  1. Before: nothing long-running should hold these tables; every row of this query can make a lock wait fail:
+     `SELECT pid, state, now() - xact_start AS age FROM pg_stat_activity WHERE xact_start IS NOT NULL AND pid <>
+     pg_backend_pid() AND now() - xact_start > interval '2 seconds';`
+  2. Start the new instance with `app.survey.checklist.submission-enabled` false (the default).
+  3. After: `SELECT conrelid::regclass, conname FROM pg_constraint WHERE NOT convalidated;` answers no row, then run
+     `ANALYZE survey_checklists; ANALYZE owner_lead_activities;` (the type change dropped their column statistics).
+  4. Turn the switch on only when no old instance can come back: there is no rollback after the first submit or
+     QUALIFIED.
 - **The processor at start-up:** each API instance retries the processor self-probe every 5 s for about a minute
   before it records a PROCESSOR pause and runs without a worker until restarted. No compose file here starts the API;
   a deployment that does starts the processor first (`depends_on`) so the probe passes within that minute.

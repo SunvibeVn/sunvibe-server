@@ -13,7 +13,8 @@ import java.util.Set;
  * One entry in the history of an owner lead: what happened, who did it (empty for the system) and when. The id is a
  * Snowflake number given by the caller. Entries of survey and requirement commands carry no text, only the reference
  * of the survey appointment they concern (survey-schedule BR-8, spec 4.9). Entries of survey checklists reference
- * the checklist and, for a save, the group as the reference detail (survey-checklist BR-15, spec A-13).
+ * the checklist and, for a save, the group as the reference detail (survey-checklist BR-15, spec A-13); a review keeps
+ * its outcome and kind there, with the lead's move (survey-checklist submission spec 4.9).
  */
 public final class OwnerLeadActivity {
 
@@ -35,7 +36,8 @@ public final class OwnerLeadActivity {
     private static final Set<OwnerLeadActivityType> CHECKLIST_TYPES = EnumSet.of(
             OwnerLeadActivityType.CHECKLIST_STARTED, OwnerLeadActivityType.CHECKLIST_TAKEN_OVER,
             OwnerLeadActivityType.CHECKLIST_SAVED, OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED,
-            OwnerLeadActivityType.CHECKLIST_MEDIA_REMOVED);
+            OwnerLeadActivityType.CHECKLIST_MEDIA_REMOVED, OwnerLeadActivityType.CHECKLIST_SUBMITTED,
+            OwnerLeadActivityType.CHECKLIST_REVISION_STARTED);
     /** The checklist types whose entry carries a detail: the group of a save, the category of a photo. */
     private static final Set<OwnerLeadActivityType> DETAILED_CHECKLIST_TYPES = EnumSet.of(
             OwnerLeadActivityType.CHECKLIST_SAVED, OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED,
@@ -94,11 +96,22 @@ public final class OwnerLeadActivity {
     }
 
     /**
+     * The entry of a survey move that keeps a detail with its statuses: a review, with its outcome and kind and the
+     * checklist as the reference (survey-checklist submission spec 4.9, plan PD-5). No reason, note or limitation.
+     */
+    public static OwnerLeadActivity reviewed(long id, OwnerLeadId leadId, String actorUserId, LeadChange change,
+                                             String detail, Instant occurredAt) {
+        return new OwnerLeadActivity(id, leadId, change.type(), required(actorUserId, "actorUserId"),
+                change.fromStatus(), change.toStatus(), null, null, null, null, occurredAt, change.referenceId(),
+                change.referenceNo(), required(detail, "detail"));
+    }
+
+    /**
      * A survey checklist event (survey-checklist BR-15, spec A-13; survey-media spec 5.3): the actor, the checklist
      * and its number and, only and always for a save, the group as the detail, and for a photo added or removed its
      * evidence category; no note, statuses or assignees, because the event never moves the lead.
      *
-     * @throws IllegalArgumentException for a type other than the five checklist types, or a detail that does not
+     * @throws IllegalArgumentException for a type other than the checklist activity types, or a detail that does not
      *                                  match the type
      */
     public static OwnerLeadActivity checklistEvent(long id, OwnerLeadId leadId, OwnerLeadActivityType type,

@@ -5,6 +5,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,6 +31,9 @@ public interface SurveyAppointmentDomainRepository {
 
     /** Every appointment of the lead, newest (highest number) first. */
     List<SurveyAppointment> findByLeadId(String leadId);
+
+    /** Every appointment of these leads, in a fixed number of queries (survey-checklist submission plan PD-2). */
+    List<SurveyAppointment> findByLeadIds(Collection<String> leadIds);
 
     /** The scheduled appointment of the lead, if any (there is at most one). */
     Optional<SurveyAppointment> findScheduledByLeadId(String leadId);

@@ -54,6 +54,18 @@ public final class ErrorCode {
     /** The survey checklist can no longer be changed; the reason is on its next read. */
     public static final String CHECKLIST_READ_ONLY = "CHECKLIST_READ_ONLY";
 
+    /** Uploads or submission are off (survey-checklist submission spec 7.3). */
+    public static final String CHECKLIST_SUBMISSION_NOT_AVAILABLE = "CHECKLIST_SUBMISSION_NOT_AVAILABLE";
+
+    /** A submission gate fails; one error entry per failing gate (survey-checklist submission spec 7.3). */
+    public static final String CHECKLIST_NOT_READY = "CHECKLIST_NOT_READY";
+
+    /** The caller may not decide this revision (survey-checklist submission spec 7.3). */
+    public static final String CHECKLIST_REVIEW_NOT_ALLOWED = "CHECKLIST_REVIEW_NOT_ALLOWED";
+
+    /** The revision cannot take this decision now (survey-checklist submission spec 7.3). */
+    public static final String CHECKLIST_DECISION_NOT_ALLOWED = "CHECKLIST_DECISION_NOT_ALLOWED";
+
     /** The caller is the new assignee and must take the survey checklist over before saving. */
     public static final String CHECKLIST_TAKEOVER_REQUIRED = "CHECKLIST_TAKEOVER_REQUIRED";
 

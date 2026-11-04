@@ -24,6 +24,8 @@ import vn.sunvibe.survey.core.application.query.LeadState;
 import vn.sunvibe.survey.core.application.query.OverlapView;
 import vn.sunvibe.survey.core.application.query.SurveyCommandResult;
 import vn.sunvibe.survey.core.application.shared.SurveyBlockAssembler;
+import vn.sunvibe.survey.core.application.shared.SurveyRecordReader.CycleRecord;
+import vn.sunvibe.survey.core.application.shared.SurveyRecordReader;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMove;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveEvent;
@@ -80,19 +82,23 @@ import java.util.Optional;
 @Transactional
 public class SurveyAppointmentCommandService implements SurveyAppointmentCommandUseCase {
 
+    /** checklist submission spec 7.3: the field of a refusal by the survey record. */
+    private static final String CHECKLIST = "checklist";
+
     private final SurveyAppointmentDomainRepository appointments;
     private final SurveyResumptionDomainRepository resumptions;
     private final SurveyAccessLogDomainRepository accessLogs;
     private final SurveyLeadPort leads;
     private final SurveyorDirectoryPort directory;
     private final SurveyBlockAssembler assembler;
+    private final SurveyRecordReader records;
     private final IdGenerator<String> ulids;
     private final IdGenerator<Long> snowflakes;
 
     public SurveyAppointmentCommandService(SurveyAppointmentDomainRepository appointments,
                                            SurveyResumptionDomainRepository resumptions,
                                            SurveyAccessLogDomainRepository accessLogs, SurveyLeadPort leads,
-                                           SurveyorDirectoryPort directory, SurveyBlockAssembler assembler,
+                                           SurveyorDirectoryPort directory, SurveyBlockAssembler assembler, SurveyRecordReader records,
                                            @Qualifier("Ulid") IdGenerator<String> ulids,
                                            @Qualifier("Snowflake") IdGenerator<Long> snowflakes) {
         this.appointments = appointments;
@@ -101,6 +107,7 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
         this.leads = leads;
         this.directory = directory;
         this.assembler = assembler;
+        this.records = records;
         this.ulids = ulids;
         this.snowflakes = snowflakes;
     }
@@ -114,11 +121,16 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
     public SurveyCommandResult book(SurveyViewer viewer, BookAppointmentCommand command) {
         Instant now = now();
         PlaceCheck place = command.meetingLocation() == null ? null : checkPlace(command.meetingLocation());
-        LeadFacts lead = requireVisibleLead(command.leadId(), viewer);
+        LeadFacts lead = lockVisibleLead(command.leadId(), viewer);
         requireLeadVersion(lead, command.expectedLeadVersion());
         List<SurveyAppointment> ofLead = appointments.findByLeadId(lead.leadId());
         if (ofLead.stream().anyMatch(appointment -> appointment.getStatus() == AppointmentStatus.SCHEDULED)) {
             throw new AppointmentAlreadyScheduledException();
+        }
+        // checklist submission spec 4.8, D3-7: read under the lead's lock, so a submit and a booking never both pass
+        CycleRecord record = records.read(lead.leadId(), lead.intentCycle(), ofLead);
+        if (record.latestSubmitted() || record.hasPassed()) {
+            throw new SurveyNotAllowedException(CHECKLIST, List.of());
         }
         CurrentVisitPolicy.BookingKind kind = CurrentVisitPolicy.bookingKind(ofLead, lead.intentCycle());
         List<String> allowedStatuses = SurveyBlockAssembler.allowedStatusesFor(kind.kind());
@@ -196,20 +208,21 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
     }
 
     /**
-     * survey-schedule US-2 AC-2, E-5: the lead stays SURVEY_SCHEDULED when its current visit can still be completed,
-     * else it goes back to CONTACTED. An overdue appointment can be cancelled (BR-4); no eligibility is needed (BR-6).
+     * survey-schedule US-2 AC-2, E-5: the lead stays SURVEY_SCHEDULED when its record can still be completed
+     * (checklist submission spec 4.8), else it goes back to CONTACTED, so a return for a re-survey never comes back to
+     * the old visit. An overdue appointment can be cancelled (survey-schedule BR-4); no eligibility is needed (survey-schedule BR-6).
      */
     @Override
     public SurveyCommandResult cancel(SurveyViewer viewer, CancelAppointmentCommand command) {
         Instant now = now();
         SurveyAppointment appointment = requireVisibleAppointment(command.appointmentId(), viewer);
-        LeadFacts lead = requireVisibleLead(appointment.getLeadId(), viewer);
+        LeadFacts lead = lockVisibleLead(appointment.getLeadId(), viewer);
         requireVersions(lead, command.expectedLeadVersion(), appointment, command.expectedAppointmentVersion());
         appointment.cancel(command.cancelReason(), command.description(), viewer.userId(), now);
-        boolean currentVisit = CurrentVisitPolicy.currentVisit(appointments.findByLeadId(lead.leadId()),
-                lead.intentCycle()).isPresent();
+        boolean completable = records.read(lead.leadId(), lead.intentCycle(), appointments.findByLeadId(lead.leadId()))
+                .completable();
         LeadMoveResult moved = move(lead, command.expectedLeadVersion(), LeadMoveEvent.SURVEY_CANCELLED,
-                currentVisit ? LeadMoveTarget.KEEP : LeadMoveTarget.CONTACTED, viewer, appointment, now);
+                completable ? LeadMoveTarget.KEEP : LeadMoveTarget.CONTACTED, viewer, appointment, now);
         save(appointment);
         return answer(viewer, lead, moved, List.of(), now);
     }
@@ -255,24 +268,28 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
     }
 
     /**
-     * survey-schedule BR-11, B-6: a held lead with a current visit goes back to SURVEY_SCHEDULED with a reason and a
-     * basis dated from the day it went on hold (spec A-25).
+     * survey-schedule BR-11, B-6: a held lead with a current visit goes back with a reason and a basis dated from the
+     * day it went on hold (spec A-25): to QUALIFIED with a usable PASSED of its cycle, to SURVEY_SCHEDULED with a record
+     * that can still be completed; anything else stays held (checklist submission spec 4.8, plan PD-7).
      */
     @Override
     public SurveyCommandResult resume(SurveyViewer viewer, ResumeSurveyCommand command) {
         Instant now = now();
-        LeadFacts lead = requireVisibleLead(command.leadId(), viewer);
+        LeadFacts lead = lockVisibleLead(command.leadId(), viewer);
         requireLeadVersion(lead, command.expectedLeadVersion());
         if (!"ON_HOLD".equals(lead.status())) {
             throw new InvalidSurveyStateException(List.of("ON_HOLD"));
         }
-        SurveyAppointment visit = CurrentVisitPolicy.currentVisit(appointments.findByLeadId(lead.leadId()),
-                lead.intentCycle()).orElseThrow(NoCurrentVisitException::new);
+        CycleRecord record = records.read(lead.leadId(), lead.intentCycle(), appointments.findByLeadId(lead.leadId()));
+        SurveyAppointment visit = record.currentVisit().orElseThrow(NoCurrentVisitException::new);
+        LeadMoveTarget target = records.resumeTarget(record, lead.intentCycle())
+                .map(resume -> LeadMoveTarget.valueOf(resume.name()))
+                .orElseThrow(() -> new SurveyNotAllowedException(CHECKLIST, List.of()));
         command.basis().requireWithin("basis",
                 lead.onHoldSince() == null ? null : SurveyTimeRules.vietnamDate(lead.onHoldSince()),
                 SurveyTimeRules.vietnamDate(now));
-        LeadMoveResult moved = move(lead, command.expectedLeadVersion(), LeadMoveEvent.SURVEY_RESUMED,
-                LeadMoveTarget.SURVEY_SCHEDULED, viewer, visit, now);
+        LeadMoveResult moved = move(lead, command.expectedLeadVersion(), LeadMoveEvent.SURVEY_RESUMED, target, viewer,
+                visit, now);
         resumptions.save(SurveyResumption.create(snowflakes.generateId(), lead.leadId(), visit.getId(),
                 command.reason(), command.basis(), viewer.userId(), now));
         return answer(viewer, lead, moved, List.of(), now);
@@ -289,6 +306,14 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
             throw new InvalidSurveyValueException("meetingLocation." + violation.field(), violation.message());
         }
         return check;
+    }
+
+    /**
+     * checklist submission spec 5.2, 5.4: the lead's first load under {@code FOR NO KEY UPDATE}, so the record read after
+     * it is the one a submit or a decision left.
+     */
+    private LeadFacts lockVisibleLead(String leadId, SurveyViewer viewer) {
+        return leads.findVisibleForUpdate(leadId, viewer).orElseThrow(SurveyLeadNotFoundException::new);
     }
 
     private LeadFacts requireVisibleLead(String leadId, SurveyViewer viewer) {

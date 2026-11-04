@@ -77,7 +77,9 @@ class SurveyQueryServiceTest {
         IdGenerator<Long> snowflakes = new AtomicLong(1_000L)::incrementAndGet;
         service = new SurveyQueryService(appointments, accessLogs, leads, directory,
                 new SurveyBlockAssembler(appointments, resumptions, directory, ChecklistServiceHarness.noChecklists(
-                        leads, directory)), snowflakes, ChecklistServiceHarness.noRecorder());
+                        leads, directory), ChecklistServiceHarness.noRecords(),
+                        ChecklistServiceHarness.noReviews(directory)), snowflakes,
+                ChecklistServiceHarness.noRecorder());
         start = Instant.now().truncatedTo(ChronoUnit.HOURS).plus(Duration.ofDays(1));
     }
 

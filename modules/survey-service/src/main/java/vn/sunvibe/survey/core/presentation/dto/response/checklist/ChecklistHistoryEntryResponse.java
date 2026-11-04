@@ -12,7 +12,8 @@ import java.time.Instant;
 @Schema(description = "The lead History entry written by a checklist command")
 public record ChecklistHistoryEntryResponse(
         @Schema(allowableValues = {"CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED",
-                "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED"})
+                "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED", "CHECKLIST_SUBMITTED",
+                "CHECKLIST_REVISION_STARTED"})
         String type,
         String actorUserId,
         @Schema(nullable = true, description = "Full name of the staff member; null when the id has no user row")

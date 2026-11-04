@@ -20,8 +20,8 @@ import java.util.Map;
  * A checklist as a reader of its lead sees it (survey-checklist spec 7.2 {@code ChecklistResponse}): the checklist,
  * the lead's code and status, the lead's staff (only for a viewer who can edit, spec A-25), the visit, the viewer's
  * editability, the seven groups as stored, the computed parts (address difference, readiness, effective terms, earlier
- * hazards), the owner's form, takeovers, corrections, editors, the latest change and one name map for every staff id
- * the answer holds. Private survey data: never logged.
+ * hazards), the owner's form, takeovers, corrections, editors, the latest change, one name map for every staff id the
+ * answer holds and the review part (submission spec 7.2). Private survey data: never logged.
  */
 public record ChecklistView(SurveyChecklist checklist, String requestCode, String leadStatus, List<String> leadStaff,
                             SurveyAppointment visit, Editability editability, Map<ChecklistGroup, GroupState> groups,
@@ -29,7 +29,8 @@ public record ChecklistView(SurveyChecklist checklist, String requestCode, Strin
                             List<SpaceTerms> effectiveTerms,
                             List<EarlierHazard> earlierHazards, OwnerFormFacts ownerFormOrNull,
                             List<ChecklistTakeover> takeovers, List<CorrectionView> corrections,
-                            List<EditorView> editors, Instant updatedAt, Map<String, String> staffNames) {
+                            List<EditorView> editors, Instant updatedAt, Map<String, String> staffNames,
+                            ChecklistReviewView review) {
 
     /** The name of a staff id, or null when the id is null or has no name. */
     public String nameOf(String userId) {

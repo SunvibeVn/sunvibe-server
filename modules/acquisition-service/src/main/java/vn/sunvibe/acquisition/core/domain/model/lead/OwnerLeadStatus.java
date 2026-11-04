@@ -17,7 +17,10 @@ public enum OwnerLeadStatus {
      * BR-3). Reached only through survey commands, never by a manual status change.
      */
     SURVEY_SCHEDULED,
-    /** The owner and the property are confirmed as suitable for the platform. */
+    /**
+     * The owner and the property are confirmed as suitable for the platform. Reached only through a PASSED checklist
+     * decision or the resume of a usable PASSED, never by a manual status change (survey-checklist submission I-4).
+     */
     QUALIFIED,
     /** The owner is expected to sign the agreement. */
     AGREEMENT_PENDING,
@@ -33,11 +36,13 @@ public enum OwnerLeadStatus {
     WITHDRAWN;
 
     /**
-     * Open leads: still waiting for contact, in contact with the owner or with survey work going on
-     * (survey-schedule BR-3). Open leads take notes and reassignments and count for duplicate detection.
+     * Open leads: still waiting for contact, in contact with the owner, with survey work going on (survey-schedule
+     * BR-3) or qualified by a PASSED survey record (survey-checklist submission spec 4.8). Open leads take notes and
+     * reassignments and count for duplicate detection.
      */
     public boolean isOpen() {
-        return this == NEW || this == ASSIGNED || this == CONTACTED || this == ON_HOLD || this == SURVEY_SCHEDULED;
+        return this == NEW || this == ASSIGNED || this == CONTACTED || this == ON_HOLD || this == SURVEY_SCHEDULED
+                || this == QUALIFIED;
     }
 
     /** Closed without becoming an onboarded owner. */

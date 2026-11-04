@@ -25,8 +25,8 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   creates the CUSTOMER, SALE, SALE_LEADER 0900000103 and ADMIN 0900000104 accounts),
   then npm run e2e in sunvibe-ui with the same env vars. Never commit the passwords. Both seed scripts refuse a
   server that is not on this machine (psql host other than localhost, 127.0.0.1, ::1 or a socket), even with target=local.
-- E2E lead fixtures (local DB only; run AFTER the accounts seed, which it needs): fourteen owner leads (L13 and L14
-  with a visited survey, ready for a checklist; L14 for the survey photo flows), one territory, fixed ids: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v target=local -f scripts/dev/seed-e2e-owner-leads.sql
+- E2E lead fixtures (local DB only; run AFTER the accounts seed, which it needs): fifteen owner leads (L13, L14 and L15
+  with a visited survey, ready for a checklist; L14 for the survey photo flows, L15 for the review flow), one territory, fixed ids: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v target=local -f scripts/dev/seed-e2e-owner-leads.sql
   (idempotent: deletes and re-inserts only its own fixture rows, their survey photos included). The survey photo E2E
   API run: scripts/dev/run-e2e-media-api.sh or .ps1 (fresh local store, stub scanner, dev processing container). `npm run e2e:workspace` in sunvibe-ui (the lead
   queue workspace) uses both seeds.

@@ -21,7 +21,7 @@ public record MediaItemView(String id, int mediaNo, MediaStatus status, MediaSta
                             String uploadedByNameOrNull, Instant createdAt, Instant contentReceivedAtOrNull,
                             Instant readyAtOrNull, Integer widthOrNull, Integer heightOrNull, Removed removedOrNull,
                             Held heldOrNull, boolean contentAvailable,
-                            MediaUnavailableReason unavailableReasonOrNull) {
+                            MediaUnavailableReason unavailableReasonOrNull, Integer carriedFromChecklistNoOrNull) {
 
     /** The removal: when, by whom, how, with the correction BR-12 asked for and the G1 save of a cascade. */
     public record Removed(Instant at, String byUserId, String byNameOrNull, RemovalKind kind,

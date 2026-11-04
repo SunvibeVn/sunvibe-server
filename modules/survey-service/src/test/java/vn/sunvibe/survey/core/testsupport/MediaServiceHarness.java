@@ -66,8 +66,13 @@ public final class MediaServiceHarness {
     public final InMemoryMediaStore store = new InMemoryMediaStore(journal);
     public final InMemoryBodySpool spool = new InMemoryBodySpool();
     public final RecordingProbeRequests probes = new RecordingProbeRequests();
-    /** Photos a submission references (spec 4.7, BR-8): none in production in this slice. */
+    /** Photos a submission references (spec 4.7, BR-8, checklist submission spec I-5). */
     public final java.util.Set<String> referenced = new java.util.HashSet<>();
+    public final InMemoryReviewRepositories.Selections selections;
+    public final vn.sunvibe.survey.core.application.shared.RevisionPhotos revisionPhotos;
+    public final vn.sunvibe.survey.core.application.shared.MediaSetLocks setLocks;
+    public final vn.sunvibe.survey.core.application.shared.external.media.EvidenceReferencePort references =
+            id -> referenced.contains(id.getValue());
     public final MediaBodySlots bodySlots;
     public final SecurityEventRecorder recorder;
     public final SurveyMediaCommandService commands;
@@ -81,15 +86,18 @@ public final class MediaServiceHarness {
         ChecklistContextLoader loader = new ChecklistContextLoader(base.checklists, base.appointments, base.leads,
                 base.directory, recorder);
         IntakeGate gate = new IntakeGate(health, clock);
-        commands = new SurveyMediaCommandService(loader, base.groups, media, sets, jobs, base.leads,
-                id -> referenced.contains(id.getValue()), recorder,
+        selections = new InMemoryReviewRepositories.Selections(journal);
+        revisionPhotos = new vn.sunvibe.survey.core.application.shared.RevisionPhotos(media, selections);
+        setLocks = new vn.sunvibe.survey.core.application.shared.MediaSetLocks(sets, selections);
+        commands = new SurveyMediaCommandService(loader, base.groups, media, sets, jobs, selections, revisionPhotos,
+                setLocks, base.leads, references, recorder,
                 new MediaLimitCounter(counters), gate, switches, new MediaItemAssembler(base.directory), clock,
                 () -> UlidCreator.getMonotonicUlid().toString(), transactions);
         bodySlots = new MediaBodySlots(slots, counters, clock, transactions,
                 new MediaInstanceSettings(INSTANCE, 3, 2));
         contents = new SurveyMediaContentService(commands, bodySlots, store, spool, probes, clock);
         counters.accessLogSource = base.accessLogs::all;
-        lists = new SurveyMediaQueryService(loader, base.checklists, base.appointments, base.groups, media, sets,
+        lists = new SurveyMediaQueryService(loader, base.checklists, base.appointments, base.groups, revisionPhotos, sets,
                 health, base.directory, switches, new MediaItemAssembler(base.directory),
                 new MediaReadBudgets(counters, recorder, clock, transactions, MediaReadBudgetLimits.SPEC),
                 new MediaAccessLogger(base.accessLogs, counters, snowflakes, clock, transactions), recorder,

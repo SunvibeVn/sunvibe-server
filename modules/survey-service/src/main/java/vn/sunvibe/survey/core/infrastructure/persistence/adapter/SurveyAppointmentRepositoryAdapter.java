@@ -86,6 +86,11 @@ public class SurveyAppointmentRepositoryAdapter implements SurveyAppointmentDoma
     }
 
     @Override
+    public List<SurveyAppointment> findByLeadIds(Collection<String> leadIds) {
+        return leadIds.isEmpty() ? List.of() : withHistory(jpaRepository.findByLeadIdIn(leadIds));
+    }
+
+    @Override
     public Optional<SurveyAppointment> findScheduledByLeadId(String leadId) {
         return jpaRepository.findByLeadIdAndStatus(leadId, AppointmentStatus.SCHEDULED)
                 .map(entity -> withHistory(List.of(entity)).get(0));

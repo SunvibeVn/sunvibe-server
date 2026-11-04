@@ -140,6 +140,26 @@ class MediaDeletionJobPostgresTest extends MediaApiTestBase {
 		assertEquals("DONE", media.jobs(id).get(0).get("state"));
 	}
 
+	/** checklist submission spec I-5, D3-3: a photo a submission references keeps its content, whatever the job says. */
+	@Test
+	void deletionJob_referencedPhoto_neverDeleted() throws Exception {
+		String id = removedReady(71);
+		media.evidenceRow(media.row(id).get("checklist_id").toString(), id);
+		jdbc.update("update survey_media_jobs set due_at = ? where media_id = ?",
+				Timestamp.from(Instant.now().minusSeconds(1)), id);
+
+		long until = System.nanoTime() + 20_000_000_000L;
+		while (System.nanoTime() < until && "PENDING".equals(media.jobs(id).get(0).get("state"))) {
+			deletion.runOnce();
+			Thread.sleep(100);
+		}
+
+		assertEquals("CANCELLED", media.jobs(id).get(0).get("state"));
+		assertEquals("REFERENCED", media.jobs(id).get(0).get("last_error_code"));
+		assertNull(media.row(id).get("content_deleted_at"));
+		assertEquals(3, objects(id));
+	}
+
 	// ==================== helpers ====================
 
 	/** A READY photo with its three variants, removed by its holder: the deletion requested, the job due later. */

@@ -13,6 +13,7 @@ public class InMemorySurveyorDirectory implements SurveyorDirectoryPort {
 
     private final Set<String> eligible = new HashSet<>();
     private final Map<String, String> names = new HashMap<>();
+    private final Set<String> cannotSignIn = new HashSet<>();
     public int nameLookups;
 
     public InMemorySurveyorDirectory withEligible(String userId, String name) {
@@ -28,6 +29,17 @@ public class InMemorySurveyorDirectory implements SurveyorDirectoryPort {
 
     public void makeIneligible(String userId) {
         eligible.remove(userId);
+    }
+
+    /** The account is locked: no sign-in, so also not eligible. */
+    public void lock(String userId) {
+        eligible.remove(userId);
+        cannotSignIn.add(userId);
+    }
+
+    @Override
+    public boolean canSignIn(String userId) {
+        return userId != null && !cannotSignIn.contains(userId);
     }
 
     @Override

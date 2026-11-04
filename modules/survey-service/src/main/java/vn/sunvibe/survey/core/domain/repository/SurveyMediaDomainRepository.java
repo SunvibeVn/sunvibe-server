@@ -1,5 +1,6 @@
 package vn.sunvibe.survey.core.domain.repository;
 
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.media.MediaRef;
 import vn.sunvibe.survey.core.domain.model.media.PlacedMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
@@ -48,6 +49,15 @@ public interface SurveyMediaDomainRepository {
 
     /** A plain read of a photo with its variants, for checks before a conditional update (spec 4.4 step 2). */
     Optional<SurveyMedia> findById(SurveyMediaId id);
+
+    /** Every uploader of a photo of these revisions, removed ones included (submission plan PD-2). */
+    List<ChecklistPerson> findUploaders(Collection<String> checklistIds);
+
+    /** Everyone who removed a photo of these revisions, by hand or by a cascade (submission plan PD-2). */
+    List<ChecklistPerson> findRemovers(Collection<String> checklistIds);
+
+    /** The photos with these ids, with their variants, in id order; unknown ids are skipped. */
+    List<SurveyMedia> findByIds(Collection<SurveyMediaId> ids);
 
     /** The checklist of a photo by a scalar query, without loading it (spec 5.4 paths without a lead lock). */
     Optional<String> findChecklistIdById(SurveyMediaId id);

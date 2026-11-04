@@ -27,8 +27,13 @@ public final class ChecklistEditability {
         if (checklist.intentCycle() != leadIntentCycle) {
             return Editability.readOnly(ReadOnlyReason.INTENT_CHANGED);
         }
-        if (checklist.status() != ChecklistStatus.DRAFT
-                || !currentVisitId.equals(Optional.of(checklist.visitAppointmentId()))) {
+        if (checklist.status() == ChecklistStatus.SUBMITTED) {
+            return Editability.readOnly(ReadOnlyReason.SUBMITTED);
+        }
+        if (checklist.status().isDecided()) {
+            return Editability.readOnly(ReadOnlyReason.DECIDED);
+        }
+        if (!currentVisitId.equals(Optional.of(checklist.visitAppointmentId()))) {
             return Editability.readOnly(ReadOnlyReason.NEWER_VISIT);
         }
         if (!SURVEY_SCHEDULED.equals(leadStatus)) {

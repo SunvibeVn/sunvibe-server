@@ -1,6 +1,7 @@
 package vn.sunvibe.survey.core.application.shared.external.lead;
 
 import java.time.Instant;
+import java.util.Set;
 
 /**
  * What survey needs to know about a visible lead (survey-schedule spec 5.4): status and intent (enum names), the
@@ -11,6 +12,13 @@ import java.time.Instant;
 public record LeadFacts(String leadId, String requestCode, String status, String intent, int intentCycle,
                         String assignedUserId, long version, Instant lastActivityAt, String contactName,
                         LeadPlace place, Instant createdAt, Instant onHoldSince) {
+
+    private static final Set<String> CLOSED_STATUSES = Set.of("DUPLICATE", "REJECTED", "WITHDRAWN");
+
+    /** A closed lead's PASSED revision cannot be used (survey-checklist submission spec 4.7). */
+    public boolean isClosed() {
+        return CLOSED_STATUSES.contains(status);
+    }
 
     /** The same lead after a survey move: its new status, version and latest activity time. */
     public LeadFacts moved(String newStatus, long newVersion, Instant newLastActivityAt) {

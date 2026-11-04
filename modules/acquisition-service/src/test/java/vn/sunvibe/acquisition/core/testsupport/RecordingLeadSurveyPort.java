@@ -3,6 +3,7 @@ package vn.sunvibe.acquisition.core.testsupport;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyPort;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyStop;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyAppointmentRef;
+import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyState;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
 import vn.sunvibe.acquisition.core.domain.repository.OwnerLeadDomainRepository;
 
@@ -24,7 +25,9 @@ public class RecordingLeadSurveyPort implements LeadSurveyPort {
 
     private final OwnerLeadDomainRepository leads;
     private final List<Call> calls = new ArrayList<>();
+    private final List<Call> stateQuestions = new ArrayList<>();
     private Optional<SurveyAppointmentRef> answer = Optional.empty();
+    private SurveyState state = SurveyState.NONE;
     public RuntimeException failNextCall;
 
     public RecordingLeadSurveyPort(OwnerLeadDomainRepository leads) {
@@ -36,8 +39,25 @@ public class RecordingLeadSurveyPort implements LeadSurveyPort {
         return this;
     }
 
+    public RecordingLeadSurveyPort withState(SurveyState surveyState) {
+        this.state = surveyState;
+        return this;
+    }
+
+    /** Each question about the survey record, with the stored lead version at that moment. */
+    public List<Call> stateQuestions() {
+        return List.copyOf(stateQuestions);
+    }
+
     public List<Call> calls() {
         return List.copyOf(calls);
+    }
+
+    @Override
+    public SurveyState surveyState(String leadId, int intentCycle) {
+        stateQuestions.add(new Call("surveyState", leadId, String.valueOf(intentCycle), null, null,
+                leads.findById(OwnerLeadId.of(leadId)).map(lead -> lead.getVersion()).orElse(null)));
+        return state;
     }
 
     @Override

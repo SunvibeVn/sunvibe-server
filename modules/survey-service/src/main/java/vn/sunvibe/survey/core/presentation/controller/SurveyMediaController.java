@@ -56,6 +56,8 @@ public class SurveyMediaController {
     public static final String HOLD_RELEASE = "/survey-media/{mediaId}/hold-release";
     /** The removal path, also matched by the JSON body limit (spec A-11). */
     public static final String REMOVAL = "/survey-media/{mediaId}/removal";
+    /** The deselection path, also matched by the JSON body limit (checklist submission spec 7.1). */
+    public static final String DESELECTION = "/survey-checklists/{checklistId}/media/{mediaId}/deselection";
 
     private final SurveyMediaCommandUseCase commandUseCase;
     private final SurveyMediaQueryUseCase queryUseCase;
@@ -202,6 +204,55 @@ public class SurveyMediaController {
                                                              @RequestBody MediaRemovalRequest request) {
         return ResponseEntity.ok(responseMapper.toContent(commandUseCase.remove(viewerResolver.current(),
                 viewerResolver.currentCanHold(), requestMapper.toCommand(mediaId, request))));
+    }
+
+    /**
+     * POST /api/v1/staff/survey-checklists/{checklistId}/media/{mediaId}/deselection
+     * <p>
+     * The holder takes a carried photo out of a draft revision (survey-checklist submission spec 4.6, A-12); it stays on
+     * the revision that froze it. Deselecting again changes nothing. Answers the revision's media list.
+     */
+    @PostMapping(DESELECTION)
+    @Operation(operationId = "deselectSurveyMedia",
+            summary = "Take a carried photo out of a draft revision",
+            description = "The revision's holder takes out a photo carried from an earlier revision. The photo itself "
+                    + "and the earlier revision are not touched. A photo another person uploaded needs a correction. "
+                    + "Taking it out again answers the list as it is.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The media list of the revision",
+                    content = @Content(schema = @Schema(implementation = ChecklistMediaResponse.class))),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on correction (missing where needed), "
+                    + "correction.reason, correction.basis.confirmedOn (not from the visit's arrival date to today) "
+                    + "or correction.basis.text; MALFORMED_REQUEST for an unknown or missing key",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not sale staff or ADMIN, or not the lead's "
+                    + "assignee",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such revision or photo, the photo was not "
+                    + "carried into this revision, or the caller may not see its lead",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "CHECKLIST_READ_ONLY; CHECKLIST_TAKEOVER_REQUIRED",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "413", description = "PAYLOAD_TOO_LARGE: the body is above 16 KiB",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "SURVEYOR_INELIGIBLE: the assignee can no longer take "
+                    + "the lead",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "429", description = "RATE_LIMITED (field budget): only a repeat, which "
+                    + "changes nothing and counts in the hourly list budget",
+                    headers = @Header(name = "Retry-After", description = "Seconds to wait",
+                            schema = @Schema(type = "integer")),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<ChecklistMediaResponse> deselect(@PathVariable("checklistId") String checklistId,
+                                                           @PathVariable("mediaId") String mediaId,
+                                                           @RequestBody MediaRemovalRequest request) {
+        boolean changed = commandUseCase.deselect(viewerResolver.current(),
+                requestMapper.toDeselection(checklistId, mediaId, request));
+        return ResponseEntity.ok(responseMapper.toList(queryUseCase.listAfterDeselection(viewerResolver.current(),
+                viewerResolver.currentCanHold(), checklistId, changed)));
     }
 
     /**

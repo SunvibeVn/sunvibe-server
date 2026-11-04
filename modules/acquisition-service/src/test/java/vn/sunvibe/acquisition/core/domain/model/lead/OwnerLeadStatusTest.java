@@ -22,9 +22,17 @@ class OwnerLeadStatusTest {
     }
 
     @Test
-    void isOpen_isTrueExactlyForNewAssignedContactedOnHoldSurveyScheduled() {
+    void isOpen_isTrueExactlyForNewAssignedContactedOnHoldSurveyScheduledQualified() {
         assertEquals(EnumSet.of(OwnerLeadStatus.NEW, OwnerLeadStatus.ASSIGNED, OwnerLeadStatus.CONTACTED,
-                OwnerLeadStatus.ON_HOLD, OwnerLeadStatus.SURVEY_SCHEDULED), statesWhere(OwnerLeadStatus::isOpen));
+                OwnerLeadStatus.ON_HOLD, OwnerLeadStatus.SURVEY_SCHEDULED, OwnerLeadStatus.QUALIFIED),
+                statesWhere(OwnerLeadStatus::isOpen));
+    }
+
+    /** checklist submission spec 4.8, S-15: a qualified lead still counts for duplicates, notes and reassignment. */
+    @Test
+    void qualified_isOpen_inDuplicateDetection() {
+        assertTrue(OwnerLeadStatus.QUALIFIED.isOpen());
+        assertFalse(OwnerLeadStatus.QUALIFIED.isClosed());
     }
 
     /** survey-schedule BR-3: a lead with survey work still takes notes, reassignments and duplicate checks. */

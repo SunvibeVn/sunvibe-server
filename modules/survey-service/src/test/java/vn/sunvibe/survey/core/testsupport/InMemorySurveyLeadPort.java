@@ -4,6 +4,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityResult;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistHistoryEntry;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadCard;
+import vn.sunvibe.survey.core.application.shared.external.lead.LeadCycle;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadHistoryEntry;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMove;
@@ -140,7 +141,8 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
         LeadFacts moved = lead.moved(to == null ? lead.status() : to, lead.version() + 1, move.occurredAt());
         leads.put(leadId, moved);
         LeadHistoryEntry entry = new LeadHistoryEntry(move.event().name(), move.actorUserId(), null,
-                to == null ? null : lead.status(), to, move.referenceId(), move.referenceNo(), move.occurredAt());
+                to == null ? null : lead.status(), to, move.referenceId(), move.referenceNo(), move.detailOrNull(),
+                move.occurredAt());
         return new LeadMoveResult(moved.status(), moved.version(), move.occurredAt(), entry);
     }
 
@@ -153,7 +155,9 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
             case SURVEY_CHANGED, SURVEY_CONFIRMED, SURVEY_UNCONFIRMED, SURVEY_VISITED ->
                     target == LeadMoveTarget.KEEP && status.equals("SURVEY_SCHEDULED");
             case SURVEY_CANCELLED -> target != LeadMoveTarget.SURVEY_SCHEDULED && status.equals("SURVEY_SCHEDULED");
-            case SURVEY_RESUMED -> target == LeadMoveTarget.SURVEY_SCHEDULED && status.equals("ON_HOLD");
+            case SURVEY_RESUMED -> (target == LeadMoveTarget.SURVEY_SCHEDULED || target == LeadMoveTarget.QUALIFIED)
+                    && status.equals("ON_HOLD");
+            case CHECKLIST_REVIEWED -> target != LeadMoveTarget.SURVEY_SCHEDULED && status.equals("SURVEY_SCHEDULED");
         };
     }
 
@@ -190,6 +194,22 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
     public Optional<LeadFacts> findVisibleForShare(String leadId, SurveyViewer viewer) {
         journal.add("lead:share");
         return findVisible(leadId, viewer);
+    }
+
+    @Override
+    public Optional<LeadFacts> findVisibleForUpdate(String leadId, SurveyViewer viewer) {
+        journal.add("lead:update");
+        return findVisible(leadId, viewer);
+    }
+
+    @Override
+    public List<LeadCycle> visibleOpenLeadCycles(SurveyViewer viewer) {
+        journal.add("lead:cycles");
+        return leads.values().stream()
+                .filter(lead -> lead.status().equals("SURVEY_SCHEDULED") || lead.status().equals("ON_HOLD"))
+                .filter(lead -> viewer.access() == ViewerAccess.ALL || viewer.userId().equals(lead.assignedUserId()))
+                .map(lead -> new LeadCycle(lead.leadId(), lead.intentCycle(), lead.status(), lead.assignedUserId(),
+                        lead.requestCode())).toList();
     }
 
     @Override

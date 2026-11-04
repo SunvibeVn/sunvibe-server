@@ -37,6 +37,8 @@ import vn.sunvibe.survey.core.presentation.dto.response.SurveyOverlapResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyOverlapsResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyPageResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyProxyResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.SurveyRecordResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.SurveyResumeResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyResumptionResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyRevisionResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyVisitResponse;
@@ -68,7 +70,11 @@ public class SurveyResponseMapper {
                 block.currentVisitId(), block.resumeAllowed(),
                 block.appointments().stream().map(view -> toAppointment(view, block)).toList(),
                 block.resumptions().stream().map(resumption -> toResumption(resumption, block)).toList(),
-                ChecklistResponseMapper.toStartState(block.checklistStart()));
+                ChecklistResponseMapper.toStartState(block.checklistStart()),
+                ChecklistResponseMapper.toRevisionStart(block.revisionStart()),
+                new SurveyResumeResponse(block.resumeTargetOrNull()),
+                new SurveyRecordResponse(block.survey().hasPassed(), block.survey().hasSubmitted(),
+                        ChecklistResponseMapper.toPassed(block.survey().passedOrNull())));
     }
 
     public SurveyOverlapsResponse toOverlaps(List<OverlapView> overlaps) {

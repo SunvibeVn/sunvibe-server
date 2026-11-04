@@ -2,6 +2,7 @@ package vn.sunvibe.survey.core.application.shared.external.lead;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -9,8 +10,8 @@ import java.util.Set;
 /**
  * Port to the owner lead, owned by acquisition-service (survey-schedule spec 5.4, ADR-009). The adapter lives in app.
  * Every call joins the caller's transaction; {@link #apply} writes the lead row first, before any survey row.
- * Checklist commands never write the lead row: they read it under a share lock first and add their History entry
- * last (survey-checklist spec 5.5).
+ * Checklist commands read the lead row under a share lock first and add their History entry last (survey-checklist
+ * spec 5.5); only a decision writes it, through {@link #apply} on the row it locked (submission spec 5.4).
  */
 public interface SurveyLeadPort {
 
@@ -43,6 +44,19 @@ public interface SurveyLeadPort {
      * (survey-checklist spec 5.3, A-5): lead commands wait for the checklist command. Only inside a transaction.
      */
     Optional<LeadFacts> findVisibleForShare(String leadId, SurveyViewer viewer);
+
+    /**
+     * The facts of a visible lead read under a {@code FOR NO KEY UPDATE} row lock held until the transaction ends
+     * (survey-checklist submission spec 5.2, 5.4): a decision and book, cancel and resume serialise on it, and
+     * {@link #apply} reuses the locked row. It must be the command's first load of the lead. Only inside a transaction.
+     */
+    Optional<LeadFacts> findVisibleForUpdate(String leadId, SurveyViewer viewer);
+
+    /**
+     * The viewer's visible leads in SURVEY_SCHEDULED or ON_HOLD with their current intent cycle (survey-checklist
+     * submission plan PD-4): what the review queue can show.
+     */
+    List<LeadCycle> visibleOpenLeadCycles(SurveyViewer viewer);
 
     /**
      * Insert the History entry of a checklist command as an activity row only: the lead's version and status never

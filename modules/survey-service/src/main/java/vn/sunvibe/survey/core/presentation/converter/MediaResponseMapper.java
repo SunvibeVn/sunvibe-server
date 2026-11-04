@@ -65,7 +65,7 @@ public class MediaResponseMapper {
                         removed.bySaveIdOrNull()),
                 held == null ? null : new SurveyMediaHold(held.at(), held.byUserIdOrNull(), held.byNameOrNull(),
                         held.reasonOrNull()),
-                view.contentAvailable(), view.unavailableReasonOrNull());
+                view.contentAvailable(), view.unavailableReasonOrNull(), view.carriedFromChecklistNoOrNull());
     }
 
     private static SurveyMediaCorrection correction(MediaRemovalCorrection correction) {

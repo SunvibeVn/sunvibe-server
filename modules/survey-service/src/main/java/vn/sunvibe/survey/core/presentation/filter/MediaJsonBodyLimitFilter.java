@@ -46,7 +46,8 @@ import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 public class MediaJsonBodyLimitFilter extends OncePerRequestFilter {
 
     private static final Pattern FILTERED = Pattern.compile(
-            "^/api/v1/staff/(survey-checklists/[^/]+/media|survey-media/[^/]+/(removal|hold|hold-release))/?$");
+            "^/api/v1/staff/(survey-checklists/[^/]+/media(/[^/]+/deselection)?"
+                    + "|survey-media/[^/]+/(removal|hold|hold-release))/?$");
     /** The body types the endpoints read (those of the JSON message converter). */
     private static final List<MediaType> ACCEPTED_TYPES =
             List.of(MediaType.APPLICATION_JSON, new MediaType("application", "*+json"));

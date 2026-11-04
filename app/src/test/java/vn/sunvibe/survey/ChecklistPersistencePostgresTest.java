@@ -377,7 +377,7 @@ class ChecklistPersistencePostgresTest {
 		assertRejected("INSERT INTO survey_checklists (id, lead_id, checklist_no, visit_appointment_id, intent_cycle,"
 				+ " holder_user_id, template_code, template_version, kind, status, created_by, created_at) VALUES"
 				+ " ('01JCHECKBROKEN000000000001', '" + OTHER_LEAD + "', 1, (SELECT visit_appointment_id FROM"
-				+ " survey_checklists LIMIT 1), 1, '" + SALE_A + "', 'LONG_TERM_RENT', 1, 'FULL_ASSESSMENT', 'SUBMITTED',"
+				+ " survey_checklists LIMIT 1), 1, '" + SALE_A + "', 'LONG_TERM_RENT', 1, 'FULL_ASSESSMENT', 'REOPENED',"
 				+ " '" + SALE_A + "', now())", "chk_survey_checklists_status");
 	}
 

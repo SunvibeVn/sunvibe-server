@@ -166,9 +166,9 @@ class MediaSchedulingStartupTest {
                 h.health, incidents, h.switches, probes, new NoListingRuns(), h.clock, h.transactions);
         MediaFullListingJob listing = new MediaFullListingJob(new NoListingRuns(), h.variants, h.store, incidents,
                 h.health, h.clock, () -> com.github.f4b6a3.ulid.UlidCreator.getMonotonicUlid().toString(), probes);
-        MediaRestoreReconciliation reconciliation = new MediaRestoreReconciliation(h.media, h.sets, h.variants,
+        MediaRestoreReconciliation reconciliation = new MediaRestoreReconciliation(h.media, h.setLocks, h.variants,
                 h.store, h.clock, h.transactions, false, false);
-        MediaContentDeletionJob deletion = new MediaContentDeletionJob(h.jobs, h.media, h.sets, h.store, h.health,
+        MediaContentDeletionJob deletion = new MediaContentDeletionJob(h.jobs, h.media, h.setLocks, h.references, h.store, h.health,
                 h.clock, () -> com.github.f4b6a3.ulid.UlidCreator.getMonotonicUlid().toString(), h.transactions);
 
         new MediaWorkerRegistration(scheduling, worker, normalizer, h.health, h.clock, RETRY_ATTEMPTS,

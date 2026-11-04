@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -20,6 +21,7 @@ import vn.sunvibe.survey.core.application.shared.MediaItemAssembler;
 import vn.sunvibe.survey.core.application.shared.MediaReadBudgets;
 import vn.sunvibe.survey.core.application.shared.MediaSwitches;
 import vn.sunvibe.survey.core.application.shared.MediaViewerRights;
+import vn.sunvibe.survey.core.application.shared.RevisionPhotos;
 import vn.sunvibe.survey.core.application.shared.SecurityEventRecorder;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
@@ -52,7 +54,6 @@ import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
 
 /**
@@ -75,7 +76,7 @@ public class SurveyMediaQueryService implements SurveyMediaQueryUseCase {
     private final SurveyChecklistDomainRepository checklists;
     private final SurveyAppointmentDomainRepository appointments;
     private final SurveyChecklistGroupDomainRepository groups;
-    private final SurveyMediaDomainRepository media;
+    private final RevisionPhotos revisionPhotos;
     private final SurveyMediaSetDomainRepository sets;
     private final IntakeHealthRepository health;
     private final SurveyorDirectoryPort directory;
@@ -89,7 +90,7 @@ public class SurveyMediaQueryService implements SurveyMediaQueryUseCase {
 
     public SurveyMediaQueryService(ChecklistContextLoader loader, SurveyChecklistDomainRepository checklists,
                                    SurveyAppointmentDomainRepository appointments,
-                                   SurveyChecklistGroupDomainRepository groups, SurveyMediaDomainRepository media,
+                                   SurveyChecklistGroupDomainRepository groups, RevisionPhotos revisionPhotos,
                                    SurveyMediaSetDomainRepository sets, IntakeHealthRepository health,
                                    SurveyorDirectoryPort directory, MediaSwitches switches,
                                    MediaItemAssembler items, MediaReadBudgets budgets, MediaAccessLogger accessLogger,
@@ -98,7 +99,7 @@ public class SurveyMediaQueryService implements SurveyMediaQueryUseCase {
         this.checklists = checklists;
         this.appointments = appointments;
         this.groups = groups;
-        this.media = media;
+        this.revisionPhotos = revisionPhotos;
         this.sets = sets;
         this.health = health;
         this.directory = directory;
@@ -122,16 +123,35 @@ public class SurveyMediaQueryService implements SurveyMediaQueryUseCase {
             known = KnownVersion.parse(knownVersionOrNull).orElseThrow(() -> new ChecklistValidationException(
                     List.of(new Violation("knownVersion", "knownVersion is malformed."))));
         }
-        LeadFacts lead;
+        LeadFacts lead = requireVisible(viewer, checklistId);
+        budgets.count(viewer.userId(), lead.leadId(), MediaCounterKind.LIST, SecurityResourceType.MEDIA_SET,
+                checklistId);
+        return readLogged(viewer, viewerCanHold, checklistId, lead, known);
+    }
+
+    @Override
+    public MediaListView listAfterDeselection(SurveyViewer viewer, boolean viewerCanHold, String checklistId,
+                                              boolean changed) {
+        LeadFacts lead = requireVisible(viewer, checklistId);
+        if (!changed) {
+            budgets.count(viewer.userId(), lead.leadId(), MediaCounterKind.LIST, SecurityResourceType.MEDIA_SET,
+                    checklistId);
+        }
+        return readLogged(viewer, viewerCanHold, checklistId, lead, null)
+                .orElseThrow(() -> new IllegalStateException("A list without a known version always answers."));
+    }
+
+    private LeadFacts requireVisible(SurveyViewer viewer, String checklistId) {
         try {
-            lead = readTransaction.execute(status -> loader.requireMediaVisible(viewer, checklistId,
+            return readTransaction.execute(status -> loader.requireMediaVisible(viewer, checklistId,
                     SecurityResourceType.MEDIA_SET, checklistId, SecurityAction.READ));
         } finally {
             events.flushDeferred();
         }
-        budgets.count(viewer.userId(), lead.leadId(), MediaCounterKind.LIST, SecurityResourceType.MEDIA_SET,
-                checklistId);
-        KnownVersion sent = known;
+    }
+
+    private Optional<MediaListView> readLogged(SurveyViewer viewer, boolean viewerCanHold, String checklistId,
+                                               LeadFacts lead, KnownVersion sent) {
         Optional<MediaListView> view;
         try {
             view = snapshot.execute(status -> read(viewer, viewerCanHold, checklistId, sent));
@@ -153,7 +173,8 @@ public class SurveyMediaQueryService implements SurveyMediaQueryUseCase {
         GroupState g1 = groupStates.get(ChecklistGroup.IDENTIFICATION);
         GroupState g4 = groupStates.get(ChecklistGroup.CONDITION);
         long setVersion = sets.findForRead(checklistId).map(MediaSet::getSetVersion).orElse(0L);
-        List<SurveyMedia> photos = media.findForChecklist(checklistId);
+        // checklist submission spec 4.6: own and carried photos, read after the set row
+        List<SurveyMedia> photos = revisionPhotos.of(checklistId);
         IntakeHealth row = health.read();
         boolean eligible = directory.isEligible(lead.assignedUserId());
         Optional<String> currentVisit = CurrentVisitPolicy.currentVisit(ofLead, lead.intentCycle())
@@ -183,10 +204,16 @@ public class SurveyMediaQueryService implements SurveyMediaQueryUseCase {
                 MediaLimits.MAX_SELECTED, selected.size(), MediaLimits.MAX_PENDING, pending);
         ConditionContent g4Content = g4 == null ? null : (ConditionContent) g4.document().content();
         return Optional.of(new MediaListView(checklistId, basis, uploadEnabled, row.paused(), serving, viewerCanHold,
-                limits, items.assemble(selected, viewerCanHold),
+                limits, items.assemble(selected, viewerCanHold, revisionPhotos.carriedFrom(checklistId,
+                        checklistNumbers(lead))),
                 items.assemble(notAccepted.stream().limit(NEWEST).toList(), viewerCanHold),
                 items.assemble(removed.stream().limit(NEWEST).toList(), viewerCanHold), notAccepted.size(),
                 removed.size(), EvidenceCoverageCalculator.of((IdentificationContent) g1.document().content(),
                         g4Content, photos).pairs()));
+    }
+
+    private Map<String, Integer> checklistNumbers(LeadFacts lead) {
+        return checklists.findByLeadId(lead.leadId()).stream().collect(Collectors.toMap(
+                checklist -> checklist.getId().getValue(), SurveyChecklist::getChecklistNo));
     }
 }

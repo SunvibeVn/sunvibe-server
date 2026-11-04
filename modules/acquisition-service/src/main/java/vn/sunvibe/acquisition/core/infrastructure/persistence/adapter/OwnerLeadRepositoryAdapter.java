@@ -6,6 +6,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import vn.sunvibe.acquisition.core.domain.model.lead.LeadCycle;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntent;
@@ -55,6 +56,20 @@ public class OwnerLeadRepositoryAdapter implements OwnerLeadDomainRepository {
     @Override
     public Optional<OwnerLead> findByIdForShare(OwnerLeadId id) {
         return jpaRepository.findForShareById(id.getValue()).map(mapper::toDomain);
+    }
+
+    @Override
+    public Optional<OwnerLead> findByIdForUpdate(OwnerLeadId id) {
+        return jpaRepository.findForNoKeyUpdateById(id.getValue()).map(mapper::toDomain);
+    }
+
+    @Override
+    public List<LeadCycle> findCycles(Collection<OwnerLeadStatus> statuses, Optional<String> assigneeUserId) {
+        List<OwnerLeadJpaRepository.CycleRow> rows = assigneeUserId
+                .map(assignee -> jpaRepository.findByStatusInAndAssignedUserId(statuses, assignee))
+                .orElseGet(() -> jpaRepository.findByStatusIn(statuses));
+        return rows.stream().map(row -> new LeadCycle(row.getId(), row.getIntentCycle(), row.getStatus(),
+                row.getAssignedUserId(), row.getRequestCode())).toList();
     }
 
     @Override

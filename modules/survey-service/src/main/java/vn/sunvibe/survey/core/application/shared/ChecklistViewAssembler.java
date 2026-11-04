@@ -2,6 +2,7 @@ package vn.sunvibe.survey.core.application.shared;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.query.ChecklistMediaView;
+import vn.sunvibe.survey.core.application.query.ChecklistReviewView;
 import vn.sunvibe.survey.core.application.query.ChecklistSummaryView;
 import vn.sunvibe.survey.core.application.query.ChecklistView;
 import vn.sunvibe.survey.core.application.query.CorrectionView;
@@ -10,10 +11,12 @@ import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.shared.external.staff.SurveyorDirectoryPort;
+import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.model.checklist.Hazard;
 import vn.sunvibe.survey.core.domain.model.checklist.IdentificationContent;
 import vn.sunvibe.survey.core.domain.model.checklist.SafetyContent;
@@ -38,9 +41,9 @@ import vn.sunvibe.survey.core.domain.policy.checklist.Readiness;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReadinessCalculator;
 import vn.sunvibe.survey.core.domain.model.media.MediaSet;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
+import vn.sunvibe.survey.core.domain.policy.checklist.SubmissionContext;
 import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
@@ -76,17 +79,20 @@ public class ChecklistViewAssembler {
     private final SurveyLeadPort leads;
     private final SurveyorDirectoryPort directory;
     private final SurveyMediaSetDomainRepository mediaSets;
-    private final SurveyMediaDomainRepository media;
+    private final RevisionPhotos revisionPhotos;
     private final MediaSwitches switches;
+    private final ChecklistSwitches checklistSwitches;
     private final IntakeHealthRepository health;
+    private final ChecklistReviewReader reviews;
 
     public ChecklistViewAssembler(SurveyChecklistDomainRepository checklists,
                                   SurveyChecklistGroupDomainRepository groups,
                                   SurveyChecklistTakeoverDomainRepository takeovers,
                                   SurveyChecklistSaveDomainRepository saves, SurveyLeadPort leads,
                                   SurveyorDirectoryPort directory, SurveyMediaSetDomainRepository mediaSets,
-                                  SurveyMediaDomainRepository media, MediaSwitches switches,
-                                  IntakeHealthRepository health) {
+                                  RevisionPhotos revisionPhotos, MediaSwitches switches,
+                                  ChecklistSwitches checklistSwitches, IntakeHealthRepository health,
+                                  ChecklistReviewReader reviews) {
         this.checklists = checklists;
         this.groups = groups;
         this.takeovers = takeovers;
@@ -94,9 +100,11 @@ public class ChecklistViewAssembler {
         this.leads = leads;
         this.directory = directory;
         this.mediaSets = mediaSets;
-        this.media = media;
+        this.revisionPhotos = revisionPhotos;
         this.switches = switches;
+        this.checklistSwitches = checklistSwitches;
         this.health = health;
+        this.reviews = reviews;
     }
 
     public ChecklistView assemble(SurveyViewer viewer, LeadFacts lead, List<SurveyAppointment> ofLead,
@@ -109,7 +117,10 @@ public class ChecklistViewAssembler {
         LocationDifference difference = difference(g1, visit);
         List<EarlierHazard> earlier = earlierHazards(checklist, states);
         Evidence evidence = evidence(checklist.getId());
-        Readiness readiness = ReadinessCalculator.of(documents(states), difference, earlier, evidence.photosOrNull());
+        Readiness readiness = ReadinessCalculator.of(documents(states), difference, earlier, evidence.photosOrNull(),
+                new SubmissionContext(switches.uploadsOn(), checklistSwitches.submissionEnabled(),
+                        hasScheduled(ofLead)));
+        ChecklistReviewView review = reviews.read(viewer, lead, ofLead, checklist, visit, states, readiness);
         ChecklistMediaView mediaView = new ChecklistMediaView(evidence.photosOrNull() != null,
                 MediaViewerRights.uploadEnabled(switches.uploadsOn(), health.read(), editability),
                 evidence.setVersion());
@@ -117,7 +128,8 @@ public class ChecklistViewAssembler {
         List<ChecklistTakeover> takeoverRows = takeovers.findByChecklistId(checklist.getId());
         List<ChecklistSave> saveRows = saves.findByChecklistId(checklist.getId());
         List<String> leadStaff = editability.editable() ? List.copyOf(leadStaff(lead, ofLead)) : List.of();
-        List<CorrectionView> corrections = saveRows.stream().filter(save -> save.correctionOrNull() != null)
+        List<ChecklistSave> uptoIt = savesOfTheVisit(checklist, saveRows);
+        List<CorrectionView> corrections = uptoIt.stream().filter(save -> save.correctionOrNull() != null)
                 .map(save -> new CorrectionView(String.valueOf(save.id()), save.group(),
                         save.correctionOrNull().units(), save.correctionOrNull().reason(),
                         save.correctionOrNull().basis(), save.actorUserId(), save.savedAt()))
@@ -141,13 +153,52 @@ public class ChecklistViewAssembler {
             ids.add(takeover.fromUserId());
             ids.add(takeover.toUserId());
         });
-        saveRows.forEach(save -> ids.add(save.actorUserId()));
+        uptoIt.forEach(save -> ids.add(save.actorUserId()));
         earlier.forEach(hazard -> ids.add(hazard.hazard().receivedByUserId()));
+        if (review.submissionOrNull() != null) {
+            ids.add(review.submissionOrNull().submission().submittedByUserId());
+        }
+        if (review.decisionOrNull() != null) {
+            ids.add(review.decisionOrNull().reviewerUserId());
+        }
         ids.remove(null);
         Map<String, String> names = ids.isEmpty() ? Map.of() : directory.displayNames(ids);
         return new ChecklistView(checklist, lead.requestCode(), lead.status(), leadStaff, visit, editability, states,
                 difference, readiness, mediaView, EffectiveTerms.of(terms, g1.spaces()), earlier,
-                leads.ownerForm(lead.leadId()).orElse(null), takeoverRows, corrections, editors, updatedAt, names);
+                leads.ownerForm(lead.leadId()).orElse(null), takeoverRows, corrections, editors, updatedAt, names,
+                review);
+    }
+
+    /**
+     * submission spec 4.6, U-5: a revision copies its groups with their correction pointers, so its read lists the saves
+     * of the earlier revisions of the visit too; who edited it and when stay its own.
+     */
+    private List<ChecklistSave> savesOfTheVisit(SurveyChecklist checklist, List<ChecklistSave> own) {
+        if (checklist.getPreviousChecklistIdOrNull() == null) {
+            return own;
+        }
+        List<ChecklistSave> all = new ArrayList<>();
+        checklists.findByLeadId(checklist.getLeadId()).stream()
+                .filter(other -> other.getVisitAppointmentId().equals(checklist.getVisitAppointmentId())
+                        && other.getChecklistNo() < checklist.getChecklistNo())
+                .forEach(other -> all.addAll(saves.findByChecklistId(other.getId())));
+        all.addAll(own);
+        return all;
+    }
+
+    /**
+     * The readiness of a revision from rows the caller read under its locks (submission spec 4.4, I-6): the gates of a
+     * submit read the same lists the page shows.
+     */
+    public Readiness readiness(SurveyChecklist checklist, Map<ChecklistGroup, GroupState> states,
+                               SurveyAppointment visit, Collection<SurveyMedia> photos, SubmissionContext context) {
+        return ReadinessCalculator.of(documents(states), difference(identification(states), visit),
+                earlierHazards(checklist, states), photos, context);
+    }
+
+    /** survey-checklist D3-7: a SCHEDULED appointment on the lead, whatever its cycle. */
+    public static boolean hasScheduled(List<SurveyAppointment> ofLead) {
+        return ofLead.stream().anyMatch(appointment -> appointment.getStatus() == AppointmentStatus.SCHEDULED);
     }
 
     /**
@@ -175,8 +226,9 @@ public class ChecklistViewAssembler {
                             .max(Comparator.comparing(GroupState::updatedAt)).orElse(null);
                     byVisit.computeIfAbsent(checklist.getVisitAppointmentId().getValue(), id -> new ArrayList<>())
                             .add(new ChecklistSummaryView(checklist.getId().getValue(), checklist.getChecklistNo(),
-                                    checklist.getStatus(), editability(viewer, lead, ofLead, checklist,
-                                    assigneeEligible), readiness.missingCount(), checklist.getHolderUserId(),
+                                    checklist.getStatus(), DecisionOutcome.ofStatus(checklist.getStatus()),
+                                    editability(viewer, lead, ofLead, checklist, assigneeEligible),
+                                    readiness.missingCount(), checklist.getHolderUserId(),
                                     latest == null ? checklist.getCreatedAt() : latest.updatedAt(),
                                     latest == null ? null : latest.updatedByUserId()));
                 });
@@ -185,15 +237,15 @@ public class ChecklistViewAssembler {
 
     /**
      * survey-media spec A-1: the photos are available when uploads are on or the checklist has a media-set row; then
-     * every photo row of the checklist, read after the set row (evidence of spec 4.6), else null. Without a set row
-     * no photo exists (a photo is created under the set lock after the row).
+     * every photo row of the checklist and the carried photos it selects, read after the set row (evidence of spec 4.6),
+     * else null. Without a set row no photo exists (a photo is created under the set lock after the row).
      */
     private Evidence evidence(SurveyChecklistId checklistId) {
         Optional<MediaSet> set = mediaSets.findForRead(checklistId.getValue());
         if (set.isEmpty() && !switches.uploadsOn()) {
             return new Evidence(null, 0L);
         }
-        List<SurveyMedia> photos = set.isEmpty() ? List.of() : media.findForChecklist(checklistId.getValue());
+        List<SurveyMedia> photos = set.isEmpty() ? List.of() : revisionPhotos.of(checklistId.getValue());
         return new Evidence(photos, set.map(MediaSet::getSetVersion).orElse(0L));
     }
 
@@ -260,10 +312,11 @@ public class ChecklistViewAssembler {
                 .map(other -> hazards(other, earlierGroups.get(other.getId()))).toList(), current);
     }
 
-    private static ChecklistHazards hazards(SurveyChecklist checklist, Map<ChecklistGroup, GroupState> states) {
+    public static ChecklistHazards hazards(SurveyChecklist checklist, Map<ChecklistGroup, GroupState> states) {
         SafetyContent safety = (SafetyContent) states.get(ChecklistGroup.SAFETY).document().content();
         List<Hazard> hazards = safety.hazards().isValue() ? safety.hazards().value() : List.of();
-        return new ChecklistHazards(checklist.getId().getValue(), checklist.getChecklistNo(), hazards);
+        return new ChecklistHazards(checklist.getId().getValue(), checklist.getVisitAppointmentId().getValue(),
+                checklist.getChecklistNo(), hazards);
     }
 
     private static List<EditorView> editors(List<ChecklistSave> saves) {

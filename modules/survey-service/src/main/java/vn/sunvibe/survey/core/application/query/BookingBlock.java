@@ -6,6 +6,10 @@ public enum BookingBlock {
     ALREADY_SCHEDULED,
     /** The lead is NEW: nobody holds it yet, so there is no surveyor (survey-schedule C-1). */
     NO_ASSIGNEE,
+    /** The current visit's latest revision waits for a decision (survey-checklist submission spec 4.8). */
+    CHECKLIST_SUBMITTED,
+    /** The cycle has a PASSED revision, usable or not (survey-checklist submission spec 4.8). */
+    CHECKLIST_PASSED,
     /** The lead's status does not allow the booking kind (spec 4.5). */
     LEAD_STATUS,
     /** The lead is not a rental lead (survey-schedule C-1, US-5 AC-3). */

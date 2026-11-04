@@ -1,13 +1,20 @@
 package vn.sunvibe.survey.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.survey.core.application.query.ChecklistDecideResult;
+import vn.sunvibe.survey.core.application.query.ChecklistRevisionResult;
 import vn.sunvibe.survey.core.application.query.ChecklistStartResult;
+import vn.sunvibe.survey.core.application.query.ChecklistSubmitResult;
 import vn.sunvibe.survey.core.application.query.ChecklistSummaryView;
 import vn.sunvibe.survey.core.application.query.ChecklistTakeoverResult;
 import vn.sunvibe.survey.core.application.query.ChecklistView;
 import vn.sunvibe.survey.core.application.query.CheckpointView;
 import vn.sunvibe.survey.core.application.query.LeadState;
+import vn.sunvibe.survey.core.application.query.PassedView;
+import vn.sunvibe.survey.core.application.query.ReviewQueueItem;
+import vn.sunvibe.survey.core.application.query.SubmissionView;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistHistoryEntry;
+import vn.sunvibe.survey.core.application.shared.external.lead.LeadHistoryEntry;
 import vn.sunvibe.survey.core.application.shared.external.lead.OwnerFormFacts;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
@@ -19,13 +26,16 @@ import vn.sunvibe.survey.core.domain.model.checklist.AmenityItem;
 import vn.sunvibe.survey.core.domain.model.checklist.AreaCheck;
 import vn.sunvibe.survey.core.domain.model.checklist.Charge;
 import vn.sunvibe.survey.core.domain.model.checklist.ChargeOverrides;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSource;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSubmission;
 import vn.sunvibe.survey.core.domain.model.checklist.ConditionContent;
 import vn.sunvibe.survey.core.domain.model.checklist.ConditionSpace;
 import vn.sunvibe.survey.core.domain.model.checklist.Deposit;
 import vn.sunvibe.survey.core.domain.model.checklist.DimensionsContent;
 import vn.sunvibe.survey.core.domain.model.checklist.DimensionsSpace;
+import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
 import vn.sunvibe.survey.core.domain.model.checklist.Fee;
 import vn.sunvibe.survey.core.domain.model.checklist.Field;
 import vn.sunvibe.survey.core.domain.model.checklist.FitAssessment;
@@ -62,8 +72,13 @@ import vn.sunvibe.survey.core.domain.policy.checklist.EffectiveCharge;
 import vn.sunvibe.survey.core.domain.policy.checklist.InputForm;
 import vn.sunvibe.survey.core.domain.policy.checklist.LocationDifference;
 import vn.sunvibe.survey.core.domain.policy.checklist.Readiness;
+import vn.sunvibe.survey.core.domain.policy.checklist.ReviewAccess;
+import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.SpaceTerms;
+import vn.sunvibe.survey.core.domain.repository.PageResult;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyLeadStateResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistDecidedResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistDecisionResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistMedia;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistActualAccess;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistActualAccessField;
@@ -130,6 +145,7 @@ import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistOwner
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistPartsContent;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistPartsGroup;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistPartsSpace;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistPassedResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistPets;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistPetsTerm;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistPropertyTypeField;
@@ -137,6 +153,12 @@ import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReadi
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRentMoney;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRentTerm;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReviewHistoryEntryResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReviewQueueItemResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReviewQueueResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReviewResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRevisionStartResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRevisionStartedResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSafetyContent;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSafetyGroup;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSnapshotResponse;
@@ -144,7 +166,12 @@ import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSpace
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistStaffMember;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistStartStateResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistStartedResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSubmissionResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSubmittedEvidence;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSubmittedResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSummaryResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSurveyedScope;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistSurveyedSpace;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistTakenOverResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistTakeover;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistTermsCommon;
@@ -207,7 +234,20 @@ public class ChecklistResponseMapper {
                 view.editors().stream().map(editor -> new ChecklistEditor(editor.userId(),
                         view.nameOf(editor.userId()), editor.lastSavedAt())).toList(),
                 checklist.getCreatedBy(), view.nameOf(checklist.getCreatedBy()), checklist.getCreatedAt(),
-                checklist.getVersion() == null ? 0L : checklist.getVersion(), view.updatedAt());
+                checklist.getVersion() == null ? 0L : checklist.getVersion(), view.updatedAt(),
+                checklist.getPreviousChecklistIdOrNull() == null ? null
+                        : checklist.getPreviousChecklistIdOrNull().getValue(),
+                submission(view.review().submissionOrNull(), names), decision(view.review().decisionOrNull(), names),
+                review(view.review().review()), toPassed(view.review().passedOrNull()));
+    }
+
+    /** survey-checklist submission spec 7.1: one page of the review queue. */
+    public ChecklistReviewQueueResponse toReviewQueue(PageResult<ReviewQueueItem> page) {
+        return new ChecklistReviewQueueResponse(page.items().stream().map(item ->
+                new ChecklistReviewQueueItemResponse(item.checklistId(), item.checklistNo(), item.leadId(),
+                        item.leadCode(), item.submittedAt(), new ChecklistStaffMember(item.submittedByUserId(),
+                        item.submittedByNameOrNull()), item.canReview(), item.reasonOrNull())).toList(),
+                page.page(), page.size(), page.totalElements());
     }
 
     public ChecklistStartedResponse toStarted(ChecklistStartResult result) {
@@ -215,6 +255,24 @@ public class ChecklistResponseMapper {
         return new ChecklistStartedResponse(toResponse(result.view()),
                 new SurveyLeadStateResponse(lead.id(), lead.status(), lead.version(), lead.lastActivityAt()),
                 toEntry(result.historyEntry()));
+    }
+
+    public ChecklistSubmittedResponse toSubmitted(ChecklistSubmitResult result) {
+        return new ChecklistSubmittedResponse(toResponse(result.view()), result.historyEntryOrNull() == null ? null
+                : toEntry(result.historyEntryOrNull()));
+    }
+
+    public ChecklistDecidedResponse toDecided(ChecklistDecideResult result) {
+        LeadState lead = result.lead();
+        LeadHistoryEntry entry = result.historyEntry();
+        return new ChecklistDecidedResponse(toResponse(result.view()), new SurveyLeadStateResponse(lead.id(),
+                lead.status(), lead.version(), lead.lastActivityAt()), new ChecklistReviewHistoryEntryResponse(
+                entry.type(), entry.actorUserId(), entry.actorName(), entry.fromStatus(), entry.toStatus(),
+                entry.occurredAt(), entry.referenceId(), entry.referenceNo(), entry.referenceDetail()));
+    }
+
+    public ChecklistRevisionStartedResponse toRevisionStarted(ChecklistRevisionResult result) {
+        return new ChecklistRevisionStartedResponse(toResponse(result.view()), toEntry(result.historyEntry()));
     }
 
     public ChecklistTakenOverResponse toTakenOver(ChecklistTakeoverResult result) {
@@ -233,15 +291,54 @@ public class ChecklistResponseMapper {
                 start.intakeDeclarationRequired(), start.blockedByOrNull());
     }
 
+    /** survey-checklist submission spec 7.2 {@code revisionStart} of the survey block. */
+    public static ChecklistRevisionStartResponse toRevisionStart(RevisionStart start) {
+        return new ChecklistRevisionStartResponse(start.allowed(), start.checklistIdOrNull(), start.intakeRequired(),
+                start.blockedByOrNull());
+    }
+
+    /** survey-checklist submission spec 4.7. */
+    public static ChecklistPassedResponse toPassed(PassedView passed) {
+        return passed == null ? null : new ChecklistPassedResponse(passed.usable(), passed.reasonOrNull(),
+                new ChecklistSurveyedScope(passed.rentalScope(), passed.spaces().stream()
+                        .map(space -> new ChecklistSurveyedSpace(space.spaceId(), space.code())).toList()));
+    }
+
     /** survey-checklist spec 7.2 {@code checklists[]} of a VISITED appointment in the survey block. */
     public static ChecklistSummaryResponse toSummary(ChecklistSummaryView view, Function<String, String> names) {
-        return new ChecklistSummaryResponse(view.id(), view.checklistNo(), view.status(),
+        return new ChecklistSummaryResponse(view.id(), view.checklistNo(), view.status(), view.outcomeOrNull(),
                 view.editability().editable(), view.editability().reason(), view.missingCount(), view.holderUserId(),
                 names.apply(view.holderUserId()), view.updatedAt(), view.updatedByUserIdOrNull(),
                 names.apply(view.updatedByUserIdOrNull()));
     }
 
     // ==================== checklist parts ====================
+
+    private static ChecklistSubmissionResponse submission(SubmissionView view, Function<String, String> names) {
+        if (view == null) {
+            return null;
+        }
+        ChecklistSubmission submission = view.submission();
+        return new ChecklistSubmissionResponse(new ChecklistStaffMember(submission.submittedByUserId(),
+                names.apply(submission.submittedByUserId())), submission.submittedAt(), submission.mediaPolicy(),
+                submission.contentSha256(), view.evidence().stream().map(evidence -> {
+                    EvidenceEntry entry = evidence.entry();
+                    return new ChecklistSubmittedEvidence(entry.mediaId(), entry.category(), entry.spaceIdOrNull(),
+                            entry.spaceCodeOrNull(), entry.fullSha256(), evidence.acceptedOrNull(),
+                            evidence.rejectionReasonOrNull());
+                }).toList());
+    }
+
+    private static ChecklistDecisionResponse decision(ChecklistDecision decision, Function<String, String> names) {
+        return decision == null ? null : new ChecklistDecisionResponse(decision.outcome(),
+                decision.needsChangesKindOrNull(), decision.failedKindOrNull(), decision.reasonOrNull(),
+                decision.notesOrNull(), decision.limitationsOrNull(), new ChecklistStaffMember(
+                decision.reviewerUserId(), names.apply(decision.reviewerUserId())), decision.decidedAt());
+    }
+
+    private static ChecklistReviewResponse review(ReviewAccess access) {
+        return new ChecklistReviewResponse(access.canReview(), access.reasonOrNull(), access.decisionBlockedBy());
+    }
 
     static ChecklistHistoryEntryResponse toEntry(ChecklistHistoryEntry entry) {
         return new ChecklistHistoryEntryResponse(entry.type(), entry.actorUserId(), entry.actorName(), null, null,

@@ -8,8 +8,8 @@ public enum StartBlock {
     INTENT,
     /** The lead is not in SURVEY_SCHEDULED. */
     LEAD_STATUS,
-    /** The current visit already has a draft. */
-    ALREADY_STARTED,
+    /** The current visit already has a revision: a later one comes from "start revision" (submission spec 4.6). */
+    CHECKLIST_EXISTS,
     /** The viewer is not the lead's assignee. */
     NOT_ASSIGNEE,
     /** The assignee can no longer take leads. */

@@ -398,7 +398,7 @@ class AcquisitionPersistencePostgresTest {
 
 		assertEquals(0, statistics.getEntityLoadCount(), "no lead entity is loaded");
 		// NEW, ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED (survey-schedule BR-3, W15-15)
-		assertEquals(5, expected.size());
+		assertEquals(6, expected.size());
 		assertEquals(expected.stream().map(OwnerLeadId::getValue).sorted().toList(),
 				open.stream().map(OwnerLeadId::getValue).sorted().toList());
 		assertTrue(leads.findOpenIdsByPhone("+84900000000").isEmpty());

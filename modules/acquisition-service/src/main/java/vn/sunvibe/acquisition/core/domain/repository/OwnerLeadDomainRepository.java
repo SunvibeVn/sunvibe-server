@@ -1,5 +1,6 @@
 package vn.sunvibe.acquisition.core.domain.repository;
 
+import vn.sunvibe.acquisition.core.domain.model.lead.LeadCycle;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadId;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadIntent;
@@ -30,6 +31,20 @@ public interface OwnerLeadDomainRepository {
      * row is never updated by it. Only inside a transaction.
      */
     Optional<OwnerLead> findByIdForShare(OwnerLeadId id);
+
+    /**
+     * The lead read with a {@code FOR NO KEY UPDATE} row lock held until the caller's transaction ends
+     * (survey-checklist submission spec 5.2, 5.4): a native query, because JPA's write lock takes {@code FOR UPDATE},
+     * which blocks the key-share locks of concurrent activity inserts. It must be the first load of the row in its
+     * persistence context. Only inside a transaction.
+     */
+    Optional<OwnerLead> findByIdForUpdate(OwnerLeadId id);
+
+    /**
+     * The lead and intent cycle of every lead in these statuses, of this assignee when one is given (survey-checklist
+     * submission plan PD-4), without loading the leads.
+     */
+    List<LeadCycle> findCycles(Collection<OwnerLeadStatus> statuses, Optional<String> assigneeUserId);
 
     /** Whether a lead with this id exists, whoever may see it. */
     boolean existsById(OwnerLeadId id);

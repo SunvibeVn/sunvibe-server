@@ -14,6 +14,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.MDC;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.core.MethodParameter;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -156,6 +157,8 @@ class AcquisitionExceptionHandlerStaffTest {
                 // the note request has no expectedVersion: its 409 names no field
                 Arguments.of(ConcurrentLeadModificationException.withoutField(),
                         409, ErrorCode.CONCURRENT_MODIFICATION, List.of(), null),
+                Arguments.of(new CannotAcquireLockException("deadlock detected"),
+                        409, ErrorCode.CONCURRENT_MODIFICATION, List.of("expectedVersion"), null),
                 Arguments.of(new ObjectOptimisticLockingFailureException("OwnerLeadEntity", LEAD_ID),
                         409, ErrorCode.CONCURRENT_MODIFICATION, List.of("expectedVersion"), null),
                 Arguments.of(new OptimisticLockException("Row was updated or deleted by another transaction"),

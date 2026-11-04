@@ -28,6 +28,11 @@ class AuthLeadAssigneeDirectoryAdapterTest {
 	private final AuthLeadAssigneeDirectoryAdapter adapter = new AuthLeadAssigneeDirectoryAdapter(
 			new LeadAssigneeAccountUseCase() {
 				@Override
+				public boolean canSignIn(String userId) {
+					return false;
+				}
+
+				@Override
 				public boolean isEligibleOwnerLeadAssignee(String userId) {
 					calls.add(userId);
 					return "01ELIGIBLE0000000000000000".equals(userId);

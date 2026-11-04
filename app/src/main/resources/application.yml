@@ -178,6 +178,10 @@ app:
       # answers 404; the ward catalog stays open. Turn on per environment with ACQUISITION_OWNER_INTAKE_ENABLED=true.
       enabled: ${ACQUISITION_OWNER_INTAKE_ENABLED:false}
   survey:
+    checklist:
+      # Survey checklist submission and review (survey-checklist submission spec A-3): off until the owner opens review;
+      # a submit also needs uploads on, a decision needs serving on.
+      submission-enabled: false
     media:
       # Survey photos (survey-media spec A-1, 5.1): uploads stay off in every committed profile until the owner's
       # go-live act (spec 9.4); with every adapter none no photo can exist and nothing is scheduled.

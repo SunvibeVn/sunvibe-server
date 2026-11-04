@@ -71,8 +71,13 @@ class FlywayPostgresMigrationTest {
 						"V202611021402__widen_survey_access_logs_for_media.sql",
 						"V202611021403__index_survey_access_logs_media_list.sql",
 						"V202611021404__validate_survey_media_constraints.sql",
+						"V202611041530__widen_owner_lead_activity_for_checklist_review.sql",
+						"V202611041531__validate_owner_lead_activity_reference_detail.sql",
+						"V202611041532__checklist_submission_and_review.sql",
+						"V202611041533__validate_checklist_review_constraints.sql",
+						"V202611041534__index_survey_checklists_review.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 26, applied.size()));
+				applied.subList(applied.size() - 31, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */

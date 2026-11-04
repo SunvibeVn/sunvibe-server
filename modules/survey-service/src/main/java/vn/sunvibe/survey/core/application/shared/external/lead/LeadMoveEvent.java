@@ -15,5 +15,7 @@ public enum LeadMoveEvent {
     /** A visit was recorded. */
     SURVEY_VISITED,
     /** The survey work of a held lead was resumed. */
-    SURVEY_RESUMED
+    SURVEY_RESUMED,
+    /** A reviewer decided a checklist revision (survey-checklist submission spec 4.5, plan PD-5). */
+    CHECKLIST_REVIEWED
 }

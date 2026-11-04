@@ -32,7 +32,8 @@ class OwnerLeadStatusChangeTest {
             ASSIGNED, List.of(CONTACTED, ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN),
             CONTACTED, List.of(ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN),
             ON_HOLD, List.of(CONTACTED, DUPLICATE, REJECTED, WITHDRAWN),
-            SURVEY_SCHEDULED, List.of(ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN));
+            SURVEY_SCHEDULED, List.of(ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN),
+            QUALIFIED, List.of(ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN));
 
     private static List<OwnerLeadStatus> tableFor(OwnerLeadStatus from) {
         return TABLE.getOrDefault(from, List.of());
@@ -69,7 +70,7 @@ class OwnerLeadStatusChangeTest {
 
     @Test
     void allowedNextStatuses_closedAndUnusedStates_isEmpty() {
-        for (OwnerLeadStatus status : List.of(DUPLICATE, REJECTED, WITHDRAWN, VALIDATING, QUALIFIED,
+        for (OwnerLeadStatus status : List.of(DUPLICATE, REJECTED, WITHDRAWN, VALIDATING,
                 AGREEMENT_PENDING, ONBOARDED)) {
             assertEquals(List.of(), lead(status, ASSIGNEE).allowedNextStatuses(), status.name());
         }
@@ -292,5 +293,20 @@ class OwnerLeadStatusChangeTest {
                 () -> lead.changeStatus(REJECTED, "secret-reason-" + "x".repeat(600), null, null, null));
 
         assertFalse(ex.getMessage().contains("secret-reason"));
+    }
+
+    /** checklist submission spec 4.8, S-15: from QUALIFIED only hold and the closing statuses. */
+    @Test
+    void qualified_manualTargets_onlyHoldAndClosing() {
+        assertEquals(List.of(ON_HOLD, DUPLICATE, REJECTED, WITHDRAWN),
+                lead(QUALIFIED, ASSIGNEE).allowedNextStatuses());
+    }
+
+    /** checklist submission spec I-4: only a PASSED decision or a resume makes a lead QUALIFIED. */
+    @Test
+    void noManualMove_toQualified() {
+        for (OwnerLeadStatus status : OwnerLeadStatus.values()) {
+            assertFalse(lead(status, ASSIGNEE).allowedNextStatuses().contains(QUALIFIED), status.name());
+        }
     }
 }

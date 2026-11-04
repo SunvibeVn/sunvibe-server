@@ -5,6 +5,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
+import vn.sunvibe.survey.core.application.shared.ChecklistSwitches;
 import vn.sunvibe.survey.core.application.shared.MediaSwitches;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
@@ -14,11 +15,12 @@ import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
  * Spring context, so a test turns uploads off and back on here instead of starting a context with other properties.
  * Uploads are on unless a test turns them off; {@link #reset()} after each such test.
  */
-public final class MediaTestSwitches implements MediaSwitches {
+public final class MediaTestSwitches implements MediaSwitches, ChecklistSwitches {
 
 	private volatile boolean uploads = true;
 	private volatile boolean serving = true;
 	private volatile boolean processing = true;
+	private volatile boolean submission;
 
 	@Override
 	public boolean uploadsOn() {
@@ -28,6 +30,16 @@ public final class MediaTestSwitches implements MediaSwitches {
 	@Override
 	public boolean servingOn() {
 		return serving;
+	}
+
+	@Override
+	public boolean submissionEnabled() {
+		return submission;
+	}
+
+	/** The checklist submission switch (checklist submission spec A-3): off, as configured, unless a test turns it on. */
+	public void submission(boolean on) {
+		submission = on;
 	}
 
 	public void uploads(boolean on) {
@@ -52,6 +64,7 @@ public final class MediaTestSwitches implements MediaSwitches {
 		processing = true;
 		uploads = true;
 		serving = true;
+		submission = false;
 	}
 
 	/** Imported by {@link MediaApiTestBase}: the toggle wins over the configured switches. */
@@ -82,13 +95,6 @@ public final class MediaTestSwitches implements MediaSwitches {
 		vn.sunvibe.survey.core.application.shared.external.media.ImageNormalizer mediaTestNormalizer(
 				MediaTestProbes probes) {
 			return probes.normalizer();
-		}
-
-		/** Evidence references a test can mark (spec 4.7: the production port is empty in this slice). */
-		@Bean
-		@Primary
-		MediaTestReferences mediaTestReferences() {
-			return new MediaTestReferences();
 		}
 
 		/** The set repository behind the read hook of the evidence tests (plan Task A18). */

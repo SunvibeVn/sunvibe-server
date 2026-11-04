@@ -24,6 +24,7 @@ import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistEve
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistHistoryEntry;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadAccess;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadCard;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadCycle;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadEvent;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadFacts;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadHistoryEntry;
@@ -39,6 +40,7 @@ import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadViewer;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityResult;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityType;
+import vn.sunvibe.survey.core.application.shared.external.lead.LeadCycle;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMove;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveEvent;
@@ -89,7 +91,7 @@ class AcquisitionSurveyLeadAdapterTest {
 			}
 			return new SurveyLeadMoveResult("SURVEY_SCHEDULED", expectedVersion + 1, AT,
 					new SurveyLeadHistoryEntry("SURVEY_BOOKED", SALE, "Sale A", "CONTACTED", "SURVEY_SCHEDULED",
-							move.referenceId(), move.referenceNo(), AT));
+							move.referenceId(), move.referenceNo(), move.detailOrNull(), AT));
 		}
 
 		@Override
@@ -111,6 +113,18 @@ class AcquisitionSurveyLeadAdapterTest {
 		public Optional<SurveyLeadFacts> findVisibleForShare(String leadId, SurveyLeadViewer viewer) {
 			calls.add("share:" + leadId);
 			return findVisible(leadId, viewer);
+		}
+
+		@Override
+		public Optional<SurveyLeadFacts> findVisibleForUpdate(String leadId, SurveyLeadViewer viewer) {
+			calls.add("update:" + leadId);
+			return findVisible(leadId, viewer);
+		}
+
+		@Override
+		public List<SurveyLeadCycle> visibleOpenLeadCycles(SurveyLeadViewer viewer) {
+			calls.add(viewer);
+			return List.of(new SurveyLeadCycle(LEAD, 2, "ON_HOLD", "01JSALE", "SV-1"));
 		}
 
 		@Override
@@ -182,6 +196,33 @@ class AcquisitionSurveyLeadAdapterTest {
 		assertEquals("Sale A", result.entry().actorName());
 		assertEquals("CONTACTED", result.entry().fromStatus());
 		assertEquals(1, result.entry().referenceNo());
+	}
+
+	/** plan PD-5: a review's outcome and close reason reach acquisition, and its detail comes back. */
+	@Test
+	void apply_review_forwardsDetailAndCloseReason() {
+		LeadMoveResult result = adapter.apply(LEAD, 3L, new LeadMove(LeadMoveEvent.CHECKLIST_REVIEWED,
+				LeadMoveTarget.REJECTED, SALE, "01JCHECKLIST", 2, AT, "FAILED:OUT_OF_SCOPE",
+				"Survey failed: out of scope (checklist #2)"));
+
+		assertEquals(new SurveyLeadMove(SurveyLeadEvent.CHECKLIST_REVIEWED, SurveyLeadTarget.REJECTED, SALE,
+				"01JCHECKLIST", 2, AT, "FAILED:OUT_OF_SCOPE", "Survey failed: out of scope (checklist #2)"),
+				calls.get(0));
+		assertEquals("FAILED:OUT_OF_SCOPE", result.entry().referenceDetail());
+	}
+
+	@Test
+	void findVisibleForUpdate_forwardsAndMaps() {
+		assertEquals(LEAD, adapter.findVisibleForUpdate(LEAD, new SurveyViewer(SALE, ViewerAccess.OWN)).orElseThrow()
+				.leadId());
+		assertEquals("update:" + LEAD, calls.get(0));
+	}
+
+	@Test
+	void visibleOpenLeadCycles_mapsTheCycles() {
+		assertEquals(List.of(new LeadCycle(LEAD, 2, "ON_HOLD", "01JSALE", "SV-1")), adapter.visibleOpenLeadCycles(new SurveyViewer(SALE,
+				ViewerAccess.ALL)));
+		assertEquals(new SurveyLeadViewer(SALE, SurveyLeadAccess.ALL), calls.get(0));
 	}
 
 	@Test

@@ -14,6 +14,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.core.application.command.CreateMediaCommand;
+import vn.sunvibe.survey.core.application.command.DeselectMediaCommand;
 import vn.sunvibe.survey.core.application.command.RemoveMediaCommand;
 import vn.sunvibe.survey.core.application.exception.ChecklistNotFoundException;
 import vn.sunvibe.survey.core.application.exception.ChecklistTakeoverRequiredException;
@@ -42,10 +43,14 @@ import vn.sunvibe.survey.core.application.shared.MediaItemAssembler;
 import vn.sunvibe.survey.core.application.shared.MediaLimitCounter;
 import vn.sunvibe.survey.core.application.shared.MediaSwitches;
 import vn.sunvibe.survey.core.application.shared.SecurityEventRecorder;
+import vn.sunvibe.survey.core.application.shared.MediaSetLocks;
+import vn.sunvibe.survey.core.application.shared.MediaSetLocks.LockedSets;
+import vn.sunvibe.survey.core.application.shared.RevisionPhotos;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityResult;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityType;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistHistoryEntry;
+import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.shared.external.media.EvidenceReferencePort;
@@ -63,6 +68,7 @@ import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;
 import vn.sunvibe.survey.core.domain.model.media.MediaRemovalCorrection;
 import vn.sunvibe.survey.core.domain.model.media.MediaSet;
 import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
+import vn.sunvibe.survey.core.domain.model.media.MediaSelection;
 import vn.sunvibe.survey.core.domain.model.media.RemovalKind;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
@@ -78,6 +84,7 @@ import vn.sunvibe.survey.core.domain.policy.media.PlacementRules;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
 
 /**
@@ -96,6 +103,9 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
     private final SurveyMediaDomainRepository media;
     private final SurveyMediaSetDomainRepository sets;
     private final SurveyMediaJobDomainRepository jobs;
+    private final SurveyMediaSelectionDomainRepository selections;
+    private final RevisionPhotos revisionPhotos;
+    private final MediaSetLocks setLocks;
     private final SurveyLeadPort leads;
     private final EvidenceReferencePort references;
     private final SecurityEventRecorder events;
@@ -110,7 +120,9 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
 
     public SurveyMediaCommandService(ChecklistContextLoader loader, SurveyChecklistGroupDomainRepository groups,
                                      SurveyMediaDomainRepository media, SurveyMediaSetDomainRepository sets,
-                                     SurveyMediaJobDomainRepository jobs, SurveyLeadPort leads,
+                                     SurveyMediaJobDomainRepository jobs,
+                                     SurveyMediaSelectionDomainRepository selections, RevisionPhotos revisionPhotos,
+                                     MediaSetLocks setLocks, SurveyLeadPort leads,
                                      EvidenceReferencePort references, SecurityEventRecorder events,
                                      MediaLimitCounter limits, IntakeGate intakeGate, MediaSwitches switches,
                                      MediaItemAssembler items, MediaClock clock,
@@ -121,6 +133,9 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
         this.media = media;
         this.sets = sets;
         this.jobs = jobs;
+        this.selections = selections;
+        this.revisionPhotos = revisionPhotos;
+        this.setLocks = setLocks;
         this.leads = leads;
         this.references = references;
         this.events = events;
@@ -192,7 +207,8 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
             return replay.get();
         }
         limits.requireHourlyRoom(viewer.userId(), input.sizeBytes(), now);
-        List<SurveyMedia> ofChecklist = media.findForChecklist(checklistId);
+        // checklist submission spec 4.6: the caps and the identity check count own plus carried photos
+        List<SurveyMedia> ofChecklist = revisionPhotos.of(checklistId);
         IdentityVerdict verdict = MediaContentIdentity.check(input.sha256(), null, ofChecklist,
                 media.findCommittedHashOnOtherVisits(context.lead().leadId(), checklistId, input.sha256()));
         if (verdict.kind() != IdentityVerdict.Kind.FREE) {
@@ -383,7 +399,7 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
                     ? "spaceId is no longer a space of the checklist." : "category is no longer allowed here.")));
         }
         IdentityVerdict verdict = MediaContentIdentity.check(photo.getSourceSha256(), photo.getId().getValue(),
-                media.findForChecklist(target.checklistId()), media.findCommittedHashOnOtherVisits(
+                revisionPhotos.of(target.checklistId()), media.findCommittedHashOnOtherVisits(
                         context.lead().leadId(), target.checklistId(), photo.getSourceSha256()));
         if (verdict.kind() != IdentityVerdict.Kind.FREE) {
             throw new MediaContentIdentityException(verdict.kind(), verdict.matchingMediaIdOrNull());
@@ -475,6 +491,82 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
         return new MediaContentResult(items.assemble(photo, viewerCanHold), set.getSetVersion(), entry);
     }
 
+    // ==================== deselection (checklist submission spec 4.6, 5.4, A-12) ====================
+
+    /**
+     * Deselection order (submission spec 5.5, as a removal, on the revision of the path): (1) the correction's shape,
+     * before any lookup → (2) 404 the revision or its lead not visible → (3) 403 not the assignee → 404 a photo not
+     * carried into the revision, from a scalar read before any lock, so another lead's rows are never touched and its
+     * photos never told apart → (4) 409 read-only → (5) 422 ineligible → (6) 409 takeover required; then under the set
+     * and photo locks an already deselected photo changes nothing → (9) 400 correction missing where survey-media BR-12
+     * needs it, or its date out of range. The photo row is only read: it is never removed and no deletion is asked for.
+     * The History row is a removal's.
+     *
+     * @return whether the photo left the revision now; false for a repeat
+     */
+    @Override
+    public boolean deselect(SurveyViewer viewer, DeselectMediaCommand command) {
+        List<Violation> violations = new ArrayList<>();
+        ReasonBasis correction = command.correctionOrNull() == null ? null : ChecklistInputs.reasonAndBasis(
+                "correction.", command.correctionOrNull().reason(), command.correctionOrNull().basis(), violations);
+        ChecklistInputs.throwIfAny(violations);
+        if (!SurveyMediaId.isValid(command.mediaId())) {
+            throw new MediaNotFoundException();
+        }
+        SurveyMediaId id = SurveyMediaId.of(command.mediaId());
+        return inCommand(() -> deselectInTransaction(viewer, command.checklistId(), id, correction));
+    }
+
+    private boolean deselectInTransaction(SurveyViewer viewer, String checklistId, SurveyMediaId id,
+                                          ReasonBasis correction) {
+        Instant now = clock.now();
+        String origin;
+        CommandContext context;
+        try {
+            // spec A-19: the event names the revision, as a create does: a photo id here is the caller's, unchecked yet
+            LeadFacts lead = loader.requireMediaAuthority(viewer, checklistId, SecurityResourceType.MEDIA_SET,
+                    checklistId, SecurityAction.DESELECT);
+            origin = selections.findCarriedFrom(checklistId, id).orElseThrow(MediaNotFoundException::new);
+            context = loader.editableForMedia(viewer, lead, checklistId);
+        } catch (ChecklistNotFoundException e) {
+            throw new MediaNotFoundException();
+        }
+        SurveyChecklist checklist = context.checklist();
+        if (!viewer.userId().equals(checklist.getHolderUserId())) {
+            throw new ChecklistTakeoverRequiredException();
+        }
+        LockedSets locked = setLocks.lockFor(origin, id)
+                .orElseThrow(() -> new IllegalStateException("A photo's checklist has its media set."));
+        SurveyMedia photo = media.lockForUpdate(List.of(id)).stream().findFirst()
+                .orElseThrow(MediaNotFoundException::new);
+        MediaSelection selection = selections.findOne(checklistId, id).orElseThrow(MediaNotFoundException::new);
+        if (!selection.isSelected()) {
+            return false;
+        }
+        if (correction == null && MediaRemovalPolicy.correctionRequired(photo, viewer.userId())) {
+            throw new ChecklistValidationException(List.of(new Violation("correction",
+                    "Taking out a photo someone else uploaded needs a correction: reason, date and basis.")));
+        }
+        if (correction != null) {
+            List<Violation> dates = new ArrayList<>();
+            ChecklistDateRules.requireBasisDate("correction.basis.confirmedOn", correction.basis().confirmedOn(),
+                    context.visitFacts().arrivalDate(), SurveyTimeRules.vietnamDate(now)).ifPresent(dates::add);
+            ChecklistInputs.throwIfAny(dates);
+        }
+        selections.update(selection.deselected(viewer.userId(), RemovalKind.HOLDER, correction == null ? null
+                : new MediaRemovalCorrection(correction.reason(), correction.basis()), null, now));
+        MediaSet set = locked.all().stream().filter(row -> row.getChecklistId().equals(checklistId)).findFirst()
+                .orElseThrow(() -> new IllegalStateException("A revision with carried photos has its media set."));
+        set.bump(now);
+        sets.update(set);
+        if (MediaRemovalPolicy.writesHistory(photo)) {
+            leads.recordChecklistActivity(context.lead().leadId(), new ChecklistActivity(
+                    ChecklistActivityType.CHECKLIST_MEDIA_REMOVED, viewer.userId(), checklistId,
+                    checklist.getChecklistNo(), photo.getCategory().name(), now));
+        }
+        return true;
+    }
+
     // ==================== security hold (spec A-23) ====================
 
     /**
@@ -494,7 +586,7 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
             AdminLocked locked = lockForAdmin(viewer, id);
             SurveyMedia photo = locked.photo();
             if (photo.isHeld()) {
-                return state(photo, locked.set());
+                return state(photo, locked.sets().origin());
             }
             if (photo.isRemoved() || (photo.getStatus() != MediaStatus.PROCESSING
                     && photo.getStatus() != MediaStatus.READY)) {
@@ -502,11 +594,10 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
             }
             photo.hold(viewer.userId(), reasonOrNull, now);
             media.update(photo);
-            locked.set().bump(now);
-            sets.update(locked.set());
+            setLocks.bumpAll(locked.sets(), now);
             events.recordInTransaction(viewer.userId(), locked.leadId(), SecurityResourceType.MEDIA,
                     id.getValue(), SecurityAction.HOLD, SecurityOutcome.HELD, null);
-            return state(photo, locked.set());
+            return state(photo, locked.sets().origin());
         });
     }
 
@@ -523,7 +614,7 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
             AdminLocked locked = lockForAdmin(viewer, id);
             SurveyMedia photo = locked.photo();
             if (!photo.isHeld()) {
-                return state(photo, locked.set());
+                return state(photo, locked.sets().origin());
             }
             boolean requestedBefore = photo.getContentDeleteRequestedAt() != null;
             photo.release(viewer.userId(), now);
@@ -531,11 +622,10 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
             if (!requestedBefore && photo.getContentDeleteRequestedAt() != null) {
                 jobs.upsertDeleteContent(photo.getId(), now.plus(MediaRemovalPolicy.CONTENT_DELETION_DELAY), now);
             }
-            locked.set().bump(now);
-            sets.update(locked.set());
+            setLocks.bumpAll(locked.sets(), now);
             events.recordInTransaction(viewer.userId(), locked.leadId(), SecurityResourceType.MEDIA,
                     id.getValue(), SecurityAction.RELEASE, SecurityOutcome.RELEASED, null);
-            return state(photo, locked.set());
+            return state(photo, locked.sets().origin());
         });
     }
 
@@ -546,7 +636,10 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
         return SurveyMediaId.of(mediaId);
     }
 
-    /** spec 5.4: the lead and checklist FOR SHARE, then the set and the photo FOR UPDATE; no group row. */
+    /**
+     * spec 5.4: the lead and checklist FOR SHARE, then the set rows of the photo's origin and of every revision that
+     * selects it, in id order (checklist submission spec 5.4), and the photo FOR UPDATE; no group row.
+     */
     private AdminLocked lockForAdmin(SurveyViewer viewer, SurveyMediaId id) {
         String checklistId = media.findChecklistIdById(id).orElseThrow(MediaNotFoundException::new);
         String leadId;
@@ -555,18 +648,18 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
         } catch (ChecklistNotFoundException e) {
             throw new MediaNotFoundException();
         }
-        MediaSet set = sets.lockForUpdate(checklistId)
+        LockedSets locked = setLocks.lockFor(checklistId, id)
                 .orElseThrow(() -> new IllegalStateException("A photo's checklist has its media set."));
         SurveyMedia photo = media.lockForUpdate(List.of(id)).stream().findFirst()
                 .orElseThrow(MediaNotFoundException::new);
-        return new AdminLocked(leadId, set, photo);
+        return new AdminLocked(leadId, locked, photo);
     }
 
     private MediaStateResult state(SurveyMedia photo, MediaSet set) {
         return new MediaStateResult(items.assemble(photo, true), set.getSetVersion());
     }
 
-    private record AdminLocked(String leadId, MediaSet set, SurveyMedia photo) {
+    private record AdminLocked(String leadId, LockedSets sets, SurveyMedia photo) {
     }
 
     /** One command transaction; its deferred refusal events are written once it released its connection. */

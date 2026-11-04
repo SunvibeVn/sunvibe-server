@@ -1,7 +1,10 @@
 package vn.sunvibe.survey.core.application.shared;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -11,6 +14,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.domain.model.checklist.IdentificationContent;
 import vn.sunvibe.survey.core.domain.model.checklist.ObservedSpace;
 import vn.sunvibe.survey.core.domain.model.checklist.RentalScope;
+import vn.sunvibe.survey.core.domain.model.media.MediaSelection;
 import vn.sunvibe.survey.core.domain.model.media.MediaSet;
 import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
 import vn.sunvibe.survey.core.domain.model.media.PlacedMedia;
@@ -21,11 +25,13 @@ import vn.sunvibe.survey.core.domain.policy.media.MediaRemovalPolicy;
 import vn.sunvibe.survey.core.domain.policy.media.PlacementRules;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
 
 /**
  * What the checklist commands do to photos (survey-media spec A-9, 4.8, A-22, 5.4): a G1 save that ends placements
- * removes the selected photos on them, and a takeover ends the previous holder's open uploads. Both take the set row
+ * removes the selected photos on them and deselects the carried ones (checklist submission spec 4.6), and a takeover
+ * ends the previous holder's open uploads. Both take the set row
  * and then the photo rows {@code FOR UPDATE}, after the checklist's own rows; photo ids come from a scalar query, so
  * no photo row is loaded before its lock.
  */
@@ -35,22 +41,34 @@ public class ChecklistMediaCascade {
     private final SurveyMediaSetDomainRepository sets;
     private final SurveyMediaDomainRepository media;
     private final SurveyMediaJobDomainRepository jobs;
+    private final SurveyMediaSelectionDomainRepository selections;
 
     public ChecklistMediaCascade(SurveyMediaSetDomainRepository sets, SurveyMediaDomainRepository media,
-                                 SurveyMediaJobDomainRepository jobs) {
+                                 SurveyMediaJobDomainRepository jobs,
+                                 SurveyMediaSelectionDomainRepository selections) {
         this.sets = sets;
         this.media = media;
         this.jobs = jobs;
+        this.selections = selections;
     }
 
-    /** The selected photos on the placements a G1 save ends, under the set and photo locks. */
-    public record Ended(MediaSet setOrNull, List<SurveyMedia> photos) {
+    /** A carried photo on a placement a G1 save ends: its selection and the photo as read. */
+    public record EndedCarried(MediaSelection selection, SurveyMedia photo) {
+    }
 
-        static final Ended NONE = new Ended(null, List.of());
+    /**
+     * The selected photos on the placements a G1 save ends: the own ones under the set and photo locks, and the carried
+     * ones, which the save only deselects, so their rows are read without a lock (submission spec 4.6).
+     */
+    public record Ended(MediaSet setOrNull, List<SurveyMedia> photos, List<EndedCarried> carried) {
+
+        static final Ended NONE = new Ended(null, List.of(), List.of());
 
         /** spec A-9, BR-12: the received photos of other uploaders, which need the save's correction. */
         public List<SurveyMedia> needingCorrection(String callerUserId) {
-            return photos.stream().filter(photo -> MediaRemovalPolicy.correctionRequired(photo, callerUserId))
+            List<SurveyMedia> needing = new ArrayList<>(photos);
+            carried.forEach(ended -> needing.add(ended.photo()));
+            return needing.stream().filter(photo -> MediaRemovalPolicy.correctionRequired(photo, callerUserId))
                     .toList();
         }
     }
@@ -73,7 +91,20 @@ public class ChecklistMediaCascade {
                 .filter(photo -> photo.isSelected() && ended(new PlacedMedia(photo.getId(),
                         photo.getPlacement().spaceIdOrNull(), photo.getCategory()), next))
                 .toList();
-        return new Ended(set.get(), photos);
+        return new Ended(set.get(), photos, endedCarried(checklistId, next));
+    }
+
+    private List<EndedCarried> endedCarried(String checklistId, IdentificationContent next) {
+        Map<SurveyMediaId, MediaSelection> selected = new LinkedHashMap<>();
+        selections.findByChecklistId(checklistId).stream().filter(MediaSelection::isSelected)
+                .forEach(selection -> selected.put(selection.mediaId(), selection));
+        if (selected.isEmpty()) {
+            return List.of();
+        }
+        return media.findByIds(selected.keySet()).stream()
+                .filter(photo -> ended(new PlacedMedia(photo.getId(), photo.getPlacement().spaceIdOrNull(),
+                        photo.getCategory()), next))
+                .map(photo -> new EndedCarried(selected.get(photo.getId()), photo)).toList();
     }
 
     /**
@@ -81,7 +112,7 @@ public class ChecklistMediaCascade {
      * with its deletion request and job; no History row of its own. The set version is bumped once.
      */
     public void remove(Ended ended, String callerUserId, long saveId, Instant now) {
-        if (ended.photos().isEmpty()) {
+        if (ended.photos().isEmpty() && ended.carried().isEmpty()) {
             return;
         }
         for (SurveyMedia photo : ended.photos()) {
@@ -90,6 +121,10 @@ public class ChecklistMediaCascade {
             if (photo.getContentDeleteRequestedAt() != null) {
                 jobs.upsertDeleteContent(photo.getId(), now.plus(MediaRemovalPolicy.CONTENT_DELETION_DELAY), now);
             }
+        }
+        // submission spec 4.6, A-12: a carried photo leaves this revision and stays as it is in its origin
+        for (EndedCarried carried : ended.carried()) {
+            selections.update(carried.selection().deselected(callerUserId, RemovalKind.CASCADE, null, saveId, now));
         }
         MediaSet set = ended.setOrNull();
         set.bump(now);

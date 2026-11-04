@@ -25,6 +25,7 @@ import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistHis
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadAccess;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadCard;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadFacts;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadCycle;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadHistoryEntry;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadMove;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadMoveRefusedException;
@@ -68,14 +69,18 @@ import java.util.Set;
  * row is saved and flushed here, before the caller writes any survey row: two commands on one lead meet on the lead
  * row (one wins, the other gets a version conflict) and never deadlock. It never calls survey-service back.
  * <p>
- * Survey checklists (survey-checklist spec 5.3) never write the lead row: they read it under a share lock and add
- * History entries as activity rows only, so the lead's version and status stay as they are.
+ * Survey checklists (survey-checklist spec 5.3) read the lead under a share lock and add History entries as activity
+ * rows only, so the lead's version and status stay as they are. Only a decision moves the lead: it locks the row first
+ * ({@link #findVisibleForUpdate}) and moves it through {@link #applySurveyMove} (submission spec 5.4, plan PD-5).
  */
 @Service
 @Transactional
 public class SurveyLeadService implements SurveyLeadUseCase {
 
     private static final Logger log = LoggerFactory.getLogger(SurveyLeadService.class);
+    /** survey-checklist submission plan PD-4: a SUBMITTED revision of a lead in another status is out of the queue. */
+    private static final List<OwnerLeadStatus> REVIEW_QUEUE_STATUSES = List.of(OwnerLeadStatus.SURVEY_SCHEDULED,
+            OwnerLeadStatus.ON_HOLD);
 
     private final OwnerLeadDomainRepository leads;
     private final OwnerLeadActivityDomainRepository activities;
@@ -125,11 +130,13 @@ public class SurveyLeadService implements SurveyLeadUseCase {
             case KEEP -> null;
             case SURVEY_SCHEDULED -> OwnerLeadStatus.SURVEY_SCHEDULED;
             case CONTACTED -> OwnerLeadStatus.CONTACTED;
+            case QUALIFIED -> OwnerLeadStatus.QUALIFIED;
+            case REJECTED -> OwnerLeadStatus.REJECTED;
         };
         LeadChange change;
         try {
             change = lead.moveForSurvey(OwnerLeadActivityType.valueOf(move.event().name()), target,
-                    move.referenceId(), move.referenceNo());
+                    move.referenceId(), move.referenceNo(), move.closeReasonOrNull());
         } catch (InvalidLeadTransitionException e) {
             throw new SurveyLeadMoveRefusedException(lead.getStatus().name());
         }
@@ -139,8 +146,11 @@ public class SurveyLeadService implements SurveyLeadUseCase {
             // A concurrent command saved the lead between the read and this write (survey-schedule spec 5.5)
             throw new SurveyLeadVersionConflictException();
         }
-        OwnerLeadActivity activity = OwnerLeadActivity.from(idGenerator.generateId(), lead.getId(),
-                move.actorUserId(), change, move.occurredAt());
+        OwnerLeadActivity activity = move.detailOrNull() == null
+                ? OwnerLeadActivity.from(idGenerator.generateId(), lead.getId(), move.actorUserId(), change,
+                        move.occurredAt())
+                : OwnerLeadActivity.reviewed(idGenerator.generateId(), lead.getId(), move.actorUserId(), change,
+                        move.detailOrNull(), move.occurredAt());
         activities.save(activity);
         String id = lead.getId().getValue();
         // acquisition-owner-lead-queue-ui C-49: read back after the save, so the answer holds the stored value
@@ -149,7 +159,7 @@ public class SurveyLeadService implements SurveyLeadUseCase {
         SurveyLeadHistoryEntry entry = new SurveyLeadHistoryEntry(activity.getType().name(),
                 activity.getActorUserId(), StaffNames.nameOf(names, activity.getActorUserId()),
                 nameOf(activity.getFromStatus()), nameOf(activity.getToStatus()), activity.getReferenceId(),
-                activity.getReferenceNo(), activity.getOccurredAt());
+                activity.getReferenceNo(), activity.getReferenceDetail(), activity.getOccurredAt());
         return new SurveyLeadMoveResult(lead.getStatus().name(), lead.getVersion(), lastActivityAt, entry);
     }
 
@@ -193,6 +203,20 @@ public class SurveyLeadService implements SurveyLeadUseCase {
     @Transactional(propagation = Propagation.MANDATORY)
     public Optional<SurveyLeadFacts> findVisibleForShare(String leadId, SurveyLeadViewer viewer) {
         return visibility.findVisibleForShare(leadViewer(viewer), leadId).map(this::facts);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<SurveyLeadFacts> findVisibleForUpdate(String leadId, SurveyLeadViewer viewer) {
+        return visibility.findVisibleForUpdate(leadViewer(viewer), leadId).map(this::facts);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SurveyLeadCycle> visibleOpenLeadCycles(SurveyLeadViewer viewer) {
+        return leads.findCycles(REVIEW_QUEUE_STATUSES, LeadVisibility.candidateViewer(leadViewer(viewer))).stream()
+                .map(cycle -> new SurveyLeadCycle(cycle.leadId(), cycle.intentCycle(), cycle.status().name(),
+                        cycle.assignedUserIdOrNull(), cycle.requestCode())).toList();
     }
 
     @Override
