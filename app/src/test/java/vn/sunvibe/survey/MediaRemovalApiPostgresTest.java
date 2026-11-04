@@ -60,9 +60,6 @@ class MediaRemovalApiPostgresTest extends MediaApiTestBase {
 	private MediaTestStore store;
 
 	@Autowired
-	private MediaTestReferences references;
-
-	@Autowired
 	private MediaContentDeletionJob deletion;
 
 	private SurveyApiTestSupport survey;
@@ -95,7 +92,6 @@ class MediaRemovalApiPostgresTest extends MediaApiTestBase {
 
 	@AfterEach
 	void reset() {
-		references.reset();
 		store.reset();
 	}
 
@@ -159,10 +155,10 @@ class MediaRemovalApiPostgresTest extends MediaApiTestBase {
 	}
 
 	@Test
-	void referenced_409() throws Exception {
+	void remove_referencedPhoto_409MediaReferenced() throws Exception {
 		Draft draft = draft();
 		String id = photo(draft, sale, Row.READY);
-		references.reference(id);
+		media.evidenceRow(draft.id(), id);
 
 		Result refused = media.remove(sale, id, null);
 

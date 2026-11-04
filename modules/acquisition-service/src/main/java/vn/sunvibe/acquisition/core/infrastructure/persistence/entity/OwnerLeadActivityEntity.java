@@ -75,6 +75,6 @@ public class OwnerLeadActivityEntity {
     private Integer referenceNo;
 
     /** The checklist group of a CHECKLIST_SAVED entry (survey-checklist BR-15); null otherwise. */
-    @Column(name = "reference_detail", length = 30)
+    @Column(name = "reference_detail", length = 40)
     private String referenceDetail;
 }

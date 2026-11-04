@@ -14,5 +14,9 @@ public enum ChecklistActivityType {
      * The holder removed a processing or ready photo; the detail is its evidence category (survey-media spec 5.3,
      * A-10).
      */
-    CHECKLIST_MEDIA_REMOVED
+    CHECKLIST_MEDIA_REMOVED,
+    /** The holder submitted a revision (survey-checklist submission spec 4.9). */
+    CHECKLIST_SUBMITTED,
+    /** The assignee started a new revision on the same visit (survey-checklist submission spec 4.9). */
+    CHECKLIST_REVISION_STARTED
 }

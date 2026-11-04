@@ -50,6 +50,11 @@ class SurveyOpenApiTest {
 	private static final Set<String> SHARED_COMPONENTS = Set.of("ErrorResponse", "ValidationError",
 			"SurveyLocationResponse", "SurveyLeadStateResponse");
 
+	/** Survey-checklist submission spec 7.1: the decision body names only what its outcome uses. */
+	private static final Set<String> OPTIONAL_DECISION_KEYS = Set.of("ChecklistDecisionRequest.needsChangesKind",
+			"ChecklistDecisionRequest.failedKind", "ChecklistDecisionRequest.reason", "ChecklistDecisionRequest.notes",
+			"ChecklistDecisionRequest.limitations");
+
 	@BeforeAll
 	void readContract() throws Exception {
 		try (HttpClient http = HttpClient.newHttpClient()) {
@@ -152,7 +157,8 @@ class SurveyOpenApiTest {
 	}
 
 	private static boolean isMediaPath(String path) {
-		return path.startsWith("/api/v1/staff/survey-media/") || (path.startsWith(CHECKLISTS) && path.endsWith("/media"));
+		return path.startsWith("/api/v1/staff/survey-media/") || (path.startsWith(CHECKLISTS)
+				&& (path.endsWith("/media") || path.endsWith("/deselection")));
 	}
 
 	@Test
@@ -180,7 +186,8 @@ class SurveyOpenApiTest {
 			Set<String> required = new LinkedHashSet<>();
 			entry.getValue().path("required").forEach(key -> required.add(key.asString()));
 			entry.getValue().path("properties").properties().forEach(property -> {
-				if (!property.getKey().equals("otherGroupVersions")) {
+				if (!property.getKey().equals("otherGroupVersions") && !OPTIONAL_DECISION_KEYS.contains(name + "."
+						+ property.getKey())) {
 					assertTrue(required.contains(property.getKey()), name + "." + property.getKey());
 				}
 			});
@@ -247,7 +254,80 @@ class SurveyOpenApiTest {
 
 		assertEquals(activity, entry);
 		assertEquals(List.of("CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED", "CHECKLIST_MEDIA_ADDED",
-				"CHECKLIST_MEDIA_REMOVED"), types);
+				"CHECKLIST_MEDIA_REMOVED", "CHECKLIST_SUBMITTED", "CHECKLIST_REVISION_STARTED"), types);
+	}
+
+	// ==================== survey-checklist submission spec 7 ====================
+
+	@Test
+	void openApi_reviewOperations_exist() {
+		Map<String, String> ids = new LinkedHashMap<>();
+		ids.put(CHECKLISTS + "/{checklistId}/submission", "post");
+		ids.put(CHECKLISTS + "/{checklistId}/decision", "post");
+		ids.put(CHECKLISTS + "/{checklistId}/revisions", "post");
+		ids.put(CHECKLISTS + "/{checklistId}/media/{mediaId}/deselection", "post");
+		ids.put(CHECKLISTS + "/review-queue", "get");
+
+		ids.forEach((path, method) -> assertFalse(contract.path("paths").path(path).path(method).isMissingNode(), path));
+	}
+
+	/** A repeated deselection is a list read and counts in its budget. */
+	@Test
+	void openApi_deselection_documentsTheBudget() {
+		JsonNode responses = contract.path("paths").path(CHECKLISTS + "/{checklistId}/media/{mediaId}/deselection")
+				.path("post").path("responses");
+
+		assertFalse(responses.path("429").isMissingNode(), responses.toString());
+	}
+
+	@Test
+	void openApi_checklistResponse_hasTheReviewParts() {
+		List<String> properties = fieldNames(schema("ChecklistResponse").path("properties"));
+
+		assertTrue(properties.containsAll(List.of("previousChecklistId", "submission", "decision", "review", "passed")),
+				properties.toString());
+		assertEquals(List.of("canReview", "decisionBlockedBy", "reason"),
+				fieldNames(schema("ChecklistReviewResponse").path("properties")).stream().sorted().toList());
+		assertEquals(List.of("NOT_REVIEWER_ROLE", "NOT_SUBMITTED", "LEAD_STATUS", "INTENT_CHANGED", "SERVING_DISABLED",
+				"NOT_INDEPENDENT"), values(schema("ChecklistReviewResponse").path("properties").path("reason")));
+		assertEquals(List.of("INTENT_CHANGED", "LEAD_CLOSED", "EVIDENCE_HELD", "EVIDENCE_GONE"),
+				values(schema("ChecklistPassedResponse").path("properties").path("reason")));
+	}
+
+	@Test
+	void openApi_surveyBlock_hasTheRecordAndTheStarts() {
+		List<String> properties = fieldNames(schema("SurveyBlockResponse").path("properties"));
+
+		assertTrue(properties.containsAll(List.of("revisionStart", "resume", "survey", "resumeAllowed")),
+				properties.toString());
+		assertEquals(List.of("SURVEY_SCHEDULED", "QUALIFIED"),
+				values(schema("SurveyResumeResponse").path("properties").path("target")));
+		assertTrue(values(schema("SurveyBookingResponse").path("properties").path("blockedBy"))
+				.containsAll(List.of("CHECKLIST_SUBMITTED", "CHECKLIST_PASSED")));
+		assertTrue(values(schema("ChecklistStartStateResponse").path("properties").path("blockedBy"))
+				.contains("CHECKLIST_EXISTS"));
+		assertTrue(fieldNames(schema("ChecklistSummaryResponse").path("properties")).contains("outcome"));
+	}
+
+	@Test
+	void openApi_reviewErrorResponses_nameTheCodes() {
+		StringBuilder descriptions = new StringBuilder();
+		contract.path("paths").properties().forEach(path -> {
+			if (path.getKey().startsWith(CHECKLISTS)) {
+				path.getValue().forEach(operation -> operation.path("responses").forEach(response ->
+						descriptions.append(response.path("description").asString()).append(' ')));
+			}
+		});
+		for (String code : List.of("CHECKLIST_SUBMISSION_NOT_AVAILABLE", "CHECKLIST_NOT_READY",
+				"CHECKLIST_REVIEW_NOT_ALLOWED", "CHECKLIST_DECISION_NOT_ALLOWED")) {
+			assertTrue(descriptions.toString().contains(code), code);
+		}
+	}
+
+	private static List<String> values(JsonNode property) {
+		List<String> values = new ArrayList<>();
+		property.path("enum").forEach(value -> values.add(value.asString()));
+		return values;
 	}
 
 	private JsonNode schema(String name) {

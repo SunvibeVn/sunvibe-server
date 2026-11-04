@@ -43,7 +43,7 @@ class MediaCreateApiPostgresTest extends MediaApiTestBase {
 	private static final List<String> ITEM_FIELDS = List.of("id", "mediaNo", "status", "statusReason", "spaceId",
 			"spaceCodeAtUpload", "category", "caption", "captionHidden", "uploadedByUserId", "uploadedByName",
 			"createdAt", "contentReceivedAt", "readyAt", "width", "height", "removed", "held", "contentAvailable",
-			"unavailableReason");
+			"unavailableReason", "carriedFromChecklistNo");
 
 	@Value("${local.server.port}")
 	private int port;

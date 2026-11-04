@@ -1,6 +1,7 @@
 package vn.sunvibe.survey.core.application.usecase;
 
 import vn.sunvibe.survey.core.application.command.CreateMediaCommand;
+import vn.sunvibe.survey.core.application.command.DeselectMediaCommand;
 import vn.sunvibe.survey.core.application.command.RemoveMediaCommand;
 import vn.sunvibe.survey.core.application.query.MediaContentResult;
 import vn.sunvibe.survey.core.application.query.MediaStateResult;
@@ -24,6 +25,12 @@ public interface SurveyMediaCommandUseCase {
      * CHECKLIST_MEDIA_REMOVED History entry of a PROCESSING or READY photo; removing again answers the photo as it is.
      */
     MediaContentResult remove(SurveyViewer viewer, boolean viewerCanHold, RemoveMediaCommand command);
+
+    /**
+     * The holder takes a carried photo out of a later revision (survey-checklist submission spec 4.6, A-12): the photo
+     * stays as it is in its origin, is never removed and asks for no deletion. Deselecting again changes nothing.
+     */
+    boolean deselect(SurveyViewer viewer, DeselectMediaCommand command);
 
     /** An ADMIN holds a PROCESSING or READY photo that is not removed (survey-media spec A-23); a held one: a no-op. */
     MediaStateResult hold(SurveyViewer viewer, String mediaId, HoldReason reasonOrNull);

@@ -10,8 +10,13 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.MapperFeature;
 import tools.jackson.databind.cfg.JsonNodeFeature;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import vn.sunvibe.survey.core.domain.model.checklist.AmenitiesContent;
+import vn.sunvibe.survey.core.application.shared.SubmissionCanonicalForm;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
+import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
+import vn.sunvibe.survey.core.domain.model.checklist.SubmittedSpace;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSource;
 import vn.sunvibe.survey.core.domain.model.checklist.ConditionContent;
 import vn.sunvibe.survey.core.domain.model.checklist.DimensionsContent;
@@ -45,7 +50,7 @@ import java.util.Map;
  * Stored data that cannot be read is a server fault, never a value in a message.
  */
 @Component
-public class ChecklistDocumentCodec {
+public class ChecklistDocumentCodec implements SubmissionCanonicalForm {
 
     /** The document layout written here; a later template version writes another one. */
     static final int SCHEMA = 2;
@@ -72,6 +77,9 @@ public class ChecklistDocumentCodec {
             .enable(JsonNodeFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .disable(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
             .build();
+
+    /** Writes one scalar of the canonical form. */
+    private static final JsonMapper CANONICAL = JsonMapper.builder().build();
 
     /** The stored layout of a group document. */
     record StoredDocument(int schema, JsonNode content, Map<String, UnitMeta> meta,
@@ -128,6 +136,79 @@ public class ChecklistDocumentCodec {
             });
             return groups;
         } catch (JacksonException | IllegalArgumentException e) {
+            throw unreadable(e);
+        }
+    }
+
+    /**
+     * survey-checklist submission plan PD-1: each content goes through the same tree as a stored document, so decimals
+     * keep their scale and a value hashes as it is stored; keys are sorted at every level.
+     */
+    @Override
+    public String of(Map<ChecklistGroup, GroupContent> groups, List<EvidenceEntry> evidence) {
+        ObjectNode root = mapper.createObjectNode();
+        ObjectNode contents = root.putObject("groups");
+        new java.util.TreeMap<>(groups).forEach((group, content) -> contents.set(group.name(),
+                mapper.valueToTree(content)));
+        ArrayNode entries = root.putArray("evidence");
+        evidence.stream().sorted(java.util.Comparator.comparing(EvidenceEntry::mediaId))
+                .forEach(entry -> entries.add(mapper.<JsonNode>valueToTree(entry)));
+        return canonical(root);
+    }
+
+    /** One JSON text with the keys of every object sorted and every decimal in plain notation. */
+    private static String canonical(JsonNode node) {
+        if (node.isObject()) {
+            java.util.TreeMap<String, JsonNode> sorted = new java.util.TreeMap<>();
+            node.properties().forEach(entry -> sorted.put(entry.getKey(), entry.getValue()));
+            StringBuilder text = new StringBuilder("{");
+            String separator = "";
+            for (Map.Entry<String, JsonNode> entry : sorted.entrySet()) {
+                text.append(separator).append(CANONICAL.writeValueAsString(entry.getKey())).append(':')
+                        .append(canonical(entry.getValue()));
+                separator = ",";
+            }
+            return text.append('}').toString();
+        }
+        if (node.isArray()) {
+            StringBuilder text = new StringBuilder("[");
+            String separator = "";
+            for (JsonNode item : node) {
+                text.append(separator).append(canonical(item));
+                separator = ",";
+            }
+            return text.append(']').toString();
+        }
+        if (node.isBigDecimal()) {
+            return node.decimalValue().toPlainString();
+        }
+        return CANONICAL.writeValueAsString(node);
+    }
+
+    /** The spaces of a submission (submission spec 4.3). */
+    public String writeSubmittedSpaces(List<SubmittedSpace> spaces) {
+        return mapper.writeValueAsString(spaces);
+    }
+
+    public List<SubmittedSpace> readSubmittedSpaces(String json) {
+        try {
+            return mapper.readValue(json, new TypeReference<List<SubmittedSpace>>() {
+            });
+        } catch (JacksonException e) {
+            throw unreadable(e);
+        }
+    }
+
+    /** The group versions of a submission, by group name (submission spec 4.3). */
+    public String writeGroupVersions(Map<ChecklistGroup, Long> versions) {
+        return mapper.writeValueAsString(new java.util.TreeMap<>(versions));
+    }
+
+    public Map<ChecklistGroup, Long> readGroupVersions(String json) {
+        try {
+            return mapper.readValue(json, new TypeReference<Map<ChecklistGroup, Long>>() {
+            });
+        } catch (JacksonException e) {
             throw unreadable(e);
         }
     }

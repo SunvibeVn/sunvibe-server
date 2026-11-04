@@ -22,7 +22,7 @@ public record ChecklistTakeover(long id, SurveyChecklistId checklistId, int take
         if ((kind == TakeoverKind.START_BY_OTHER) != (fromUserId == null)) {
             throw new IllegalArgumentException("Only an intake declaration has no previous holder.");
         }
-        if (kind == TakeoverKind.START_BY_OTHER && snapshotOrNull != null) {
+        if (kind != TakeoverKind.TAKEOVER && snapshotOrNull != null) {
             throw new IllegalArgumentException("An intake declaration has no checkpoint.");
         }
     }
@@ -32,6 +32,16 @@ public record ChecklistTakeover(long id, SurveyChecklistId checklistId, int take
                                                  String reason, Basis basis, Instant now) {
         return new ChecklistTakeover(id, checklistId, 1, TakeoverKind.START_BY_OTHER, null, starterUserId, reason,
                 basis, null, now);
+    }
+
+    /**
+     * Takeover #1 of a new revision started by someone other than the previous revision's holder (submission spec A-7,
+     * plan PD-9): it names that holder and has no checkpoint, because the previous revision is frozen.
+     */
+    public static ChecklistTakeover revisionByOther(long id, SurveyChecklistId checklistId, String previousHolderUserId,
+                                                    String starterUserId, String reason, Basis basis, Instant now) {
+        return new ChecklistTakeover(id, checklistId, 1, TakeoverKind.REVISION_BY_OTHER, previousHolderUserId,
+                starterUserId, reason, basis, null, now);
     }
 
     @Override

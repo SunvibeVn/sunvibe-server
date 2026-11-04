@@ -55,7 +55,7 @@ class ChecklistReadApiPostgresTest {
 	private static final String GUESSED_ID = "01JZZZZZZZZZZZZZZZZZZZZZZZ";
 	private static final List<String> START_STATE_FIELDS = List.of("allowed", "visitAppointmentId",
 			"intakeDeclarationRequired", "blockedBy");
-	private static final List<String> SUMMARY_FIELDS = List.of("id", "checklistNo", "status", "editable",
+	private static final List<String> SUMMARY_FIELDS = List.of("id", "checklistNo", "status", "outcome", "editable",
 			"readOnlyReason", "missingCount", "holderUserId", "holderName", "updatedAt", "updatedByUserId",
 			"updatedByName");
 
@@ -119,7 +119,7 @@ class ChecklistReadApiPostgresTest {
 		String id = checklists.started(sale, visit.appointmentId());
 
 		JsonNode afterStart = block(sale, visit.leadId());
-		assertStart(afterStart, false, null, false, "ALREADY_STARTED");
+		assertStart(afterStart, false, null, false, "CHECKLIST_EXISTS");
 		JsonNode summary = SurveyApiTestSupport.appointmentOf(afterStart, visit.appointmentId()).path("checklists")
 				.path(0);
 		assertEquals(SUMMARY_FIELDS, AcquisitionApiTestSupport.fieldNames(summary));

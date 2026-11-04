@@ -15,18 +15,18 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.survey.core.application.shared.MediaClock;
+import vn.sunvibe.survey.core.application.shared.MediaSetLocks.LockedSets;
+import vn.sunvibe.survey.core.application.shared.MediaSetLocks;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.Bucket;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.ListedObject;
 import vn.sunvibe.survey.core.application.shared.external.media.StoreUnavailableException;
 import vn.sunvibe.survey.core.domain.model.media.MediaRef;
-import vn.sunvibe.survey.core.domain.model.media.MediaSet;
 import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
 import vn.sunvibe.survey.core.domain.model.media.MediaVariant;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
 
 /**
@@ -47,7 +47,7 @@ public class MediaRestoreReconciliation {
     private static final Logger log = LoggerFactory.getLogger(MediaRestoreReconciliation.class);
 
     private final SurveyMediaDomainRepository media;
-    private final SurveyMediaSetDomainRepository sets;
+    private final MediaSetLocks setLocks;
     private final SurveyMediaVariantDomainRepository variants;
     private final MediaObjectStore store;
     private final MediaClock clock;
@@ -55,7 +55,7 @@ public class MediaRestoreReconciliation {
     private final boolean enabledAtStartup;
     private final boolean force;
 
-    public MediaRestoreReconciliation(SurveyMediaDomainRepository media, SurveyMediaSetDomainRepository sets,
+    public MediaRestoreReconciliation(SurveyMediaDomainRepository media, MediaSetLocks setLocks,
                                       SurveyMediaVariantDomainRepository variants, MediaObjectStore store,
                                       MediaClock clock, PlatformTransactionManager transactionManager,
                                       @Value("${app.survey.media.reconcile-after-restore:false}")
@@ -63,7 +63,7 @@ public class MediaRestoreReconciliation {
                                       @Value("${app.survey.media.reconcile-after-restore-force:false}")
                                       boolean force) {
         this.media = media;
-        this.sets = sets;
+        this.setLocks = setLocks;
         this.variants = variants;
         this.store = store;
         this.clock = clock;
@@ -167,8 +167,9 @@ public class MediaRestoreReconciliation {
     private boolean mark(MediaRef ref) {
         Boolean done = transaction.execute(status -> {
             Instant now = clock.now();
-            MediaSet set = sets.lockForUpdate(ref.checklistId()).orElse(null);
-            if (set == null) {
+            // checklist submission spec 5.4: a carried photo's loss shows in every revision that selects it
+            LockedSets locked = setLocks.lockFor(ref.checklistId(), ref.mediaId()).orElse(null);
+            if (locked == null) {
                 return false;
             }
             SurveyMedia photo = media.lockForUpdate(List.of(ref.mediaId())).stream().findFirst().orElse(null);
@@ -177,8 +178,7 @@ public class MediaRestoreReconciliation {
             }
             photo.markContentMissing(now);
             media.update(photo);
-            set.bump(now);
-            sets.update(set);
+            setLocks.bumpAll(locked, now);
             return true;
         });
         return Boolean.TRUE.equals(done);

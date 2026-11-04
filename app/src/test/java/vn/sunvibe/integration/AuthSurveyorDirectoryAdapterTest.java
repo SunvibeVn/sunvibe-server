@@ -34,6 +34,12 @@ class AuthSurveyorDirectoryAdapterTest {
 				}
 
 				@Override
+				public boolean canSignIn(String userId) {
+					calls.add("signIn:" + userId);
+					return ELIGIBLE.equals(userId);
+				}
+
+				@Override
 				public List<LeadAssigneeAccount> listEligibleOwnerLeadAssignees() {
 					calls.add("list");
 					return List.of(new LeadAssigneeAccount(ELIGIBLE, "Nguyen An", Set.of("SALE")),
@@ -52,6 +58,15 @@ class AuthSurveyorDirectoryAdapterTest {
 		assertTrue(adapter.isEligible(ELIGIBLE));
 		assertFalse(adapter.isEligible(OTHER));
 		assertFalse(adapter.isEligible(null));
+	}
+
+	/** checklist submission spec 4.2: a reviewer's account must be able to sign in, whatever its roles. */
+	@Test
+	void canSignIn_lockedAccount_false() {
+		assertTrue(adapter.canSignIn(ELIGIBLE));
+		assertFalse(adapter.canSignIn(OTHER));
+		assertFalse(adapter.canSignIn(null));
+		assertEquals(List.of("signIn:" + ELIGIBLE, "signIn:" + OTHER), calls);
 	}
 
 	/** Asked per id: auth's eligible list is cut at 500 accounts, so it cannot answer for every id. */

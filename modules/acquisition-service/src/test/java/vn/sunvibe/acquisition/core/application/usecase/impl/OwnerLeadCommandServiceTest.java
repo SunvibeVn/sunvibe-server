@@ -35,6 +35,7 @@ import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadActivityReposito
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadIntentChangeRepository;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadRepository;
 import vn.sunvibe.acquisition.core.testsupport.OwnerLeadFixture;
+import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyState;
 import vn.sunvibe.acquisition.core.testsupport.RecordingLeadSurveyPort;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 
@@ -150,6 +151,99 @@ class OwnerLeadCommandServiceTest {
                 null, null));
 
         assertEquals(List.of(), surveys.calls());
+    }
+
+    // ==================== the survey record (checklist submission spec 4.8, D3-8, D3-13) ====================
+
+    private static final SurveyState PASSED = new SurveyState(true, true, false, false);
+    private static final SurveyState HELD_PASSED = new SurveyState(true, false, false, false);
+    private static final SurveyState SUBMITTED = new SurveyState(false, false, true, true);
+
+    @Test
+    void onHoldToContacted_withPassed_refused_allowedWithoutContacted() {
+        OwnerLead lead = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+        surveys.withState(HELD_PASSED);
+
+        InvalidLeadTransitionException refused = assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(OWN_A, statusChange(lead, OwnerLeadStatus.CONTACTED, 0L)));
+
+        assertEquals(OwnerLeadStatus.CONTACTED, refused.getTo());
+        assertEquals(List.of(OwnerLeadStatus.DUPLICATE, OwnerLeadStatus.REJECTED, OwnerLeadStatus.WITHDRAWN),
+                refused.getAllowed());
+    }
+
+    @Test
+    void onHoldToContacted_withSubmitted_refused() {
+        OwnerLead lead = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+        surveys.withState(SUBMITTED);
+
+        assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(OWN_A, statusChange(lead, OwnerLeadStatus.CONTACTED, 0L)));
+    }
+
+    /** spec 4.8: the record is read after the lead row is locked by the command, for the lead's cycle. */
+    @Test
+    void onHoldToContacted_asksTheRecordAfterTheLeadRowIsWritten() {
+        OwnerLead lead = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+
+        OwnerLeadSummary summary = service.changeStatus(OWN_A, statusChange(lead, OwnerLeadStatus.CONTACTED, 0L));
+
+        assertEquals(OwnerLeadStatus.CONTACTED, summary.status());
+        assertEquals(1, surveys.stateQuestions().size());
+        assertEquals("1", surveys.stateQuestions().get(0).argument());
+        assertEquals(1L, surveys.stateQuestions().get(0).storedVersion());
+    }
+
+    @Test
+    void onHoldToClosing_withPassed_allowed() {
+        OwnerLead lead = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+        surveys.withState(PASSED);
+
+        ChangeLeadStatusCommand close = new ChangeLeadStatusCommand(id(lead), OwnerLeadStatus.WITHDRAWN, 0L,
+                "Owner withdrew", null, null, null);
+
+        assertEquals(OwnerLeadStatus.WITHDRAWN, service.changeStatus(OWN_A, close).status());
+    }
+
+    @Test
+    void intentChange_withPassed_refused_emptyAllowed() {
+        OwnerLead lead = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+        surveys.withState(HELD_PASSED);
+
+        IntentChangeNotAllowedException refused = assertThrows(IntentChangeNotAllowedException.class,
+                () -> service.changeIntent(OWN_A, intentChange(lead)));
+
+        assertEquals(OwnerLeadStatus.ON_HOLD, refused.getStatus());
+        assertEquals(List.of(), refused.getAllowed());
+        assertEquals("1", surveys.stateQuestions().get(0).argument(), "the cycle that would end");
+        assertEquals(List.of(), surveys.calls());
+    }
+
+    @Test
+    void intentChange_qualifiedLead_refused_emptyAllowed() {
+        OwnerLead lead = stored(OwnerLeadStatus.QUALIFIED, SALE_A);
+
+        IntentChangeNotAllowedException refused = assertThrows(IntentChangeNotAllowedException.class,
+                () -> service.changeIntent(OWN_A, intentChange(lead)));
+
+        assertEquals(List.of(), refused.getAllowed());
+    }
+
+    /** spec 4.8: a requirement change with a SUBMITTED revision stays allowed and ends that revision's cycle. */
+    @Test
+    void intentChange_withSubmitted_allowed() {
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        surveys.withState(SUBMITTED);
+
+        OwnerLeadSummary summary = service.changeIntent(OWN_A, intentChange(lead));
+
+        assertEquals(OwnerLeadStatus.CONTACTED, summary.status());
+        assertEquals(2, reload(lead).getIntentCycle());
+    }
+
+    private static ChangeLeadIntentCommand intentChange(OwnerLead lead) {
+        return new ChangeLeadIntentCommand(id(lead), 0L, OwnerLeadIntent.SHORT_TERM_RENT, Optional.empty(),
+                "Owner prefers holiday guests", new ConfirmationBasis(OwnerLead.vietnamToday(), "Owner said so"));
     }
 
     // ==================== requirement change (survey-schedule US-5) ====================

@@ -13,5 +13,7 @@ public enum SecurityOutcome {
     /** An ADMIN released a photo's hold (survey-media spec A-23). */
     RELEASED,
     /** The first read refused by an hourly read budget in that hour (survey-media spec A-26). */
-    BUDGET_EXCEEDED
+    BUDGET_EXCEEDED,
+    /** The caller is in the excluded set of the revision (survey-checklist submission spec 4.2). */
+    NOT_INDEPENDENT
 }

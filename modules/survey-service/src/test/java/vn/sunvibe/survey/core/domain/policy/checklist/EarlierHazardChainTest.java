@@ -30,6 +30,8 @@ class EarlierHazardChainTest {
     private static final String H2 = "01JHAZARD00000000000000002";
     private static final String H3 = "01JHAZARD00000000000000003";
     private static final String H4 = "01JHAZARD00000000000000004";
+    private static final String VISIT_A = "01JVISIT00000000000000000A";
+    private static final String VISIT_B = "01JVISIT00000000000000000B";
 
     private static final ChecklistHazards FIRST = checklist(C1, 1, hazard(H1, IMPORTANT, OPEN, null));
     private static final ChecklistHazards SECOND = checklist(C2, 2, hazard(H2, IMPORTANT, OPEN, link(C1, H1)));
@@ -131,6 +133,72 @@ class EarlierHazardChainTest {
                 checklist(C4, 4, hazard(H4, MINOR, OBSERVED_RESOLVED, link(C3, H3))))));
     }
 
+    // ==================== revisions of one visit (submission spec 4.6, D3-12, S-12) ====================
+
+    /** One visit, two revisions of one hazard identity: the read revision's own warning, not an earlier one too. */
+    @Test
+    void chain_sameVisitRevisions_noDoubleWarning() {
+        ChecklistHazards first = revision(C1, 1, VISIT_A, hazard(H1, IMPORTANT, OPEN, null));
+        ChecklistHazards second = revision(C2, 2, VISIT_A, hazard(H1, IMPORTANT, OPEN, null));
+
+        assertEquals(List.of(), EarlierHazardChain.of(List.of(first), second));
+    }
+
+    /** survey-checklist BR-18: a hazard of a draft nobody submitted keeps warning on the next visit. */
+    @Test
+    void chain_earlierVisitDraftHazard_stillWarns() {
+        ChecklistHazards draft = revision(C1, 1, VISIT_A, hazard(H1, IMPORTANT, OPEN, null));
+        ChecklistHazards next = revision(C2, 2, VISIT_B);
+
+        assertEquals(List.of(H1), open(EarlierHazardChain.of(List.of(draft), next)));
+    }
+
+    @Test
+    void chain_earlierVisit_onlyItsLatestRevisionWarns() {
+        ChecklistHazards first = revision(C1, 1, VISIT_A, hazard(H1, IMPORTANT, OPEN, null),
+                hazard(H2, IMPORTANT, OPEN, null));
+        ChecklistHazards second = revision(C2, 2, VISIT_A, hazard(H1, IMPORTANT, OBSERVED_RESOLVED, null),
+                hazard(H2, IMPORTANT, OPEN, null));
+        ChecklistHazards next = revision(C3, 3, VISIT_B);
+
+        List<EarlierHazard> earlier = EarlierHazardChain.of(List.of(first, second), next);
+
+        assertEquals(List.of(H2), open(earlier));
+        assertEquals(C2, earlier.get(0).checklistId());
+    }
+
+    @Test
+    void chain_previousToNonLatestEarlierRevision_resolvesByHazardId() {
+        ChecklistHazards first = revision(C1, 1, VISIT_A, hazard(H1, IMPORTANT, OPEN, null));
+        ChecklistHazards second = revision(C2, 2, VISIT_A, hazard(H1, IMPORTANT, OPEN, null));
+        ChecklistHazards next = revision(C3, 3, VISIT_B, hazard(H3, IMPORTANT, OBSERVED_RESOLVED, link(C1, H1)));
+
+        List<EarlierHazard> earlier = EarlierHazardChain.of(List.of(first, second), next);
+
+        assertEquals(List.of(), open(earlier));
+        assertEquals(List.of(new AddressedBy(C3, 3, H3, AddressKind.RESOLVED)), earlier.get(0).addressedBy());
+    }
+
+    /** spec 4.6: a revision of the same visit is no earlier checklist, so a link to it has nothing to name. */
+    @Test
+    void chain_previousSameVisit_refused() {
+        ChecklistHazards first = revision(C1, 1, VISIT_A, hazard(H1, IMPORTANT, OPEN, null));
+        ChecklistHazards second = revision(C2, 2, VISIT_B, hazard(H2, IMPORTANT, OPEN, null));
+        ChecklistHazards third = revision(C3, 3, VISIT_B);
+
+        assertEquals(List.of(first), EarlierHazardChain.linkTargets(List.of(first, second), VISIT_B));
+    }
+
+    /** S-12: a hazard of the visit downgraded under the W16 rules no longer warns, and nothing earlier replaces it. */
+    @Test
+    void chain_sameVisitDowngradeUnderW16Rules_liftsWarning() {
+        ChecklistHazards first = revision(C1, 1, VISIT_A, hazard(H1, IMPORTANT, OPEN, null));
+        ChecklistHazards second = revision(C2, 2, VISIT_A, hazard(H1, MINOR, OPEN, null));
+
+        assertEquals(List.of(), EarlierHazardChain.of(List.of(first), second));
+        assertEquals(false, EarlierHazardChain.warns(second.hazards().get(0)));
+    }
+
     // ==================== helpers ====================
 
     private static List<String> open(List<EarlierHazard> earlier) {
@@ -139,7 +207,11 @@ class EarlierHazardChainTest {
     }
 
     private static ChecklistHazards checklist(String id, int no, Hazard... hazards) {
-        return new ChecklistHazards(id, no, List.of(hazards));
+        return revision(id, no, "01JVISIT0000000000000000" + no + "0", hazards);
+    }
+
+    private static ChecklistHazards revision(String id, int no, String visitId, Hazard... hazards) {
+        return new ChecklistHazards(id, visitId, no, List.of(hazards));
     }
 
     private static HazardLink link(String checklistId, String hazardId) {

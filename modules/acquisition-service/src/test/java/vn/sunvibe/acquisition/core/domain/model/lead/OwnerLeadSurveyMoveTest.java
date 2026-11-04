@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.CHECKLIST_REVIEWED;
 import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.SURVEY_BOOKED;
 import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.SURVEY_CANCELLED;
 import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.SURVEY_CHANGED;
@@ -44,7 +45,84 @@ class OwnerLeadSurveyMoveTest {
             new Row(SURVEY_VISITED, SURVEY_SCHEDULED, null),
             new Row(SURVEY_CANCELLED, SURVEY_SCHEDULED, null),
             new Row(SURVEY_CANCELLED, SURVEY_SCHEDULED, CONTACTED),
-            new Row(SURVEY_RESUMED, ON_HOLD, SURVEY_SCHEDULED));
+            new Row(SURVEY_RESUMED, ON_HOLD, SURVEY_SCHEDULED),
+            new Row(SURVEY_RESUMED, ON_HOLD, QUALIFIED),
+            new Row(CHECKLIST_REVIEWED, SURVEY_SCHEDULED, QUALIFIED),
+            new Row(CHECKLIST_REVIEWED, SURVEY_SCHEDULED, null),
+            new Row(CHECKLIST_REVIEWED, SURVEY_SCHEDULED, CONTACTED));
+
+    private static final String CLOSE_REASON = "Survey failed: out of scope (checklist #1)";
+
+    /** checklist submission spec 4.5, A-11: REJECTED keeps the fixed close reason and clears the next action. */
+    @Test
+    void reviewed_rejected_closesWithItsReasonAndClearsTheNextAction() {
+        OwnerLead lead = lead(SURVEY_SCHEDULED, ASSIGNEE, LONG_AGO, 3L);
+
+        LeadChange change = lead.moveForSurvey(CHECKLIST_REVIEWED, REJECTED, APPOINTMENT_ID, 2, CLOSE_REASON);
+
+        assertEquals(REJECTED, lead.getStatus());
+        assertEquals(CLOSE_REASON, lead.getCloseReason());
+        assertNull(lead.getNextActionAt());
+        assertEquals(SURVEY_SCHEDULED, change.fromStatus());
+        assertEquals(REJECTED, change.toStatus());
+    }
+
+    @Test
+    void reviewed_qualified_keepsTheNextActionAndHasNoCloseReason() {
+        OwnerLead lead = lead(SURVEY_SCHEDULED, ASSIGNEE, LONG_AGO, 3L);
+
+        lead.moveForSurvey(CHECKLIST_REVIEWED, QUALIFIED, APPOINTMENT_ID, 2, null);
+
+        assertEquals(QUALIFIED, lead.getStatus());
+        assertEquals(LONG_AGO, lead.getNextActionAt());
+        assertNull(lead.getCloseReason());
+    }
+
+    @Test
+    void reviewed_rejectedWithoutReason_refused() {
+        OwnerLead lead = lead(SURVEY_SCHEDULED, ASSIGNEE);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> lead.moveForSurvey(CHECKLIST_REVIEWED, REJECTED, APPOINTMENT_ID, 2, null));
+    }
+
+    @Test
+    void reviewed_closeReasonOnAnotherTarget_refused() {
+        OwnerLead lead = lead(SURVEY_SCHEDULED, ASSIGNEE);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> lead.moveForSurvey(CHECKLIST_REVIEWED, CONTACTED, APPOINTMENT_ID, 2, CLOSE_REASON));
+    }
+
+    /** checklist submission spec 4.5, I-4: a lead that is not SURVEY_SCHEDULED is never decided on. */
+    @Test
+    void reviewed_fromOtherStatus_refused() {
+        for (OwnerLeadStatus from : List.of(ON_HOLD, CONTACTED, QUALIFIED, REJECTED)) {
+            OwnerLead lead = lead(from, ASSIGNEE);
+
+            assertThrows(InvalidLeadTransitionException.class,
+                    () -> lead.moveForSurvey(CHECKLIST_REVIEWED, QUALIFIED, APPOINTMENT_ID, 2), from.name());
+        }
+    }
+
+    @Test
+    void reviewed_toAnotherTarget_refused() {
+        OwnerLead lead = lead(SURVEY_SCHEDULED, ASSIGNEE);
+
+        assertThrows(InvalidLeadTransitionException.class,
+                () -> lead.moveForSurvey(CHECKLIST_REVIEWED, ON_HOLD, APPOINTMENT_ID, 2));
+    }
+
+    /** checklist submission spec 4.8, I-4: QUALIFIED comes back only through a resume of a held lead. */
+    @Test
+    void resume_toQualified_onlyFromOnHold() {
+        for (OwnerLeadStatus from : List.of(SURVEY_SCHEDULED, CONTACTED, ASSIGNED)) {
+            OwnerLead lead = lead(from, ASSIGNEE);
+
+            assertThrows(InvalidLeadTransitionException.class,
+                    () -> lead.moveForSurvey(SURVEY_RESUMED, QUALIFIED, APPOINTMENT_ID, 2), from.name());
+        }
+    }
 
     @Test
     void moveForSurvey_everyAllowedRow_movesOrKeepsAndCarriesTheReference() {
@@ -79,7 +157,9 @@ class OwnerLeadSurveyMoveTest {
         for (OwnerLeadActivityType type : types) {
             for (OwnerLeadStatus from : OwnerLeadStatus.values()) {
                 for (OwnerLeadStatus target : targets) {
-                    if (ALLOWED.contains(new Row(type, from, target))) {
+                    // the closing row needs its close reason: reviewed_rejected_closesWithItsReason...
+                    if (ALLOWED.contains(new Row(type, from, target))
+                            || type == CHECKLIST_REVIEWED && from == SURVEY_SCHEDULED && target == REJECTED) {
                         continue;
                     }
                     OwnerLead lead = lead(from, ASSIGNEE);

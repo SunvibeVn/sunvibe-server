@@ -9,7 +9,7 @@ import java.time.Instant;
 
 /**
  * JPA Entity - SurveyChecklistEntity (survey-checklist spec 5.2): one checklist revision; the version guards the
- * takeover's change of holder.
+ * takeover's change of holder, the submission and the decision.
  */
 @Entity
 @Table(name = "survey_checklists", indexes = {
@@ -51,7 +51,7 @@ public class SurveyChecklistEntity {
     @Enumerated(EnumType.STRING)
     private ChecklistKind kind;
 
-    @Column(name = "status", nullable = false, length = 12)
+    @Column(name = "status", nullable = false, length = 16)
     @Enumerated(EnumType.STRING)
     private ChecklistStatus status;
 
@@ -60,6 +60,18 @@ public class SurveyChecklistEntity {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @Column(name = "previous_checklist_id", length = 26)
+    private String previousChecklistId;
+
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
+
+    @Column(name = "submitted_by_user_id", length = 26)
+    private String submittedByUserId;
+
+    @Column(name = "decided_at")
+    private Instant decidedAt;
 
     @Version
     @Column(name = "version", nullable = false)

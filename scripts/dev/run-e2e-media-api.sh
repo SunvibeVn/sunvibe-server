@@ -29,6 +29,7 @@ docker compose -f "$COMPOSE" up --build -d
 
 ./gradlew :app:bootRun --args="--spring.profiles.active=dev \
 --app.survey.media.upload-enabled=true \
+--app.survey.checklist.submission-enabled=true \
 --app.survey.media.processing-enabled=true \
 --app.survey.media.store=local \
 --app.survey.media.local.root=$root/store \

@@ -45,7 +45,6 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSnapshot;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
 import vn.sunvibe.survey.core.domain.model.checklist.Correction;
 import vn.sunvibe.survey.core.domain.model.checklist.GroupContent;
@@ -55,7 +54,6 @@ import vn.sunvibe.survey.core.domain.model.checklist.IdentificationContent;
 import vn.sunvibe.survey.core.domain.model.checklist.ObservedLocation;
 import vn.sunvibe.survey.core.domain.model.checklist.ObservedPlaceNames;
 import vn.sunvibe.survey.core.domain.model.checklist.ObservedSpace;
-import vn.sunvibe.survey.core.domain.model.checklist.SafetyContent;
 import vn.sunvibe.survey.core.domain.model.checklist.SourcedField;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
@@ -76,9 +74,11 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.CascadeResult;
+import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistHazards;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistDateRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.CorrectedUnit;
 import vn.sunvibe.survey.core.domain.policy.checklist.CorrectionPolicy;
+import vn.sunvibe.survey.core.domain.policy.checklist.EarlierHazardChain;
 import vn.sunvibe.survey.core.domain.policy.checklist.GroupCascade;
 import vn.sunvibe.survey.core.domain.policy.checklist.GroupDocuments;
 import vn.sunvibe.survey.core.domain.policy.checklist.InputForm;
@@ -98,6 +98,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -185,9 +186,9 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         if (!SURVEY_SCHEDULED.equals(lead.status())) {
             throw new ChecklistNotAllowedException("status", List.of(SURVEY_SCHEDULED));
         }
-        if (checklists.findByLeadId(lead.leadId()).stream().anyMatch(checklist ->
-                checklist.getStatus() == ChecklistStatus.DRAFT
-                        && checklist.getVisitAppointmentId().equals(appointment.getId()))) {
+        // submission spec 4.6: a visit gets its first revision here; every later one comes from "start revision"
+        List<SurveyChecklist> ofLead = checklists.findByLeadId(lead.leadId());
+        if (ofLead.stream().anyMatch(checklist -> checklist.getVisitAppointmentId().equals(appointment.getId()))) {
             throw new ChecklistAlreadyStartedException(null);
         }
         if (!directory.isEligible(lead.assignedUserId())) {
@@ -207,9 +208,14 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         }
         ChecklistInputs.throwIfAny(violations);
 
-        SurveyChecklist checklist = SurveyChecklist.start(SurveyChecklistId.of(ulids.generateId()), lead.leadId(),
+        // submission spec A-2: the revision links the last submitted one of the cycle, of an earlier visit
+        SurveyChecklistId previous = ofLead.stream().filter(earlier -> earlier.getSubmittedAt() != null
+                        && earlier.getIntentCycle() == lead.intentCycle())
+                .max(Comparator.comparingInt(SurveyChecklist::getChecklistNo)).map(SurveyChecklist::getId)
+                .orElse(null);
+        SurveyChecklist checklist = SurveyChecklist.startAfter(SurveyChecklistId.of(ulids.generateId()), lead.leadId(),
                 checklists.nextChecklistNo(lead.leadId()), appointment.getId(), appointment.getIntentCycle(),
-                viewer.userId(), now);
+                viewer.userId(), now, previous);
         checklists.insert(checklist);
         Map<ChecklistGroup, GroupState> initial = new EnumMap<>(ChecklistGroup.class);
         for (ChecklistGroup group : ChecklistGroup.stored()) {
@@ -544,17 +550,18 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
             return new EarlierChain(ids, hazards, arrivals);
         }
         var earlierGroups = groups.findAllOf(earlier.stream().map(SurveyChecklist::getId).toList());
-        for (SurveyChecklist other : earlier) {
-            SafetyContent safety = (SafetyContent) earlierGroups.get(other.getId()).get(ChecklistGroup.SAFETY)
-                    .document().content();
+        Map<String, SurveyChecklist> byChecklistId = new HashMap<>();
+        earlier.forEach(other -> byChecklistId.put(other.getId().getValue(), other));
+        // submission spec 4.6: a revision of the same visit is the same hazard, so no link may name it
+        for (ChecklistHazards other : EarlierHazardChain.linkTargets(earlier.stream()
+                        .map(revision -> ChecklistViewAssembler.hazards(revision, earlierGroups.get(revision.getId())))
+                        .toList(), checklist.getVisitAppointmentId().getValue())) {
             Map<String, Hazard> byId = new LinkedHashMap<>();
-            if (safety.hazards().isValue()) {
-                safety.hazards().value().forEach(hazard -> byId.put(hazard.hazardId(), hazard));
-            }
-            hazards.put(other.getId().getValue(), byId);
-            ids.put(other.getId().getValue(), byId.keySet());
-            arrivals.put(other.getId().getValue(), ChecklistContextLoader.visitFacts(ChecklistContextLoader.visitOf(
-                    other, context.ofLead())).arrivalDate());
+            other.hazards().forEach(hazard -> byId.put(hazard.hazardId(), hazard));
+            hazards.put(other.checklistId(), byId);
+            ids.put(other.checklistId(), byId.keySet());
+            arrivals.put(other.checklistId(), ChecklistContextLoader.visitFacts(ChecklistContextLoader.visitOf(
+                    byChecklistId.get(other.checklistId()), context.ofLead())).arrivalDate());
         }
         return new EarlierChain(ids, hazards, arrivals);
     }

@@ -2,7 +2,9 @@ package vn.sunvibe.survey.core.testsupport;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import vn.sunvibe.survey.core.domain.exception.ChecklistAlreadyStartedException;
+import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
@@ -10,6 +12,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
 import vn.sunvibe.survey.core.domain.model.security.SurveySecurityEvent;
+import vn.sunvibe.survey.core.domain.repository.PageResult;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
@@ -93,6 +96,12 @@ public final class InMemoryChecklistRepositories {
         }
 
         @Override
+        public Optional<SurveyChecklist> findByIdForUpdate(SurveyChecklistId id) {
+            journal.add("checklist:forUpdate");
+            return Optional.ofNullable(stored.get(id)).map(Checklists::copy);
+        }
+
+        @Override
         public Optional<String> findLeadIdById(SurveyChecklistId id) {
             journal.add("checklist:leadId");
             return Optional.ofNullable(stored.get(id)).map(SurveyChecklist::getLeadId);
@@ -106,6 +115,25 @@ public final class InMemoryChecklistRepositories {
         }
 
         @Override
+        public List<SurveyChecklist> findByVisitAppointmentIds(Collection<SurveyAppointmentId> visitIds) {
+            return stored.values().stream().filter(checklist -> visitIds.contains(checklist.getVisitAppointmentId()))
+                    .sorted(Comparator.comparingInt(SurveyChecklist::getChecklistNo)).map(Checklists::copy).toList();
+        }
+
+        @Override
+        public PageResult<SurveyChecklist> findSubmittedOf(List<String> leadIds, List<Integer> intentCycles, int page,
+                                                           int size) {
+            List<SurveyChecklist> all = stored.values().stream()
+                    .filter(checklist -> checklist.getStatus() == ChecklistStatus.SUBMITTED)
+                    .filter(checklist -> {
+                        int index = leadIds.indexOf(checklist.getLeadId());
+                        return index >= 0 && intentCycles.get(index) == checklist.getIntentCycle();
+                    })
+                    .sorted(Comparator.comparing(SurveyChecklist::getSubmittedAt)).map(Checklists::copy).toList();
+            return new PageResult<>(all.stream().skip((long) page * size).limit(size).toList(), page, size, all.size());
+        }
+
+        @Override
         public int nextChecklistNo(String leadId) {
             return stored.values().stream().filter(checklist -> checklist.getLeadId().equals(leadId))
                     .mapToInt(SurveyChecklist::getChecklistNo).max().orElse(0) + 1;
@@ -114,7 +142,8 @@ public final class InMemoryChecklistRepositories {
         private static SurveyChecklist copy(SurveyChecklist c) {
             return SurveyChecklist.load(c.getId(), c.getLeadId(), c.getChecklistNo(), c.getVisitAppointmentId(),
                     c.getIntentCycle(), c.getHolderUserId(), c.getTemplateCode(), c.getTemplateVersion(), c.getKind(),
-                    c.getStatus(), c.getCreatedBy(), c.getCreatedAt(), c.getVersion());
+                    c.getStatus(), c.getCreatedBy(), c.getCreatedAt(), c.getPreviousChecklistIdOrNull(),
+                    c.getSubmittedAt(), c.getSubmittedByUserId(), c.getDecidedAt(), c.getVersion());
         }
     }
 
@@ -219,6 +248,12 @@ public final class InMemoryChecklistRepositories {
         }
 
         @Override
+        public List<ChecklistPerson> findTargets(Collection<SurveyChecklistId> checklistIds) {
+            return stored.stream().filter(row -> checklistIds.contains(row.checklistId()))
+                    .map(row -> new ChecklistPerson(row.checklistId().getValue(), row.toUserId())).distinct().toList();
+        }
+
+        @Override
         public void save(ChecklistTakeover takeover) {
             journal.add("takeover:" + takeover.kind());
             stored.add(takeover);
@@ -255,6 +290,13 @@ public final class InMemoryChecklistRepositories {
 
         public List<ChecklistSave> all() {
             return List.copyOf(stored);
+        }
+
+        @Override
+        public List<ChecklistPerson> findActors(Collection<SurveyChecklistId> checklistIds) {
+            return stored.stream().filter(row -> checklistIds.contains(row.checklistId()))
+                    .map(row -> new ChecklistPerson(row.checklistId().getValue(), row.actorUserId())).distinct()
+                    .toList();
         }
 
         @Override

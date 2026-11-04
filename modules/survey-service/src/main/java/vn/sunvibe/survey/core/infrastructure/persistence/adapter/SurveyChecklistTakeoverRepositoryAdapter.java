@@ -3,6 +3,7 @@ package vn.sunvibe.survey.core.infrastructure.persistence.adapter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSnapshot;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
@@ -11,6 +12,7 @@ import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistT
 import vn.sunvibe.survey.core.infrastructure.persistence.json.ChecklistDocumentCodec;
 import vn.sunvibe.survey.core.infrastructure.persistence.repository.SurveyChecklistTakeoverJpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +40,12 @@ public class SurveyChecklistTakeoverRepositoryAdapter implements SurveyChecklist
                         : codec.writeSnapshot(takeover.snapshotOrNull().groups()))
                 .occurredAt(takeover.occurredAt())
                 .build());
+    }
+
+    @Override
+    public List<ChecklistPerson> findTargets(Collection<SurveyChecklistId> checklistIds) {
+        return checklistIds.isEmpty() ? List.of()
+                : jpaRepository.findTargets(checklistIds.stream().map(SurveyChecklistId::getValue).toList());
     }
 
     @Override

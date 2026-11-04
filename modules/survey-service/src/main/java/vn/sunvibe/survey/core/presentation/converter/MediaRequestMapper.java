@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.command.BasisInput;
 import vn.sunvibe.survey.core.application.command.CorrectionInput;
 import vn.sunvibe.survey.core.application.command.CreateMediaCommand;
+import vn.sunvibe.survey.core.application.command.DeselectMediaCommand;
 import vn.sunvibe.survey.core.application.command.RemoveMediaCommand;
 import vn.sunvibe.survey.core.presentation.dto.request.media.MediaCreateRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.media.MediaRemovalCorrectionRequest;
@@ -15,10 +16,17 @@ import vn.sunvibe.survey.core.presentation.dto.request.media.MediaRemovalRequest
 public class MediaRequestMapper {
 
     public RemoveMediaCommand toCommand(String mediaId, MediaRemovalRequest request) {
+        return new RemoveMediaCommand(mediaId, correction(request));
+    }
+
+    public DeselectMediaCommand toDeselection(String checklistId, String mediaId, MediaRemovalRequest request) {
+        return new DeselectMediaCommand(checklistId, mediaId, correction(request));
+    }
+
+    private static CorrectionInput correction(MediaRemovalRequest request) {
         MediaRemovalCorrectionRequest correction = request.correction();
-        return new RemoveMediaCommand(mediaId, correction == null ? null : new CorrectionInput(correction.reason(),
-                correction.basis() == null ? null : new BasisInput(correction.basis().confirmedOn(),
-                        correction.basis().text())));
+        return correction == null ? null : new CorrectionInput(correction.reason(), correction.basis() == null ? null
+                : new BasisInput(correction.basis().confirmedOn(), correction.basis().text()));
     }
 
     public CreateMediaCommand toCommand(String checklistId, MediaCreateRequest request) {

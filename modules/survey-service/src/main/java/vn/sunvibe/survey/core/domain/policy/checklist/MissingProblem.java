@@ -19,5 +19,7 @@ public enum MissingProblem {
     /** A required (placement, category) pair without a usable or processing photo (survey-media spec 4.6). */
     EVIDENCE_MISSING,
     /** A required pair whose only photos are still processing (survey-media spec 4.6). */
-    EVIDENCE_PROCESSING
+    EVIDENCE_PROCESSING,
+    /** A selected photo is held or lost its content (survey-checklist submission spec 4.4, D3-2). */
+    EVIDENCE_UNAVAILABLE
 }

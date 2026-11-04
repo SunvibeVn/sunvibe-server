@@ -48,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.DIFFERENCE_NOTE_MISSING;
 import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.BATHROOM;
+import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.DETAIL;
 import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.EXTERIOR_ACCESS;
 import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.KITCHEN;
 import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.MAIN_SPACE;
@@ -56,6 +57,7 @@ import static vn.sunvibe.survey.core.domain.model.media.EvidenceCategory.SHARED_
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.EVIDENCE_MISSING;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.EVIDENCE_PENDING;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.EVIDENCE_PROCESSING;
+import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.EVIDENCE_UNAVAILABLE;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.NOT_CHECKED;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.NOT_IN_SCOPE;
 import static vn.sunvibe.survey.core.domain.policy.checklist.MissingProblem.NO_SPACES;
@@ -331,7 +333,8 @@ class ReadinessCalculatorTest {
         SurveyMedia held = ready(photo(EXTERIOR_ACCESS, MediaPlacement.asset()));
         held.hold(ADMIN, HoldReason.SECURITY_INCIDENT, LATER);
 
-        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING)),
+        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING),
+                evidence(null, EXTERIOR_ACCESS, EVIDENCE_UNAVAILABLE)),
                 withPhotos(complete(), withSpaceOne(held)).missing());
     }
 
@@ -340,7 +343,8 @@ class ReadinessCalculatorTest {
         SurveyMedia held = processing(photo(EXTERIOR_ACCESS, MediaPlacement.asset()));
         held.hold(ADMIN, HoldReason.CREDENTIAL_EXPOSURE, LATER);
 
-        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING)),
+        assertEquals(List.of(evidence(null, EXTERIOR_ACCESS, EVIDENCE_MISSING),
+                evidence(null, EXTERIOR_ACCESS, EVIDENCE_UNAVAILABLE)),
                 withPhotos(complete(), withSpaceOne(held)).missing());
     }
 
@@ -392,6 +396,71 @@ class ReadinessCalculatorTest {
         }
         assertEquals("SUBMISSION_NOT_AVAILABLE", covered.submissionUnavailableReason());
         assertEquals("SUBMISSION_NOT_AVAILABLE", noPhotos.submissionUnavailableReason());
+    }
+
+    // ==================== the gates (checklist submission spec 4.4, S-2) ====================
+
+    @Test
+    void readiness_allGatesPass_submissionAvailable() {
+        Readiness readiness = open(complete(), false, withSpaceOne(ready(photo(EXTERIOR_ACCESS,
+                MediaPlacement.asset()))));
+
+        assertTrue(readiness.submissionAvailable());
+        assertEquals(null, readiness.submissionUnavailableReason());
+    }
+
+    @Test
+    void readiness_scheduledAppointment_namesTheFirstFailingGate() {
+        Readiness readiness = open(complete(), true, withSpaceOne(ready(photo(EXTERIOR_ACCESS,
+                MediaPlacement.asset()))));
+
+        assertFalse(readiness.submissionAvailable());
+        assertEquals("APPOINTMENT_SCHEDULED", readiness.submissionUnavailableReason());
+    }
+
+    @Test
+    void readiness_missingItems_namesTheFirstFailingGate() {
+        assertEquals("MISSING_ITEMS", open(complete(), false).submissionUnavailableReason());
+    }
+
+    /** A held extra photo: every pair is covered, so the only item is the photo's and the gate is S7. */
+    @Test
+    void readiness_heldPhoto_oneItemAndPhotoUnavailable() {
+        SurveyMedia held = ready(photo(DETAIL, MediaPlacement.asset()));
+        held.hold(ADMIN, HoldReason.SECURITY_INCIDENT, LATER);
+        SurveyMedia[] covering = withSpaceOne(ready(photo(EXTERIOR_ACCESS, MediaPlacement.asset())));
+        SurveyMedia[] photos = java.util.Arrays.copyOf(covering, covering.length + 1);
+        photos[covering.length] = held;
+
+        Readiness readiness = open(complete(), false, photos);
+
+        assertEquals(List.of(evidence(null, DETAIL, EVIDENCE_UNAVAILABLE)), readiness.missing());
+        assertEquals("PHOTO_UNAVAILABLE", readiness.submissionUnavailableReason());
+    }
+
+    @Test
+    void readiness_lostContent_itemEvidenceUnavailable() {
+        SurveyMedia lost = ready(photo(DETAIL, MediaPlacement.asset()));
+        lost.markContentMissing(LATER);
+
+        assertTrue(open(complete(), false, lost).missing().contains(evidence(null, DETAIL, EVIDENCE_UNAVAILABLE)));
+    }
+
+    /** Nothing changes for a removed photo: it is no longer selected. */
+    @Test
+    void readiness_removedHeldPhoto_noUnavailableItem() {
+        SurveyMedia photo = ready(photo(DETAIL, MediaPlacement.asset()));
+        photo.hold(ADMIN, HoldReason.SECURITY_INCIDENT, LATER);
+        photo.remove(vn.sunvibe.survey.core.domain.model.media.RemovalKind.HOLDER, SALE, null, null, LATER);
+
+        assertFalse(open(complete(), false, photo).missing().contains(evidence(null, DETAIL, EVIDENCE_UNAVAILABLE)));
+    }
+
+    /** Both switches on, the given appointment state and these photos. */
+    private static Readiness open(Map<ChecklistGroup, GroupDocument> groups, boolean scheduled,
+                                  SurveyMedia... photos) {
+        return ReadinessCalculator.of(groups, LocationDifference.NONE, List.of(), List.of(photos),
+                new SubmissionContext(true, true, scheduled));
     }
 
     // ==================== helpers ====================

@@ -1,9 +1,13 @@
 package vn.sunvibe.survey.core.domain.policy.checklist;
 
-/** Why a viewer cannot edit a draft, first that applies (survey-checklist spec 4.4). */
+/** Why a viewer cannot edit a revision, first that applies (survey-checklist spec 4.4, submission spec 5.1). */
 public enum ReadOnlyReason {
     /** The requirement changed after this visit, also when it changed back. */
     INTENT_CHANGED,
+    /** The revision was submitted and waits for its decision. */
+    SUBMITTED,
+    /** The revision was decided. */
+    DECIDED,
     /** A newer VISITED appointment exists in the checklist's cycle. */
     NEWER_VISIT,
     /** The lead is not in SURVEY_SCHEDULED. */

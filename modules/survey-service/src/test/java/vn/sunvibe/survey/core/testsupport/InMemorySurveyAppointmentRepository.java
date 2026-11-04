@@ -12,6 +12,7 @@ import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepositor
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -78,6 +79,11 @@ public class InMemorySurveyAppointmentRepository implements SurveyAppointmentDom
                 .sorted(Comparator.comparingInt(SurveyAppointment::getAppointmentNo).reversed())
                 .map(InMemorySurveyAppointmentRepository::copy)
                 .toList();
+    }
+
+    @Override
+    public List<SurveyAppointment> findByLeadIds(Collection<String> leadIds) {
+        return leadIds.stream().flatMap(leadId -> findByLeadId(leadId).stream()).toList();
     }
 
     @Override

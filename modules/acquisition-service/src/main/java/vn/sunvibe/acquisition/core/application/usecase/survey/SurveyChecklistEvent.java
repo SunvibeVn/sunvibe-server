@@ -11,5 +11,9 @@ public enum SurveyChecklistEvent {
     /** The holder's photo content was committed; the detail is its evidence category (survey-media spec 5.3). */
     CHECKLIST_MEDIA_ADDED,
     /** The holder removed a processing or ready photo; the detail is its evidence category (survey-media spec 5.3). */
-    CHECKLIST_MEDIA_REMOVED
+    CHECKLIST_MEDIA_REMOVED,
+    /** The holder submitted a revision (survey-checklist submission spec 4.9). */
+    CHECKLIST_SUBMITTED,
+    /** The assignee started a new revision on the same visit (survey-checklist submission spec 4.9). */
+    CHECKLIST_REVISION_STARTED
 }

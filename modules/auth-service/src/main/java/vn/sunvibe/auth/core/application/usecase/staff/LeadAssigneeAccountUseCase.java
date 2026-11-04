@@ -22,6 +22,12 @@ public interface LeadAssigneeAccountUseCase {
     boolean isEligibleOwnerLeadAssignee(String userId);
 
     /**
+     * True if the account exists (not soft-deleted) and may sign in (not locked, terminated or deleted), whatever its
+     * roles (survey-checklist submission spec 4.2). An unknown, soft-deleted, blank or null id gives false.
+     */
+    boolean canSignIn(String userId);
+
+    /**
      * Every account for which {@link #isEligibleOwnerLeadAssignee} is true, once each with its SALE and/or
      * SALE_LEADER roles (the roles set is ordered SALE, SALE_LEADER), sorted by full name (Vietnamese collation,
      * accents ignored) then user id. At most 500 accounts: the first 500 in that order.

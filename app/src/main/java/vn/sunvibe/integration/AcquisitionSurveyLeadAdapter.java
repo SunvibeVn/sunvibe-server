@@ -22,6 +22,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityResult;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistHistoryEntry;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadCard;
+import vn.sunvibe.survey.core.application.shared.external.lead.LeadCycle;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadHistoryEntry;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMove;
@@ -38,6 +39,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.ViewerAccess;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -73,7 +75,8 @@ public class AcquisitionSurveyLeadAdapter implements SurveyLeadPort {
         try {
             result = surveyLeadUseCase.applySurveyMove(leadId, expectedVersion, new SurveyLeadMove(
                     SurveyLeadEvent.valueOf(move.event().name()), SurveyLeadTarget.valueOf(move.target().name()),
-                    move.actorUserId(), move.referenceId(), move.referenceNo(), move.occurredAt()));
+                    move.actorUserId(), move.referenceId(), move.referenceNo(), move.occurredAt(),
+                    move.detailOrNull(), move.closeReasonOrNull()));
         } catch (SurveyLeadVersionConflictException e) {
             throw new LeadVersionConflictException();
         } catch (SurveyLeadMoveRefusedException e) {
@@ -82,7 +85,8 @@ public class AcquisitionSurveyLeadAdapter implements SurveyLeadPort {
         SurveyLeadHistoryEntry entry = result.entry();
         return new LeadMoveResult(result.status(), result.version(), result.lastActivityAt(),
                 new LeadHistoryEntry(entry.type(), entry.actorUserId(), entry.actorName(), entry.fromStatus(),
-                        entry.toStatus(), entry.referenceId(), entry.referenceNo(), entry.occurredAt()));
+                        entry.toStatus(), entry.referenceId(), entry.referenceNo(), entry.referenceDetail(),
+                        entry.occurredAt()));
     }
 
     @Override
@@ -106,6 +110,19 @@ public class AcquisitionSurveyLeadAdapter implements SurveyLeadPort {
     public Optional<LeadFacts> findVisibleForShare(String leadId, SurveyViewer viewer) {
         return surveyLeadUseCase.findVisibleForShare(leadId, toProvider(viewer))
                 .map(AcquisitionSurveyLeadAdapter::facts);
+    }
+
+    @Override
+    public Optional<LeadFacts> findVisibleForUpdate(String leadId, SurveyViewer viewer) {
+        return surveyLeadUseCase.findVisibleForUpdate(leadId, toProvider(viewer))
+                .map(AcquisitionSurveyLeadAdapter::facts);
+    }
+
+    @Override
+    public List<LeadCycle> visibleOpenLeadCycles(SurveyViewer viewer) {
+        return surveyLeadUseCase.visibleOpenLeadCycles(toProvider(viewer)).stream()
+                .map(cycle -> new LeadCycle(cycle.leadId(), cycle.intentCycle(), cycle.status(),
+                        cycle.assignedUserIdOrNull(), cycle.requestCode())).toList();
     }
 
     @Override

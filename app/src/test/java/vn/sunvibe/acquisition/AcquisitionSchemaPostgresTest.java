@@ -166,7 +166,7 @@ class AcquisitionSchemaPostgresTest {
 		activityColumns.put("occurred_at", "timestamp with time zone NOT NULL");
 		activityColumns.put("reference_id", "character varying(26) NULL");
 		activityColumns.put("reference_no", "integer NULL");
-		activityColumns.put("reference_detail", "character varying(30) NULL");
+		activityColumns.put("reference_detail", "character varying(40) NULL");
 		assertEquals(activityColumns, columnsOf("owner_lead_activities"));
 
 		Map<String, String> intentChangeColumns = new LinkedHashMap<>();

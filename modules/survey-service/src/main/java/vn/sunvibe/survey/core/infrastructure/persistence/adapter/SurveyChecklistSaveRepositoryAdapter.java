@@ -3,6 +3,7 @@ package vn.sunvibe.survey.core.infrastructure.persistence.adapter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
 import vn.sunvibe.survey.core.domain.model.checklist.Correction;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
@@ -11,6 +12,7 @@ import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistS
 import vn.sunvibe.survey.core.infrastructure.persistence.json.ChecklistDocumentCodec;
 import vn.sunvibe.survey.core.infrastructure.persistence.repository.SurveyChecklistSaveJpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 
 /** Adapter - the insert-only save log of checklists (survey-checklist spec 5.2, I-6). */
@@ -36,6 +38,12 @@ public class SurveyChecklistSaveRepositoryAdapter implements SurveyChecklistSave
                 .correctionBasisText(correction == null ? null : correction.basis().text())
                 .correctedUnits(correction == null ? null : codec.writeCorrectedUnits(correction.units()))
                 .build());
+    }
+
+    @Override
+    public List<ChecklistPerson> findActors(Collection<SurveyChecklistId> checklistIds) {
+        return checklistIds.isEmpty() ? List.of()
+                : jpaRepository.findActors(checklistIds.stream().map(SurveyChecklistId::getValue).toList());
     }
 
     @Override

@@ -99,9 +99,10 @@ class SurveyAppointmentCommandServiceTest {
         IdGenerator<String> ulids = () -> UlidCreator.getMonotonicUlid().toString();
         IdGenerator<Long> snowflakes = new AtomicLong(5_000L)::incrementAndGet;
         SurveyBlockAssembler assembler = new SurveyBlockAssembler(appointments, resumptions, directory,
-                ChecklistServiceHarness.noChecklists(leads, directory));
+                ChecklistServiceHarness.noChecklists(leads, directory), ChecklistServiceHarness.noRecords(),
+                ChecklistServiceHarness.noReviews(directory));
         service = new SurveyAppointmentCommandService(appointments, resumptions, accessLogs, leads, directory,
-                assembler, ulids, snowflakes);
+                assembler, ChecklistServiceHarness.noRecords(), ulids, snowflakes);
         start = Instant.now().truncatedTo(ChronoUnit.HOURS).plus(Duration.ofDays(1));
     }
 
@@ -125,7 +126,7 @@ class SurveyAppointmentCommandServiceTest {
         assertEquals(view.id(), result.historyEntry().referenceId());
         assertEquals(1, result.historyEntry().referenceNo());
         assertEquals(LeadMoveTarget.SURVEY_SCHEDULED, leads.moves().get(0).target());
-        assertEquals(List.of("lead:SURVEY_BOOKED", "save:SCHEDULED"), journal);
+        assertEquals(List.of("lead:update", "lead:SURVEY_BOOKED", "save:SCHEDULED"), journal);
         assertEquals(1, accessLogs.all().size());
         assertEquals(SALE_A, accessLogs.all().get(0).userId());
         assertEquals(LEAD, accessLogs.all().get(0).leadId());
@@ -161,7 +162,7 @@ class SurveyAppointmentCommandServiceTest {
         leads.withLead(LEAD, "CONTACTED", "LONG_TERM_RENT", 1, SALE_B, 0L);
 
         assertThrows(SurveyLeadNotFoundException.class, () -> service.book(OWN_A, book(LEAD, 0L, start)));
-        assertTrue(journal.isEmpty());
+        assertEquals(List.of("lead:update"), journal);
     }
 
     @Test
@@ -261,7 +262,7 @@ class SurveyAppointmentCommandServiceTest {
         assertEquals("expectedLeadVersion", assertThrows(SurveyConcurrentModificationException.class,
                 () -> service.book(OWN_A, book(LEAD, 0L, start))).getField());
 
-        assertEquals(List.of("lead:SURVEY_BOOKED"), journal);
+        assertEquals(List.of("lead:update", "lead:SURVEY_BOOKED"), journal);
         assertTrue(appointments.all().isEmpty());
         assertTrue(accessLogs.all().isEmpty());
     }
@@ -327,7 +328,7 @@ class SurveyAppointmentCommandServiceTest {
         assertNull(result.historyEntry());
         assertEquals(1L, result.lead().version());
         assertEquals(leads.get(LEAD).lastActivityAt(), result.lead().lastActivityAt());
-        assertEquals(List.of("lead:SURVEY_BOOKED", "save:SCHEDULED"), journal);
+        assertEquals(List.of("lead:update", "lead:SURVEY_BOOKED", "save:SCHEDULED"), journal);
         assertEquals(logs + 1, accessLogs.all().size());
     }
 

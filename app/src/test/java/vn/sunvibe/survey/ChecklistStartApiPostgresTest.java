@@ -61,7 +61,8 @@ class ChecklistStartApiPostgresTest {
 	private static final List<String> CHECKLIST_FIELDS = List.of("id", "leadId", "lead", "leadStaff", "checklistNo",
 			"status", "kind", "templateCode", "templateVersion", "visit", "holderUserId", "holderName", "editable",
 			"readOnlyReason", "groups", "readiness", "media", "effectiveTerms", "earlierHazards", "ownerForm",
-			"takeovers", "corrections", "editors", "createdByUserId", "createdByName", "createdAt", "version", "updatedAt");
+			"takeovers", "corrections", "editors", "createdByUserId", "createdByName", "createdAt", "version", "updatedAt",
+			"previousChecklistId", "submission", "decision", "review", "passed");
 	private static final List<String> GROUPS = List.of("identification", "parts", "dimensions", "condition", "safety",
 			"amenities", "terms");
 

@@ -11,10 +11,16 @@ import vn.sunvibe.survey.core.application.query.ChecklistStartResult;
 import vn.sunvibe.survey.core.application.service.SurveyChecklistCommandService;
 import vn.sunvibe.survey.core.application.service.SurveyChecklistQueryService;
 import vn.sunvibe.survey.core.application.service.SurveyQueryService;
+import vn.sunvibe.survey.core.application.shared.ChecklistReviewReader;
 import vn.sunvibe.survey.core.application.shared.SurveyBlockAssembler;
 import vn.sunvibe.survey.core.application.shared.ChecklistMediaCascade;
 import vn.sunvibe.survey.core.application.shared.ChecklistContextLoader;
+import vn.sunvibe.survey.core.application.service.SurveyChecklistReviewCommandService;
+import vn.sunvibe.survey.core.application.service.SurveyStateService;
 import vn.sunvibe.survey.core.application.shared.ChecklistViewAssembler;
+import vn.sunvibe.survey.core.application.shared.ReviewerExclusionLoader;
+import vn.sunvibe.survey.core.application.shared.RevisionPhotos;
+import vn.sunvibe.survey.core.application.shared.SurveyRecordReader;
 import vn.sunvibe.survey.core.application.shared.SecurityEventRecorder;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
@@ -23,8 +29,19 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
+import vn.sunvibe.survey.core.domain.model.appointment.VisitRecord;
 import vn.sunvibe.survey.core.domain.model.appointment.VisitRecordKind;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSubmission;
+import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
+import vn.sunvibe.survey.core.domain.model.checklist.FailedKind;
+import vn.sunvibe.survey.core.domain.model.checklist.GroupContent;
+import vn.sunvibe.survey.core.domain.model.checklist.IdentificationContent;
+import vn.sunvibe.survey.core.domain.model.checklist.NeedsChangesKind;
+import vn.sunvibe.survey.core.domain.model.checklist.RentalScope;
+import vn.sunvibe.survey.core.domain.model.checklist.SubmittedSpace;
+import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
@@ -83,12 +100,25 @@ public final class ChecklistServiceHarness {
     public final InMemoryMediaRepositories.Jobs mediaJobs = new InMemoryMediaRepositories.Jobs(journal);
     public final InMemoryMediaRepositories.Media media = new InMemoryMediaRepositories.Media(mediaJournal);
     public final InMemoryMediaRepositories.Sets mediaSets = new InMemoryMediaRepositories.Sets(mediaJournal);
+    public final InMemoryReviewRepositories.Submissions submissions = new InMemoryReviewRepositories.Submissions(
+            journal);
+    public final InMemoryReviewRepositories.Evidence evidence = new InMemoryReviewRepositories.Evidence(journal);
+    public final InMemoryReviewRepositories.Decisions decisions = new InMemoryReviewRepositories.Decisions(journal);
+    public final InMemoryReviewRepositories.Selections selections = new InMemoryReviewRepositories.Selections(journal);
     public final InMemoryIntakeHealth health = new InMemoryIntakeHealth().open(now());
     /** Uploads never on, as every profile's default (survey-media spec A-1): the W16 readiness. */
     public final MutableMediaSwitches switches = new MutableMediaSwitches();
     public final SecurityEventRecorder recorder;
     public final ChecklistViewAssembler views;
+    /** The submission switch (checklist submission spec A-3): off, as configured, unless a test turns it on. */
+    public boolean submissionOn;
+    public final RevisionPhotos revisionPhotos;
+    public final SurveyRecordReader records;
+    public final SurveyStateService surveyStates;
     public final SurveyChecklistCommandService commands;
+    public final ReviewerExclusionLoader exclusions;
+    public final ChecklistReviewReader reviewReader;
+    public final SurveyChecklistReviewCommandService reviews;
     public final SurveyChecklistQueryService queries;
     public final SurveyQueryService surveys;
     private final AtomicLong appointmentNo = new AtomicLong();
@@ -102,15 +132,26 @@ public final class ChecklistServiceHarness {
         ChecklistContextLoader loader = new ChecklistContextLoader(checklists, appointments, leads, directory,
                 recorder);
         switches.uploads = false;
-        views = new ChecklistViewAssembler(checklists, groups, takeovers, saves, leads, directory, mediaSets, media,
-                switches, health);
+        records = new SurveyRecordReader(checklists, decisions, evidence, media);
+        surveyStates = new SurveyStateService(records, appointments);
+        revisionPhotos = new RevisionPhotos(media, selections);
+        exclusions = new ReviewerExclusionLoader(checklists, takeovers, saves, media, selections);
+        reviewReader = new ChecklistReviewReader(submissions, evidence, decisions, media, exclusions, records, directory,
+                switches);
+        views = new ChecklistViewAssembler(checklists, groups, takeovers, saves, leads, directory, mediaSets,
+                revisionPhotos, switches, () -> submissionOn, health, reviewReader);
         commands = new SurveyChecklistCommandService(checklists, groups, takeovers, saves, appointments, accessLogs,
-                leads, directory, loader, views, new ChecklistMediaCascade(mediaSets, media, mediaJobs), ulids,
+                leads, directory, loader, views, new ChecklistMediaCascade(mediaSets, media, mediaJobs, selections), ulids,
                 snowflakes);
-        queries = new SurveyChecklistQueryService(takeovers, accessLogs, directory, loader, views, snowflakes);
+        reviews = new SurveyChecklistReviewCommandService(checklists, groups, takeovers, submissions, evidence,
+                decisions, media, mediaSets, selections, accessLogs, leads, directory, loader, exclusions, records,
+                recorder, views, switches, () -> submissionOn,
+                (contents, frozen) -> contents.keySet() + "|" + frozen, ulids, snowflakes, new NoTransactions());
+        queries = new SurveyChecklistQueryService(checklists, appointments, takeovers, accessLogs, leads, directory,
+                loader, views, reviewReader, exclusions, snowflakes);
         surveys = new SurveyQueryService(appointments, accessLogs, leads, directory, new SurveyBlockAssembler(
-                appointments, new InMemorySurveyHistoryRepositories.Resumptions(), directory, views), snowflakes,
-                recorder);
+                appointments, new InMemorySurveyHistoryRepositories.Resumptions(), directory, views, records,
+                reviewReader), snowflakes, recorder);
     }
 
     public static SurveyViewer own(String userId) {
@@ -147,6 +188,59 @@ public final class ChecklistServiceHarness {
                 1, leadPlace(), details(start, 60, atLead()), null, surveyor, false, null, surveyor, Instant.now());
         appointments.save(appointment);
         return appointment;
+    }
+
+    /**
+     * A revision that can be submitted: the performer's checklist on a WHOLE record with every needed field filled and
+     * a usable photo on every required pair, with uploads and submission on.
+     */
+    public SurveyChecklist ready(String leadId, String performer) {
+        switches.uploads = true;
+        submissionOn = true;
+        SurveyChecklist checklist = started(leadId, performer).view().checklist();
+        String space = ChecklistFixture.SPACE_1;
+        IdentificationContent whole = ChecklistFixture.identificationWhole();
+        // the fixture's address is not the lead's, so the record says how it differs
+        IdentificationContent g1 = new IdentificationContent(whole.observedAddress(), "Số nhà ghi khác trên đơn",
+                whole.propertyType(), whole.fit(), whole.rentalScope(), whole.spaces(), whole.otherPartsNote(),
+                whole.generalNote());
+        for (GroupContent content : List.of(g1, ChecklistFixture.parts(space),
+                ChecklistFixture.dimensions(space), ChecklistFixture.condition(space), ChecklistFixture.safety(),
+                ChecklistFixture.amenities(space), ChecklistFixture.terms(space))) {
+            GroupState stored = groups.get(checklist.getId(), content.group());
+            groups.put(checklist.getId(), content.group(), new GroupState(new GroupDocument(content.group(), content,
+                    Map.of(), Map.of()), stored.version() + 1, now(), performer));
+        }
+        readyPhoto(checklist.getId(), EvidenceCategory.EXTERIOR_ACCESS, MediaPlacement.asset());
+        for (EvidenceCategory category : List.of(EvidenceCategory.MAIN_SPACE, EvidenceCategory.KITCHEN,
+                EvidenceCategory.BATHROOM)) {
+            readyPhoto(checklist.getId(), category, MediaPlacement.space(space, "A1"));
+        }
+        return checklist;
+    }
+
+    /** The revision as a submit leaves it, without the gates. */
+    public void submitted(SurveyChecklistId checklistId, String submitter) {
+        SurveyChecklist checklist = checklists.findById(checklistId).orElseThrow();
+        checklist.submit(submitter, now());
+        checklists.update(checklist);
+        VisitRecord visit = appointments.findById(checklist.getVisitAppointmentId()).orElseThrow().getVisit();
+        submissions.save(new ChecklistSubmission(checklistId, submitter, now(), checklist.getTemplateCode(),
+                checklist.getTemplateVersion(), checklist.getKind(), "LONG_TERM_RENT", checklist.getIntentCycle(),
+                checklist.getVisitAppointmentId(), visit.performedBy(), visit.arrivedAt(), visit.recordedBy(),
+                visit.recordedAt(), RentalScope.WHOLE, null, List.of(new SubmittedSpace(ChecklistFixture.SPACE_1, "A1")),
+                Map.of(), ChecklistSubmission.MEDIA_V1_NO_PERMISSION, "a".repeat(64)));
+    }
+
+    /** The revision as a decision leaves it, with its decision row, without the rules. */
+    public void decided(SurveyChecklistId checklistId, DecisionOutcome outcome, NeedsChangesKind needsChangesKind,
+                        FailedKind failedKind, String reviewer) {
+        SurveyChecklist checklist = checklists.findById(checklistId).orElseThrow();
+        checklist.decide(outcome, now());
+        checklists.update(checklist);
+        decisions.save(new ChecklistDecision(checklistId, outcome, needsChangesKind, failedKind,
+                outcome == DecisionOutcome.PASSED ? null : "Lý do của người duyệt", null, null, reviewer, now(),
+                "SURVEY_SCHEDULED", "SURVEY_SCHEDULED", List.of()));
     }
 
     /** The Vietnam date of the visit's arrival. */
@@ -204,8 +298,30 @@ public final class ChecklistServiceHarness {
         return new ChecklistViewAssembler(new InMemoryChecklistRepositories.Checklists(journal),
                 new InMemoryChecklistRepositories.Groups(journal), new InMemoryChecklistRepositories.Takeovers(journal),
                 new InMemoryChecklistRepositories.Saves(journal), leads, directory,
-                new InMemoryMediaRepositories.Sets(journal), new InMemoryMediaRepositories.Media(journal), off,
-                new InMemoryIntakeHealth().open(now()));
+                new InMemoryMediaRepositories.Sets(journal), new RevisionPhotos(
+                        new InMemoryMediaRepositories.Media(journal), new InMemoryReviewRepositories.Selections(journal)),
+                off, () -> false, new InMemoryIntakeHealth().open(now()), noReviews(directory));
+    }
+
+    /** The review reads over empty repositories, for the W15 tests of the survey block. */
+    public static ChecklistReviewReader noReviews(InMemorySurveyorDirectory directory) {
+        List<String> journal = new ArrayList<>();
+        InMemoryChecklistRepositories.Checklists checklists = new InMemoryChecklistRepositories.Checklists(journal);
+        InMemoryMediaRepositories.Media media = new InMemoryMediaRepositories.Media(journal);
+        return new ChecklistReviewReader(new InMemoryReviewRepositories.Submissions(journal),
+                new InMemoryReviewRepositories.Evidence(journal), new InMemoryReviewRepositories.Decisions(journal), media,
+                new ReviewerExclusionLoader(checklists, new InMemoryChecklistRepositories.Takeovers(journal),
+                        new InMemoryChecklistRepositories.Saves(journal), media,
+                        new InMemoryReviewRepositories.Selections(journal)), noRecords(), directory,
+                new MutableMediaSwitches());
+    }
+
+    /** The survey record over empty checklist repositories, for the W15 tests of the appointment commands. */
+    public static SurveyRecordReader noRecords() {
+        List<String> journal = new ArrayList<>();
+        return new SurveyRecordReader(new InMemoryChecklistRepositories.Checklists(journal),
+                new InMemoryReviewRepositories.Decisions(journal), new InMemoryReviewRepositories.Evidence(journal),
+                new InMemoryMediaRepositories.Media(journal));
     }
 
     /** A recorder over an in-memory event repository, for the W15 tests of the survey block. */

@@ -44,7 +44,8 @@ import java.util.function.Function;
  * entries lists each needed field. Missing items are in group order, then space order; a field of the direct-check
  * catalogue (spec A-28) counts only when checked on site. Nothing here blocks a save. Evidence comes last: while the
  * checklist's photos are available (survey-media spec A-1, 4.6) one item per required (placement, category) pair that
- * is not COVERED, from the same coverage as the media list; otherwise the single EVIDENCE_PENDING of W16.
+ * is not COVERED, from the same coverage as the media list, and one per selected photo that is held or lost its content
+ * (submission spec 4.4); otherwise the single EVIDENCE_PENDING.
  */
 public final class ReadinessCalculator {
 
@@ -63,6 +64,12 @@ public final class ReadinessCalculator {
      */
     public static Readiness of(Map<ChecklistGroup, GroupDocument> groups, LocationDifference difference,
                                List<EarlierHazard> earlier, Collection<SurveyMedia> photosOrNull) {
+        return of(groups, difference, earlier, photosOrNull, SubmissionContext.CLOSED);
+    }
+
+    public static Readiness of(Map<ChecklistGroup, GroupDocument> groups, LocationDifference difference,
+                               List<EarlierHazard> earlier, Collection<SurveyMedia> photosOrNull,
+                               SubmissionContext context) {
         IdentificationContent g1 = (IdentificationContent) groups.get(ChecklistGroup.IDENTIFICATION).content();
         PartsContent parts = (PartsContent) read(groups, ChecklistGroup.PARTS, g1);
         DimensionsContent dimensions = (DimensionsContent) read(groups, ChecklistGroup.DIMENSIONS, g1);
@@ -110,10 +117,18 @@ public final class ReadinessCalculator {
                         pair.state() == CoverageState.PROCESSING ? MissingProblem.EVIDENCE_PROCESSING
                                 : MissingProblem.EVIDENCE_MISSING);
             }
+            for (SurveyMedia photo : photosOrNull) {
+                if (SubmissionGate.unavailable(photo)) {
+                    missing.add(ChecklistGroup.EVIDENCE, photo.getPlacement().spaceIdOrNull(),
+                            photo.getCategory().name(), MissingProblem.EVIDENCE_UNAVAILABLE);
+                }
+            }
         }
-
-        return new Readiness(false, photosOrNull == null ? Readiness.EVIDENCE_NOT_AVAILABLE
-                : Readiness.SUBMISSION_NOT_AVAILABLE, List.copyOf(missing.items), unconfirmed(condition, terms),
+        List<MissingItem> items = List.copyOf(missing.items);
+        GateFacts gates = new GateFacts(context.uploadsOn(), context.submissionOn(), context.scheduledAppointment(),
+                items, photosOrNull == null ? List.of() : photosOrNull);
+        String reason = SubmissionGate.unavailableReason(gates, photosOrNull != null);
+        return new Readiness(reason == null, reason, items, unconfirmed(condition, terms),
                 warnings(parts, safety, earlier));
     }
 

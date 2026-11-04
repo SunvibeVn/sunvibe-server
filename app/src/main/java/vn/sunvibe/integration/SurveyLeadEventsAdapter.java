@@ -5,9 +5,12 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyPort;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyStop;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyAppointmentRef;
+import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyState;
 import vn.sunvibe.survey.core.application.usecase.AppointmentRef;
 import vn.sunvibe.survey.core.application.usecase.LeadStopReason;
 import vn.sunvibe.survey.core.application.usecase.LeadSurveyEventsUseCase;
+import vn.sunvibe.survey.core.application.usecase.LeadSurveyState;
+import vn.sunvibe.survey.core.application.usecase.SurveyStateUseCase;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -22,6 +25,13 @@ import java.util.Optional;
 public class SurveyLeadEventsAdapter implements LeadSurveyPort {
 
     private final LeadSurveyEventsUseCase leadSurveyEventsUseCase;
+    private final SurveyStateUseCase surveyStateUseCase;
+
+    @Override
+    public SurveyState surveyState(String leadId, int intentCycle) {
+        LeadSurveyState state = surveyStateUseCase.surveyState(leadId, intentCycle);
+        return new SurveyState(state.hasPassed(), state.passedUsable(), state.hasSubmitted(), state.completable());
+    }
 
     @Override
     public Optional<SurveyAppointmentRef> onReassigned(String leadId, String newAssigneeUserId, String actorUserId,

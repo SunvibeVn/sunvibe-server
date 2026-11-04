@@ -12,6 +12,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -262,8 +263,12 @@ public class AcquisitionExceptionHandler {
                 List.of(ValidationError.of(e.getField(), CONCURRENT_MODIFICATION_MESSAGE)));
     }
 
-    /** A row-version conflict that reached the handler unmapped, from an assignment or a status change. */
-    @ExceptionHandler({ObjectOptimisticLockingFailureException.class, OptimisticLockException.class})
+    /**
+     * A row-version conflict that reached the handler unmapped, from an assignment or a status change, or a lock wait, a
+     * deadlock victim or a serialization failure (survey-checklist submission spec 5.4: never a 500).
+     */
+    @ExceptionHandler({ObjectOptimisticLockingFailureException.class, OptimisticLockException.class,
+            ConcurrencyFailureException.class})
     public ResponseEntity<ErrorResponse<ValidationError>> handleConcurrentModification(Exception e) {
         return concurrentModification();
     }

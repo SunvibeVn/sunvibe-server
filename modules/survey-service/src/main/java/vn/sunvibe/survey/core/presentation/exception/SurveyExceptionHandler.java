@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -36,9 +37,13 @@ import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.shared.dto.response.error.ValidationError;
 import vn.sunvibe.shared.logging.CorrelationId;
 import vn.sunvibe.shared.web.MediaContentPaths;
+import vn.sunvibe.survey.core.application.exception.ChecklistDecisionNotAllowedException;
 import vn.sunvibe.survey.core.application.exception.ChecklistNotAllowedException;
 import vn.sunvibe.survey.core.application.exception.ChecklistNotFoundException;
+import vn.sunvibe.survey.core.application.exception.ChecklistNotReadyException;
 import vn.sunvibe.survey.core.application.exception.ChecklistReadOnlyException;
+import vn.sunvibe.survey.core.application.exception.ChecklistReviewNotAllowedException;
+import vn.sunvibe.survey.core.application.exception.ChecklistSubmissionNotAvailableException;
 import vn.sunvibe.survey.core.application.exception.ChecklistTakeoverRequiredException;
 import vn.sunvibe.survey.core.application.exception.InvalidSurveyStateException;
 import vn.sunvibe.survey.core.application.exception.MediaBodyIncompleteException;
@@ -66,6 +71,7 @@ import vn.sunvibe.survey.core.application.exception.SurveyorIneligibleException;
 import vn.sunvibe.survey.core.domain.exception.AppointmentAlreadyScheduledException;
 import vn.sunvibe.survey.core.domain.exception.AppointmentStateException;
 import vn.sunvibe.survey.core.domain.exception.ChecklistAlreadyStartedException;
+import vn.sunvibe.survey.core.domain.exception.ChecklistSubmittedConflictException;
 import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.exception.PerformerMismatchException;
@@ -103,6 +109,10 @@ public class SurveyExceptionHandler {
     static final String CONCURRENT_MODIFICATION_MESSAGE = "Someone else just updated this lead. Reload and try again.";
     static final String CHECKLIST_CHANGED_MESSAGE = "This checklist changed since you opened it.";
     static final String STATE_MESSAGE = "This action is not allowed in the current status.";
+    static final String SUBMISSION_NOT_AVAILABLE_MESSAGE = "Submission is not available.";
+    static final String NOT_READY_MESSAGE = "The checklist cannot be submitted yet.";
+    static final String REVIEW_NOT_ALLOWED_MESSAGE = "You may not decide this checklist.";
+    static final String DECISION_NOT_ALLOWED_MESSAGE = "This decision is not allowed now.";
     static final String INTERNAL_ERROR_MESSAGE = "Unexpected server error.";
     private static final String INVALID_VALUE_MESSAGE = "Value is not valid for this field.";
     /** How Jackson starts the message of a missing {@code @JsonProperty(required = true)} creator property. */
@@ -234,6 +244,15 @@ public class SurveyExceptionHandler {
         return concurrentModification("expectedAppointmentVersion");
     }
 
+    /**
+     * survey-checklist submission spec 5.4: a lock wait, a deadlock victim or a serialization failure that still occurs is
+     * a concurrent change, never a 500.
+     */
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleLockFailure(ConcurrencyFailureException e) {
+        return concurrentModification("expectedVersion");
+    }
+
     /** survey-schedule spec 4.4: a visited or cancelled appointment is final. */
     @ExceptionHandler(AppointmentStateException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleAppointmentState(AppointmentStateException e) {
@@ -278,6 +297,47 @@ public class SurveyExceptionHandler {
     @ExceptionHandler(ChecklistReadOnlyException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleChecklistReadOnly(ChecklistReadOnlyException e) {
         return conflict(ErrorCode.CHECKLIST_READ_ONLY, e.getMessage());
+    }
+
+    /** Gate S2 (submission spec 7.3): uploads or submission are off. */
+    @ExceptionHandler(ChecklistSubmissionNotAvailableException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleSubmissionNotAvailable(
+            ChecklistSubmissionNotAvailableException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(
+                ErrorCode.CHECKLIST_SUBMISSION_NOT_AVAILABLE, SUBMISSION_NOT_AVAILABLE_MESSAGE,
+                List.of(ValidationError.of("submission", SUBMISSION_NOT_AVAILABLE_MESSAGE))));
+    }
+
+    /** Gates S3..S7 (submission spec 7.3): one entry per failing gate; the read shows the details. */
+    @ExceptionHandler(ChecklistNotReadyException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleNotReady(ChecklistNotReadyException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(ErrorCode.CHECKLIST_NOT_READY,
+                NOT_READY_MESSAGE, e.fields().stream().map(field -> ValidationError.of(field, NOT_READY_MESSAGE))
+                        .toList()));
+    }
+
+    /** submission spec 7.3: the caller is in the excluded set, or cannot sign in. */
+    @ExceptionHandler(ChecklistReviewNotAllowedException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleReviewNotAllowed(ChecklistReviewNotAllowedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ErrorResponse.of(
+                ErrorCode.CHECKLIST_REVIEW_NOT_ALLOWED, REVIEW_NOT_ALLOWED_MESSAGE,
+                List.of(ValidationError.of("reviewer", REVIEW_NOT_ALLOWED_MESSAGE))));
+    }
+
+    /** submission spec 7.3: one entry per failed rule; the read shows which PASSED rules fail now. */
+    @ExceptionHandler(ChecklistDecisionNotAllowedException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleDecisionNotAllowed(
+            ChecklistDecisionNotAllowedException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(
+                ErrorCode.CHECKLIST_DECISION_NOT_ALLOWED, DECISION_NOT_ALLOWED_MESSAGE, e.fields().stream()
+                .map(field -> ValidationError.of(field, DECISION_NOT_ALLOWED_MESSAGE)).toList()));
+    }
+
+    /** plan PD-8: a SUBMITTED revision of the cycle was committed first. */
+    @ExceptionHandler(ChecklistSubmittedConflictException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleSubmittedConflict(
+            ChecklistSubmittedConflictException e) {
+        return handleStaleVersion(new SurveyConcurrentModificationException("expectedVersion"));
     }
 
     @ExceptionHandler(ChecklistTakeoverRequiredException.class)

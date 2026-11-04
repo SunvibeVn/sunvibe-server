@@ -15,6 +15,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.core.application.shared.MediaClock;
+import vn.sunvibe.survey.core.application.shared.MediaSetLocks.LockedSets;
+import vn.sunvibe.survey.core.application.shared.MediaSetLocks;
+import vn.sunvibe.survey.core.application.shared.external.media.EvidenceReferencePort;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.Bucket;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.ListedObject;
@@ -22,19 +25,17 @@ import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore
 import vn.sunvibe.survey.core.application.shared.external.media.StoreUnavailableException;
 import vn.sunvibe.survey.core.domain.model.media.MediaJob;
 import vn.sunvibe.survey.core.domain.model.media.MediaJobState;
-import vn.sunvibe.survey.core.domain.model.media.MediaSet;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.policy.media.MediaRemovalPolicy;
 import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
 
 /**
  * The content deletion of a removed READY photo (survey-media spec 4.7, A-17, A-23): the job is claimed in its own
- * transaction; under the set, photo and job locks it re-checks that the photo is still asked to be deleted, not held
- * and not deleted yet; it deletes every object under {@code media/<mediaId>/} outside the locks and checks that a
+ * transaction; under the set, photo and job locks it re-checks that the photo is still asked to be deleted, not held,
+ * not deleted yet and referenced by no submission (checklist submission spec I-5); it deletes every object under {@code media/<mediaId>/} outside the locks and checks that a
  * listing of that prefix is empty; then, in a short transaction, sets {@code contentDeletedAt} and bumps the set
  * version. Metadata and hashes stay (I-4). A store failure or an object still listed retries the job later; it is
  * retried until done. Each run records the deletion heartbeat (A-18).
@@ -52,7 +53,8 @@ public class MediaContentDeletionJob {
 
     private final SurveyMediaJobDomainRepository jobs;
     private final SurveyMediaDomainRepository media;
-    private final SurveyMediaSetDomainRepository sets;
+    private final MediaSetLocks setLocks;
+    private final EvidenceReferencePort references;
     private final MediaObjectStore store;
     private final IntakeHealthRepository health;
     private final MediaClock clock;
@@ -60,13 +62,15 @@ public class MediaContentDeletionJob {
     private final TransactionTemplate transaction;
 
     public MediaContentDeletionJob(SurveyMediaJobDomainRepository jobs, SurveyMediaDomainRepository media,
-                                   SurveyMediaSetDomainRepository sets, MediaObjectStore store,
+                                   MediaSetLocks setLocks, EvidenceReferencePort references,
+                                   MediaObjectStore store,
                                    IntakeHealthRepository health, MediaClock clock,
                                    @Qualifier("Ulid") IdGenerator<String> ulids,
                                    PlatformTransactionManager transactionManager) {
         this.jobs = jobs;
         this.media = media;
-        this.sets = sets;
+        this.setLocks = setLocks;
+        this.references = references;
         this.store = store;
         this.health = health;
         this.clock = clock;
@@ -138,7 +142,9 @@ public class MediaContentDeletionJob {
             return false;
         }
         SurveyMedia photo = locked.photo();
-        String endCode = photo.isHeld() ? "HELD" : photo.getContentDeletedAt() != null ? "ALREADY_DELETED"
+        // checklist submission spec I-5, D3-3: the content of a photo a submission references is never deleted
+        String endCode = references.isReferenced(photo.getId()) ? "REFERENCED" : photo.isHeld() ? "HELD"
+                : photo.getContentDeletedAt() != null ? "ALREADY_DELETED"
                 : photo.getContentDeleteRequestedAt() == null ? "NOT_REQUESTED" : null;
         if (endCode != null) {
             // spec A-23: a held photo keeps its content; its release asks for the deletion again
@@ -156,16 +162,15 @@ public class MediaContentDeletionJob {
             return;
         }
         SurveyMedia photo = locked.photo();
-        if (photo.isHeld() || photo.getContentDeletedAt() != null || photo.getContentDeleteRequestedAt() == null) {
+        if (references.isReferenced(photo.getId()) || photo.isHeld() || photo.getContentDeletedAt() != null
+                || photo.getContentDeleteRequestedAt() == null) {
             jobs.finish(job.id(), token, MediaJobState.CANCELLED, "STATE_CHANGED", now);
             return;
         }
         photo.markContentDeleted(now);
         media.update(photo);
         jobs.finish(job.id(), token, MediaJobState.DONE, null, now);
-        MediaSet set = locked.set();
-        set.bump(now);
-        sets.update(set);
+        setLocks.bumpAll(locked.sets(), now);
     }
 
     private void retry(MediaJob job, String token, String code) {
@@ -182,7 +187,7 @@ public class MediaContentDeletionJob {
             jobs.finish(job.id(), token, MediaJobState.CANCELLED, "PHOTO_GONE", clock.now());
             return null;
         }
-        MediaSet set = sets.lockForUpdate(checklistId)
+        LockedSets sets = setLocks.lockFor(checklistId, mediaId)
                 .orElseThrow(() -> new IllegalStateException("A photo's checklist has its media set."));
         SurveyMedia photo = media.lockForUpdate(List.of(mediaId)).stream().findFirst().orElse(null);
         MediaJob locked = jobs.lockForUpdate(job.id()).orElse(null);
@@ -190,7 +195,7 @@ public class MediaContentDeletionJob {
                 || !token.equals(locked.leaseTokenOrNull())) {
             return null;
         }
-        return new Locked(set, photo);
+        return new Locked(sets, photo);
     }
 
     private List<ListedObject> listAll(String prefix) {
@@ -206,6 +211,6 @@ public class MediaContentDeletionJob {
         }
     }
 
-    private record Locked(MediaSet set, SurveyMedia photo) {
+    private record Locked(LockedSets sets, SurveyMedia photo) {
     }
 }

@@ -21,6 +21,7 @@ import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyChecklistEve
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadAccess;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadCard;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadOwnerForm;
+import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadCycle;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadEvent;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadFacts;
 import vn.sunvibe.acquisition.core.application.usecase.survey.SurveyLeadMove;
@@ -483,6 +484,107 @@ class SurveyLeadServiceTest {
                 "01JOTHERLEADACTORAAAAAAAAA", null, null, null, null, "note", null, T0, null, null, null));
 
         assertEquals(Set.of(SALE_A, SALE_B, LEADER), service.leadStaffIds(id(lead)));
+    }
+
+    // ==================== the review move (checklist submission spec 4.5, plan PD-5) ====================
+
+    private static SurveyLeadMove reviewed(SurveyLeadTarget target, String detail, String closeReason) {
+        return new SurveyLeadMove(SurveyLeadEvent.CHECKLIST_REVIEWED, target, SALE_A, CHECKLIST, 2, T0, detail,
+                closeReason);
+    }
+
+    @Test
+    void applySurveyMove_passed_movesToQualifiedKeepingStatusesAndDetail() {
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+
+        SurveyLeadMoveResult result = service.applySurveyMove(id(lead), 0L, reviewed(SurveyLeadTarget.QUALIFIED,
+                "PASSED", null));
+
+        assertEquals("QUALIFIED", result.status());
+        assertEquals(1L, result.version());
+        assertEquals("CHECKLIST_REVIEWED", result.entry().type());
+        assertEquals("SURVEY_SCHEDULED", result.entry().fromStatus());
+        assertEquals("QUALIFIED", result.entry().toStatus());
+        assertEquals(CHECKLIST, result.entry().referenceId());
+        assertEquals("PASSED", result.entry().referenceDetail());
+        OwnerLeadActivity stored = activities.all().get(0);
+        assertEquals(OwnerLeadActivityType.CHECKLIST_REVIEWED, stored.getType());
+        assertEquals(OwnerLeadStatus.QUALIFIED, stored.getToStatus());
+        assertEquals("PASSED", stored.getReferenceDetail());
+        assertEquals(null, stored.getNote());
+    }
+
+    @Test
+    void applySurveyMove_documentsOnly_keepsTheStatusAndBumpsTheVersion() {
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+
+        SurveyLeadMoveResult result = service.applySurveyMove(id(lead), 0L, reviewed(SurveyLeadTarget.KEEP,
+                "NEEDS_CHANGES:DOCUMENTS_ONLY", null));
+
+        assertEquals("SURVEY_SCHEDULED", result.status());
+        assertEquals(1L, result.version());
+        assertEquals(null, result.entry().toStatus());
+        assertEquals("NEEDS_CHANGES:DOCUMENTS_ONLY", result.entry().referenceDetail());
+    }
+
+    @Test
+    void applySurveyMove_rejected_keepsTheCloseReason() {
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+
+        service.applySurveyMove(id(lead), 0L, reviewed(SurveyLeadTarget.REJECTED, "FAILED:OUT_OF_SCOPE",
+                "Survey failed: out of scope (checklist #2)"));
+
+        OwnerLead stored = leads.findById(lead.getId()).orElseThrow();
+        assertEquals(OwnerLeadStatus.REJECTED, stored.getStatus());
+        assertEquals("Survey failed: out of scope (checklist #2)", stored.getCloseReason());
+    }
+
+    @Test
+    void applySurveyMove_reviewOfAHeldLead_refused() {
+        OwnerLead lead = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+
+        assertThrows(SurveyLeadMoveRefusedException.class, () -> service.applySurveyMove(id(lead), 0L,
+                reviewed(SurveyLeadTarget.QUALIFIED, "PASSED", null)));
+    }
+
+    @Test
+    void applySurveyMove_resumeToQualified_fromHold() {
+        OwnerLead lead = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+
+        SurveyLeadMoveResult result = service.applySurveyMove(id(lead), 0L, new SurveyLeadMove(
+                SurveyLeadEvent.SURVEY_RESUMED, SurveyLeadTarget.QUALIFIED, SALE_A, APPOINTMENT, 1, T0));
+
+        assertEquals("QUALIFIED", result.status());
+    }
+
+    @Test
+    void recordChecklistActivity_submittedAndRevisionStarted_areActivityRows() {
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+
+        for (SurveyChecklistEvent event : List.of(SurveyChecklistEvent.CHECKLIST_SUBMITTED,
+                SurveyChecklistEvent.CHECKLIST_REVISION_STARTED)) {
+            service.recordChecklistActivity(id(lead), new SurveyChecklistActivity(event, SALE_A, CHECKLIST, 2, null,
+                    T0));
+        }
+
+        assertEquals(0L, leads.findById(lead.getId()).orElseThrow().getVersion());
+        assertEquals(2, activities.all().size());
+    }
+
+    /** plan PD-4: the leads a review queue can show, by the viewer's access. */
+    @Test
+    void visibleOpenLeadCycles_scheduledAndHeldOfTheViewer() {
+        OwnerLead own = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        OwnerLead held = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+        stored(OwnerLeadStatus.CONTACTED, SALE_A);
+        OwnerLead other = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_B);
+
+        assertEquals(Set.of(id(own), id(held)), service.visibleOpenLeadCycles(
+                new SurveyLeadViewer(SALE_A, SurveyLeadAccess.OWN)).stream().map(SurveyLeadCycle::leadId)
+                .collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of(id(own), id(held), id(other)), service.visibleOpenLeadCycles(
+                new SurveyLeadViewer(LEADER, SurveyLeadAccess.ALL)).stream().map(SurveyLeadCycle::leadId)
+                .collect(java.util.stream.Collectors.toSet()));
     }
 
     // ==================== helpers ====================

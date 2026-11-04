@@ -64,6 +64,29 @@ class ChecklistAccessPoliciesTest {
                 true, Optional.empty(), SALE_A).reason());
     }
 
+    /** checklist submission spec 5.1: a revision that left DRAFT is frozen, whoever reads it. */
+    @Test
+    void editability_submitted_reasonSUBMITTED() {
+        assertEquals(ReadOnlyReason.SUBMITTED, ofStatus(ChecklistStatus.SUBMITTED, 1).reason());
+    }
+
+    @Test
+    void editability_decided_reasonDECIDED() {
+        assertEquals(ReadOnlyReason.DECIDED, ofStatus(ChecklistStatus.PASSED, 1).reason());
+        assertEquals(ReadOnlyReason.DECIDED, ofStatus(ChecklistStatus.NEEDS_CHANGES, 1).reason());
+        assertEquals(ReadOnlyReason.DECIDED, ofStatus(ChecklistStatus.FAILED, 1).reason());
+    }
+
+    @Test
+    void editability_intentChangedBeforeSubmitted_inTheOrderOfSpec51() {
+        assertEquals(ReadOnlyReason.INTENT_CHANGED, ofStatus(ChecklistStatus.SUBMITTED, 2).reason());
+    }
+
+    private static Editability ofStatus(ChecklistStatus status, int leadCycle) {
+        return ChecklistEditability.of(new SurveyChecklistSnapshot(CHECKLIST, VISIT, 1, SALE_A, status),
+                "SURVEY_SCHEDULED", leadCycle, SALE_A, true, Optional.of(VISIT), SALE_A);
+    }
+
     // ==================== start (spec 7.2 checklistStart) ====================
 
     @Test
@@ -90,7 +113,7 @@ class ChecklistAccessPoliciesTest {
         assertEquals(StartBlock.NO_CURRENT_VISIT, block(Optional.empty(), true, "ON_HOLD", SALE_B, false, SALE_A));
         assertEquals(StartBlock.INTENT, block(Optional.of(shortTerm), true, "ON_HOLD", SALE_B, false, SALE_A));
         assertEquals(StartBlock.LEAD_STATUS, block(Optional.of(longTerm), true, "ON_HOLD", SALE_B, false, SALE_A));
-        assertEquals(StartBlock.ALREADY_STARTED, block(Optional.of(longTerm), true, "SURVEY_SCHEDULED", SALE_B, false,
+        assertEquals(StartBlock.CHECKLIST_EXISTS, block(Optional.of(longTerm), true, "SURVEY_SCHEDULED", SALE_B, false,
                 SALE_A));
         assertEquals(StartBlock.NOT_ASSIGNEE, block(Optional.of(longTerm), false, "SURVEY_SCHEDULED", SALE_B, false,
                 SALE_A));
@@ -98,7 +121,7 @@ class ChecklistAccessPoliciesTest {
                 false, SALE_A));
         ChecklistStart blocked = ChecklistStartPolicy.of(Optional.of(longTerm), true, "SURVEY_SCHEDULED", SALE_A,
                 true, SALE_A);
-        assertEquals(new ChecklistStart(false, null, false, StartBlock.ALREADY_STARTED), blocked);
+        assertEquals(new ChecklistStart(false, null, false, StartBlock.CHECKLIST_EXISTS), blocked);
     }
 
     // ==================== location difference (spec 4.6, W15 A-16) ====================

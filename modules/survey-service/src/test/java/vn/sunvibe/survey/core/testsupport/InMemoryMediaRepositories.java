@@ -3,6 +3,7 @@ package vn.sunvibe.survey.core.testsupport;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import vn.sunvibe.survey.core.domain.exception.MediaDuplicateContentException;
 import vn.sunvibe.survey.core.domain.exception.MediaUploadKeyTakenException;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.media.PlacedMedia;
 import vn.sunvibe.survey.core.domain.model.media.HourlyUsage;
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
@@ -180,6 +181,27 @@ public final class InMemoryMediaRepositories {
                     && m.getUploadedByUserId().equals(uploaderUserId) && (m.getStatus() == MediaStatus.AWAITING_CONTENT
                     || m.getStatus() == MediaStatus.RECEIVING)).map(SurveyMedia::getId)
                     .sorted(Comparator.comparing(SurveyMediaId::getValue)).toList();
+        }
+
+        @Override
+        public List<ChecklistPerson> findUploaders(Collection<String> checklistIds) {
+            return stored.values().stream().filter(photo -> checklistIds.contains(photo.getChecklistId()))
+                    .map(photo -> new ChecklistPerson(photo.getChecklistId(), photo.getUploadedByUserId())).distinct()
+                    .toList();
+        }
+
+        @Override
+        public List<ChecklistPerson> findRemovers(Collection<String> checklistIds) {
+            return stored.values().stream().filter(photo -> checklistIds.contains(photo.getChecklistId())
+                            && photo.getRemoval() != null)
+                    .map(photo -> new ChecklistPerson(photo.getChecklistId(), photo.getRemoval().byUserId())).distinct()
+                    .toList();
+        }
+
+        @Override
+        public List<SurveyMedia> findByIds(Collection<SurveyMediaId> ids) {
+            return ids.stream().map(this::stored).flatMap(Optional::stream)
+                    .sorted(Comparator.comparing(photo -> photo.getId().getValue())).toList();
         }
 
         @Override

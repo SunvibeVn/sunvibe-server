@@ -37,6 +37,15 @@ public class MediaItemAssembler {
     }
 
     public List<MediaItemView> assemble(List<SurveyMedia> photos, boolean viewerCanHold) {
+        return assemble(photos, viewerCanHold, Map.of());
+    }
+
+    /**
+     * @param carriedFrom the number of the revision each carried photo came from, by photo id (checklist submission
+     *                    spec 7.2)
+     */
+    public List<MediaItemView> assemble(List<SurveyMedia> photos, boolean viewerCanHold,
+                                        Map<String, Integer> carriedFrom) {
         Set<String> userIds = new HashSet<>();
         for (SurveyMedia media : photos) {
             userIds.add(media.getUploadedByUserId());
@@ -48,10 +57,12 @@ public class MediaItemAssembler {
             }
         }
         Map<String, String> names = userIds.isEmpty() ? Map.of() : directory.displayNames(userIds);
-        return photos.stream().map(media -> view(media, viewerCanHold, names)).toList();
+        return photos.stream().map(media -> view(media, viewerCanHold, names,
+                carriedFrom.get(media.getId().getValue()))).toList();
     }
 
-    private static MediaItemView view(SurveyMedia media, boolean viewerCanHold, Map<String, String> names) {
+    private static MediaItemView view(SurveyMedia media, boolean viewerCanHold, Map<String, String> names,
+                                      Integer carriedFromChecklistNoOrNull) {
         boolean captionHidden = media.getHold().captionHidden(viewerCanHold);
         MediaVariant full = media.getVariants().stream().filter(variant -> variant.kind() == VariantKind.FULL)
                 .max(Comparator.comparingInt(MediaVariant::attempt)).orElse(null);
@@ -74,6 +85,6 @@ public class MediaItemAssembler {
                 captionHidden ? null : media.getCaption(), captionHidden, media.getUploadedByUserId(),
                 names.get(media.getUploadedByUserId()), media.getCreatedAt(), media.getContentReceivedAt(),
                 media.getReadyAt(), full == null ? null : full.width(), full == null ? null : full.height(), removed,
-                held, unavailable == null, unavailable);
+                held, unavailable == null, unavailable, carriedFromChecklistNoOrNull);
     }
 }

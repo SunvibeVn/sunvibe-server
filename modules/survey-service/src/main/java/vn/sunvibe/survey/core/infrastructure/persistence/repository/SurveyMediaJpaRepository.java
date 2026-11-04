@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaEntity;
@@ -20,6 +21,17 @@ import java.util.Optional;
 public interface SurveyMediaJpaRepository extends JpaRepository<SurveyMediaEntity, String> {
 
     List<SurveyMediaEntity> findByChecklistIdOrderByMediaNoAsc(String checklistId);
+
+    List<SurveyMediaEntity> findByIdInOrderByIdAsc(Collection<String> ids);
+
+    @Query("select distinct new vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson(m.checklistId,"
+            + " m.uploadedByUserId) from SurveyMediaEntity m where m.checklistId in :ids")
+    List<ChecklistPerson> findUploaders(@Param("ids") Collection<String> ids);
+
+    @Query("select distinct new vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson(m.checklistId,"
+            + " m.removedByUserId) from SurveyMediaEntity m where m.checklistId in :ids"
+            + " and m.removedByUserId is not null")
+    List<ChecklistPerson> findRemovers(@Param("ids") Collection<String> ids);
 
     /** The rows with a PostgreSQL row lock, taken in id order (survey-media spec 5.4). */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -4,7 +4,7 @@
 -- Needs the accounts of scripts/dev/seed-e2e-accounts.sql first (E2E Sale, E2E Trưởng nhóm, E2E Admin); it stops with
 -- a clear message when they are missing. It writes no password and no secret.
 --
--- Fourteen leads of Đà Nẵng (province 48), each with its consent record and its SUBMITTED history entry:
+-- Fifteen leads of Đà Nẵng (province 48), each with its consent record and its SUBMITTED history entry:
 --   no  lead id                      request code  status      who holds it / what it shows
 --   L1  01JE2EHEAD0000000000000001   SV-E2EA-AA2A  NEW         nobody (unassigned), with coordinates
 --   L2  01JE2EHEAD0000000000000002   SV-E2EA-AA2B  ASSIGNED    E2E Sale; ward An Hải, the ward E2E Sale looks after
@@ -22,17 +22,20 @@
 --                                                             yesterday 09:00 (Vietnam time), ready for a checklist
 --   L14 01JE2EHEAD0000000000000014   SV-E2EA-AA2P  SURVEY_SCHEDULED  E2E Sale; long-term rent of rooms, visited
 --                                                             yesterday 09:00, for the survey photo flows (survey-media)
--- Leads L2 to L5, L7 to L9 and L11 to L14 also have the ASSIGNED history entry made by E2E Trưởng nhóm. L3, L4, L6,
--- L11, L13 and L14 have the STATUS_CHANGED entry that moved them to their status. Consent records are
--- 01JE2EHCNT00000000000000nn (nn = 01..14).
--- L13 and L14 each have one survey: appointments 01JE2ESVAPPT00000000000013 and 01JE2ESVAPPT00000000000014, booked two
+--   L15 01JE2EHEAD0000000000000015   SV-E2EA-AA2Q  SURVEY_SCHEDULED  E2E Sale; long-term rent, visited yesterday 09:00,
+--                                                             for the review flow (survey-checklist submission)
+-- Leads L2 to L5, L7 to L9 and L11 to L15 also have the ASSIGNED history entry made by E2E Trưởng nhóm. L3, L4, L6,
+-- L11, L13, L14 and L15 have the STATUS_CHANGED entry that moved them to their status. Consent records are
+-- 01JE2EHCNT00000000000000nn (nn = 01..15).
+-- L13, L14 and L15 each have one survey: appointments 01JE2ESVAPPT00000000000013, ..14 and ..15, booked two
 -- days ago and visited yesterday by E2E Sale (an own visit record, revision 1, the BOOKED and VISITED events), with
 -- their SURVEY_BOOKED and SURVEY_VISITED history entries; their submissions hold a monthly asking price and the
 -- available-from date of the lead (survey-checklist PD-7).
 -- History ids are 20261018000001.., 20261018000101.., 20261018000201.., the territory change is 20261018000301, L13's
 -- survey entries are 20261018000401 and 20261018000402, its revision 20261018000501 and its events 20261018000601 and
 -- 20261018000602; L14's survey entries are 20261018000701 and 20261018000702, its revision 20261018000703 and its
--- events 20261018000704 and 20261018000705.
+-- events 20261018000704 and 20261018000705; L15's survey entries are 20261018000801 and 20261018000802, its revision
+-- 20261018000803 and its events 20261018000804 and 20261018000805.
 -- One ward is held: An Hải (20275, first by the Vietnamese collator when written), by E2E Sale, with its change
 -- (acquisition-owner-lead-queue BR-10); every other ward an E2E seed account held is freed.
 -- Times are relative to the moment of the run (a re-run moves them); versions follow what the application writes.
@@ -196,12 +199,16 @@ VALUES
     (14, '01JE2EHEAD0000000000000014', 'SV-E2EA-AA2P', 'SURVEY_SCHEDULED', 'LONG_TERM_RENT', 'Trịnh Văn Khoa',
      '+84912000014', 'khoa.e2e@example.com', '20242', '58 Bạch Đằng', '58 bạch đằng', 16.073400, 108.225100,
      'HOUSE', 4500000, 'MONTH', (now() + interval '20 days')::date, 'Cho thuê từng phòng', NULL, :'sale_id', NULL,
+     NULL, 4, now() - interval '3 days', now() - interval '3 days'),
+    (15, '01JE2EHEAD0000000000000015', 'SV-E2EA-AA2Q', 'SURVEY_SCHEDULED', 'LONG_TERM_RENT', 'Đoàn Thị Hạnh',
+     '+84912000015', 'hanh.e2e@example.com', '20242', '76 Bạch Đằng', '76 bạch đằng', 16.074600, 108.225400,
+     'HOUSE', 12000000, 'MONTH', (now() + interval '25 days')::date, 'Nhà nguyên căn', NULL, :'sale_id', NULL,
      NULL, 4, now() - interval '3 days', now() - interval '3 days');
 
 -- The wards and the province must be in the catalog (the property migrations seed them).
 DO $$
 BEGIN
-    IF (SELECT count(*) FROM seed_leads s JOIN wards w ON w.code = s.ward_code AND w.province_code = '48') <> 14 THEN
+    IF (SELECT count(*) FROM seed_leads s JOIN wards w ON w.code = s.ward_code AND w.province_code = '48') <> 15 THEN
         RAISE EXCEPTION 'seed-e2e-owner-leads.sql: a ward of Đà Nẵng is missing from the catalog; run the Flyway migrations first';
     END IF;
 END
@@ -232,6 +239,18 @@ $$;
 -- Delete the fixture rows (and only them), children first: the survey rows of the fixture leads, their requirement
 -- changes, then the lead rows.
 DELETE FROM survey_security_events WHERE lead_id IN (SELECT id FROM seed_leads);
+-- survey-checklist submission: the insert-only review rows of the fixture leads' revisions, first, as they point at
+-- the photos and the checklists.
+DELETE FROM survey_checklist_evidence_rejections
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_checklist_decisions
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_checklist_evidence
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_checklist_submissions
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
+DELETE FROM survey_checklist_media_selections
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
 -- survey-media (spec 6.4): the photo read budgets and body slots of the E2E seed accounts, then the jobs, variants,
 -- photos and media sets of the fixture leads' checklists, before the checklists.
 DELETE FROM survey_media_read_budgets WHERE user_id LIKE '01JE2EACCT%';
@@ -322,7 +341,7 @@ JOIN seed_leads l7 ON l7.n = 7
 WHERE l8.n = 8;
 
 -- History: SUBMITTED for every lead (no actor), ASSIGNED by the leader for the assigned ones, and the status change
--- that moved L3, L4, L6, L11, L13 and L14 to their status.
+-- that moved L3, L4, L6, L11, L13, L14 and L15 to their status.
 INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status, to_status, from_assignee_id,
                                    to_assignee_id, note, next_action_at, occurred_at)
 SELECT 20261018000000 + n, id, 'SUBMITTED', NULL, NULL, NULL, NULL, NULL, NULL, NULL, created_at
@@ -333,7 +352,7 @@ INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status
 SELECT 20261018000100 + n, id, 'ASSIGNED', :'leader_id', 'NEW', 'ASSIGNED', NULL, assigned_user_id, NULL, NULL,
        created_at + interval '1 hour'
 FROM seed_leads
-WHERE n IN (2, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14);
+WHERE n IN (2, 3, 4, 5, 7, 8, 9, 11, 12, 13, 14, 15);
 
 INSERT INTO owner_lead_activities (id, lead_id, type, actor_user_id, from_status, to_status, from_assignee_id,
                                    to_assignee_id, note, next_action_at, occurred_at)
@@ -348,9 +367,11 @@ VALUES (20261018000203, '01JE2EHEAD0000000000000003', 'STATUS_CHANGED', :'sale_i
        (20261018000213, '01JE2EHEAD0000000000000013', 'STATUS_CHANGED', :'sale_id', 'ASSIGNED', 'CONTACTED', NULL,
         NULL, 'Chủ nhà hẹn khảo sát.', NULL, now() - interval '3 days' + interval '2 hours'),
        (20261018000214, '01JE2EHEAD0000000000000014', 'STATUS_CHANGED', :'sale_id', 'ASSIGNED', 'CONTACTED', NULL,
-        NULL, 'Chủ nhà hẹn khảo sát các phòng.', NULL, now() - interval '3 days' + interval '2 hours');
+        NULL, 'Chủ nhà hẹn khảo sát các phòng.', NULL, now() - interval '3 days' + interval '2 hours'),
+       (20261018000215, '01JE2EHEAD0000000000000015', 'STATUS_CHANGED', :'sale_id', 'ASSIGNED', 'CONTACTED', NULL,
+        NULL, 'Chủ nhà hẹn khảo sát.', NULL, now() - interval '3 days' + interval '2 hours');
 
--- The surveys of L13 and L14, as the application writes them: booked by E2E Sale two days ago at the lead's place
+-- The surveys of L13, L14 and L15, as the application writes them: booked by E2E Sale two days ago at the lead's place
 -- (the History moves the lead to SURVEY_SCHEDULED), arrived at yesterday 09:00 Vietnam time and recorded as an own
 -- visit at 10:00 (the History keeps the status). Times are relative to the run; each lead's last change is its visit
 -- record.
@@ -366,7 +387,9 @@ SELECT v.id::VARCHAR(26) AS id,
 FROM (VALUES ('01JE2ESVAPPT00000000000013', '01JE2EHEAD0000000000000013', 20261018000501, 20261018000601,
               20261018000602, 20261018000401, 20261018000402),
              ('01JE2ESVAPPT00000000000014', '01JE2EHEAD0000000000000014', 20261018000703, 20261018000704,
-              20261018000705, 20261018000701, 20261018000702))
+              20261018000705, 20261018000701, 20261018000702),
+             ('01JE2ESVAPPT00000000000015', '01JE2EHEAD0000000000000015', 20261018000803, 20261018000804,
+              20261018000805, 20261018000801, 20261018000802))
      AS v(id, lead_id, revision_id, booked_event_id, visited_event_id, booked_activity_id, visited_activity_id);
 
 UPDATE owner_leads l SET updated_at = v.recorded_at

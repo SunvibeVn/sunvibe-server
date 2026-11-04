@@ -1,8 +1,10 @@
 package vn.sunvibe.survey.core.domain.repository;
 
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,6 +12,9 @@ import java.util.Optional;
 public interface SurveyChecklistTakeoverDomainRepository {
 
     void save(ChecklistTakeover takeover);
+
+    /** Every takeover or intake target of these revisions, in one query (survey-checklist submission plan PD-2). */
+    List<ChecklistPerson> findTargets(Collection<SurveyChecklistId> checklistIds);
 
     /** The takeovers of a checklist by number, without checkpoints. */
     List<ChecklistTakeover> findByChecklistId(SurveyChecklistId checklistId);

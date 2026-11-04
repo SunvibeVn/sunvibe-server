@@ -50,7 +50,7 @@ class SurveyReadApiPostgresTest {
 			"wardName", "startAt", "durationMinutes", "surveyorUserId", "surveyorName", "confirmation", "status",
 			"group", "kind", "cannotBePerformed");
 	private static final List<String> BLOCK_FIELDS = List.of("leadId", "intentCycle", "booking", "currentVisitId",
-			"resumeAllowed", "appointments", "resumptions", "checklistStart");
+			"resumeAllowed", "appointments", "resumptions", "checklistStart", "revisionStart", "resume", "survey");
 	private static final List<String> APPOINTMENT_FIELDS = List.of("id", "leadId", "appointmentNo", "kind",
 			"previousVisitId", "resurveyReason", "intent", "intentCycle", "inCurrentCycle", "status", "startAt",
 			"durationMinutes", "meetingLocation", "leadLocation", "locationReason", "accessNote", "onSiteContactName",

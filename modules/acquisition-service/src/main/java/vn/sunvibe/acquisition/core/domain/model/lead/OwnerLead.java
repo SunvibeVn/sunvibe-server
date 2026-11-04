@@ -211,9 +211,9 @@ public final class OwnerLead {
      * The statuses this lead may move to through {@link #changeStatus} (acquisition module brief BR-3): an assigned
      * lead goes to CONTACTED or ON_HOLD, a contacted lead to ON_HOLD, a held lead back to CONTACTED, and any open
      * lead can be closed as DUPLICATE, REJECTED or WITHDRAWN. A NEW lead only reaches ASSIGNED through
-     * {@link #assignTo}, so it may only be closed here. A lead with survey work may only be put on hold or closed
-     * (survey-schedule BR-3, B-2); SURVEY_SCHEDULED itself is reached only through {@link #moveForSurvey}. Closed
-     * leads and the statuses not used yet allow nothing.
+     * {@link #assignTo}, so it may only be closed here. A lead with survey work and a QUALIFIED lead may only be put on
+     * hold or closed (survey-schedule BR-3, B-2; survey-checklist submission spec 4.8); SURVEY_SCHEDULED and QUALIFIED
+     * are reached only through {@link #moveForSurvey}. Closed leads and the statuses not used yet allow nothing.
      */
     public List<OwnerLeadStatus> allowedNextStatuses() {
         return switch (status) {
@@ -221,7 +221,7 @@ public final class OwnerLead {
             case ASSIGNED -> withClosing(OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD);
             case CONTACTED -> withClosing(OwnerLeadStatus.ON_HOLD);
             case ON_HOLD -> withClosing(OwnerLeadStatus.CONTACTED);
-            case SURVEY_SCHEDULED -> withClosing(OwnerLeadStatus.ON_HOLD);
+            case SURVEY_SCHEDULED, QUALIFIED -> withClosing(OwnerLeadStatus.ON_HOLD);
             default -> List.of();
         };
     }
@@ -231,23 +231,43 @@ public final class OwnerLead {
      * BR-11, US-2 AC-2). {@code targetOrNull} null keeps the status; the returned change then has no from/to status.
      * Allowed: SURVEY_BOOKED from ASSIGNED or CONTACTED to SURVEY_SCHEDULED, or kept in SURVEY_SCHEDULED (a re-survey);
      * SURVEY_CHANGED, SURVEY_CONFIRMED, SURVEY_UNCONFIRMED and SURVEY_VISITED kept in SURVEY_SCHEDULED;
-     * SURVEY_CANCELLED kept in SURVEY_SCHEDULED or to CONTACTED; SURVEY_RESUMED from ON_HOLD to SURVEY_SCHEDULED.
-     * Every allowed move touches {@code updatedAt}, so persistence bumps the version even when the status stays
-     * (survey-schedule spec A-2). The change carries the appointment reference and no text (survey-schedule BR-8).
+     * SURVEY_CANCELLED kept in SURVEY_SCHEDULED or to CONTACTED; SURVEY_RESUMED from ON_HOLD to SURVEY_SCHEDULED or
+     * QUALIFIED; CHECKLIST_REVIEWED from SURVEY_SCHEDULED to QUALIFIED, CONTACTED or REJECTED, or kept
+     * (survey-checklist submission spec 4.5). Every allowed move touches {@code updatedAt}, so persistence bumps the
+     * version even when the status stays (survey-schedule spec A-2). The change carries the reference and no text
+     * (survey-schedule BR-8).
      *
      * @throws InvalidLeadTransitionException any other combination; carries no allowed status
      */
     public LeadChange moveForSurvey(OwnerLeadActivityType type, OwnerLeadStatus targetOrNull, String referenceId,
                                     Integer referenceNo) {
+        return moveForSurvey(type, targetOrNull, referenceId, referenceNo, null);
+    }
+
+    /**
+     * {@link #moveForSurvey(OwnerLeadActivityType, OwnerLeadStatus, String, Integer)} with the close reason of a move
+     * that closes the lead, which it needs and no other move takes: a closing move clears the next action, as a manual
+     * close does (survey-checklist submission spec 4.5, A-11).
+     */
+    public LeadChange moveForSurvey(OwnerLeadActivityType type, OwnerLeadStatus targetOrNull, String referenceId,
+                                    Integer referenceNo, String closeReasonOrNull) {
         if (type == null || !isSurveyMove(type, status, targetOrNull)) {
             throw new InvalidLeadTransitionException(status, targetOrNull, List.of());
         }
         if (referenceId == null || referenceNo == null) {
             throw new IllegalArgumentException("A survey move names its appointment.");
         }
+        boolean closes = targetOrNull != null && targetOrNull.isClosed();
+        if (closes != (closeReasonOrNull != null)) {
+            throw new IllegalArgumentException("A survey move has a close reason exactly when it closes the lead.");
+        }
         OwnerLeadStatus from = status;
         if (targetOrNull != null) {
             this.status = targetOrNull;
+        }
+        if (closes) {
+            this.closeReason = closeReasonOrNull;
+            this.nextActionAt = null;
         }
         this.updatedAt = AppClock.currentUTC();
         return new LeadChange(type, targetOrNull == null ? null : from, targetOrNull, null, null, null, null,
@@ -262,7 +282,11 @@ public final class OwnerLead {
             case SURVEY_CHANGED, SURVEY_CONFIRMED, SURVEY_UNCONFIRMED, SURVEY_VISITED -> scheduledKept;
             case SURVEY_CANCELLED -> scheduledKept
                     || from == OwnerLeadStatus.SURVEY_SCHEDULED && target == OwnerLeadStatus.CONTACTED;
-            case SURVEY_RESUMED -> from == OwnerLeadStatus.ON_HOLD && target == OwnerLeadStatus.SURVEY_SCHEDULED;
+            case SURVEY_RESUMED -> from == OwnerLeadStatus.ON_HOLD && (target == OwnerLeadStatus.SURVEY_SCHEDULED
+                    || target == OwnerLeadStatus.QUALIFIED);
+            case CHECKLIST_REVIEWED -> scheduledKept || from == OwnerLeadStatus.SURVEY_SCHEDULED
+                    && (target == OwnerLeadStatus.QUALIFIED || target == OwnerLeadStatus.CONTACTED
+                    || target == OwnerLeadStatus.REJECTED);
             default -> false;
         };
     }
@@ -282,6 +306,10 @@ public final class OwnerLead {
      */
     public IntentChange changeIntent(OwnerLeadIntent newIntent, Optional<AskingPrice> newPrice,
                                      ConfirmationBasis basis) {
+        // survey-checklist D3-13: a QUALIFIED lead has a PASSED revision, so no status allows the change for it
+        if (status == OwnerLeadStatus.QUALIFIED) {
+            throw new IntentChangeNotAllowedException(status, List.of());
+        }
         if (!INTENT_CHANGE_STATUSES.contains(status)) {
             throw new IntentChangeNotAllowedException(status, INTENT_CHANGE_STATUSES);
         }

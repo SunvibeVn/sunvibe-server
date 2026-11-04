@@ -2,6 +2,7 @@ package vn.sunvibe.acquisition.core.application.usecase.survey;
 
 import java.math.BigDecimal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -53,6 +54,20 @@ public interface SurveyLeadUseCase {
      * end at once).
      */
     Optional<SurveyLeadFacts> findVisibleForShare(String leadId, SurveyLeadViewer viewer);
+
+    /**
+     * The same facts as {@link #findVisible}, read fresh under a PostgreSQL {@code FOR NO KEY UPDATE} row lock taken in
+     * the caller's transaction (survey-checklist submission spec 5.2, 5.4), as the command's first load of the lead:
+     * {@link #applySurveyMove} then reuses the locked row. Activity inserts, which take a key-share lock, do not wait.
+     * Only inside a transaction.
+     */
+    Optional<SurveyLeadFacts> findVisibleForUpdate(String leadId, SurveyLeadViewer viewer);
+
+    /**
+     * The viewer's visible leads in SURVEY_SCHEDULED or ON_HOLD with their current intent cycle (survey-checklist
+     * submission plan PD-4): what the review queue can show.
+     */
+    List<SurveyLeadCycle> visibleOpenLeadCycles(SurveyLeadViewer viewer);
 
     /**
      * Insert the History entry of a checklist command as an activity row only (survey-checklist spec 4.9, I-5): the

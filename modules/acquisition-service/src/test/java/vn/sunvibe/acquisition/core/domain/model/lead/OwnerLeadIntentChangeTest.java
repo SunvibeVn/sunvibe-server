@@ -163,7 +163,8 @@ class OwnerLeadIntentChangeTest {
                             new ConfirmationBasis(CREATED_ON.minusDays(5), "text")), from.name());
 
             assertEquals(from, ex.getStatus(), from.name());
-            assertEquals(ALLOWED, ex.getAllowed(), from.name());
+            // survey-checklist D3-13: a QUALIFIED lead has a PASSED revision, so no status allows the change for it
+            assertEquals(from == QUALIFIED ? List.of() : ALLOWED, ex.getAllowed(), from.name());
             assertEquals(from, lead.getStatus(), from.name());
             assertEquals(1, lead.getIntentCycle(), from.name());
         }
@@ -237,5 +238,16 @@ class OwnerLeadIntentChangeTest {
     private static void assertField(String field, org.junit.jupiter.api.function.Executable executable) {
         InvalidLeadCommandException ex = assertThrows(InvalidLeadCommandException.class, executable, field);
         assertEquals(field, ex.getField());
+    }
+
+    /** checklist submission spec 4.8, D3-13: a QUALIFIED lead has a PASSED, so nothing allows the change. */
+    @Test
+    void changeIntent_qualified_refusedWithNoAllowedStatus() {
+        OwnerLead lead = lead(OwnerLeadStatus.QUALIFIED, ASSIGNEE);
+
+        IntentChangeNotAllowedException refused = assertThrows(IntentChangeNotAllowedException.class,
+                () -> lead.changeIntent(OwnerLeadIntent.SHORT_TERM_RENT, Optional.empty(), null));
+
+        assertEquals(List.of(), refused.getAllowed());
     }
 }

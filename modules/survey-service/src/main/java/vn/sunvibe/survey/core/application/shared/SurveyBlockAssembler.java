@@ -8,6 +8,8 @@ import vn.sunvibe.survey.core.application.query.ChecklistSummaryView;
 import vn.sunvibe.survey.core.application.query.OverlapView;
 import vn.sunvibe.survey.core.application.query.ResumptionView;
 import vn.sunvibe.survey.core.application.query.SurveyBlock;
+import vn.sunvibe.survey.core.application.query.SurveyRecordView;
+import vn.sunvibe.survey.core.application.shared.SurveyRecordReader.CycleRecord;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadCard;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
@@ -18,11 +20,13 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentRevision;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.Holder;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.resumption.SurveyResumption;
 import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStartPolicy;
+import vn.sunvibe.survey.core.domain.policy.checklist.ResumeTarget;
+import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStart;
+import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStartPolicy;
 import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyResumptionDomainRepository;
 
@@ -53,14 +57,19 @@ public class SurveyBlockAssembler {
     private final SurveyResumptionDomainRepository resumptions;
     private final SurveyorDirectoryPort directory;
     private final ChecklistViewAssembler checklists;
+    private final SurveyRecordReader records;
+    private final ChecklistReviewReader reviews;
 
     public SurveyBlockAssembler(SurveyAppointmentDomainRepository appointments,
                                 SurveyResumptionDomainRepository resumptions, SurveyorDirectoryPort directory,
-                                ChecklistViewAssembler checklists) {
+                                ChecklistViewAssembler checklists, SurveyRecordReader records,
+                                ChecklistReviewReader reviews) {
         this.appointments = appointments;
         this.resumptions = resumptions;
         this.directory = directory;
         this.checklists = checklists;
+        this.records = records;
+        this.reviews = reviews;
     }
 
     /** The lead statuses a booking of this kind is made from (survey-schedule spec 4.5). */
@@ -86,12 +95,13 @@ public class SurveyBlockAssembler {
                 .forEach(appointment -> toCheck.add(appointment.getSurveyorUserId()));
         Set<String> eligible = toCheck.isEmpty() ? Set.of() : directory.eligibleAmong(toCheck);
 
-        Optional<SurveyAppointment> currentVisit = CurrentVisitPolicy.currentVisit(ofLead, lead.intentCycle());
-        BookingState booking = bookingState(lead, ofLead,
-                lead.assignedUserId() != null && eligible.contains(lead.assignedUserId()));
-        boolean resumeAllowed = "ON_HOLD".equals(lead.status()) && currentVisit.isPresent();
-
+        CycleRecord record = records.read(lead.leadId(), lead.intentCycle(), ofLead);
+        Optional<SurveyAppointment> currentVisit = record.currentVisit();
         boolean assigneeEligible = lead.assignedUserId() != null && eligible.contains(lead.assignedUserId());
+        BookingState booking = bookingState(lead, ofLead, assigneeEligible, record);
+        Optional<ResumeTarget> resumeTarget = "ON_HOLD".equals(lead.status()) && currentVisit.isPresent()
+                ? records.resumeTarget(record, lead.intentCycle()) : Optional.empty();
+
         Map<String, List<ChecklistSummaryView>> summaries = checklists.summaries(viewer, lead, ofLead,
                 assigneeEligible);
         List<AppointmentView> views = ofLead.stream()
@@ -100,11 +110,14 @@ public class SurveyBlockAssembler {
                         !eligible.contains(appointment.getSurveyorUserId()),
                         summaries.getOrDefault(appointment.getId().getValue(), List.of())))
                 .toList();
-        boolean currentVisitHasDraft = currentVisit.isPresent() && summaries.getOrDefault(
-                currentVisit.get().getId().getValue(), List.of()).stream()
-                .anyMatch(summary -> summary.status() == ChecklistStatus.DRAFT);
-        ChecklistStart checklistStart = ChecklistStartPolicy.of(currentVisit, currentVisitHasDraft, lead.status(),
+        boolean currentVisitHasRevision = currentVisit.isPresent() && !summaries.getOrDefault(
+                currentVisit.get().getId().getValue(), List.of()).isEmpty();
+        ChecklistStart checklistStart = ChecklistStartPolicy.of(currentVisit, currentVisitHasRevision, lead.status(),
                 lead.assignedUserId(), assigneeEligible, viewer.userId());
+        RevisionStart revisionStart = RevisionStartPolicy.of(currentVisit.isPresent(), record.latestOfCurrentVisit(),
+                record.latestMark(), lead.status(), lead.assignedUserId(), assigneeEligible, viewer.userId());
+        SurveyRecordView survey = new SurveyRecordView(record.hasPassed(), record.hasSubmitted(),
+                record.passed().map(passed -> reviews.passed(passed, lead)).orElse(null));
         Map<String, Integer> numbers = new HashMap<>();
         ofLead.forEach(appointment -> numbers.put(appointment.getId().getValue(), appointment.getAppointmentNo()));
         List<SurveyResumption> rows = new ArrayList<>(resumptions.findByLeadIdOrderByOccurredAt(lead.leadId()));
@@ -118,22 +131,28 @@ public class SurveyBlockAssembler {
         Set<String> staffIds = staffIds(views, resumptionViews);
         Map<String, String> names = staffIds.isEmpty() ? Map.of() : directory.displayNames(staffIds);
         return new SurveyBlock(lead.leadId(), lead.intentCycle(), booking,
-                currentVisit.map(visit -> visit.getId().getValue()).orElse(null), resumeAllowed, views,
-                resumptionViews, checklistStart, names);
+                currentVisit.map(visit -> visit.getId().getValue()).orElse(null), resumeTarget.isPresent(), views,
+                resumptionViews, checklistStart, revisionStart, resumeTarget.orElse(null), survey, names);
     }
 
     /**
      * Whether a booking is possible now, in the order of the booking checks (survey-schedule spec 4.6, 7.2): a
-     * scheduled appointment, a NEW lead (no assignee), the status for the booking kind, the intent, the assignee's
-     * eligibility.
+     * scheduled appointment, a NEW lead (no assignee), the survey record (checklist submission spec 4.8), the status for
+     * the booking kind, the intent, the assignee's eligibility.
      */
     public static BookingState bookingState(LeadFacts lead, List<SurveyAppointment> ofLead,
-                                            boolean assigneeEligible) {
+                                            boolean assigneeEligible, CycleRecord record) {
         if (ofLead.stream().anyMatch(appointment -> appointment.getStatus() == AppointmentStatus.SCHEDULED)) {
             return blocked(BookingBlock.ALREADY_SCHEDULED);
         }
         if (lead.assignedUserId() == null || "NEW".equals(lead.status())) {
             return blocked(BookingBlock.NO_ASSIGNEE);
+        }
+        if (record.latestSubmitted()) {
+            return blocked(BookingBlock.CHECKLIST_SUBMITTED);
+        }
+        if (record.hasPassed()) {
+            return blocked(BookingBlock.CHECKLIST_PASSED);
         }
         CurrentVisitPolicy.BookingKind kind = CurrentVisitPolicy.bookingKind(ofLead, lead.intentCycle());
         if (!allowedStatusesFor(kind.kind()).contains(lead.status())) {

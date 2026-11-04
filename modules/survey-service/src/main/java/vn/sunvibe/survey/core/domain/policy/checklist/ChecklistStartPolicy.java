@@ -7,7 +7,7 @@ import java.util.Optional;
 
 /**
  * Whether a checklist can be started now (survey-checklist US-1 AC-1, BR-1, BR-12, BR-14, spec 4.3, 7.2): on the
- * current visit when its intent is long-term rental, the lead is SURVEY_SCHEDULED and the visit has no draft, by the
+ * current visit when its intent is long-term rental, the lead is SURVEY_SCHEDULED and the visit has no revision, by the
  * lead's eligible assignee; an assignee who did not perform the visit declares where the information comes from.
  */
 public final class ChecklistStartPolicy {
@@ -17,7 +17,7 @@ public final class ChecklistStartPolicy {
     private ChecklistStartPolicy() {
     }
 
-    public static ChecklistStart of(Optional<SurveyAppointment> currentVisit, boolean currentVisitHasDraft,
+    public static ChecklistStart of(Optional<SurveyAppointment> currentVisit, boolean currentVisitHasRevision,
                                     String leadStatus, String assigneeUserId, boolean assigneeEligible,
                                     String viewerUserId) {
         if (currentVisit.isEmpty()) {
@@ -30,8 +30,8 @@ public final class ChecklistStartPolicy {
         if (!SURVEY_SCHEDULED.equals(leadStatus)) {
             return ChecklistStart.blocked(StartBlock.LEAD_STATUS);
         }
-        if (currentVisitHasDraft) {
-            return ChecklistStart.blocked(StartBlock.ALREADY_STARTED);
+        if (currentVisitHasRevision) {
+            return ChecklistStart.blocked(StartBlock.CHECKLIST_EXISTS);
         }
         if (!viewerUserId.equals(assigneeUserId)) {
             return ChecklistStart.blocked(StartBlock.NOT_ASSIGNEE);

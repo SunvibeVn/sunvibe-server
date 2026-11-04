@@ -207,11 +207,14 @@ class MediaFullListingPostgresTest extends MediaApiTestBase {
 		assertNull(pausedSince());
 	}
 
-	/** Migration re-review Minor 2: ids only (a hand-placed name prints as ?), at most ten per page, then the count. */
+	/**
+	 * Migration re-review Minor 2: ids only (a hand-placed name prints as ?), at most ten per page, then the count. The
+	 * shared store can hold more than one page of keys, so 22 orphans keep more than ten on one page wherever it splits.
+	 */
 	@Test
 	void undeletableOrphans_loggedByIdOnly_atMostTenPerPage() {
 		MediaApiTestSupport.storedObject(store, Bucket.MEDIA, "media/0-holiday-photo.jpg", Duration.ofHours(2));
-		for (int i = 0; i < 11; i++) {
+		for (int i = 0; i < 22; i++) {
 			orphan(Duration.ofHours(2));
 		}
 		store.failDeletes.set(true);
@@ -226,11 +229,12 @@ class MediaFullListingPostgresTest extends MediaApiTestBase {
 			store.failDeletes.set(false);
 		}
 
-		assertTrue(jdbc.queryForObject("select undeleted_count from survey_media_listing_runs", Integer.class) >= 12,
+		assertTrue(jdbc.queryForObject("select undeleted_count from survey_media_listing_runs", Integer.class) >= 23,
 				"other classes may leave orphans in the shared store");
+		long pages = jdbc.queryForObject("select keys_seen from survey_media_listing_runs", Long.class) / 1000 + 1;
 		long perOrphan = appender.list.stream().filter(event -> event.getFormattedMessage().contains("an orphan of photo"))
 				.count();
-		assertEquals(10, perOrphan, appender.list.toString());
+		assertTrue(perOrphan >= 10 && perOrphan <= 10 * pages, perOrphan + " on " + pages + " pages: " + appender.list);
 		assertTrue(appender.list.stream().anyMatch(event -> event.getFormattedMessage().contains("photo ? (")),
 				appender.list.toString());
 		assertTrue(appender.list.stream().anyMatch(event -> event.getFormattedMessage().contains("orphans on this page")),

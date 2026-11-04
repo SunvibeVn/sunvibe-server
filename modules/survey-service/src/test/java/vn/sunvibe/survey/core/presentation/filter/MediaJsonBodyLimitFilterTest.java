@@ -85,7 +85,8 @@ class MediaJsonBodyLimitFilterTest {
     void filteredPaths_createRemovalHoldRelease() {
         for (String path : List.of(CREATE, "/api/v1/staff/survey-media/01JMED1A000000000000000001/removal",
                 "/api/v1/staff/survey-media/01JMED1A000000000000000001/hold",
-                "/api/v1/staff/survey-media/01JMED1A000000000000000001/hold-release")) {
+                "/api/v1/staff/survey-media/01JMED1A000000000000000001/hold-release",
+                "/api/v1/staff/survey-checklists/01JCHECK000000000000000001/media/01JMED1A000000000000000001/deselection")) {
             assertFalse(filter.shouldNotFilter(post(path, "application/json", new byte[0])), path);
         }
     }

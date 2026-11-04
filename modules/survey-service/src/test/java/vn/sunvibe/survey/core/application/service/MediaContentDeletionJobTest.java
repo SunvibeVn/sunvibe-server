@@ -25,9 +25,22 @@ import vn.sunvibe.survey.core.testsupport.MediaServiceHarness;
 class MediaContentDeletionJobTest {
 
     private final MediaServiceHarness h = new MediaServiceHarness();
-    private final MediaContentDeletionJob job = new MediaContentDeletionJob(h.jobs, h.media, h.sets, h.store,
+    private final MediaContentDeletionJob job = new MediaContentDeletionJob(h.jobs, h.media, h.setLocks, h.references, h.store,
             h.health, h.clock, () -> com.github.f4b6a3.ulid.UlidCreator.getMonotonicUlid().toString(),
             h.transactions);
+
+    /** checklist submission spec I-5, D3-3: a referenced photo keeps its content, whatever the job says. */
+    @Test
+    void referencedAtClaim_deletesNothing() {
+        SurveyMedia photo = removedReady();
+        put("media/" + photo.getId() + "/1/FULL");
+        h.referenced.add(photo.getId().getValue());
+
+        assertTrue(job.runOnce());
+
+        assertNull(h.media.stored(photo.getId()).orElseThrow().getContentDeletedAt());
+        assertEquals(1, h.store.objects.size());
+    }
 
     @Test
     void due_deletesEveryObjectOfThePhotoOnly_marksDeletedBumpsTheSet() {

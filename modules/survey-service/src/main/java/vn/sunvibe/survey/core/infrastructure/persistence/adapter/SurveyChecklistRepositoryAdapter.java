@@ -4,13 +4,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.survey.core.domain.exception.ChecklistAlreadyStartedException;
+import vn.sunvibe.survey.core.domain.exception.ChecklistSubmittedConflictException;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
+import vn.sunvibe.survey.core.domain.repository.PageResult;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.repository.SurveyChecklistJpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -25,6 +28,9 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
 
     static final Set<String> STARTED_INDEXES = Set.of("uq_survey_checklists_lead_no",
             "uq_survey_checklists_draft_per_appointment");
+
+    /** submission spec I-1: one SUBMITTED revision per lead and intent cycle, also under concurrent submits. */
+    static final Set<String> SUBMITTED_INDEXES = Set.of("uq_survey_checklists_submitted_per_cycle");
 
     private final SurveyChecklistJpaRepository jpaRepository;
 
@@ -48,7 +54,14 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
         if (checklist.getVersion() == null) {
             throw new IllegalArgumentException("A new checklist is inserted, not updated.");
         }
-        checklist.markPersisted(jpaRepository.saveAndFlush(toEntity(checklist)).getVersion());
+        try {
+            checklist.markPersisted(jpaRepository.saveAndFlush(toEntity(checklist)).getVersion());
+        } catch (DataIntegrityViolationException e) {
+            if (ConstraintViolations.violatesAny(e, SUBMITTED_INDEXES)) {
+                throw new ChecklistSubmittedConflictException(e);
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -62,6 +75,11 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
     }
 
     @Override
+    public Optional<SurveyChecklist> findByIdForUpdate(SurveyChecklistId id) {
+        return jpaRepository.findForNoKeyUpdateById(id.getValue()).map(SurveyChecklistRepositoryAdapter::toDomain);
+    }
+
+    @Override
     public Optional<String> findLeadIdById(SurveyChecklistId id) {
         return jpaRepository.findLeadIdById(id.getValue());
     }
@@ -70,6 +88,26 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
     public List<SurveyChecklist> findByLeadId(String leadId) {
         return jpaRepository.findByLeadIdOrderByChecklistNoAsc(leadId).stream()
                 .map(SurveyChecklistRepositoryAdapter::toDomain).toList();
+    }
+
+    @Override
+    public List<SurveyChecklist> findByVisitAppointmentIds(Collection<SurveyAppointmentId> visitIds) {
+        if (visitIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findByVisitAppointmentIdInOrderByChecklistNoAsc(visitIds.stream()
+                .map(SurveyAppointmentId::getValue).toList()).stream()
+                .map(SurveyChecklistRepositoryAdapter::toDomain).toList();
+    }
+
+    @Override
+    public PageResult<SurveyChecklist> findSubmittedOf(List<String> leadIds, List<Integer> intentCycles, int page,
+                                                       int size) {
+        String[] leads = leadIds.toArray(String[]::new);
+        Integer[] cycles = intentCycles.toArray(Integer[]::new);
+        return new PageResult<>(jpaRepository.findSubmittedPage(leads, cycles, size, (long) page * size).stream()
+                .map(SurveyChecklistRepositoryAdapter::toDomain).toList(), page, size,
+                jpaRepository.countSubmitted(leads, cycles));
     }
 
     @Override
@@ -91,6 +129,11 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
                 .status(checklist.getStatus())
                 .createdBy(checklist.getCreatedBy())
                 .createdAt(checklist.getCreatedAt())
+                .previousChecklistId(checklist.getPreviousChecklistIdOrNull() == null ? null
+                        : checklist.getPreviousChecklistIdOrNull().getValue())
+                .submittedAt(checklist.getSubmittedAt())
+                .submittedByUserId(checklist.getSubmittedByUserId())
+                .decidedAt(checklist.getDecidedAt())
                 .version(checklist.getVersion())
                 .build();
     }
@@ -99,6 +142,8 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
         return SurveyChecklist.load(SurveyChecklistId.of(entity.getId()), entity.getLeadId(), entity.getChecklistNo(),
                 SurveyAppointmentId.of(entity.getVisitAppointmentId()), entity.getIntentCycle(),
                 entity.getHolderUserId(), entity.getTemplateCode(), entity.getTemplateVersion(), entity.getKind(),
-                entity.getStatus(), entity.getCreatedBy(), entity.getCreatedAt(), entity.getVersion());
+                entity.getStatus(), entity.getCreatedBy(), entity.getCreatedAt(),
+                entity.getPreviousChecklistId() == null ? null : SurveyChecklistId.of(entity.getPreviousChecklistId()),
+                entity.getSubmittedAt(), entity.getSubmittedByUserId(), entity.getDecidedAt(), entity.getVersion());
     }
 }

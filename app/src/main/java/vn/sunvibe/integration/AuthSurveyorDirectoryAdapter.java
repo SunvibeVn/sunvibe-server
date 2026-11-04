@@ -27,6 +27,11 @@ public class AuthSurveyorDirectoryAdapter implements SurveyorDirectoryPort {
     }
 
     @Override
+    public boolean canSignIn(String userId) {
+        return userId != null && leadAssigneeAccountUseCase.canSignIn(userId);
+    }
+
+    @Override
     public Set<String> eligibleAmong(Set<String> userIds) {
         return userIds.stream().filter(this::isEligible).collect(Collectors.toSet());
     }

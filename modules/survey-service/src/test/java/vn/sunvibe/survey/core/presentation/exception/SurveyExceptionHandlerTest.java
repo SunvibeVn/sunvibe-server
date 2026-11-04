@@ -10,6 +10,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.TransactionSystemException;
@@ -137,6 +139,18 @@ class SurveyExceptionHandlerTest {
             assertEquals(409, response.getStatusCode().value(), e.getClass().getName());
             assertEquals("CONCURRENT_MODIFICATION", response.getBody().code());
             assertEquals("expectedAppointmentVersion", response.getBody().errors().get(0).field());
+        }
+    }
+
+    /** survey-checklist submission spec 5.4: never a 500. */
+    @Test
+    void lockFailures_are409ConcurrentModification() throws Exception {
+        for (Exception e : List.of(new CannotAcquireLockException("deadlock detected"),
+                new PessimisticLockingFailureException("lock timeout"))) {
+            ResponseEntity<ErrorResponse<ValidationError>> response = handle(e);
+            assertEquals(409, response.getStatusCode().value(), e.getClass().getName());
+            assertEquals("CONCURRENT_MODIFICATION", response.getBody().code());
+            assertEquals("expectedVersion", response.getBody().errors().get(0).field());
         }
     }
 
