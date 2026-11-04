@@ -53,8 +53,10 @@ Use `review-policy.md` for evidence/severity. The pagination/N+1/index rules abo
   does not. SERIALIZABLE adds dependency failures, and its reads are valid only once it commits, unless it is READ ONLY
   DEFERRABLE. Handle 40001 as the spec says: this repo answers a conflict (ConcurrencyFailureException in the survey
   and acquisition handlers, survey-checklist submission spec 5.4) and has no server retry; a retry, if a spec adds one,
-  reruns the whole transaction. Under READ COMMITTED a guarded UPDATE re-checks its WHERE on the latest row version, which a prior
-  SELECT does not.
+  reruns the whole transaction. Under READ COMMITTED a guarded UPDATE re-checks its WHERE on the latest row version,
+  which a prior SELECT does not. A claim (`FOR UPDATE SKIP LOCKED`) tests every eligibility condition on the locked row
+  itself: a condition inside a subquery keeps the statement's snapshot, so a claim that leaves the state unchanged can
+  be taken twice (SV-093).
 - **Mandatory:** bulk JPQL/native updates can bypass managed-state synchronization and optimistic-version checks.
   Check deliberate flush ordering and refresh/clear/reload strategy before later reads/writes (`@Modifying`
   flushAutomatically and clearAutomatically); clearing must not silently discard pending changes. With @Version

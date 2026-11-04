@@ -53,8 +53,10 @@ paths:
 - Uploads follow ADR-011: type and size checked on the server, no path from user input, no public listing.
 - The server never fetches a URL taken from a request (SSRF). A new outbound call has a fixed or allow-listed host and
   a timeout, and its response is untrusted input.
-- /actuator/health is public and application-prod.yml turns the API docs off: a new actuator exposure, health detail or
-  public docs path is a security change.
+- No actuator dependency is on the classpath: SecurityConfig permits /actuator/health, but the path does not exist and
+  the `management:` block in application.yml is inert. Adding the starter as configured would show health details to
+  anonymous callers (`show-details: always`), so it is a security change; so is any new public docs path
+  (application-prod.yml turns the API docs off).
 - Some items adapted from ECC skills/springboot-security (commit 76aaa77, MIT, Copyright (c) 2026 Affaan Mustafa);
   its Supabase, session-cookie and BFF examples do not apply. See ../docs/setup/AI_FLOW.md section 12.
 
