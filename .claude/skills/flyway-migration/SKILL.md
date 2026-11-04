@@ -6,7 +6,7 @@ description: Create a new Flyway migration safely. Use whenever a database schem
    versions are global) and pick the next version with the pattern V<yyyyMMddHHmm>__<snake_case_desc>.sql,
    using the current time and a value later than the latest one.
 2. Put the file in the owning module's db/migration folder. Write one concern per file.
-   Never edit an existing committed migration.
+   Never edit an existing committed versioned migration (a repeatable R__ file is edited in place).
 3. Check backward compatibility with the running app: add columns as nullable or with defaults;
    no drop or rename in the same release that stops using the column.
 4. Add indexes for new foreign keys and for columns used in search filters.

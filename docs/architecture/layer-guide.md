@@ -4,8 +4,9 @@ How to write each layer of a sunvibe-server module. Moved verbatim from the form
 (2026-10-13). Overview, package tree and dependency rules: [backend-architecture.md](backend-architecture.md).
 
 > The examples follow `property-service`. `auth-service` uses a variant layout (services in
-> `application/usecase/<area>/impl/`, persistence mappers in `infrastructure/persistence/converter/{auto,manual}/`);
-> see "Variants in use" in backend-architecture.md. New modules follow the property-service layout.
+> `application/usecase/<area>/impl/`, persistence mappers in `infrastructure/persistence/converter/{auto,manual}/`),
+> and `acquisition-service` and `survey-service` differ in use case shape and value objects; see "Variants in use" in
+> backend-architecture.md. New modules follow the property-service layout.
 
 ---
 
@@ -126,8 +127,8 @@ public interface PropertyDomainRepository {
 - **Purpose**: CQRS command objects for write operations
 - **Rules**:
   - Use Java `record` for immutability
-  - Contain validation logic in compact constructor
-  - No business logic (only validation)
+  - Shape checks the request DTO does not already guarantee go in the compact constructor
+  - No business logic
 
 **Example:**
 ```java
@@ -139,7 +140,7 @@ public record PropertyCreateCommand(
     // ... other fields
 ) {
     public PropertyCreateCommand {
-        // Validation in compact constructor
+        // A shape check in the compact constructor
         if (propertyCode == null || propertyCode.isBlank()) {
             throw new IllegalArgumentException("PropertyCode is required");
         }
