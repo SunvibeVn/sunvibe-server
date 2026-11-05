@@ -49,6 +49,6 @@ class InMemoryPropertyDomainRepositoryTest {
         return Property.load(p.getId(), p.getPropertyCode(), p.getTitle(), p.getDescription(), p.getLocation(),
                 p.getType(), p.getBedrooms(), p.getBathrooms(), p.getSquareMeters(), p.getMonthlyPrice(),
                 p.getDepositPrice(), p.getMinRentMonths(), p.getOwnerId(), PropertyStatus.AVAILABLE, p.getCreatedAt(),
-                p.getUpdatedAt(), p.getCreatedBy(), p.getUpdatedBy(), version);
+                p.getUpdatedAt(), p.getCreatedBy(), p.getUpdatedBy(), version, null);
     }
 }

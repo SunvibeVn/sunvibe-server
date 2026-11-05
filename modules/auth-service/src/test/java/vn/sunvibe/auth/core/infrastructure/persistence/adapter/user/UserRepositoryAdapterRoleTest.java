@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
@@ -30,8 +31,11 @@ import static org.junit.jupiter.api.Assertions.*;
  * Only the roles in the {@code roles} table exist; a missing one fails instead of being dropped.
  */
 @DataJpaTest
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import({AesGcmCryptoService.class, UserRepositoryAdapter.class, UserMapperImpl.class, UserVOMapperImpl.class})
 @TestPropertySource(properties = {
+        // The role insert uses ON CONFLICT, which H2 parses only in its PostgreSQL mode
+        "spring.datasource.url=jdbc:h2:mem:rolesdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.flyway.enabled=false",
         "app.crypto.id-card-key=bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=",

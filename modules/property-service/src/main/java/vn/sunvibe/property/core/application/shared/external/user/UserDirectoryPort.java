@@ -19,4 +19,25 @@ public interface UserDirectoryPort {
      * @return false, granting nothing, if the user stopped being an eligible owner since {@link #isEligibleOwner}
      */
     boolean ensureOwnerRole(String ownerUserId, String actorUserId);
+
+    /**
+     * The account an address an owner gave routes to (property-create intake D5-5). Routing is not proof (property-create BR-5): the caller
+     * answers FOUND and NOT_FOUND alike.
+     */
+    OwnerRoute lookupConfirmable(String email);
+
+    /** A masked address and the account's age, for the manager's check (intake spec 4.6 step 6). */
+    OwnerAccountFacts accountContext(String userId);
+
+    /** Whether the account may own now and its count of lost sign-ins, read from the row (intake D5-10). */
+    OwnerStandingFacts ownerStanding(String userId);
+
+    /** Writes a fixed notice in the caller's transaction, so it commits with the command (intake A-12). */
+    void notifyOwner(String userId, OwnerNotice notice);
+
+    /**
+     * Asks a signed-in owner for the password again (intake spec 4.6 step 4). It commits its own counter, so it runs before
+     * any transaction of the caller and holds no row lock through bcrypt.
+     */
+    PasswordCheck checkPassword(String userId, String password);
 }

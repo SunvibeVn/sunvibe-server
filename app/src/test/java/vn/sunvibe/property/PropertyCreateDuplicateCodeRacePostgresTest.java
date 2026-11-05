@@ -108,7 +108,7 @@ class PropertyCreateDuplicateCodeRacePostgresTest {
 		@Bean
 		@Primary
 		UserDirectoryPort acceptingOwnerDirectory() {
-			return new UserDirectoryPort() {
+			return new OwnerOnlyUserDirectory() {
 				@Override
 				public boolean isEligibleOwner(String userId) {
 					return true;

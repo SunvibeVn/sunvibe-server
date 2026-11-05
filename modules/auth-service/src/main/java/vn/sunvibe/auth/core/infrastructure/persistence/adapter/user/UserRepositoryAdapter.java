@@ -11,6 +11,7 @@ import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
+import vn.sunvibe.auth.core.domain.repository.user.AccountStanding;
 import vn.sunvibe.auth.core.domain.repository.user.EmailOccupancy;
 import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow;
@@ -23,6 +24,9 @@ import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRe
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserRoleJpaRepository;
 import vn.sunvibe.shared.crypto.CryptoService;
 
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -102,6 +106,42 @@ public class UserRepositoryAdapter implements UserDomainRepository {
     public void lockForSessionRefresh(UserId userId) {
         entityManager.createNativeQuery("SET LOCAL lock_timeout = '3s'").executeUpdate();
         userJpaRepository.lockForShare(userId.getValue());
+    }
+
+    /** Native on purpose: sign_in_losses has no entity field, and a managed entity may hold an old status. */
+    @Override
+    public Optional<AccountStanding> findStanding(UserId userId) {
+        List<?> rows = entityManager.createNativeQuery("select user_status, deleted_at, sign_in_losses, created_date"
+                        + " from users where id = :id")
+                .setParameter("id", userId.getValue())
+                .getResultList();
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        Object[] row = (Object[]) rows.getFirst();
+        return Optional.of(new AccountStanding((String) row[0], toInstant(row[1]), ((Number) row[2]).intValue(),
+                toInstant(row[3])));
+    }
+
+    @Override
+    public Set<String> findRoleNames(UserId userId) {
+        List<?> rows = entityManager.createNativeQuery("select r.name from user_roles ur join roles r on r.id = ur.role_id"
+                        + " where ur.user_id = :id")
+                .setParameter("id", userId.getValue())
+                .getResultList();
+        Set<String> names = new HashSet<>();
+        rows.forEach(name -> names.add((String) name));
+        return names;
+    }
+
+    private static Instant toInstant(Object value) {
+        return switch (value) {
+            case null -> null;
+            case Instant instant -> instant;
+            case OffsetDateTime offset -> offset.toInstant();
+            case Timestamp timestamp -> timestamp.toInstant();
+            default -> throw new IllegalStateException("Unexpected time type: " + value.getClass().getName());
+        };
     }
 
     private UserEntity toEntity(AppUser appUser) {

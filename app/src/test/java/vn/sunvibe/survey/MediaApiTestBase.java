@@ -25,7 +25,9 @@ import vn.sunvibe.PostgresContainerConfig;
 			MediaApiTestBase.NO_BACKGROUND_SWEEP_INTERVAL,
 			MediaApiTestBase.NO_BACKGROUND_PROBES,
 			MediaApiTestBase.NO_BACKGROUND_DELETION,
-			MediaApiTestBase.NO_BACKGROUND_LISTING })
+			MediaApiTestBase.NO_BACKGROUND_LISTING,
+			"app.property.intake.enabled=true",
+			"app.property.direct-create.enabled=false" })
 @ActiveProfiles("test")
 @Import({PostgresContainerConfig.class, MediaTestSwitches.Config.class})
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

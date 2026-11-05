@@ -27,6 +27,21 @@ public class InMemoryOwnerLeadActivityRepository implements OwnerLeadActivityDom
     }
 
     @Override
+    public Map<String, Set<String>> findAssigneeIds(Collection<String> leadIds) {
+        Map<String, Set<String>> assignees = new java.util.HashMap<>();
+        for (OwnerLeadActivity activity : activities) {
+            if (leadIds.contains(activity.getLeadId().getValue())) {
+                for (String id : new String[]{activity.getFromAssigneeId(), activity.getToAssigneeId()}) {
+                    if (id != null) {
+                        assignees.computeIfAbsent(activity.getLeadId().getValue(), key -> new LinkedHashSet<>()).add(id);
+                    }
+                }
+            }
+        }
+        return assignees;
+    }
+
+    @Override
     public Set<String> findStaffIds(OwnerLeadId leadId) {
         Set<String> ids = new LinkedHashSet<>();
         for (OwnerLeadActivity activity : activities) {

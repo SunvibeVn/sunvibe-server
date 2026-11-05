@@ -2,6 +2,7 @@ package vn.sunvibe.auth.core.testsupport;
 
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +40,11 @@ public class RecordingEmailService implements EmailServicePort {
     @Override
     public void sendEmailChangedNotice(String to) {
         sent.add(new Mail("EMAIL_CHANGED", to, null));
+    }
+
+    @Override
+    public void sendOwnerNotice(String to, String kind, Instant occurredAt) {
+        sent.add(new Mail(kind, to, null));
     }
 
     public List<Mail> ofKind(String kind) {

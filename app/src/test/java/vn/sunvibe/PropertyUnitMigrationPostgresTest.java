@@ -206,6 +206,13 @@ class PropertyUnitMigrationPostgresTest {
 	void migrate_existingProperties_leavesLegacyDataUnchanged() {
 		List<Map<String, Object>> propertiesAfter = jdbc.queryForList("SELECT * FROM properties ORDER BY id");
 		propertiesAfter.forEach(row -> assertNotNull(row.remove("version"), "properties.version is new in W8"));
+		// property-create intake spec 5.2 file 1: the intake columns are new and stay empty on an old row
+		propertiesAfter.forEach(row -> {
+			for (String column : List.of("asset_type", "rental_layout", "intake_id", "ward_code", "address_norm")) {
+				assertTrue(row.containsKey(column), column);
+				assertNull(row.remove(column), column);
+			}
+		});
 
 		assertEquals(propertiesBefore, propertiesAfter);
 		assertEquals(availabilityBefore, jdbc.queryForList("SELECT * FROM property_availability ORDER BY id"));

@@ -19,6 +19,16 @@ import java.util.Set;
 public class UnsupportedUserRepository implements UserDomainRepository {
 
     @Override
+    public java.util.Optional<vn.sunvibe.auth.core.domain.repository.user.AccountStanding> findStanding(UserId userId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public java.util.Set<String> findRoleNames(UserId userId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean existsByUsername(String userName) {
         throw new UnsupportedOperationException();
     }

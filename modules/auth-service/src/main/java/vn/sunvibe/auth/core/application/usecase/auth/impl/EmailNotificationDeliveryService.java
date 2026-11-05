@@ -56,12 +56,21 @@ public class EmailNotificationDeliveryService implements EmailNotificationDelive
             if (!mailGate.tryCharge()) {
                 return;
             }
-            emailService.sendEmailChangedNotice(notification.getDestination());
+            send(notification);
             notifications.delete(notification.getId());
         } catch (SendingMailFailedException e) {
             registerFailure(notification);
         } finally {
             mailGate.leave();
+        }
+    }
+
+    private void send(EmailNotification notification) {
+        if (EmailNotification.KIND_EMAIL_CHANGED.equals(notification.getKind())) {
+            emailService.sendEmailChangedNotice(notification.getDestination());
+        } else {
+            emailService.sendOwnerNotice(notification.getDestination(), notification.getKind(),
+                    notification.getCreatedAt());
         }
     }
 

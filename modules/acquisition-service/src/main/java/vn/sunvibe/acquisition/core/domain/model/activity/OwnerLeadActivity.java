@@ -38,6 +38,10 @@ public final class OwnerLeadActivity {
             OwnerLeadActivityType.CHECKLIST_SAVED, OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED,
             OwnerLeadActivityType.CHECKLIST_MEDIA_REMOVED, OwnerLeadActivityType.CHECKLIST_SUBMITTED,
             OwnerLeadActivityType.CHECKLIST_REVISION_STARTED);
+    /** The types an inventory intake writes (property-create intake spec 4.12). */
+    private static final Set<OwnerLeadActivityType> INVENTORY_TYPES = EnumSet.of(
+            OwnerLeadActivityType.INVENTORY_INTAKE_COMPLETED, OwnerLeadActivityType.INVENTORY_INTAKE_SUSPENDED,
+            OwnerLeadActivityType.INVENTORY_INTAKE_RESTORED);
     /** The checklist types whose entry carries a detail: the group of a save, the category of a photo. */
     private static final Set<OwnerLeadActivityType> DETAILED_CHECKLIST_TYPES = EnumSet.of(
             OwnerLeadActivityType.CHECKLIST_SAVED, OwnerLeadActivityType.CHECKLIST_MEDIA_ADDED,
@@ -104,6 +108,21 @@ public final class OwnerLeadActivity {
         return new OwnerLeadActivity(id, leadId, change.type(), required(actorUserId, "actorUserId"),
                 change.fromStatus(), change.toStatus(), null, null, null, null, occurredAt, change.referenceId(),
                 change.referenceNo(), required(detail, "detail"));
+    }
+
+    /**
+     * An inventory intake event (property-create intake spec 4.12): the reference is the intake and its number, or neither
+     * for a suspension with no intake. No statuses, no assignees and no text: the event never moves the lead, and the
+     * actor is null for an owner's withdrawal.
+     */
+    public static OwnerLeadActivity inventoryEvent(long id, OwnerLeadId leadId, OwnerLeadActivityType type,
+                                                   String actorUserIdOrNull, String intakeIdOrNull,
+                                                   Integer intakeNoOrNull, Instant occurredAt) {
+        if (!INVENTORY_TYPES.contains(type)) {
+            throw new IllegalArgumentException("Not an inventory activity type: " + type);
+        }
+        return new OwnerLeadActivity(id, leadId, type, actorUserIdOrNull, null, null, null, null, null, null, occurredAt,
+                intakeIdOrNull, intakeNoOrNull, null);
     }
 
     /**

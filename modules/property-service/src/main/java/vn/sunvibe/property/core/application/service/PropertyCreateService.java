@@ -18,6 +18,7 @@ import vn.sunvibe.property.core.domain.model.ownership.PropertyOwnership;
 import vn.sunvibe.property.core.domain.model.rule.PropertyRuleApply;
 import vn.sunvibe.property.core.domain.model.rule.RuleCategory;
 import vn.sunvibe.property.core.domain.model.unit.Unit;
+import vn.sunvibe.property.core.domain.model.vo.IntakePropertyCode;
 import vn.sunvibe.property.core.domain.model.vo.Location;
 import vn.sunvibe.property.core.domain.model.vo.Money;
 import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
@@ -64,6 +65,11 @@ public class PropertyCreateService implements PropertyCreateUseCase {
             } catch (IllegalArgumentException e) {
                 throw new PropertyValidationException(Property.FieldName.PROPERTY_CODE,
                         "Property code must follow the format XX-XXX-001.");
+            }
+            // property-create intake A-3: these prefixes belong to the intake's sequence
+            if (IntakePropertyCode.isReserved(propertyCode.getValue())) {
+                throw new PropertyValidationException(Property.FieldName.PROPERTY_CODE,
+                        "This property code prefix is reserved.");
             }
             if (propertyDomainRepository.existsByCode(propertyCode)) {
                 throw new PropertyAlreadyExistsException("Property code already exists: " + command.propertyCode());

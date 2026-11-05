@@ -6,6 +6,7 @@ import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
+import vn.sunvibe.auth.core.domain.repository.user.AccountStanding;
 import vn.sunvibe.auth.core.domain.repository.user.EmailOccupancy;
 import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.domain.repository.user.PendingAccountRepository;
@@ -38,6 +39,29 @@ public class InMemoryUserRepository implements UserDomainRepository, UserLoginAt
     public InMemoryUserRepository with(AppUser user) {
         users.put(user.getId().getValue(), user);
         return this;
+    }
+
+    private final Map<String, AccountStanding> standings = new LinkedHashMap<>();
+    private final Map<String, Set<String>> roleNames = new LinkedHashMap<>();
+
+    /** What {@link #findStanding} answers for this id: the row has more columns than the aggregate. */
+    public void standing(String userId, AccountStanding standing) {
+        standings.put(userId, standing);
+    }
+
+    /** What {@link #findRoleNames} answers for this id. */
+    public void roleNames(String userId, Set<String> names) {
+        roleNames.put(userId, names);
+    }
+
+    @Override
+    public Optional<AccountStanding> findStanding(UserId userId) {
+        return Optional.ofNullable(standings.get(userId.getValue()));
+    }
+
+    @Override
+    public Set<String> findRoleNames(UserId userId) {
+        return roleNames.getOrDefault(userId.getValue(), Set.of());
     }
 
     @Override

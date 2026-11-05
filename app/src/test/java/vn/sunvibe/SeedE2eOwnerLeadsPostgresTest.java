@@ -739,6 +739,76 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
+	 * property-create intake plan Task A17: what an inventory-intake run leaves on L15 goes with the next seed, the property
+	 * it created included, so the next CREATE opens no case against a leftover.
+	 */
+	@Test
+	void reseed_afterCompletion_clearsRows() throws Exception {
+		seedAccounts();
+		assertEquals(0, runLeads("local").getExitCode());
+		String sale = accessToken("0900000102", salePassword());
+		String l15 = LEAD_IDS.get(14);
+		assertEquals(201, post(sale, "/api/v1/staff/survey-appointments/" + L15_VISIT + "/checklists", nullIntake()));
+		String checklist = jdbc.queryForObject("SELECT id FROM survey_checklists WHERE lead_id = ?", String.class, l15);
+		Timestamp now = Timestamp.from(Instant.now());
+		String intake = "01JE2EINTAKE00000000000015";
+		String request = "01JE2EREQUEST0000000000015";
+		String proof = "01JE2EPROOF000000000000015";
+		String property = "e2e00000-0000-0000-0000-000000000015";
+		String unit = "01JE2EUNIT0000000000000015";
+		jdbc.update("INSERT INTO inventory_intakes (id, intake_no, lead_id, intent_cycle, status, source_checklist_id, source_sha256,"
+				+ " rental_scope, asset_type, ward_code, address_norm, selection, created_at, updated_at) VALUES (?, 1, ?, 1, 'DRAFT',"
+				+ " ?, ?, 'WHOLE', 'HOUSE', ?, 'an hai', '[]', ?, ?)", intake, l15, checklist, "a".repeat(64), AN_HAI, now, now);
+		jdbc.update("INSERT INTO inventory_owner_requests (id, intake_id, code_hash, expires_at, created_by_user_id, created_at)"
+				+ " VALUES (?, ?, ?, ?, ?, ?)", request, intake, "b".repeat(64), now, SALE_ID, now);
+		jdbc.update("INSERT INTO inventory_owner_proofs (id, intake_id, request_id, lead_id, intent_cycle, checklist_id, user_id,"
+				+ " scope_hash, statement_version, confirmed_at, owner_check, sign_in_losses) VALUES (?, ?, ?, ?, 1, ?, ?, ?,"
+				+ " 'owner-link-2026-11', ?, 'DONE', 0)", proof, intake, request, l15, checklist, CUSTOMER_ID, "c".repeat(64), now);
+		jdbc.update("INSERT INTO properties (id, property_code, title, street, ward, city, owner_id, created_at, updated_at, created_by,"
+				+ " updated_by, asset_type, rental_layout, intake_id, ward_code, address_norm) VALUES (?, 'SV-HOU-999915', 'Whole house, An"
+				+ " Hải', 'An Hải', 'An Hải', 'Đà Nẵng', ?, ?, ?, 'seed', 'seed', 'HOUSE', 'WHOLE', ?, ?, 'an hai')", property, CUSTOMER_ID,
+				now, now, intake, AN_HAI);
+		jdbc.update("INSERT INTO units (id, property_id, unit_code, bedrooms, bathrooms, area_sqm, availability_state, created_at,"
+				+ " updated_at) VALUES (?, ?, 'SV-HOU-999915', 1, 1, 30, 'AVAILABLE', ?, ?)", unit, property, now, now);
+		jdbc.update("INSERT INTO property_ownerships (id, property_id, user_id, relation_type, verification_state, valid_from,"
+				+ " created_at) VALUES (?, ?, ?, 'OWNER', 'UNVERIFIED', CURRENT_DATE, ?)", "01JE2EOWNERSHIP00000000015", property,
+				CUSTOMER_ID, now);
+		jdbc.update("INSERT INTO inventory_unit_mappings (intake_id, space_id, space_code, unit_id, canonical) VALUES (?, 'S', 'A1',"
+				+ " ?, true)", intake, unit);
+		jdbc.update("UPDATE inventory_intakes SET status = 'COMPLETED', result_property_id = ?, proof_id = ?, completed_at = ?"
+				+ " WHERE id = ?", property, proof, now, intake);
+		jdbc.update("INSERT INTO inventory_intake_events (intake_id, actor_user_id, action, occurred_at) VALUES (?, ?, 'COMPLETION', ?)",
+				intake, SALE_ID, now);
+		jdbc.update("INSERT INTO inventory_suspensions (id, lead_id, intake_id, reason, created_by_user_id, created_at) VALUES"
+				+ " ('01JE2ESUSPEND0000000000015', ?, ?, 'Held', ?, ?)", l15, intake, ADMIN_ID, now);
+		jdbc.update("INSERT INTO inventory_duplicate_cases (id, intake_id, candidate_property_id, pair_key, scope_hash, signal, status,"
+				+ " created_at) VALUES ('01JE2ECASE0000000000000015', ?, ?, 'P:e2e', ?, 'ADDRESS', 'OPEN', ?)", intake, property,
+				"c".repeat(64), now);
+		jdbc.update("INSERT INTO inventory_access_logs (user_id, lead_id, intake_id, action, accessed_at) VALUES (?, ?, ?, 'BLOCK_READ', ?)",
+				SALE_ID, l15, intake, now);
+
+		ExecResult again = runLeads("local");
+
+		assertEquals(0, again.getExitCode(), "re-run after an intake failed: " + again.getStderr());
+		assertEquals(SEEDED, printedCounts(again));
+		for (String table : List.of("inventory_intakes", "inventory_suspensions", "inventory_access_logs")) {
+			assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE lead_id = '" + l15 + "'"), table);
+		}
+		for (String table : List.of("inventory_owner_requests", "inventory_owner_proofs", "inventory_unit_mappings",
+				"inventory_intake_events", "inventory_duplicate_cases")) {
+			assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE intake_id = '" + intake + "'"), table);
+		}
+		assertEquals(0, count("SELECT count(*) FROM properties WHERE id = '" + property + "'"));
+		assertEquals(0, count("SELECT count(*) FROM units WHERE id = '" + unit + "'"));
+		assertEquals(0, count("SELECT count(*) FROM property_ownerships WHERE property_id = '" + property + "'"));
+
+		ExecResult third = runLeads("local");
+
+		assertEquals(0, third.getExitCode(), "a second run failed: " + third.getStderr());
+		assertEquals(SEEDED, printedCounts(third));
+	}
+
+	/**
 	 * survey-media spec 6.4 (plan Task A23): after the media flows on L14 (a checklist started through the API, photos
 	 * in the shapes create, content, removal and an ADMIN hold leave, their set, job and variants, the budget and slot
 	 * rows of the fixture users), the next run removes every one of them and L14 can be started again.

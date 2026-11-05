@@ -178,6 +178,9 @@ app:
         - { method: POST, path: /api/v1/me/password/change, limit: 10, window: 15m, bucket: password-change }
         # Public owner intake form (acquisition-owner-intake): 10 submissions per client IP per hour
         - { method: POST, path: /api/v1/public/owner-intake-requests, limit: 10, window: 1h }
+        # Owner confirmations and the owner request (property-create intake spec 7.4)
+        - { method: POST, path: "/api/v1/me/property-confirmations/**", limit: 10, window: 15m, bucket: me-property-confirmation }
+        - { method: POST, path: "/api/v1/staff/owner-leads/*/inventory-intake/owner-confirmation", limit: 30, window: 1h, bucket: owner-confirmation-request }
   sms:
     # SMS provider for OTPs: none (default; the phone channel must then not be on) or log, which prints OTPs to the
     # log and runs only in the dev, test and lan profiles. No real provider exists yet.
@@ -198,6 +201,13 @@ app:
       # and the consent text has passed legal review (acquisition-owner-intake BR-15, Q-11). While off, the POST
       # answers 404; the ward catalog stays open. Turn on per environment with ACQUISITION_OWNER_INTAKE_ENABLED=true.
       enabled: ${ACQUISITION_OWNER_INTAKE_ENABLED:false}
+  property:
+    # The inventory intake (property-create intake A-11, D5-17): off until its turn-on conditions hold (spec section 9).
+    # The two turn over together; both on stops the start-up.
+    intake:
+      enabled: ${PROPERTY_INTAKE_ENABLED:false}
+    direct-create:
+      enabled: ${PROPERTY_DIRECT_CREATE_ENABLED:true}
   survey:
     checklist:
       # Survey checklist submission and review (survey-checklist submission spec A-3): off until the owner opens review;

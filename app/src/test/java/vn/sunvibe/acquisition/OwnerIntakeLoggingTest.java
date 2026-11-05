@@ -118,6 +118,11 @@ class OwnerIntakeLoggingTest {
 				public Set<String> findStaffIds(OwnerLeadId leadId) {
 					return real.findStaffIds(leadId);
 				}
+
+				@Override
+				public Map<String, Set<String>> findAssigneeIds(Collection<String> leadIds) {
+					return real.findAssigneeIds(leadIds);
+				}
 			};
 		}
 	}

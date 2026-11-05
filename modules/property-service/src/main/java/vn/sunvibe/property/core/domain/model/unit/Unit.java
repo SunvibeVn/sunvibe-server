@@ -18,7 +18,8 @@ public final class Unit {
     private final UnitId id;
     private final PropertyId propertyId;
     private final String unitCode;
-    private final UnitType unitType;
+    private final UnitType unitType;        // null reads "unclassified" (property-create intake D5-18)
+    private final String locationLabel;     // "<code> · <location>" of an intake unit; null on a legacy one
     private final int bedrooms;
     private final int bathrooms;
     private final double areaSqm;
@@ -27,17 +28,19 @@ public final class Unit {
     private final Instant updatedAt;
     private Long version;                   // null until stored; optimistic lock (property-units BR-14)
 
-    // Invariants (property-units spec A-7): reference fields set, code not blank, rooms >= 0, area > 0. Version may be null.
-    private Unit(UnitId id, PropertyId propertyId, String unitCode, UnitType unitType, int bedrooms, int bathrooms,
-                 double areaSqm, UnitAvailabilityState availabilityState, Instant createdAt, Instant updatedAt,
-                 Long version) {
+    // Invariants (property-units spec A-7): reference fields set, code not blank, rooms >= 0, area > 0. Version, type and
+    // location label may be null.
+    private Unit(UnitId id, PropertyId propertyId, String unitCode, UnitType unitType, String locationLabel,
+                 int bedrooms, int bathrooms, double areaSqm, UnitAvailabilityState availabilityState,
+                 Instant createdAt, Instant updatedAt, Long version) {
         this.id = required(id, "Unit id");
         this.propertyId = required(propertyId, "Property id");
         if (unitCode == null || unitCode.isBlank()) {
             throw new IllegalArgumentException("Unit code is required.");
         }
         this.unitCode = unitCode;
-        this.unitType = required(unitType, "Unit type");
+        this.unitType = unitType;
+        this.locationLabel = locationLabel;
         if (bedrooms < 0) {
             throw new IllegalArgumentException("Bedrooms must be >= 0.");
         }
@@ -66,8 +69,19 @@ public final class Unit {
         required(property, "Property");
         Instant now = AppClock.currentUTC();
         return new Unit(UnitId.generate(), property.getId(), property.getPropertyCode().getValue(),
-                UnitType.from(property.getType()), property.getBedrooms(), property.getBathrooms(),
+                UnitType.from(property.getType()), null, property.getBedrooms(), property.getBathrooms(),
                 property.getSquareMeters(), UnitAvailabilityState.AVAILABLE, now, now, null);
+    }
+
+    /**
+     * A unit made by a completed intake (property-create intake spec 4.8): the G3 values of its own space, the state of
+     * the owner's confirmation (4.9), its real location beside the code, and no type, because no honest one exists.
+     */
+    public static Unit createFromIntake(PropertyId propertyId, String unitCode, String locationLabel, int bedrooms,
+                                        int bathrooms, double areaSqm, UnitAvailabilityState availabilityState) {
+        Instant now = AppClock.currentUTC();
+        return new Unit(UnitId.generate(), propertyId, unitCode, null, locationLabel, bedrooms, bathrooms, areaSqm,
+                availabilityState, now, now, null);
     }
 
     /**
@@ -75,9 +89,9 @@ public final class Unit {
      */
     public static Unit load(UnitId id, PropertyId propertyId, String unitCode, UnitType unitType, int bedrooms,
                             int bathrooms, double areaSqm, UnitAvailabilityState availabilityState,
-                            Instant createdAt, Instant updatedAt, Long version) {
-        return new Unit(id, propertyId, unitCode, unitType, bedrooms, bathrooms, areaSqm, availabilityState,
-                createdAt, updatedAt, version);
+                            Instant createdAt, Instant updatedAt, Long version, String locationLabel) {
+        return new Unit(id, propertyId, unitCode, unitType, locationLabel, bedrooms, bathrooms, areaSqm,
+                availabilityState, createdAt, updatedAt, version);
     }
 
     // ==================== Getters ====================
@@ -111,6 +125,10 @@ public final class Unit {
 
     public UnitType getUnitType() {
         return unitType;
+    }
+
+    public String getLocationLabel() {
+        return locationLabel;
     }
 
     public int getBedrooms() {

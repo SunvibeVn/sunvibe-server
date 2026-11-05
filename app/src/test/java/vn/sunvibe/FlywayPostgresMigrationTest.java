@@ -91,8 +91,24 @@ class FlywayPostgresMigrationTest {
 						"V202611051940__add_checklist_requalification.sql",
 						"V202611051941__validate_checklist_requalification.sql",
 						"V202611051942__index_one_current_passed.sql",
+						"V202611061000__expand_properties_and_units_for_intake.sql",
+						"V202611061001__validate_intake_property_constraints.sql",
+						"V202611061002__index_units_unit_code_key.sql",
+						"V202611061003__index_properties_ward_code_address_norm.sql",
+						"V202611061004__index_properties_intake_id.sql",
+						"V202611061005__create_property_intake_code_seq.sql",
+						"V202611061006__create_inventory_intakes.sql",
+						"V202611061007__create_inventory_owner_requests.sql",
+						"V202611061008__create_inventory_owner_proofs.sql",
+						"V202611061009__create_inventory_unit_mappings.sql",
+						"V202611061010__create_inventory_duplicate_cases.sql",
+						"V202611061011__create_inventory_suspensions.sql",
+						"V202611061012__create_inventory_intake_events.sql",
+						"V202611061013__create_inventory_access_logs.sql",
+						"V202611061014__add_users_sign_in_losses.sql",
+						"V202611061015__index_inventory_suspensions_unit_id.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 46, applied.size()));
+				applied.subList(applied.size() - 62, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */

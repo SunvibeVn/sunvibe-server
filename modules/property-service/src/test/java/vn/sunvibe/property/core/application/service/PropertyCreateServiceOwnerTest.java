@@ -4,6 +4,11 @@ import org.junit.jupiter.api.Test;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.exception.PropertyServiceException;
 import vn.sunvibe.property.core.domain.exception.PropertyValidationException;
+import vn.sunvibe.property.core.application.shared.external.user.OwnerAccountFacts;
+import vn.sunvibe.property.core.application.shared.external.user.OwnerNotice;
+import vn.sunvibe.property.core.application.shared.external.user.OwnerRoute;
+import vn.sunvibe.property.core.application.shared.external.user.OwnerStandingFacts;
+import vn.sunvibe.property.core.application.shared.external.user.PasswordCheck;
 import vn.sunvibe.property.core.application.shared.external.user.UserDirectoryPort;
 import vn.sunvibe.property.core.domain.exception.PropertyOwnerNotFoundException;
 import vn.sunvibe.property.core.domain.model.aggregate.Property;
@@ -72,6 +77,19 @@ class PropertyCreateServiceOwnerTest {
                 new EmptyAmenityTypes(), new RecordingUserDirectory(Set.of(OWNER_ID), false), units, ownerships);
 
         assertThrows(PropertyOwnerNotFoundException.class, () -> racing.execute(command(OWNER_ID)));
+    }
+
+    /** property-create intake A-3: a client cannot take a code the intake draws from its sequence. */
+    @Test
+    void legacyCreate_a3Prefix_refused() {
+        for (String code : List.of("SV-HOU-000001", "SV-BLD-000001", "SV-VIL-000001", "SV-HMS-000001", "SV-CDT-000001",
+                "SV-APT-000001")) {
+            PropertyValidationException e = assertThrows(PropertyValidationException.class,
+                    () -> service.execute(command(code, OWNER_ID)));
+
+            assertEquals("propertyCode", e.getFieldName());
+        }
+        assertTrue(properties.saved().isEmpty());
     }
 
     /** auth-roles BR-6, E-2 */
@@ -180,8 +198,12 @@ class PropertyCreateServiceOwnerTest {
     }
 
     private static PropertyCreateCommand command(String ownerId) {
+        return command("DA-APT-001", ownerId);
+    }
+
+    private static PropertyCreateCommand command(String propertyCode, String ownerId) {
         return new PropertyCreateCommand(
-                "DA-APT-001", "Title", "Description",
+                propertyCode, "Title", "Description",
                 "1 Bach Dang", "Thach Thang", "Hai Chau", null, null, null, null,
                 PropertyType.STUDIO, 1, 1, 35.0,
                 new BigDecimal("5000000"), new BigDecimal("5000000"), 6,
@@ -210,6 +232,31 @@ class PropertyCreateServiceOwnerTest {
         public boolean ensureOwnerRole(String ownerUserId, String actorUserId) {
             calls.add("ensureOwner:" + ownerUserId + " by " + actorUserId);
             return stillEligibleAtGrant;
+        }
+
+        @Override
+        public OwnerRoute lookupConfirmable(String email) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public OwnerAccountFacts accountContext(String userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public OwnerStandingFacts ownerStanding(String userId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void notifyOwner(String userId, OwnerNotice notice) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PasswordCheck checkPassword(String userId, String password) {
+            throw new UnsupportedOperationException();
         }
     }
 

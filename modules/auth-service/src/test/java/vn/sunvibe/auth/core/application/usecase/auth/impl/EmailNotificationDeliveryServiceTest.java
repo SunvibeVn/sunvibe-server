@@ -45,6 +45,19 @@ class EmailNotificationDeliveryServiceTest {
         notifications.save(EmailNotification.emailChanged(1L, "user-1", OLD_ADDRESS, Instant.now().minusSeconds(1)));
     }
 
+    /** property-create intake A-12: an owner notice goes out as its own kind, never as an email-changed notice. */
+    @Test
+    void notice_ownerKind_sentAsThatKind_rowDeleted() {
+        notifications.save(EmailNotification.ownerNotice(2L, "user-2", "OWNER_WITHDRAWN", "owner@example.com",
+                Instant.now().minusSeconds(1)));
+
+        service.deliverDue();
+
+        assertEquals("owner@example.com", email.ofKind("OWNER_WITHDRAWN").getFirst().to());
+        assertTrue(email.ofKind("EMAIL_CHANGED").isEmpty());
+        assertTrue(notifications.all().isEmpty());
+    }
+
     @Test
     void notice_rowDeleted_afterSendAndGiveUp() {
         aNotice();

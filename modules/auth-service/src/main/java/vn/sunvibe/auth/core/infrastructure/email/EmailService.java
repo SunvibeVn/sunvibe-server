@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
 
+import java.time.Instant;
+
 /**
  * {@link EmailServicePort} over SMTP ({@code spring.mail.*}); the sender is {@code app.mail.from}. No line names a
  * recipient, and a failure logs the exception class only: a mail exception can quote the address (SV-009).
@@ -76,6 +78,12 @@ public class EmailService implements EmailServicePort {
     public void sendEmailChangedNotice(String to) {
         send("email-changed", to, "Your Sunvibe email was changed", "The email of your Sunvibe account was changed, and "
                 + "this address no longer signs in. If you did not do this, contact Sunvibe.");
+    }
+
+    @Override
+    public void sendOwnerNotice(String to, String kind, Instant occurredAt) {
+        OwnerNoticeText notice = OwnerNoticeText.of(kind);
+        send("owner-notice", to, notice.subject(), notice.body(occurredAt));
     }
 
     private void send(String kind, String to, String subject, String text) {
