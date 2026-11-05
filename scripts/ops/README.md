@@ -179,3 +179,129 @@ Both scripts are read-only, print counts only and run in a `READ ONLY` transacti
   rebuild of the partial `idx_users_email`, and the backfill, whose two passes touch every index of `users`. Note the size
   of `users` before and after.
 - After the verify, `VACUUM ANALYZE users`: the backfill leaves dead rows, and `email_key` and `phone_key` have no statistics.
+
+## 9. Auth mail through Brevo SMTP (auth-email-access spec 5.6, O-2)
+
+Every auth mail leaves through `EmailService` on the one `spring.mail.*` sender: the sign-up code, the bind code, the reset
+mail, the reset confirmation and the email-changed notice. No code or template names the provider, so Brevo is a
+configuration change. Local and E2E runs stay on Mailpit (`scripts/dev/run-e2e-auth-api.*`).
+
+Templates without secrets: `scripts/ops/env/brevo-staging.env.example` and `brevo-production.env.example`. Set the values in
+the deployment system of the environment, not in a file: this repository is public. `<ref: name>` is the name of a secret
+store entry. The names are proposals, so keep the ones your store uses and record those, never the values.
+
+**Before these steps:** a Brevo account owned by Sunvibe with transactional sending on, `sunvibe.vn` authenticated and
+`services@sunvibe.vn` set up as a sender (hub rollout plan, section 2.3). Without them a mail the relay accepts may never
+arrive. Turn on two-factor sign-in for that account as well.
+
+**Fill in the values, once per environment:**
+
+1. Set every line of the template that has no placeholder. `MAIL_HOST` first: unset, it falls back to another provider, and
+   the login and key go there. `MAIL_STARTTLS` stays `true`: it makes TLS mandatory before the login is sent.
+2. In Brevo, open Settings > SMTP & API > SMTP. Copy the login exactly as the page shows it into the entry behind
+   `MAIL_USERNAME`. It can be the account email or an address ending in `@smtp-brevo.com`, so do not guess it. It is not
+   `MAIL_FROM`: the login opens the relay, the sender is what the recipient sees.
+3. On the same page generate an SMTP key named after the environment. Brevo shows it once. Paste it straight into the entry
+   behind `MAIL_PASSWORD`, never into a chat, a terminal or a PR. An API key does not work here. Staging and production
+   each get their own key. Confirm in Brevo what one key can reach: on a shared account a leaked staging key could send as
+   `services@sunvibe.vn` and spend the production quota, so prefer a separate account for staging, or guard the staging
+   entry like the production one.
+4. Staging: set `AUTH_FRONTEND_BASE_URL` and `APP_CORS_ALLOWED_ORIGINS` to the real staging origin, https, no path, no
+   trailing slash, the two equal. Production: `AUTH_FRONTEND_BASE_URL=https://www.sunvibe.vn`, and leave
+   `APP_CORS_ALLOWED_ORIGINS` unset. `application-prod.yml` holds that allow-list, so a staging URL copied here stops the
+   start-up instead of sending reset links to staging.
+5. Set `AUTH_MAIL_MAX_PER_HOUR`: turn the limit of the plan into an hourly figure, subtract other traffic on the account and
+   a reserve, and divide by the most processes planned. The counter resets on restart and does not replace the quota view
+   in Brevo.
+6. In Brevo, confirm `Never store previews`, the log retention and who can read the logs. A stored preview shows the reset
+   code and link together.
+7. Restart every instance, then run the smoke test below.
+8. Once the smoke test passes, delete any earlier sender credential from the store and revoke it at its provider, and record
+   the date in the hub issue register. It is never a fallback. An earlier credential that may be exposed does not wait for
+   this step: revoke it now, as in Rotate the key.
+
+**The start-up stops on** (measured on the bootJar, profile `prod`):
+
+| Mistake | Message |
+|---|---|
+| Base URL outside the allow-list: a staging host without `APP_CORS_ALLOWED_ORIGINS`, a staging URL in the production template, or the staging template with its two frontend lines left as written | `app.auth.frontend-base-url is not in app.cors.allowed-origins` |
+| `AUTH_MAIL_MAX_PER_HOUR` is not a number | `NumberFormatException` |
+| `MAIL_USERNAME` and `MAIL_FROM` both unset | `Could not resolve placeholder 'MAIL_USERNAME'` |
+
+**It starts and then fails or misleads:**
+
+| Mistake | Result |
+|---|---|
+| `MAIL_USERNAME` or `MAIL_PASSWORD` unset | Sends fail at sign-in to the relay: `class=MailAuthenticationException` (measured). A `<ref:>` left in place should fail the same way (not run) |
+| `MAIL_FROM` empty | Every send fails: `class=MailParseException` on sign-up, `class=AddressException` on the reset mail (measured) |
+| `MAIL_FROM` unset | The SMTP login becomes the sender (measured) |
+| `AUTH_FRONTEND_BASE_URL` and `APP_CORS_ALLOWED_ORIGINS` both unset on staging | Reset links point at production (measured) |
+| `MAIL_STARTTLS=false` | The client never asks for TLS, even from a server that offers it: the login goes in clear to any server that takes AUTH first (measured) |
+| `MAIL_HOST` unset | `application.yml` sends the login and key to `smtp.gmail.com` (read from the configuration, not run). It shows as `MailAuthenticationException`: fix the host first, then replace that key as exposed (see Rotate the key) |
+| `AUTH_MAIL_MAX_PER_HOUR` unset | 300 per hour (read from the configuration) |
+
+A sender that fails gives sign-up and bind a 503, but recovery still answers 200: a broken recovery shows only in the log
+and the audit table.
+
+**Smoke test, after every change of these values, of the Brevo account or of the plan.** One sign-up and one recovery to a
+test mailbox, 60 s apart at least for recoveries of one address (five a day), because a failed recovery still starts the
+cooldown. Both mails must come from `services@sunvibe.vn`. Then, without clicking, read the raw reset mail. It is
+quoted-printable, so decode it first: `=3D` is `=`, and a line ending in `=` continues on the next one. The `href` must start
+with the real web origin of this environment, taken from the environment record and not from the variable (production:
+`https://www.sunvibe.vn`), then `/reset-password#token=`. Any other host is a stop: O-2 is not passed, and a click would hand
+the token to that host. Keep only the URL without its fragment as evidence. Then read the log for the signals below, and count
+the audit failures in a `READ ONLY` transaction. The rows hold IP addresses and user agents, so they never go into evidence:
+
+```sql
+SELECT count(*) FROM auth_audit_events WHERE details LIKE '%SEND_FAILED%' AND occurred_at > now() - interval '1 hour';
+```
+
+| Signal | Meaning |
+|---|---|
+| `auth.mail.sent`, but nothing in the mailbox | The relay took it: read the transactional log in Brevo (sender, domain, blocked, deferred) |
+| `auth.mail.failed ... class=MailAuthenticationException` | Wrong or revoked SMTP login or key, or a wrong `MAIL_HOST` |
+| `auth.mail.failed ... class=MailSendException` | The relay refused or stayed silent, could not be reached, or failed the TLS check |
+| `auth.mail.refused reason=budget` | `AUTH_MAIL_MAX_PER_HOUR` is spent on this process; check for abuse before raising it (spec R-7) |
+| `auth.mail.refused reason=bulkhead` | Four sends are busy (spec R-6, SV-123) |
+| `auth.mail.queue-full` | The mail queue is full: a recovery mail or confirmation was lost, or a notice run was skipped |
+| `auth.mail.notice-given-up` | A notice to an old address was dropped after its retries |
+| `EMAIL SEND_FAILED` in `auth_audit_events` | A reset mail or a reset confirmation was lost; the user saw a normal answer |
+
+A silent relay cost 5 s when measured, and 10.6 s when it stopped after the message body. These are samples, not a ceiling: a
+slow relay has no hard bound, and sign-up and bind hold a database connection meanwhile (spec R-6).
+
+While diagnosing, never set `mail.smtp.ssl.trust`, which switches off the certificate checks, nor `mail.debug` in a shared
+environment, which can write the mail to the log.
+
+**Rotate the key.** Planned: generate a new key in Brevo, replace the value of the secret store entry, restart every
+instance, run the smoke test, delete the old key the same day, and record the date. If a key may be exposed, delete it in
+Brevo first: sign-up answers 503 and recovery mail is lost until the new key is live, and that is the smaller harm.
+
+**Check the path before there is a key.** This needs no credential and sends no mail. From the runtime of the environment
+(a slim image may have no `openssl`: then from a host on the same network), look for `AUTH` in the answer:
+
+```bash
+printf 'EHLO test\nQUIT\n' | openssl s_client -quiet -crlf -starttls smtp -connect smtp-relay.brevo.com:587 \
+  -servername smtp-relay.brevo.com -verify_return_error -verify_hostname smtp-relay.brevo.com
+```
+
+**Rehearse without Brevo.** A relay that demands AUTH and STARTTLS. Every value here is invented for the run: a throwaway
+local PostgreSQL, invented keys of the right shape for each `<ref:>` (base64, at least 32 bytes, the two ID card keys exactly 32 and different), an
+SMTP login and key that match `smtp-auth.txt`. Never an entry of a secret store, and never a shared database: the jar runs
+Flyway on it and its notice job would consume real rows. Keep `certs/` outside the checkout.
+
+```bash
+# certs/: a throwaway CA, relay.crt and relay.key for DNS:localhost signed by it, smtp-auth.txt with one line login:key
+docker run -d --rm --name sv-smtp-relay -p 127.0.0.1:2525:1025 -p 127.0.0.1:8026:8025 -v "$PWD/certs:/certs:ro" \
+  axllent/mailpit:v1.22.3 --smtp-tls-cert /certs/relay.crt --smtp-tls-key /certs/relay.key --smtp-require-starttls \
+  --smtp-auth-file /certs/smtp-auth.txt --enable-chaos
+```
+
+Start the bootJar on a template with `MAIL_HOST=localhost`, `MAIL_PORT=2525`, a numeric budget and, for staging, both
+frontend lines, on a JVM that trusts the CA for this run only (`-Djavax.net.ssl.trustStore=...`, with its type and password). For an SMTP
+refusal, `PUT http://127.0.0.1:8026/api/v1/chaos` with `{"Recipient":{"ErrorCode":550,"Probability":100}}`; for a silent
+relay, `docker pause sv-smtp-relay`.
+
+A rehearsal proves what Sunvibe does, not what Brevo does. Delivery, DNS, link tracking and egress from the runtime are
+release evidence (spec O-2), tracked in the hub file
+`docs/features/auth/auth-email-access/impl/2026-11-05-auth-email-access-brevo-evidence.md`.
