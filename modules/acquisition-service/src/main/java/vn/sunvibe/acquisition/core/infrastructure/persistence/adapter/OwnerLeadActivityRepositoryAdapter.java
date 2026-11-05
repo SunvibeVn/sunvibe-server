@@ -11,6 +11,8 @@ import vn.sunvibe.acquisition.core.infrastructure.persistence.repository.OwnerLe
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -63,5 +65,20 @@ public class OwnerLeadActivityRepositoryAdapter implements OwnerLeadActivityDoma
     @Override
     public Set<String> findStaffIds(OwnerLeadId leadId) {
         return Set.copyOf(jpaRepository.findStaffIds(leadId.getValue()));
+    }
+
+    @Override
+    public Map<String, Set<String>> findAssigneeIds(Collection<String> leadIds) {
+        Map<String, Set<String>> assignees = new HashMap<>();
+        for (OwnerLeadActivityJpaRepository.AssigneeMove move : jpaRepository.findAssigneeMoves(leadIds)) {
+            Set<String> ofLead = assignees.computeIfAbsent(move.getLeadId(), id -> new HashSet<>());
+            if (move.getFromAssigneeId() != null) {
+                ofLead.add(move.getFromAssigneeId());
+            }
+            if (move.getToAssigneeId() != null) {
+                ofLead.add(move.getToAssigneeId());
+            }
+        }
+        return assignees;
     }
 }

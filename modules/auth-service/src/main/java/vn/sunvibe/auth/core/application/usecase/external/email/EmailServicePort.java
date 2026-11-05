@@ -1,5 +1,7 @@
 package vn.sunvibe.auth.core.application.usecase.external.email;
 
+import java.time.Instant;
+
 /**
  * Sends the auth module's e-mails.
  */
@@ -39,4 +41,13 @@ public interface EmailServicePort {
      * @throws vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException if sending fails
      */
     void sendEmailChangedNotice(String to);
+
+    /**
+     * Tells an account about an owner link (property-create intake A-12): fixed text with the kind, the time and what to
+     * do if it was not them. No code, lead or address.
+     *
+     * @param kind one of the owner notice kinds
+     * @throws vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException if sending fails
+     */
+    void sendOwnerNotice(String to, String kind, Instant occurredAt);
 }

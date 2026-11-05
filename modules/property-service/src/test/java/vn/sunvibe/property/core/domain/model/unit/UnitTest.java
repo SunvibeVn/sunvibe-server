@@ -119,10 +119,13 @@ class UnitTest {
     }
 
     private enum RequiredField {
-        ID, PROPERTY_ID, UNIT_CODE, UNIT_TYPE, AVAILABILITY_STATE, CREATED_AT, UPDATED_AT
+        ID, PROPERTY_ID, UNIT_CODE, AVAILABILITY_STATE, CREATED_AT, UPDATED_AT
     }
 
-    /** Spec A-7: every reference field is required (only {@code version} may be null, for a new unit). */
+    /**
+     * Spec A-7: every reference field is required. {@code version} may be null for a new unit, and the type and the
+     * location label may be null since the intake (property-create intake D5-18).
+     */
     @ParameterizedTest
     @EnumSource(RequiredField.class)
     void load_missingRequiredField_throws(RequiredField missing) {
@@ -130,12 +133,39 @@ class UnitTest {
                 missing == RequiredField.ID ? null : UnitId.generate(),
                 missing == RequiredField.PROPERTY_ID ? null : PROPERTY_ID,
                 missing == RequiredField.UNIT_CODE ? null : "DA-APT-001",
-                missing == RequiredField.UNIT_TYPE ? null : UnitType.STUDIO,
+                UnitType.STUDIO,
                 1, 1, 30.0,
                 missing == RequiredField.AVAILABILITY_STATE ? null : UnitAvailabilityState.AVAILABLE,
                 missing == RequiredField.CREATED_AT ? null : CREATED_AT,
                 missing == RequiredField.UPDATED_AT ? null : UPDATED_AT,
-                null));
+                null, null));
+    }
+
+    /** property-create intake D5-18: a NULL unit_type reads "unclassified"; no fake STUDIO is stored. */
+    @Test
+    void load_nullUnitType_ok() {
+        Unit unit = Unit.load(UnitId.generate(), PROPERTY_ID, "SV-HOU-000001", null, 2, 1, 80.0,
+                UnitAvailabilityState.BLOCKED, CREATED_AT, UPDATED_AT, 0L, "A · Tầng 1");
+
+        assertNull(unit.getUnitType());
+        assertEquals("A · Tầng 1", unit.getLocationLabel());
+    }
+
+    /** property-create intake spec 4.8: each unit keeps its own G3 values, its own state and its real location. */
+    @Test
+    void createFromIntake_keepsOwnValuesAndNoType() {
+        Unit unit = Unit.createFromIntake(PROPERTY_ID, "P101", "P101 · Tầng 1", 1, 0, 25.5,
+                UnitAvailabilityState.OCCUPIED);
+
+        assertEquals("P101", unit.getUnitCode());
+        assertEquals("P101 · Tầng 1", unit.getLocationLabel());
+        assertEquals(1, unit.getBedrooms());
+        assertEquals(0, unit.getBathrooms());
+        assertEquals(25.5, unit.getAreaSqm());
+        assertEquals(UnitAvailabilityState.OCCUPIED, unit.getAvailabilityState());
+        assertNull(unit.getUnitType());
+        assertNull(unit.getVersion());
+        assertTrue(unit.getId().getValue().matches(ULID));
     }
 
     /** Distinct values everywhere, so a swapped or dropped field in {@code load} shows. */
@@ -144,7 +174,7 @@ class UnitTest {
         UnitId id = UnitId.of("01J9ZK3Q7M8N2P4R6T8V0WXYZ1");
 
         Unit unit = Unit.load(id, PROPERTY_ID, "DA-APT-007", UnitType.PENTHOUSE, 3, 2, 120.25,
-                UnitAvailabilityState.OCCUPIED, CREATED_AT, UPDATED_AT, 4L);
+                UnitAvailabilityState.OCCUPIED, CREATED_AT, UPDATED_AT, 4L, "P7 · Tầng 7");
 
         assertEquals(id, unit.getId());
         assertEquals(PROPERTY_ID, unit.getPropertyId());
@@ -157,6 +187,7 @@ class UnitTest {
         assertEquals(CREATED_AT, unit.getCreatedAt());
         assertEquals(UPDATED_AT, unit.getUpdatedAt());
         assertEquals(4L, unit.getVersion());
+        assertEquals("P7 · Tầng 7", unit.getLocationLabel());
     }
 
     /** property-units BR-14: the repository hands back the saved version; it never goes back and is never null. */
@@ -222,7 +253,7 @@ class UnitTest {
 
     private static Unit unit(int bedrooms, int bathrooms, double areaSqm, String unitCode) {
         return Unit.load(UnitId.generate(), PROPERTY_ID, unitCode, UnitType.STUDIO, bedrooms, bathrooms, areaSqm,
-                UnitAvailabilityState.AVAILABLE, CREATED_AT, UPDATED_AT, 0L);
+                UnitAvailabilityState.AVAILABLE, CREATED_AT, UPDATED_AT, 0L, null);
     }
 
     private static Property property(PropertyType type, int bedrooms, int bathrooms, double areaSqm) {

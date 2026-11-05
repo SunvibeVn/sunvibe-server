@@ -5,8 +5,10 @@ import vn.sunvibe.shared.time.AppClock;
 import vn.sunvibe.property.core.domain.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
 import vn.sunvibe.property.core.domain.model.document.PropertyDocument;
+import vn.sunvibe.property.core.domain.model.enums.AssetType;
 import vn.sunvibe.property.core.domain.model.enums.PropertyStatus;
 import vn.sunvibe.property.core.domain.model.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
 import vn.sunvibe.property.core.domain.model.image.PropertyImage;
 import vn.sunvibe.property.core.domain.model.price.PropertyPrice;
 import vn.sunvibe.property.core.domain.model.rule.PropertyRuleApply;
@@ -56,6 +58,23 @@ public class Property {
     private String createdBy;
     private String updatedBy;
     private Long version;                    // Optimistic lock: null for a new property; set when loaded or saved (property-units BR-14)
+    private final IntakeFields intake;       // Empty on a legacy row (property-create intake spec 4.8)
+
+    /**
+     * The columns an intake row has and a legacy row does not (property-create intake spec 5.2 file 1). Every value is null
+     * on a legacy row, and the type, status, rooms, area and prices of the property are null on an intake row.
+     */
+    public record IntakeFields(AssetType assetType, RentalLayout rentalLayout, String intakeId, String wardCode,
+                               String addressNorm) {
+
+        static final IntakeFields NONE = new IntakeFields(null, null, null, null, null);
+
+        /** It holds a normalized address: never print it. */
+        @Override
+        public String toString() {
+            return "IntakeFields[" + intakeId + "]";
+        }
+    }
 
     // ==================== REFACTORED Relationships ====================
 
@@ -75,14 +94,47 @@ public class Property {
     private Property(PropertyId id, PropertyCode propertyCode, String title, String description,
                      Location location, PropertyType type, Integer bedrooms, Integer bathrooms,
                      Double squareMeters, Money monthlyPrice, Money depositPrice,
-                     Integer minRentMonths, String ownerId, String createdBy) {
+                     Integer minRentMonths, String ownerId, PropertyStatus status, LocalDateTime createdAt,
+                     LocalDateTime updatedAt, String createdBy, String updatedBy, Long version,
+                     IntakeFields intake) {
+        this.id = id;
+        this.propertyCode = propertyCode;
+        this.title = title;
+        this.description = description;
+        this.location = location;
+        this.type = type;
+        this.bedrooms = bedrooms;
+        this.bathrooms = bathrooms;
+        this.squareMeters = squareMeters;
+        this.monthlyPrice = monthlyPrice;
+        this.depositPrice = depositPrice;
+        this.minRentMonths = minRentMonths;
+        this.ownerId = ownerId;
+        this.status = status;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.createdBy = createdBy;
+        this.updatedBy = updatedBy;
+        this.version = version;
+        this.intake = intake == null ? IntakeFields.NONE : intake;
+    }
 
-        if (id == null) throw new PropertyValidationException(FieldName.PROPERTY_ID, "PropertyId is required.");
-        if (propertyCode == null)
+    // ==================== Factory Methods ====================
+
+    /** The legacy create: every listing value is required (property-create intake spec 5.1, S-15). */
+    public static Property create(PropertyCode code, String title, String description,
+                                  Location location, PropertyType type, Integer bedrooms,
+                                  Integer bathrooms, Double squareMeters, Money monthlyPrice,
+                                  Money depositPrice, Integer minRentMonths, String ownerId,
+                                  String createdBy) {
+        PropertyId id = PropertyId.generate();
+        if (code == null)
             throw new PropertyValidationException(FieldName.PROPERTY_CODE, "PropertyCode is required.");
         if (title == null || title.isBlank())
             throw new PropertyValidationException(FieldName.TITLE, "Title is required.");
         if (location == null) throw new PropertyValidationException(FieldName.LOCATION, "Location is required.");
+        if (location.getDistrict() == null)
+            throw new PropertyValidationException(FieldName.LOCATION, "District is required.");
         if (type == null) throw new PropertyValidationException(FieldName.TYPE, "PropertyType is required.");
         if (bedrooms == null || bedrooms <= 0)
             throw new PropertyValidationException(FieldName.BEDROOMS, "Bedrooms must > 0");
@@ -100,58 +152,64 @@ public class Property {
             throw new PropertyValidationException(FieldName.OWNER_ID, "OwnerId is required.");
         if (createdBy == null || createdBy.isBlank())
             throw new PropertyValidationException(FieldName.CREATED_BY, "CreatedBy is required.");
-
-        this.id = id;
-        this.propertyCode = propertyCode;
-        this.title = title;
-        this.description = description;
-        this.location = location;
-        this.type = type;
-        this.bedrooms = bedrooms;
-        this.bathrooms = bathrooms;
-        this.squareMeters = squareMeters;
-        this.monthlyPrice = monthlyPrice;
-        this.depositPrice = depositPrice;
-        this.minRentMonths = minRentMonths;
-        this.ownerId = ownerId;
-        this.status = PropertyStatus.AVAILABLE;
-        this.createdAt = AppClock.currentLocalTime();
-        this.updatedAt = AppClock.currentLocalTime();
-        this.createdBy = createdBy;
-        this.updatedBy = createdBy;
-    }
-
-    // ==================== Factory Methods ====================
-
-    public static Property create(PropertyCode code, String title, String description,
-                                  Location location, PropertyType type, Integer bedrooms,
-                                  Integer bathrooms, Double squareMeters, Money monthlyPrice,
-                                  Money depositPrice, Integer minRentMonths, String ownerId,
-                                  String createdBy) {
-        PropertyId id = PropertyId.generate();
-        return new Property(id, code, title, description, location, type, bedrooms,
-                bathrooms, squareMeters, monthlyPrice, depositPrice,
-                minRentMonths, ownerId, createdBy);
+        LocalDateTime now = AppClock.currentLocalTime();
+        return new Property(id, code, title, description, location, type, bedrooms, bathrooms, squareMeters,
+                monthlyPrice, depositPrice, minRentMonths, ownerId, PropertyStatus.AVAILABLE, now, now, createdBy,
+                createdBy, null, IntakeFields.NONE);
     }
 
     /**
-     * Load from database (reconstruct).
+     * A property made by a completed intake (property-create intake spec 4.8, D5-18): the legacy listing columns stay
+     * empty, because no honest value exists for them. Built by the server from a source revision, so a missing value is a
+     * programming error, not a client's.
+     */
+    public static Property createFromIntake(IntakeProperty intake) {
+        required(intake, "Intake property");
+        required(intake.code(), "Property code");
+        requiredText(intake.title(), "Title");
+        required(intake.location(), "Location");
+        required(intake.assetType(), "Asset type");
+        required(intake.rentalLayout(), "Rental layout");
+        requiredText(intake.intakeId(), "Intake id");
+        requiredText(intake.wardCode(), "Ward code");
+        requiredText(intake.ownerId(), "Owner id");
+        requiredText(intake.createdBy(), "Created by");
+        LocalDateTime now = AppClock.currentLocalTime();
+        return new Property(PropertyId.generate(), intake.code(), intake.title(), null, intake.location(), null, null,
+                null, null, null, null, null, intake.ownerId(), null, now, now, intake.createdBy(), intake.createdBy(),
+                null, new IntakeFields(intake.assetType(), intake.rentalLayout(), intake.intakeId(), intake.wardCode(),
+                        intake.addressNorm()));
+    }
+
+    /**
+     * Load from database (reconstruct). It checks neither factory's rules, so any stored row reads back: an intake row
+     * has no legacy values, and an old row can hold values a create now refuses (property-create intake spec 3).
+     *
+     * @param intake the intake columns; null for a row that has none
      */
     public static Property load(PropertyId id, PropertyCode code, String title,
                                 String description, Location location, PropertyType type,
                                 Integer bedrooms, Integer bathrooms, Double squareMeters,
                                 Money monthlyPrice, Money depositPrice, Integer minRentMonths,
                                 String ownerId, PropertyStatus status, LocalDateTime createdAt,
-                                LocalDateTime updatedAt, String createdBy, String updatedBy, Long version) {
-        Property property = new Property(id, code, title, description, location, type,
-                bedrooms, bathrooms, squareMeters, monthlyPrice,
-                depositPrice, minRentMonths, ownerId, createdBy);
-        property.status = status;
-        property.createdAt = createdAt;
-        property.updatedAt = updatedAt;
-        property.updatedBy = updatedBy;
-        property.version = version;
-        return property;
+                                LocalDateTime updatedAt, String createdBy, String updatedBy, Long version,
+                                IntakeFields intake) {
+        return new Property(id, code, title, description, location, type, bedrooms, bathrooms, squareMeters,
+                monthlyPrice, depositPrice, minRentMonths, ownerId, status, createdAt, updatedAt, createdBy, updatedBy,
+                version, intake);
+    }
+
+    private static <T> T required(T value, String name) {
+        if (value == null) {
+            throw new IllegalArgumentException(name + " is required.");
+        }
+        return value;
+    }
+
+    private static void requiredText(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " is required.");
+        }
     }
 
     /**
@@ -447,6 +505,26 @@ public class Property {
 
     public Long getVersion() {
         return version;
+    }
+
+    public AssetType getAssetType() {
+        return intake.assetType();
+    }
+
+    public RentalLayout getRentalLayout() {
+        return intake.rentalLayout();
+    }
+
+    public String getIntakeId() {
+        return intake.intakeId();
+    }
+
+    public String getWardCode() {
+        return intake.wardCode();
+    }
+
+    public String getAddressNorm() {
+        return intake.addressNorm();
     }
 
     public List<PropertyRuleApply> getAppliedRules() {

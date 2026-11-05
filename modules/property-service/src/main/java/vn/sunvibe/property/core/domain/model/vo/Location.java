@@ -27,8 +27,9 @@ public class Location extends ValueObject<Location> implements Serializable {
         if (ward == null || ward.isBlank()) {
             throw new IllegalArgumentException("Ward cannot be null or empty");
         }
-        if (district == null || district.isBlank()) {
-            throw new IllegalArgumentException("District cannot be null or empty");
+        // An intake location has no district (property-create intake A-4); the legacy create requires one
+        if (district != null && district.isBlank()) {
+            throw new IllegalArgumentException("District cannot be empty");
         }
 
         this.street = street;
@@ -80,7 +81,8 @@ public class Location extends ValueObject<Location> implements Serializable {
     }
 
     public String getFullAddress() {
-        return String.format("%s, %s, %s, %s", street, ward, district, city);
+        return district == null ? String.format("%s, %s, %s", street, ward, city)
+                : String.format("%s, %s, %s, %s", street, ward, district, city);
     }
 
     public boolean hasCoordinates() {

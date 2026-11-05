@@ -31,7 +31,8 @@ public class UnitEntityMapper {
                 entity.getAvailabilityState(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
-                entity.getVersion()
+                entity.getVersion(),
+                entity.getLocationLabel()
         );
     }
 
@@ -47,6 +48,7 @@ public class UnitEntityMapper {
                 .propertyId(domain.getPropertyId().getValue())
                 .unitCode(domain.getUnitCode())
                 .unitType(domain.getUnitType())
+                .locationLabel(domain.getLocationLabel())
                 .bedrooms(domain.getBedrooms())
                 .bathrooms(domain.getBathrooms())
                 .areaSqm(domain.getAreaSqm())

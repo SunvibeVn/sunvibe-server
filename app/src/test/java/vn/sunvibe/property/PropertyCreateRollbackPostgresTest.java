@@ -94,7 +94,7 @@ class PropertyCreateRollbackPostgresTest {
 		@Bean
 		@Primary
 		UserDirectoryPort racingOwnerDirectory(EntityManager entityManager) {
-			return new UserDirectoryPort() {
+			return new OwnerOnlyUserDirectory() {
 				@Override
 				public boolean isEligibleOwner(String userId) {
 					return true;

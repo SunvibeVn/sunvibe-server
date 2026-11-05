@@ -174,6 +174,11 @@ class MediaFullListingPostgresTest extends MediaApiTestBase {
 	@Test
 	void undeletableOrphan_keepsCountAndBlocksResume_untilNextRunDeletesAndListsToEnd() {
 		String orphan = orphan(Duration.ofHours(2));
+		// an open run that resumes just below the orphan, so it counts this one whatever the shared store holds: the store
+		// root outlives a run, and what earlier classes and runs left ages past the orphan limit
+		jdbc.update("insert into survey_media_listing_runs (started_at, lease_token, lease_until, start_after_key,"
+				+ " keys_seen, undeleted_count) values (?, 'KILLEDRUNNER0000000000000C', ?, ?, 0, 0)", ts(-3600),
+				ts(-60), orphan.substring(0, orphan.indexOf("/1/FULL")));
 		store.failDeletes.set(true);
 		Logger logger = (Logger) LoggerFactory.getLogger(MediaFullListingJob.class);
 		ListAppender<ILoggingEvent> appender = new ListAppender<>();

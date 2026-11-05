@@ -44,7 +44,8 @@
 -- since. Rows of these leads that other code added (history, access logs, idempotency keys, the duplicate links the
 -- lead itself owns, requirement changes, survey appointments with their revisions, events, resumptions and access logs,
 -- survey checklists with their groups, takeovers and saves, survey photos with their sets, jobs and variants, survey
--- security events) go with them, and so do the photo read budgets and body slots of the E2E seed accounts. Wards held by an E2E
+-- security events, inventory intakes with the properties they created) go with them, and so do the photo read budgets and
+-- body slots of the E2E seed accounts. Wards held by an E2E
 -- seed account are freed first (an interrupted admin e2e run); wards of other holders are left as they are. The change
 -- rows the application writes for An Hải stay as history.
 -- It never changes any other lead, consent, user or territory. It refuses, before any change, when another lead
@@ -235,6 +236,26 @@ BEGIN
     END IF;
 END
 $$;
+
+-- What an inventory-intake run left on the fixture leads (property-create intake plan Task A17): the properties it
+-- created go too, because a leftover would open a case on the next CREATE. The rows of the result are captured first,
+-- then the intake rows go, children first; a COMPLETED row must name a proof, so it is abandoned before its proof goes.
+CREATE TEMP TABLE seed_intake_rows ON COMMIT DROP AS
+    SELECT id, result_property_id FROM inventory_intakes WHERE lead_id IN (SELECT id FROM seed_leads);
+DELETE FROM inventory_intake_events WHERE intake_id IN (SELECT id FROM seed_intake_rows);
+DELETE FROM inventory_suspensions WHERE lead_id IN (SELECT id FROM seed_leads);
+DELETE FROM inventory_duplicate_cases
+    WHERE intake_id IN (SELECT id FROM seed_intake_rows) OR candidate_intake_id IN (SELECT id FROM seed_intake_rows)
+       OR candidate_property_id IN (SELECT result_property_id FROM seed_intake_rows);
+DELETE FROM inventory_unit_mappings WHERE intake_id IN (SELECT id FROM seed_intake_rows);
+DELETE FROM inventory_access_logs WHERE lead_id IN (SELECT id FROM seed_leads);
+UPDATE inventory_intakes SET status = 'ABANDONED', proof_id = NULL WHERE id IN (SELECT id FROM seed_intake_rows);
+DELETE FROM inventory_owner_proofs WHERE intake_id IN (SELECT id FROM seed_intake_rows);
+DELETE FROM inventory_owner_requests WHERE intake_id IN (SELECT id FROM seed_intake_rows);
+DELETE FROM inventory_intakes WHERE id IN (SELECT id FROM seed_intake_rows);
+DELETE FROM units WHERE property_id IN (SELECT result_property_id FROM seed_intake_rows);
+DELETE FROM property_ownerships WHERE property_id IN (SELECT result_property_id FROM seed_intake_rows);
+DELETE FROM properties WHERE id IN (SELECT result_property_id FROM seed_intake_rows);
 
 -- Delete the fixture rows (and only them), children first: the survey rows of the fixture leads, their requirement
 -- changes, then the lead rows.

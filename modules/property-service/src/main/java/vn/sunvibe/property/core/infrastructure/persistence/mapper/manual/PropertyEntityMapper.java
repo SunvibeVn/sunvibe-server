@@ -54,8 +54,9 @@ public class PropertyEntityMapper {
                 entity.getLongitude()
         );
 
-        Money monthlyPrice = Money.vnd(entity.getMonthlyPrice());
-        Money depositPrice = Money.vnd(entity.getDepositPrice());
+        // An intake row has no price and no status (property-create intake spec 3, D5-18)
+        Money monthlyPrice = entity.getMonthlyPrice() == null ? null : Money.vnd(entity.getMonthlyPrice());
+        Money depositPrice = entity.getDepositPrice() == null ? null : Money.vnd(entity.getDepositPrice());
 
         // Create Domain Model
         Property domain = Property.load(
@@ -71,12 +72,14 @@ public class PropertyEntityMapper {
                 depositPrice,
                 entity.getMinRentMonths(),
                 entity.getOwnerId(),
-                PropertyStatus.valueOf(entity.getStatus()),
+                entity.getStatus() == null ? null : PropertyStatus.valueOf(entity.getStatus()),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
                 entity.getCreatedBy(),
                 entity.getUpdatedBy(),
-                entity.getVersion()
+                entity.getVersion(),
+                new Property.IntakeFields(entity.getAssetType(), entity.getRentalLayout(), entity.getIntakeId(),
+                        entity.getWardCode(), entity.getAddressNorm())
         );
 
         // Restore sub-entities if present
@@ -146,12 +149,18 @@ public class PropertyEntityMapper {
                 .bathrooms(domain.getBathrooms())
                 .squareMeters(domain.getSquareMeters())
                 // Money fields
-                .monthlyPrice(domain.getMonthlyPrice().getAmount())
-                .depositPrice(domain.getDepositPrice().getAmount())
+                .monthlyPrice(domain.getMonthlyPrice() == null ? null : domain.getMonthlyPrice().getAmount())
+                .depositPrice(domain.getDepositPrice() == null ? null : domain.getDepositPrice().getAmount())
                 // Other fields
                 .minRentMonths(domain.getMinRentMonths())
-                .status(domain.getStatus().toString())
+                .status(domain.getStatus() == null ? null : domain.getStatus().toString())
                 .ownerId(domain.getOwnerId())
+                // Intake columns
+                .assetType(domain.getAssetType())
+                .rentalLayout(domain.getRentalLayout())
+                .intakeId(domain.getIntakeId())
+                .wardCode(domain.getWardCode())
+                .addressNorm(domain.getAddressNorm())
                 .createdAt(domain.getCreatedAt())
                 .updatedAt(domain.getUpdatedAt())
                 .createdBy(domain.getCreatedBy())

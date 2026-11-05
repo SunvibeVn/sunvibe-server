@@ -124,6 +124,12 @@ class CapturingMessagesConfig {
 				failIfDown();
 				lastMessages.put(to, "Email changed");
 			}
+
+			@Override
+			public void sendOwnerNotice(String to, String kind, java.time.Instant occurredAt) {
+				failIfDown();
+				lastMessages.put(to, "Owner notice " + kind);
+			}
 		};
 	}
 

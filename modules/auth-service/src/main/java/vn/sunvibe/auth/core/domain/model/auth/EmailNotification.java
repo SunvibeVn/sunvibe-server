@@ -46,6 +46,11 @@ public class EmailNotification {
         return new EmailNotification(id, userId, KIND_EMAIL_CHANGED, oldAddress, now, 0, now);
     }
 
+    /** A notice to the account's own verified address about an owner link (property-create intake A-12), due at once. */
+    public static EmailNotification ownerNotice(Long id, String userId, String kind, String address, Instant now) {
+        return new EmailNotification(id, userId, kind, address, now, 0, now);
+    }
+
     /** Rebuilds a notice from storage. */
     public static EmailNotification load(Long id, String userId, String kind, String destination, Instant createdAt,
                                          int attempts, Instant nextAttemptAt) {

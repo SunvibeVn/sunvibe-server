@@ -79,6 +79,12 @@ public interface UserDomainRepository {
      */
     Optional<LockedUser> findByIdForSecurity(UserId userId);
 
+    /** The stored standing of the row, soft-deleted or not (property-create intake D5-10); empty if no row has this id. */
+    Optional<AccountStanding> findStanding(UserId userId);
+
+    /** The role names of the account as stored now, read past the persistence context. */
+    Set<String> findRoleNames(UserId userId);
+
     /**
      * Holds the row against a change of credentials for the rest of the transaction, waiting 3 seconds at most: two
      * refreshes do not wait for each other, and a reset waits for the refresh, so it revokes the token it issues.

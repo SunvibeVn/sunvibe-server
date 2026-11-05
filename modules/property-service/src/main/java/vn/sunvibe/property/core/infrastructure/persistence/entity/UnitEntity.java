@@ -37,9 +37,12 @@ public class UnitEntity {
     @Column(name = "unit_code", nullable = false, length = 50)
     private String unitCode;
 
-    @Column(name = "unit_type", nullable = false, length = 50)
+    @Column(name = "unit_type", length = 50)
     @Enumerated(EnumType.STRING)
     private UnitType unitType;
+
+    @Column(name = "location_label", length = 250)
+    private String locationLabel;
 
     @Column(name = "bedrooms", nullable = false)
     private Integer bedrooms;

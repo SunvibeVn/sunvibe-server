@@ -2,7 +2,9 @@ package vn.sunvibe.property.core.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import vn.sunvibe.property.core.domain.model.enums.AssetType;
 import vn.sunvibe.property.core.domain.model.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.math.BigDecimal;
@@ -50,7 +52,7 @@ public class PropertyEntity {
     @Column(name = "ward", nullable = false, length = 100)
     private String ward;
 
-    @Column(name = "district", nullable = false, length = 100)
+    @Column(name = "district", length = 100)
     private String district;
 
     @Column(name = "city", nullable = false, length = 100)
@@ -66,35 +68,53 @@ public class PropertyEntity {
     private Double longitude;
 
     // ==================== Property Details ====================
-    @Column(name = "property_type", nullable = false, length = 50)
+    @Column(name = "property_type", length = 50)
     @Enumerated(EnumType.STRING)
     private PropertyType type;
 
-    @Column(name = "bedrooms", nullable = false)
+    @Column(name = "bedrooms")
     private Integer bedrooms;
 
-    @Column(name = "bathrooms", nullable = false)
+    @Column(name = "bathrooms")
     private Integer bathrooms;
 
-    @Column(name = "square_meters", nullable = false)
+    @Column(name = "square_meters")
     private Double squareMeters;
 
     // ==================== Price Information ====================
-    @Column(name = "monthly_price", nullable = false, precision = 15, scale = 0)
+    @Column(name = "monthly_price", precision = 15, scale = 0)
     private BigDecimal monthlyPrice;
 
-    @Column(name = "deposit_price", nullable = false, precision = 15, scale = 0)
+    @Column(name = "deposit_price", precision = 15, scale = 0)
     private BigDecimal depositPrice;
 
-    @Column(name = "min_rent_months", nullable = false)
+    @Column(name = "min_rent_months")
     private Integer minRentMonths;
 
     // ==================== Status & Ownership ====================
-    @Column(name = "status", nullable = false, length = 50)
+    @Column(name = "status", length = 50)
     private String status;  // AVAILABLE, RENTED, MAINTENANCE, INACTIVE
 
     @Column(name = "owner_id", nullable = false, length = 36)
     private String ownerId;
+
+    // ==================== Intake Columns (empty on a legacy row) ====================
+    @Column(name = "asset_type", length = 20)
+    @Enumerated(EnumType.STRING)
+    private AssetType assetType;
+
+    @Column(name = "rental_layout", length = 10)
+    @Enumerated(EnumType.STRING)
+    private RentalLayout rentalLayout;
+
+    @Column(name = "intake_id", length = 26)
+    private String intakeId;
+
+    @Column(name = "ward_code", length = 10)
+    private String wardCode;
+
+    @Column(name = "address_norm", length = 255)
+    private String addressNorm;
 
     // ==================== Audit Fields ====================
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -150,7 +170,8 @@ public class PropertyEntity {
     // ==================== Helper Methods ====================
 
     public String getFullAddress() {
-        return String.format("%s, %s, %s, %s", street, ward, district, city);
+        return district == null ? String.format("%s, %s, %s", street, ward, city)
+                : String.format("%s, %s, %s, %s", street, ward, district, city);
     }
 
     public void addImage(PropertyImageEntity image) {

@@ -48,9 +48,9 @@ tasks.withType<Test> {
     testLogging {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
-    // The API tests keep about twenty Spring contexts, each with its own PostgreSQL container, plus the checklist
-    // limits test's 50-space answers: more than Gradle's default 512 MB test heap holds
-    maxHeapSize = "1g"
+    // The API tests keep more than twenty Spring contexts, each with its own PostgreSQL container, plus the check limits
+    // test's 50-space answers. Past 1 GB the JVM stalled in GC while loading a context (property-create intake, 2026-11-06)
+    maxHeapSize = "2g"
 }
 
 // The contract export runs only through exportOpenApi, so a normal build never rewrites api/openapi.json. The tagged

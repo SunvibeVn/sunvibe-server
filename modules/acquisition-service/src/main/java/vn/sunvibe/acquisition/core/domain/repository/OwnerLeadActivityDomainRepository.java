@@ -38,4 +38,7 @@ public interface OwnerLeadActivityDomainRepository {
      * (survey-checklist spec A-25).
      */
     Set<String> findStaffIds(OwnerLeadId leadId);
+
+    /** Every user named as an assignee on the History of each lead; a lead with none is absent (intake spec 4.3). */
+    Map<String, Set<String>> findAssigneeIds(Collection<String> leadIds);
 }

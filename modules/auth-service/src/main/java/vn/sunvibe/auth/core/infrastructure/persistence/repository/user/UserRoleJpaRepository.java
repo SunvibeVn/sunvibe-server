@@ -24,8 +24,8 @@ public interface UserRoleJpaRepository extends JpaRepository<UserRoleEntity, UUI
 
     /** @return 1 if the row was inserted, 0 if the user already held the role */
     @Modifying
-    @Query(value = "INSERT INTO user_roles (user_id, role_id) SELECT :userId, :roleId WHERE NOT EXISTS "
-            + "(SELECT 1 FROM user_roles WHERE user_id = :userId AND role_id = :roleId)", nativeQuery = true)
+    @Query(value = "INSERT INTO user_roles (user_id, role_id) VALUES (:userId, :roleId) ON CONFLICT DO NOTHING",
+            nativeQuery = true)
     int insertUserRole(@Param("userId") String userId, @Param("roleId") UUID roleId);
 
     /** @return 1 if the row was deleted, 0 if the user did not hold the role */

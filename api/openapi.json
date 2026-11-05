@@ -1471,6 +1471,530 @@
         "tags" : [ "Me" ]
       }
     },
+    "/api/v1/me/property-confirmations" : {
+      "get" : {
+        "operationId" : "list_4",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerConfirmationList"
+                }
+              }
+            },
+            "description" : "The list; before the code only id, status and expiry show"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "The requests and live confirmations of the signed-in account",
+        "tags" : [ "Owner confirmations" ]
+      }
+    },
+    "/api/v1/me/property-confirmations/{id}/check" : {
+      "post" : {
+        "operationId" : "check",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerConfirmationPhraseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The owner check is done"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONFIRMATION_INVALID or VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No such request for this account"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Too many requests"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Enter the phrase the manager read out",
+        "tags" : [ "Owner confirmations" ]
+      }
+    },
+    "/api/v1/me/property-confirmations/{id}/confirm" : {
+      "post" : {
+        "operationId" : "confirm",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerConfirmationConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Confirmed"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONFIRMATION_INVALID, or VALIDATION_FAILED on currentPassword"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No such request for this account"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION"
+          },
+          "423" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ACCOUNT_LOCKED"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Too many requests"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Confirm with the code, the password and the statement version",
+        "tags" : [ "Owner confirmations" ]
+      }
+    },
+    "/api/v1/me/property-confirmations/{id}/decline" : {
+      "post" : {
+        "operationId" : "decline",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerConfirmationCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Declined"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONFIRMATION_INVALID or VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No such request for this account"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Too many requests"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Decline a request; staff cannot read that it was declined",
+        "tags" : [ "Owner confirmations" ]
+      }
+    },
+    "/api/v1/me/property-confirmations/{id}/details" : {
+      "post" : {
+        "operationId" : "details",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerConfirmationCodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerConfirmationDetails"
+                }
+              }
+            },
+            "description" : "The details"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONFIRMATION_INVALID or VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No such request for this account"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Too many requests"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "What the code opens: the parts and the statement to confirm",
+        "tags" : [ "Owner confirmations" ]
+      }
+    },
+    "/api/v1/me/property-confirmations/{id}/withdrawal" : {
+      "post" : {
+        "operationId" : "withdraw",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerConfirmationWithdrawalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Withdrawn"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on currentPassword"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No live confirmation of this request for this account"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION"
+          },
+          "423" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ACCOUNT_LOCKED"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Too many requests"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Withdraw a live confirmation with the password",
+        "tags" : [ "Owner confirmations" ]
+      }
+    },
     "/api/v1/me/sessions/logout-all" : {
       "post" : {
         "description" : "Revokes every session of the account and clears this device's refresh cookie.",
@@ -1946,6 +2470,225 @@
         },
         "summary" : "List the wards of a province (anonymous), sorted by name",
         "tags" : [ "Administrative areas" ]
+      }
+    },
+    "/api/v1/staff/inventory-cases" : {
+      "get" : {
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 20
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InventoryCasePage"
+                }
+              }
+            },
+            "description" : "A page of cases"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The caller holds no manager role"
+          }
+        },
+        "summary" : "The cases a manager may act on, oldest first; whoever worked a side does not see them",
+        "tags" : [ "Inventory cases" ]
+      }
+    },
+    "/api/v1/staff/inventory-cases/{caseId}" : {
+      "get" : {
+        "operationId" : "read",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "caseId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InventoryCaseView"
+                }
+              }
+            },
+            "description" : "The case"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CASE_NOT_ALLOWED, or the caller holds no manager role"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The case does not exist"
+          }
+        },
+        "summary" : "One case; writes an access log row",
+        "tags" : [ "Inventory cases" ]
+      }
+    },
+    "/api/v1/staff/inventory-cases/{caseId}/decision" : {
+      "post" : {
+        "operationId" : "decide",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "caseId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CaseDecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InventoryCaseView"
+                }
+              }
+            },
+            "description" : "The case"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CASE_NOT_ALLOWED, or the caller holds no manager role"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The case does not exist"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_STATE or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Rule on a case: DIFFERENT_ASSET or SAME_ASSET",
+        "tags" : [ "Inventory cases" ]
       }
     },
     "/api/v1/staff/owner-lead-assignees" : {
@@ -2447,6 +3190,1181 @@
         },
         "summary" : "Change the requirement (rental intent and price) of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
         "tags" : [ "Owner leads (staff)" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake" : {
+      "get" : {
+        "operationId" : "block_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeBlockView"
+                }
+              }
+            },
+            "description" : "The block"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not staff"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible, or the intake is off"
+          }
+        },
+        "summary" : "The intake block of a lead, for any staff who can see it",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/availability" : {
+      "put" : {
+        "operationId" : "availability",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IntakeAvailabilityRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeBlockView"
+                }
+              }
+            },
+            "description" : "The block"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_NOT_ASSIGNEE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_PROOF_REQUIRED, INTAKE_STATE, INTAKE_GATE_FAILED or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "What the owner said about each selected space, on the day of the contact",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/completion" : {
+      "post" : {
+        "operationId" : "complete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IntakeCompletionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeCompletionResult"
+                }
+              }
+            },
+            "description" : "The result"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED or LINK_MAPPING_INVALID"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_NOT_ASSIGNEE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_STATE, INTAKE_GATE_FAILED, OWNER_PROOF_REQUIRED, AVAILABILITY_NOT_CONFIRMED, INTAKE_PREVIEW_STALE, INTAKE_DUPLICATE_CHECK, INTAKE_ALREADY_COMPLETED, INTAKE_CREATE_NOT_ALLOWED, INTAKE_DISPUTED, CANONICAL_UNRECONCILED, INTAKE_SOURCE_INVALID or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Write the result, all or nothing; a repeat with the same hash answers the stored result",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/inventory-search" : {
+      "get" : {
+        "operationId" : "search",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "propertyCode",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "wardCode",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InventorySearchPage"
+                }
+              }
+            },
+            "description" : "A page of properties"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_NOT_ASSIGNEE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_PROOF_REQUIRED, INTAKE_STATE or INTAKE_GATE_FAILED"
+          }
+        },
+        "summary" : "The confirmed owner's properties, by code, or by ward and text; writes an access log row",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/owner-check-context" : {
+      "get" : {
+        "operationId" : "ownerCheckContext",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerCheckContext"
+                }
+              }
+            },
+            "description" : "The context"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_CHECK_NOT_ALLOWED, or the caller holds no manager role"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_STATE"
+          }
+        },
+        "summary" : "What a manager reads before calling the lead's phone; writes an access log row",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/owner-check/refusal" : {
+      "post" : {
+        "operationId" : "refuseOwner",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerCheckRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeBlockView"
+                }
+              }
+            },
+            "description" : "The block"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_CHECK_NOT_ALLOWED, or the caller holds no manager role"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_STATE or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Refuse the proof after reaching a stranger; an open row goes back to DRAFT",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/owner-check/start" : {
+      "post" : {
+        "operationId" : "startOwnerCheck",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerCheckRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerCheckStarted"
+                }
+              }
+            },
+            "description" : "The phrase, which shows only here"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_CHECK_NOT_ALLOWED, or the caller holds no manager role"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_STATE or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Open a phrase for 10 minutes; a new start replaces it",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/owner-confirmation" : {
+      "post" : {
+        "operationId" : "requestOwner",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OwnerRequestAsk"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OwnerRequestIssued"
+                }
+              }
+            },
+            "description" : "The request and its code, which shows only here"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on ownerEmail"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_NOT_ASSIGNEE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_STATE, INTAKE_GATE_FAILED or CONCURRENT_MODIFICATION"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_REQUEST_LIMIT, or too many requests from this address"
+          }
+        },
+        "summary" : "Ask an account to confirm; the answer is the same whether the address matched or not",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/preview" : {
+      "get" : {
+        "operationId" : "preview",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakePreviewView"
+                }
+              }
+            },
+            "description" : "The preview"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_NOT_ASSIGNEE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_PROOF_REQUIRED, INTAKE_STATE, INTAKE_GATE_FAILED or INTAKE_SOURCE_INVALID"
+          }
+        },
+        "summary" : "What a completion would write, and the hash it must name; writes an access log row",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/restoration" : {
+      "post" : {
+        "operationId" : "restore",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IntakeRestorationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeBlockView"
+                }
+              }
+            },
+            "description" : "The block"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_NOT_ASSIGNEE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_STATE, INTAKE_GATE_FAILED, OWNER_PROOF_REQUIRED, INTAKE_DISPUTED or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Let a new checked proof of the owner take over a result",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/selection" : {
+      "put" : {
+        "operationId" : "select",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SelectionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeBlockView"
+                }
+              }
+            },
+            "description" : "The block"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED or INTAKE_SELECTION_INVALID"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_NOT_ASSIGNEE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_GATE_FAILED, INTAKE_STATE or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Choose the parts an intake takes; a change voids the request, proof, target and availability",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/suspensions" : {
+      "post" : {
+        "operationId" : "suspend",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IntakeSuspensionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeBlockView"
+                }
+              }
+            },
+            "description" : "The block"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_CHECK_NOT_ALLOWED, or the caller holds no manager role"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead or the unit does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Restrict the whole lead, or one unit of a result of the lead",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/suspensions/{id}/release" : {
+      "post" : {
+        "operationId" : "release",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IntakeReleaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeBlockView"
+                }
+              }
+            },
+            "description" : "The block"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_CHECK_NOT_ALLOWED, or the caller holds no manager role"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead or the suspension does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_STATE or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Release a suspension of this lead",
+        "tags" : [ "Inventory intake" ]
+      }
+    },
+    "/api/v1/staff/owner-leads/{leadId}/inventory-intake/target" : {
+      "put" : {
+        "operationId" : "target",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IntakeTargetRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/IntakeBlockView"
+                }
+              }
+            },
+            "description" : "The block"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED or LINK_MAPPING_INVALID"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTAKE_NOT_ASSIGNEE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "OWNER_PROOF_REQUIRED, CANONICAL_UNRECONCILED, INTAKE_CREATE_NOT_ALLOWED, INTAKE_DISPUTED, INTAKE_STATE, INTAKE_GATE_FAILED or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Choose a new property, or a link to one the confirmed owner holds",
+        "tags" : [ "Inventory intake" ]
       }
     },
     "/api/v1/staff/owner-leads/{leadId}/status-changes" : {
@@ -6460,6 +8378,31 @@
           }
         },
         "required" : [ "cancelReason", "expectedAppointmentVersion", "expectedLeadVersion" ]
+      },
+      "CaseDecisionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "basis" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "outcome" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "proceedingIntakeId" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 0,
+            "pattern" : "[0-9A-Za-z]*"
+          }
+        }
       },
       "ChangeAppointmentRequest" : {
         "type" : "object",
@@ -11613,6 +13556,927 @@
           }
         }
       },
+      "IntakeAvailabilityItemRequest" : {
+        "type" : "object",
+        "properties" : {
+          "contactedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "expectedDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "note" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "spaceId" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 0,
+            "pattern" : "[0-9A-Za-z-]*"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "VACANT", "OCCUPIED", "UNDER_REPAIR", "PAUSED", "OWNER_UNSURE", "SOURCE_CONFLICT" ],
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "contactedOn", "spaceId", "state" ]
+      },
+      "IntakeAvailabilityRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakeAvailabilityItemRequest"
+            },
+            "maxItems" : 50,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "items" ]
+      },
+      "IntakeBlockAvailability" : {
+        "type" : "object",
+        "properties" : {
+          "contactedOn" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "expectedDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "spaceId" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "VACANT", "OCCUPIED", "UNDER_REPAIR", "PAUSED", "OWNER_UNSURE", "SOURCE_CONFLICT" ]
+          }
+        }
+      },
+      "IntakeBlockResult" : {
+        "type" : "object",
+        "properties" : {
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "propertyCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "unitCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "IntakeBlockSelection" : {
+        "type" : "object",
+        "properties" : {
+          "spaceIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "IntakeBlockSource" : {
+        "type" : "object",
+        "properties" : {
+          "assetType" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+          },
+          "rentalScope" : {
+            "type" : "string",
+            "enum" : [ "WHOLE", "PARTS" ]
+          },
+          "revisionId" : {
+            "type" : "string"
+          },
+          "spaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakeBlockSpace"
+            }
+          },
+          "unconfirmedTerms" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakeBlockTerm"
+            }
+          }
+        }
+      },
+      "IntakeBlockSpace" : {
+        "type" : "object",
+        "properties" : {
+          "accessLimits" : {
+            "type" : [ "string", "null" ]
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : [ "string", "null" ]
+          },
+          "sourceDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "spaceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "IntakeBlockSuspension" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "Left out for an assignee who holds a manager role"
+          },
+          "unitCode" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null for the whole lead"
+          }
+        }
+      },
+      "IntakeBlockTarget" : {
+        "type" : "object",
+        "properties" : {
+          "canonicalSpaceId" : {
+            "type" : [ "string", "null" ]
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "CREATE", "LINK" ]
+          },
+          "propertyCode" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "IntakeBlockTerm" : {
+        "type" : "object",
+        "properties" : {
+          "date" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : [ "string", "null" ]
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/IntakeTermValue"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null when the survey left it unknown"
+          }
+        }
+      },
+      "IntakeBlockView" : {
+        "type" : "object",
+        "properties" : {
+          "availability" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakeBlockAvailability"
+            }
+          },
+          "caseState" : {
+            "type" : "string",
+            "enum" : [ "NONE", "OPEN", "WAITING", "DECIDED" ]
+          },
+          "earlierResult" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/IntakeEarlierResult"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "forcedPropertyCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "gate" : {
+            "$ref" : "#/components/schemas/IntakeGate"
+          },
+          "ownerCheck" : {
+            "type" : "string",
+            "enum" : [ "NONE", "REQUIRED", "DONE" ]
+          },
+          "ownerState" : {
+            "type" : "string",
+            "enum" : [ "NONE", "WAITING", "CONFIRMED" ]
+          },
+          "readiness" : {
+            "$ref" : "#/components/schemas/IntakeReadiness"
+          },
+          "result" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/IntakeBlockResult"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "selection" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/IntakeBlockSelection"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "source" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/IntakeBlockSource"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null with no current unmarked PASSED"
+          },
+          "status" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null with no current row",
+            "enum" : [ "DRAFT", "AWAITING_OWNER", "OWNER_CONFIRMED", "CASE_OPEN", "COMPLETED" ]
+          },
+          "suspensions" : {
+            "type" : "array",
+            "description" : "Only for manager roles",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakeBlockSuspension"
+            }
+          },
+          "target" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/IntakeBlockTarget"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "version" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Null with no current row"
+          }
+        }
+      },
+      "IntakeCompletionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "previewHash" : {
+            "type" : "string",
+            "maxLength" : 64,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "previewHash" ]
+      },
+      "IntakeCompletionResult" : {
+        "type" : "object",
+        "properties" : {
+          "completedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "CREATE", "LINK" ]
+          },
+          "propertyCode" : {
+            "type" : "string"
+          },
+          "propertyId" : {
+            "type" : "string"
+          },
+          "units" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakeCompletionUnit"
+            }
+          }
+        }
+      },
+      "IntakeCompletionUnit" : {
+        "type" : "object",
+        "properties" : {
+          "unitCode" : {
+            "type" : "string"
+          },
+          "unitId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "IntakeEarlierResult" : {
+        "type" : "object",
+        "properties" : {
+          "propertyCode" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "IntakeGate" : {
+        "type" : "object",
+        "properties" : {
+          "ready" : {
+            "type" : "boolean"
+          },
+          "reasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NOT_LONG_TERM", "NOT_QUALIFIED", "NO_PASSED", "PASSED_NOT_USABLE", "TYPE_SCOPE_MISMATCH", "RECONCILIATION_REQUIRED", "RESTRICTED" ]
+            }
+          }
+        }
+      },
+      "IntakeMappingRequest" : {
+        "type" : "object",
+        "properties" : {
+          "spaceId" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 0,
+            "pattern" : "[0-9A-Za-z-]*"
+          },
+          "unitId" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 0,
+            "pattern" : "[0-9A-Za-z-]*"
+          }
+        },
+        "required" : [ "spaceId", "unitId" ]
+      },
+      "IntakePreviewFieldSource" : {
+        "type" : "object",
+        "properties" : {
+          "date" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "field" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "IntakePreviewOwner" : {
+        "type" : "object",
+        "properties" : {
+          "accountAddressMasked" : {
+            "type" : "string"
+          },
+          "check" : {
+            "type" : "string",
+            "enum" : [ "DONE" ]
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "CONFIRMED" ]
+          }
+        }
+      },
+      "IntakePreviewProperty" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "assetType" : {
+            "type" : [ "string", "null" ]
+          },
+          "code" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null on a CREATE"
+          },
+          "layout" : {
+            "type" : [ "string", "null" ]
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "ward" : {
+            "type" : "string"
+          }
+        }
+      },
+      "IntakePreviewSource" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "decidedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revisionId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "IntakePreviewTerm" : {
+        "type" : "object",
+        "properties" : {
+          "date" : {
+            "type" : [ "string", "null" ],
+            "format" : "date"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : [ "string", "null" ]
+          },
+          "unit" : {
+            "type" : [ "string", "null" ],
+            "description" : "The space's code; null for a common term"
+          },
+          "value" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/IntakeTermValue"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        }
+      },
+      "IntakePreviewUnit" : {
+        "type" : "object",
+        "properties" : {
+          "amenities" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "areaSqm" : {
+            "type" : [ "number", "null" ]
+          },
+          "availability" : {
+            "type" : "string",
+            "enum" : [ "AVAILABLE", "OCCUPIED", "MAINTENANCE", "BLOCKED" ]
+          },
+          "bathrooms" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "bedrooms" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "condition" : {
+            "type" : [ "string", "null" ]
+          },
+          "location" : {
+            "type" : [ "string", "null" ]
+          },
+          "sources" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakePreviewFieldSource"
+            }
+          },
+          "spaceCode" : {
+            "type" : "string"
+          },
+          "unitCode" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null for the canonical unit of a CREATE"
+          }
+        }
+      },
+      "IntakePreviewView" : {
+        "type" : "object",
+        "properties" : {
+          "notCarried" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "PHOTOS", "NOTES", "CONTACT", "TERMS" ]
+            }
+          },
+          "owner" : {
+            "$ref" : "#/components/schemas/IntakePreviewOwner"
+          },
+          "previewHash" : {
+            "type" : "string"
+          },
+          "property" : {
+            "$ref" : "#/components/schemas/IntakePreviewProperty"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/IntakePreviewSource"
+          },
+          "termsReference" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakePreviewTerm"
+            }
+          },
+          "units" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakePreviewUnit"
+            }
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "TERMS_UNCONFIRMED", "UNIT_UNCLASSIFIED", "AVAILABILITY_DIFFERS", "LEGACY_PROPERTY", "SAME_PHONE_LEAD" ]
+            }
+          }
+        }
+      },
+      "IntakeReadiness" : {
+        "type" : "object",
+        "properties" : {
+          "missingForBrokerage" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "AGREEMENT", "ADVERTISING_PERMISSION", "CONFIRMED_TERMS", "PHOTO_RIGHTS" ]
+            }
+          },
+          "reasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "LEAD_ON_HOLD", "EVIDENCE_HELD", "OWNER_NOT_CONFIRMED", "OWNER_NOT_ELIGIBLE", "RESTRICTED", "DUPLICATE", "REJECTED", "WITHDRAWN", "REQUALIFIED", "INTENT_CHANGED", "EVIDENCE_GONE" ]
+            }
+          },
+          "sourceRevisionId" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null with no result"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "NONE", "USABLE", "SUSPENDED", "ENDED" ]
+          },
+          "units" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakeReadinessUnit"
+            }
+          }
+        }
+      },
+      "IntakeReadinessUnit" : {
+        "type" : "object",
+        "properties" : {
+          "reasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "RESTRICTED", "AVAILABILITY_DIFFERS" ]
+            }
+          },
+          "unitCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "unitId" : {
+            "type" : "string"
+          },
+          "usable" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "IntakeReleaseRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "releaseReason" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          }
+        }
+      },
+      "IntakeRestorationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "IntakeSuspensionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reason" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "unitId" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 0,
+            "pattern" : "[0-9A-Za-z-]*"
+          }
+        }
+      },
+      "IntakeTargetRequest" : {
+        "type" : "object",
+        "properties" : {
+          "canonicalSpaceId" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 0,
+            "pattern" : "[0-9A-Za-z-]*"
+          },
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "mappings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IntakeMappingRequest"
+            },
+            "maxItems" : 50,
+            "minItems" : 0
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "CREATE", "LINK" ],
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "propertyId" : {
+            "type" : "string",
+            "maxLength" : 36,
+            "minLength" : 0,
+            "pattern" : "[0-9A-Za-z-]*"
+          }
+        },
+        "required" : [ "mode" ]
+      },
+      "IntakeTermValue" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64"
+          },
+          "currency" : {
+            "type" : [ "string", "null" ]
+          },
+          "text" : {
+            "type" : [ "string", "null" ]
+          },
+          "unit" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "InventoryCaseBoundary" : {
+        "type" : "object",
+        "properties" : {
+          "addressText" : {
+            "type" : [ "string", "null" ]
+          },
+          "assetType" : {
+            "type" : [ "string", "null" ]
+          },
+          "layout" : {
+            "type" : [ "string", "null" ]
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InventoryCaseCandidate" : {
+        "type" : "object",
+        "properties" : {
+          "boundary" : {
+            "$ref" : "#/components/schemas/InventoryCaseBoundary"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "intakeId" : {
+            "type" : [ "string", "null" ]
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "PROPERTY", "INTAKE" ]
+          },
+          "ownerMatches" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "Null with no checked proof"
+          },
+          "units" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerRequestPart"
+            }
+          }
+        }
+      },
+      "InventoryCaseIntake" : {
+        "type" : "object",
+        "properties" : {
+          "intakeId" : {
+            "type" : "string"
+          },
+          "leadCode" : {
+            "type" : "string"
+          },
+          "parts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerRequestPart"
+            }
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InventoryCaseItem" : {
+        "type" : "object",
+        "properties" : {
+          "caseId" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "leadCode" : {
+            "type" : "string"
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InventoryCasePage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InventoryCaseItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "InventoryCaseView" : {
+        "type" : "object",
+        "properties" : {
+          "basis" : {
+            "type" : [ "string", "null" ]
+          },
+          "candidate" : {
+            "$ref" : "#/components/schemas/InventoryCaseCandidate"
+          },
+          "caseId" : {
+            "type" : "string"
+          },
+          "decidedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          },
+          "intake" : {
+            "$ref" : "#/components/schemas/InventoryCaseIntake"
+          },
+          "outcome" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "DIFFERENT_ASSET", "SAME_ASSET" ]
+          },
+          "signal" : {
+            "type" : "string",
+            "enum" : [ "ADDRESS", "PIN", "INTAKE", "LINK_PLACE" ]
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "OPEN", "DECIDED", "CLOSED" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "InventorySearchItem" : {
+        "type" : "object",
+        "properties" : {
+          "assetType" : {
+            "type" : [ "string", "null" ]
+          },
+          "propertyCode" : {
+            "type" : "string"
+          },
+          "propertyId" : {
+            "type" : "string"
+          },
+          "units" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InventorySearchUnit"
+            }
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InventorySearchPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InventorySearchItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "InventorySearchUnit" : {
+        "type" : "object",
+        "properties" : {
+          "location" : {
+            "type" : [ "string", "null" ]
+          },
+          "unitCode" : {
+            "type" : "string"
+          },
+          "unitId" : {
+            "type" : "string"
+          }
+        }
+      },
       "LeadActivityResponse" : {
         "type" : "object",
         "description" : "History entry of an owner lead",
@@ -11673,7 +14537,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED", "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED", "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED", "CHECKLIST_SUBMITTED", "CHECKLIST_REVIEWED", "CHECKLIST_REVISION_STARTED", "REQUALIFICATION_MARKED" ]
+            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED", "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED", "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED", "CHECKLIST_SUBMITTED", "CHECKLIST_REVIEWED", "CHECKLIST_REVISION_STARTED", "REQUALIFICATION_MARKED", "INVENTORY_INTAKE_COMPLETED", "INVENTORY_INTAKE_SUSPENDED", "INVENTORY_INTAKE_RESTORED" ]
           }
         }
       },
@@ -12015,6 +14879,228 @@
         },
         "required" : [ "addressText", "provinceCode", "wardCode" ]
       },
+      "OwnerCheckContext" : {
+        "type" : "object",
+        "properties" : {
+          "accountAddressMasked" : {
+            "type" : "string"
+          },
+          "accountAgeDays" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "basis" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null until a start"
+          },
+          "confirmedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "proofId" : {
+            "type" : "string"
+          },
+          "refusals" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerCheckRefusal"
+            }
+          },
+          "signals" : {
+            "$ref" : "#/components/schemas/OwnerCheckSignals"
+          }
+        }
+      },
+      "OwnerCheckRefusal" : {
+        "type" : "object",
+        "properties" : {
+          "basis" : {
+            "type" : "string"
+          },
+          "checkedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "OwnerCheckRequest" : {
+        "type" : "object",
+        "properties" : {
+          "basis" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "proofId" : {
+            "type" : "string",
+            "maxLength" : 26,
+            "minLength" : 0,
+            "pattern" : "[0-9A-Za-z-]*"
+          }
+        },
+        "required" : [ "proofId" ]
+      },
+      "OwnerCheckSignals" : {
+        "type" : "object",
+        "properties" : {
+          "accountProofs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accountRefusals" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "creatorProofs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "creatorRefusals" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "otherOpenLeadsOfPhone" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "otherOwnersOnPhone" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "OwnerCheckStarted" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "phrase" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OwnerConfirmationCodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "maxLength" : 32,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "code" ]
+      },
+      "OwnerConfirmationConfirmRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "maxLength" : 32,
+            "minLength" : 0
+          },
+          "currentPassword" : {
+            "type" : "string",
+            "maxLength" : 256,
+            "minLength" : 0
+          },
+          "statementVersion" : {
+            "type" : "string",
+            "maxLength" : 40,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "code", "currentPassword", "statementVersion" ]
+      },
+      "OwnerConfirmationDetails" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "assetType" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+          },
+          "leadCode" : {
+            "type" : "string"
+          },
+          "parts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerRequestPart"
+            }
+          },
+          "statement" : {
+            "$ref" : "#/components/schemas/OwnerStatement"
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OwnerConfirmationItem" : {
+        "type" : "object",
+        "properties" : {
+          "checkOpen" : {
+            "type" : "boolean",
+            "description" : "Only for a CONFIRMED item"
+          },
+          "details" : {
+            "$ref" : "#/components/schemas/OwnerRequestSnapshot",
+            "description" : "Only for a CONFIRMED item"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "requestId" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "CONFIRMED" ]
+          }
+        }
+      },
+      "OwnerConfirmationList" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerConfirmationItem"
+            }
+          }
+        }
+      },
+      "OwnerConfirmationPhraseRequest" : {
+        "type" : "object",
+        "properties" : {
+          "phrase" : {
+            "type" : "string",
+            "maxLength" : 32,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "phrase" ]
+      },
+      "OwnerConfirmationWithdrawalRequest" : {
+        "type" : "object",
+        "properties" : {
+          "currentPassword" : {
+            "type" : "string",
+            "maxLength" : 256,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "currentPassword" ]
+      },
       "OwnerIntakeRequest" : {
         "type" : "object",
         "description" : "Owner intake form: a property owner asks Sunvibe to call back",
@@ -12316,6 +15402,82 @@
           }
         },
         "required" : [ "lastActivityAt" ]
+      },
+      "OwnerRequestAsk" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ownerEmail" : {
+            "type" : "string",
+            "maxLength" : 320,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "ownerEmail" ]
+      },
+      "OwnerRequestIssued" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "requestId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OwnerRequestPart" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : [ "string", "null" ]
+          }
+        }
+      },
+      "OwnerRequestSnapshot" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "assetType" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+          },
+          "leadCode" : {
+            "type" : "string"
+          },
+          "parts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OwnerRequestPart"
+            }
+          },
+          "wardName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OwnerStatement" : {
+        "type" : "object",
+        "properties" : {
+          "text" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        }
       },
       "PasswordChangeRequest" : {
         "type" : "object",
@@ -12788,6 +15950,28 @@
             "enum" : [ "WARD", "COMMUNE", "SPECIAL_ZONE" ]
           }
         }
+      },
+      "SelectionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The block's version; null only with no current row"
+          },
+          "spaceIds" : {
+            "type" : "array",
+            "description" : "1..50 space ids of the PASSED; a WHOLE source takes its one space",
+            "items" : {
+              "type" : "string",
+              "maxLength" : 26,
+              "minLength" : 0
+            },
+            "maxItems" : 50,
+            "minItems" : 0
+          }
+        },
+        "required" : [ "spaceIds" ]
       },
       "SessionResponse" : {
         "type" : "object",

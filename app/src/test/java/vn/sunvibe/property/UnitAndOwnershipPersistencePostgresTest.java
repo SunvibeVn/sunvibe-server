@@ -190,7 +190,7 @@ class UnitAndOwnershipPersistencePostgresTest {
 	void toDomain_storedUnit_rebuildsTheSavedUnit() {
 		Property property = saveProperty("WT-PER-005");
 		Unit saved = Unit.load(UnitId.generate(), property.getId(), "WT-PER-005-B", UnitType.TWO_BEDROOM, 2, 1, 55.5,
-				UnitAvailabilityState.MAINTENANCE, CREATED_AT, UPDATED_AT, null);
+				UnitAvailabilityState.MAINTENANCE, CREATED_AT, UPDATED_AT, null, null);
 		unitRepository.save(saved);
 
 		Map<String, Object> row = jdbc.queryForMap("SELECT * FROM units WHERE id = ?", saved.getId().getValue());

@@ -41,6 +41,20 @@ public interface OwnerLeadActivityJpaRepository extends JpaRepository<OwnerLeadA
             + " and to_assignee_id is not null", nativeQuery = true)
     List<String> findStaffIds(@Param("leadId") String leadId);
 
+    /** The lead and assignee ids of the entries that moved an assignee (property-create intake spec 4.3). */
+    @Query("select a.leadId as leadId, a.fromAssigneeId as fromAssigneeId, a.toAssigneeId as toAssigneeId"
+            + " from OwnerLeadActivityEntity a where a.leadId in :leadIds"
+            + " and (a.fromAssigneeId is not null or a.toAssigneeId is not null)")
+    List<AssigneeMove> findAssigneeMoves(@Param("leadIds") Collection<String> leadIds);
+
+    interface AssigneeMove {
+        String getLeadId();
+
+        String getFromAssigneeId();
+
+        String getToAssigneeId();
+    }
+
     interface LatestActivity {
         String getLeadId();
 

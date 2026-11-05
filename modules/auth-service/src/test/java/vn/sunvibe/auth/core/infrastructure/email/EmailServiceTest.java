@@ -121,6 +121,34 @@ class EmailServiceTest {
         assertTrue(output.getOut().contains("MailSendException"));
     }
 
+    /** property-create intake A-12: fixed text with the kind, the time and what to do; no value from any request. */
+    @Test
+    void notify_textHoldsNoCodeLeadOrAddress() throws Exception {
+        java.time.Instant at = java.time.Instant.parse("2026-11-06T02:30:00Z");
+        for (String kind : List.of("OWNER_CONFIRMED", "OWNER_WITHDRAWN", "OWNER_CHECK_REFUSED")) {
+            outbox.sent.clear();
+
+            service.sendOwnerNotice(ADDRESS, kind, at);
+
+            String body = (String) outbox.sent.getFirst().getContent();
+            assertTrue(body.contains("2026-11-06 09:30"), "the time, in Vietnam: " + body);
+            assertTrue(body.contains("If this was not you"), body);
+            assertFalse(body.contains(ADDRESS), body);
+            assertFalse(body.toLowerCase(java.util.Locale.ROOT).contains("code"), body);
+            assertFalse(body.toLowerCase(java.util.Locale.ROOT).contains("lead"), body);
+            assertFalse(body.toLowerCase(java.util.Locale.ROOT).contains("address"), body);
+        }
+    }
+
+    /** D5-7: a refusal is neutral; the account never reads it as a withdrawal of its own. */
+    @Test
+    void notify_refusalIsNeverAWithdrawal() throws Exception {
+        service.sendOwnerNotice(ADDRESS, "OWNER_CHECK_REFUSED", java.time.Instant.parse("2026-11-06T02:30:00Z"));
+
+        String body = (String) outbox.sent.getFirst().getContent();
+        assertFalse(body.toLowerCase(java.util.Locale.ROOT).contains("withdrew"), body);
+    }
+
     @Test
     void service_failure_exceptionQuotesNoAddress() {
         outbox.failing = true;
