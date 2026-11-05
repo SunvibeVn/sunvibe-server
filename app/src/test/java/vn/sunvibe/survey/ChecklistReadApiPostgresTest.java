@@ -57,7 +57,7 @@ class ChecklistReadApiPostgresTest {
 			"intakeDeclarationRequired", "blockedBy");
 	private static final List<String> SUMMARY_FIELDS = List.of("id", "checklistNo", "status", "outcome", "editable",
 			"readOnlyReason", "missingCount", "holderUserId", "holderName", "updatedAt", "updatedByUserId",
-			"updatedByName");
+			"updatedByName", "requalified");
 
 	@Value("${local.server.port}")
 	private int port;

@@ -29,6 +29,20 @@ class ChecklistDateRulesTest {
                 today));
     }
 
+    /** property-create requalification spec A-6: the message names the decision day, not the visit. */
+    @Test
+    void requalificationDate_fromTheDecisionDayToToday() {
+        assertEquals(Optional.of(new Violation("basisDate",
+                        "basisDate must be between the day of the decision and today.")),
+                ChecklistDateRules.requireRequalificationDate("basisDate", ARRIVAL.minusDays(1), ARRIVAL, TODAY));
+        assertEquals(Optional.empty(), ChecklistDateRules.requireRequalificationDate("basisDate", ARRIVAL, ARRIVAL,
+                TODAY));
+        assertEquals(Optional.empty(), ChecklistDateRules.requireRequalificationDate("basisDate", TODAY, ARRIVAL,
+                TODAY));
+        assertTrue(ChecklistDateRules.requireRequalificationDate("basisDate", TODAY.plusDays(1), ARRIVAL, TODAY)
+                .isPresent());
+    }
+
     @Test
     void statementDate_floorTodayAndBeforeTheLead() {
         assertEquals(Optional.of(new Violation("content.x.confirmedOn",

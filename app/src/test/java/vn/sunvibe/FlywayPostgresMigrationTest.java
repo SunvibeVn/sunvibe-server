@@ -88,8 +88,11 @@ class FlywayPostgresMigrationTest {
 						"V202611051009__create_registration_email_challenges.sql",
 						"V202611051010__create_auth_email_notifications.sql",
 						"db.migration.V202611051011__Backfill_user_identifier_keys",
+						"V202611051940__add_checklist_requalification.sql",
+						"V202611051941__validate_checklist_requalification.sql",
+						"V202611051942__index_one_current_passed.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 43, applied.size()));
+				applied.subList(applied.size() - 46, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */

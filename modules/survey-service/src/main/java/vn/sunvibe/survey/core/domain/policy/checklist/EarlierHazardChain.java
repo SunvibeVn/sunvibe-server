@@ -19,8 +19,10 @@ import java.util.Map;
  * or UNCLASSIFIED, not OBSERVED_RESOLVED) of a visit is addressed as of the read checklist by a later hazard L that
  * links it and is OBSERVED_RESOLVED (RESOLVED, any severity) or IMPORTANT or UNCLASSIFIED and not OBSERVED_RESOLVED
  * (CARRIED: L warns in turn). A link names a visit and a hazard id: one to a non-latest revision of a visit reaches the
- * same hazard of its latest revision. A minor link that is not seen resolved, or no link, addresses nothing. Computed
- * from the stored content on every read.
+ * same hazard of its latest revision. A minor link that is not seen resolved, or no link, addresses nothing. A RESOLVED
+ * link on a requalified revision before the read one addresses nothing either: a hazard resolved on the wrong asset was
+ * never seen on the right one, so it warns again (property-create requalification D5-19); the marked revision's own read
+ * keeps its links. Computed from the stored content on every read.
  */
 public final class EarlierHazardChain {
 
@@ -47,10 +49,10 @@ public final class EarlierHazardChain {
                 }
                 List<AddressedBy> addressedBy = new ArrayList<>();
                 for (ChecklistHazards later : chain.subList(k + 1, chain.size())) {
+                    boolean withdrawn = later != current && later.requalified();
                     for (Hazard link : later.hazards()) {
                         if (links(link.previous(), checklist.visitId(), hazard.hazardId(), visitOf)) {
-                            AddressKind kind = link.status() == HazardStatus.OBSERVED_RESOLVED ? AddressKind.RESOLVED
-                                    : warns(link) ? AddressKind.CARRIED : null;
+                            AddressKind kind = addressKind(link, withdrawn);
                             if (kind != null) {
                                 addressedBy.add(new AddressedBy(later.checklistId(), later.checklistNo(),
                                         link.hazardId(), kind));
@@ -71,6 +73,13 @@ public final class EarlierHazardChain {
      */
     public static List<ChecklistHazards> linkTargets(List<ChecklistHazards> earlierOfCycle, String ownVisitId) {
         return earlierOfCycle.stream().filter(checklist -> !checklist.visitId().equals(ownVisitId)).toList();
+    }
+
+    private static AddressKind addressKind(Hazard link, boolean onAWithdrawnRevision) {
+        if (link.status() == HazardStatus.OBSERVED_RESOLVED) {
+            return onAWithdrawnRevision ? null : AddressKind.RESOLVED;
+        }
+        return warns(link) ? AddressKind.CARRIED : null;
     }
 
     /** IMPORTANT or UNCLASSIFIED (counts as important) and not seen resolved (BR-18). */

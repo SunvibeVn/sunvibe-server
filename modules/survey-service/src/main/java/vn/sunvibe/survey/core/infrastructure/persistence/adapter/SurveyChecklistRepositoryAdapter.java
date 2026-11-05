@@ -29,8 +29,13 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
     static final Set<String> STARTED_INDEXES = Set.of("uq_survey_checklists_lead_no",
             "uq_survey_checklists_draft_per_appointment");
 
-    /** submission spec I-1: one SUBMITTED revision per lead and intent cycle, also under concurrent submits. */
-    static final Set<String> SUBMITTED_INDEXES = Set.of("uq_survey_checklists_submitted_per_cycle");
+    /**
+     * submission spec I-1: one SUBMITTED revision per lead and intent cycle, also under concurrent submits;
+     * property-create requalification spec I-1: one unmarked PASSED per lead and intent cycle, also under concurrent
+     * decisions.
+     */
+    static final Set<String> CYCLE_INDEXES = Set.of("uq_survey_checklists_submitted_per_cycle",
+            "uq_survey_checklists_current_passed_per_cycle");
 
     private final SurveyChecklistJpaRepository jpaRepository;
 
@@ -57,7 +62,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
         try {
             checklist.markPersisted(jpaRepository.saveAndFlush(toEntity(checklist)).getVersion());
         } catch (DataIntegrityViolationException e) {
-            if (ConstraintViolations.violatesAny(e, SUBMITTED_INDEXES)) {
+            if (ConstraintViolations.violatesAny(e, CYCLE_INDEXES)) {
                 throw new ChecklistSubmittedConflictException(e);
             }
             throw e;
@@ -134,6 +139,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
                 .submittedAt(checklist.getSubmittedAt())
                 .submittedByUserId(checklist.getSubmittedByUserId())
                 .decidedAt(checklist.getDecidedAt())
+                .requalifiedAt(checklist.getRequalifiedAt())
                 .version(checklist.getVersion())
                 .build();
     }
@@ -144,6 +150,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
                 entity.getHolderUserId(), entity.getTemplateCode(), entity.getTemplateVersion(), entity.getKind(),
                 entity.getStatus(), entity.getCreatedBy(), entity.getCreatedAt(),
                 entity.getPreviousChecklistId() == null ? null : SurveyChecklistId.of(entity.getPreviousChecklistId()),
-                entity.getSubmittedAt(), entity.getSubmittedByUserId(), entity.getDecidedAt(), entity.getVersion());
+                entity.getSubmittedAt(), entity.getSubmittedByUserId(), entity.getDecidedAt(),
+                entity.getRequalifiedAt(), entity.getVersion());
     }
 }

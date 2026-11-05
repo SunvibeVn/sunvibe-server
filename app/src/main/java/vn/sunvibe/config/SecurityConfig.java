@@ -96,6 +96,7 @@ public class SecurityConfig {
     /** The fixed messages of the chain's 401 and 403 (survey-media plan PD-2). */
     static final String UNAUTHORIZED_MESSAGE = "Authentication is required.";
     static final String FORBIDDEN_MESSAGE = "You do not have permission to access this resource.";
+    private static final String CHECKLIST_REQUALIFICATION_PATH = "/api/v1/staff/survey-checklists/*/requalification";
 
     // ── Beans ────────────────────────────────────────────────
 
@@ -191,6 +192,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, PUBLIC_V1_AUTH_POST_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.GET, PUBLIC_GET_ENDPOINTS).permitAll()
                         .requestMatchers(HttpMethod.POST, ADMIN_FEATURE_PATH).hasRole(RoleName.ADMIN.name())
+                        // property-create requalification spec 5.3: the role before the body, so a refused caller gets
+                        // 403 for a body that cannot be read too; a controller annotation runs after the body is read
+                        .requestMatchers(HttpMethod.POST, CHECKLIST_REQUALIFICATION_PATH)
+                        .hasAnyRole(RoleName.SALE_LEADER.name(), RoleName.SALES_MANAGER.name(), RoleName.ADMIN.name())
                         // The signed-in user's own account: every /api/v1/me operation needs a valid access token.
                         .requestMatchers("/api/v1/me/**").authenticated()
                         .anyRequest().authenticated()

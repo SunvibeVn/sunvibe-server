@@ -2363,7 +2363,7 @@
     },
     "/api/v1/staff/owner-leads/{leadId}/intent-changes" : {
       "post" : {
-        "description" : "Allowed in ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED, unless the cycle has a PASSED checklist revision; ASSIGNED and SURVEY_SCHEDULED move to CONTACTED. Starts a new intent cycle and cancels the scheduled survey appointment, if any. askingPrice must be sent: a price or null.",
+        "description" : "Allowed in ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED, unless the cycle has a current PASSED checklist revision (one that was not requalified); ASSIGNED and SURVEY_SCHEDULED move to CONTACTED. Starts a new intent cycle and cancels the scheduled survey appointment, if any. askingPrice must be sent: a price or null.",
         "operationId" : "changeIntent",
         "parameters" : [ {
           "in" : "path",
@@ -4757,6 +4757,94 @@
           }
         },
         "summary" : "Save the parts group of a survey checklist draft (the holder, who is the lead's eligible assignee)",
+        "tags" : [ "Survey checklists (staff)" ]
+      }
+    },
+    "/api/v1/staff/survey-checklists/{checklistId}/requalification" : {
+      "post" : {
+        "description" : "The revision stays exactly as it is and its result stops being used; the mark is never removed. A QUALIFIED lead moves to CONTACTED; an ON_HOLD lead stays held and can then be moved to CONTACTED by hand. The reason, source and scope stay on the revision, out of History and lists. A repeat answers 409.",
+        "operationId" : "requalifySurveyChecklist",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "checklistId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChecklistRequalificationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChecklistRequalifiedResponse"
+                }
+              }
+            },
+            "description" : "The revision, the lead and the History entry"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on expectedVersion, reasonKind, reason, eventSource, scope or basisDate (a missing or unknown key too); MALFORMED_REQUEST"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller's role may not withdraw a revision"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: no such checklist"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION (field expectedVersion); SURVEY_NOT_ALLOWED (field checklist): the revision is not the current PASSED of the lead's cycle; INVALID_STATE_TRANSITION (field status): the lead is neither QUALIFIED nor ON_HOLD"
+          }
+        },
+        "summary" : "Withdraw the current PASSED survey checklist revision from use (SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
         "tags" : [ "Survey checklists (staff)" ]
       }
     },
@@ -9448,7 +9536,7 @@
         "properties" : {
           "reason" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "INTENT_CHANGED", "LEAD_CLOSED", "EVIDENCE_HELD", "EVIDENCE_GONE" ]
+            "enum" : [ "INTENT_CHANGED", "LEAD_CLOSED", "EVIDENCE_HELD", "EVIDENCE_GONE", "REQUALIFIED" ]
           },
           "surveyedScope" : {
             "$ref" : "#/components/schemas/ChecklistSurveyedScope"
@@ -9764,6 +9852,140 @@
         },
         "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
       },
+      "ChecklistRequalificationHistoryEntryResponse" : {
+        "type" : "object",
+        "description" : "The lead History entry written by a requalification",
+        "properties" : {
+          "actorName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Full name of the staff member; null when the id has no user row"
+          },
+          "actorUserId" : {
+            "type" : "string"
+          },
+          "fromStatus" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null when the lead kept its status"
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "referenceId" : {
+            "type" : "string",
+            "description" : "The checklist"
+          },
+          "referenceNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The checklist number"
+          },
+          "toStatus" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null when the lead kept its status"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "REQUALIFICATION_MARKED" ]
+          }
+        }
+      },
+      "ChecklistRequalificationRequest" : {
+        "type" : "object",
+        "description" : "Withdraw a PASSED survey checklist revision from use",
+        "properties" : {
+          "basisDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "Vietnam date the source confirmed it, from the day of the decision to today"
+          },
+          "eventSource" : {
+            "type" : [ "string", "null" ],
+            "description" : "Who or what reported it: 1..500 characters, no phone number"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The checklist version the caller read"
+          },
+          "reason" : {
+            "type" : [ "string", "null" ],
+            "description" : "What is wrong: 1..2000 characters, no phone number"
+          },
+          "reasonKind" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "WRONG_ASSET", "WRONG_OWNER", "WRONG_PERSON", "WRONG_SCOPE", "NEED_CHANGED", "PHOTO_PROBLEM", "HAZARD", "OTHER" ]
+          },
+          "scope" : {
+            "type" : [ "string", "null" ],
+            "description" : "What it affects: 1..500 characters, no phone number"
+          }
+        },
+        "required" : [ "basisDate", "eventSource", "expectedVersion", "reason", "reasonKind", "scope" ]
+      },
+      "ChecklistRequalificationResponse" : {
+        "type" : "object",
+        "description" : "Why the PASSED revision was withdrawn from use",
+        "properties" : {
+          "basisDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "eventSource" : {
+            "type" : "string"
+          },
+          "markedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "markedBy" : {
+            "$ref" : "#/components/schemas/ChecklistStaffMember"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "reasonKind" : {
+            "type" : "string",
+            "enum" : [ "WRONG_ASSET", "WRONG_OWNER", "WRONG_PERSON", "WRONG_SCOPE", "NEED_CHANGED", "PHOTO_PROBLEM", "HAZARD", "OTHER" ]
+          },
+          "scope" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChecklistRequalificationStateResponse" : {
+        "type" : "object",
+        "description" : "Whether the viewer can withdraw the lead's current PASSED revision",
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "checklistId" : {
+            "type" : [ "string", "null" ],
+            "description" : "The revision to mark; null when not allowed"
+          },
+          "expectedVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "The version the command names; null when not allowed"
+          }
+        }
+      },
+      "ChecklistRequalifiedResponse" : {
+        "type" : "object",
+        "description" : "The answer of a requalification",
+        "properties" : {
+          "checklist" : {
+            "$ref" : "#/components/schemas/ChecklistResponse"
+          },
+          "historyEntry" : {
+            "$ref" : "#/components/schemas/ChecklistRequalificationHistoryEntryResponse"
+          },
+          "lead" : {
+            "$ref" : "#/components/schemas/SurveyLeadStateResponse"
+          }
+        }
+      },
       "ChecklistResponse" : {
         "type" : "object",
         "description" : "A survey checklist as a reader of its lead sees it",
@@ -9873,6 +10095,14 @@
           },
           "readiness" : {
             "$ref" : "#/components/schemas/ChecklistReadiness"
+          },
+          "requalification" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ChecklistRequalificationResponse"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Only on a PASSED revision withdrawn from use"
           },
           "review" : {
             "$ref" : "#/components/schemas/ChecklistReviewResponse"
@@ -10549,6 +10779,10 @@
           "readOnlyReason" : {
             "type" : [ "string", "null" ],
             "enum" : [ "INTENT_CHANGED", "SUBMITTED", "DECIDED", "NEWER_VISIT", "LEAD_STATUS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", "TAKEOVER_REQUIRED" ]
+          },
+          "requalified" : {
+            "type" : "boolean",
+            "description" : "A PASSED revision withdrawn from use; the reason is on the revision"
           },
           "status" : {
             "type" : "string",
@@ -11439,7 +11673,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED", "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED", "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED", "CHECKLIST_SUBMITTED", "CHECKLIST_REVIEWED", "CHECKLIST_REVISION_STARTED" ]
+            "enum" : [ "SUBMITTED", "AUTO_ASSIGNED", "ASSIGNED", "REASSIGNED", "STATUS_CHANGED", "NOTE_ADDED", "SURVEY_BOOKED", "SURVEY_CHANGED", "SURVEY_CONFIRMED", "SURVEY_UNCONFIRMED", "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED", "INTENT_CHANGED", "CHECKLIST_STARTED", "CHECKLIST_TAKEN_OVER", "CHECKLIST_SAVED", "CHECKLIST_MEDIA_ADDED", "CHECKLIST_MEDIA_REMOVED", "CHECKLIST_SUBMITTED", "CHECKLIST_REVIEWED", "CHECKLIST_REVISION_STARTED", "REQUALIFICATION_MARKED" ]
           }
         }
       },
@@ -13448,6 +13682,10 @@
               "type" : "null"
             } ],
             "description" : "With a PASSED revision: whether it can still be used"
+          },
+          "requalification" : {
+            "$ref" : "#/components/schemas/ChecklistRequalificationStateResponse",
+            "description" : "Whether the viewer can withdraw the current PASSED revision (property-create requalification spec 7)"
           }
         }
       },

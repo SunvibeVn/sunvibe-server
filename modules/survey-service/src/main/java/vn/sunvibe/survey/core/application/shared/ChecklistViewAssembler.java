@@ -161,6 +161,9 @@ public class ChecklistViewAssembler {
         if (review.decisionOrNull() != null) {
             ids.add(review.decisionOrNull().reviewerUserId());
         }
+        if (review.requalificationOrNull() != null) {
+            ids.add(review.requalificationOrNull().markedByUserId());
+        }
         ids.remove(null);
         Map<String, String> names = ids.isEmpty() ? Map.of() : directory.displayNames(ids);
         return new ChecklistView(checklist, lead.requestCode(), lead.status(), leadStaff, visit, editability, states,
@@ -230,7 +233,8 @@ public class ChecklistViewAssembler {
                                     editability(viewer, lead, ofLead, checklist, assigneeEligible),
                                     readiness.missingCount(), checklist.getHolderUserId(),
                                     latest == null ? checklist.getCreatedAt() : latest.updatedAt(),
-                                    latest == null ? null : latest.updatedByUserId()));
+                                    latest == null ? null : latest.updatedByUserId(),
+                                    checklist.isRequalified()));
                 });
         return byVisit;
     }
@@ -316,7 +320,7 @@ public class ChecklistViewAssembler {
         SafetyContent safety = (SafetyContent) states.get(ChecklistGroup.SAFETY).document().content();
         List<Hazard> hazards = safety.hazards().isValue() ? safety.hazards().value() : List.of();
         return new ChecklistHazards(checklist.getId().getValue(), checklist.getVisitAppointmentId().getValue(),
-                checklist.getChecklistNo(), hazards);
+                checklist.getChecklistNo(), hazards, checklist.isRequalified());
     }
 
     private static List<EditorView> editors(List<ChecklistSave> saves) {

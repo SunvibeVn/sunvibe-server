@@ -154,6 +154,42 @@ Before uploads are turned on in production (spec 9.4), and at each deploy where 
      `ANALYZE survey_checklists; ANALYZE owner_lead_activities;` (the type change dropped their column statistics).
   4. Turn the switch on only when no old instance can come back: there is no rollback after the first submit or
      QUALIFIED.
+- **The requalification deploy (`V202611051940` to `V202611051942`; property-create requalification spec 5.2, 7):**
+  stop every old API instance before the new one starts, in a quiet window; no overlap. An old instance that keeps
+  serving can fail native `select *` reads of `survey_checklists` with `cached plan must not change result type` (not
+  reproduced), and after a first mark it reads a withdrawn PASSED as current. `V202611051940` holds an ACCESS EXCLUSIVE
+  lock on `survey_checklists` (reads stop) for catalog work only; `V202611051941` scans the table with reads and writes
+  going on; `V202611051942` builds a unique index under a SHARE lock (writes wait), a full scan of a table with one row
+  per revision, justified by its small size before go-live. Each lock wait is bounded by the 5 s `lock_timeout`, after
+  which the file rolls back and a restart retries it. The run times are not bounded and were not measured (SV-090).
+  1. After the stop, before the start: the first two queries must answer no row, and the third gives the size to note.
+     A row in the first makes `V202611051942` fail with 23505 and the new binary cannot start: do not start it, take it
+     to the owner. There is no repair template: the command that marks a revision exists only in the new binary. A row
+     in the second: wait for that session to finish, then run the query again. If the table is no longer small, take
+     the build time of the index to the owner too.
+     `SELECT lead_id, intent_cycle, count(*) FROM survey_checklists WHERE status = 'PASSED' GROUP BY 1, 2 HAVING
+     count(*) > 1;`
+     `SELECT l.pid, l.mode, l.granted, a.state, now() - a.xact_start AS age FROM pg_locks l JOIN pg_stat_activity a
+     USING (pid) WHERE l.relation = 'survey_checklists'::regclass AND l.pid <> pg_backend_pid();`
+     `SELECT count(*), pg_size_pretty(pg_total_relation_size('survey_checklists')) FROM survey_checklists;`
+  2. Start the new instance. A failed file stays out of the history and a restart retries it.
+  3. After, before traffic: three rows with `success` true, whose `execution_time` (ms) is the measurement to keep;
+     no unvalidated constraint; the index valid and unique:
+     `SELECT version, success, execution_time FROM flyway_schema_history WHERE version IN ('202611051940',
+     '202611051941', '202611051942');`
+     `SELECT conrelid::regclass, conname FROM pg_constraint WHERE NOT convalidated;`
+     `SELECT i.indisvalid, i.indisready, i.indisunique FROM pg_index i WHERE i.indexrelid =
+     'uq_survey_checklists_current_passed_per_cycle'::regclass;`
+  4. Reconciliation, at any time after the first mark; each must answer no row (the second finds a mark without its
+     row, or a row without its mark):
+     `SELECT lead_id, intent_cycle, count(*) FROM survey_checklists WHERE status = 'PASSED' AND requalified_at IS NULL
+     GROUP BY 1, 2 HAVING count(*) > 1;`
+     `SELECT c.id, c.requalified_at, r.marked_at FROM survey_checklists c LEFT JOIN survey_checklist_requalifications r
+     ON r.checklist_id = c.id WHERE c.requalified_at IS DISTINCT FROM r.marked_at;`
+  5. An older binary is safe only before the first mark (not rehearsed); after it, fix forward only. Before any
+     rollback all three must be 0: `SELECT (SELECT count(*) FROM survey_checklist_requalifications) AS rows, (SELECT count(*) FROM
+     survey_checklists WHERE requalified_at IS NOT NULL) AS marks, (SELECT count(*) FROM owner_lead_activities WHERE
+     type = 'REQUALIFICATION_MARKED') AS history;`
 - **The processor at start-up:** each API instance retries the processor self-probe every 5 s for about a minute
   before it records a PROCESSOR pause and runs without a worker until restarted. No compose file here starts the API;
   a deployment that does starts the processor first (`depends_on`) so the probe passes within that minute.

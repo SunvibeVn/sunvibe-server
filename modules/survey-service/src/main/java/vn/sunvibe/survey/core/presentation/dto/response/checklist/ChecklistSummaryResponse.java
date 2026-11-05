@@ -26,7 +26,9 @@ public record ChecklistSummaryResponse(
         @Schema(nullable = true)
         String updatedByUserId,
         @Schema(nullable = true)
-        String updatedByName) {
+        String updatedByName,
+        @Schema(description = "A PASSED revision withdrawn from use; the reason is on the revision")
+        boolean requalified) {
 
     /** Survey data may be private: never print it. */
     @Override

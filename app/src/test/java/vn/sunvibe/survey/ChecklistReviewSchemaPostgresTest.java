@@ -48,9 +48,9 @@ class ChecklistReviewSchemaPostgresTest {
 	private static final List<String> OLD_TABLES = List.of("owner_leads", "owner_lead_activities", "survey_appointments",
 			"survey_checklists", "survey_checklist_groups", "survey_checklist_takeovers", "survey_security_events",
 			"survey_media_sets", "survey_media");
-	/** The columns this slice adds to the old tables; old rows keep them NULL. */
+	/** The columns added to the old tables since then, by this slice and the requalification; old rows keep them NULL. */
 	private static final Set<String> NEW_CHECKLIST_COLUMNS = Set.of("previous_checklist_id", "submitted_at",
-			"submitted_by_user_id", "decided_at");
+			"submitted_by_user_id", "decided_at", "requalified_at");
 
 	/** Constraint name to the values this slice adds (spec 5.3). */
 	private static final Map<String, List<String>> WIDENED = new LinkedHashMap<>();

@@ -204,8 +204,9 @@ public final class SurveyApiTestSupport {
 		for (String id : leadIds) {
 			jdbc.update("delete from survey_security_events where lead_id = ?", id);
 			// the review rows go before the photos they name (checklist submission spec 5.3)
-			for (String table : List.of("survey_checklist_evidence_rejections", "survey_checklist_decisions",
-					"survey_checklist_evidence", "survey_checklist_submissions", "survey_checklist_media_selections")) {
+			for (String table : List.of("survey_checklist_requalifications", "survey_checklist_evidence_rejections",
+					"survey_checklist_decisions", "survey_checklist_evidence", "survey_checklist_submissions",
+					"survey_checklist_media_selections")) {
 				jdbc.update("delete from " + table + " where checklist_id in "
 						+ "(select id from survey_checklists where lead_id = ?)", id);
 			}

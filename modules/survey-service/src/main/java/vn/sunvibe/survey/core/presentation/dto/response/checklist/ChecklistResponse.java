@@ -53,7 +53,9 @@ public record ChecklistResponse(
         ChecklistDecisionResponse decision,
         ChecklistReviewResponse review,
         @Schema(nullable = true, description = "Only on a PASSED revision")
-        ChecklistPassedResponse passed) {
+        ChecklistPassedResponse passed,
+        @Schema(nullable = true, description = "Only on a PASSED revision withdrawn from use")
+        ChecklistRequalificationResponse requalification) {
 
     /** Survey data may be private: never print it. */
     @Override

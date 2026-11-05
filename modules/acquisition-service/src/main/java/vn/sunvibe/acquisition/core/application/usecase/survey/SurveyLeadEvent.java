@@ -20,5 +20,7 @@ public enum SurveyLeadEvent {
     /** The survey work of a held lead was resumed (survey-schedule BR-11). */
     SURVEY_RESUMED,
     /** A reviewer decided a checklist revision (survey-checklist submission spec 4.5, plan PD-5). */
-    CHECKLIST_REVIEWED
+    CHECKLIST_REVIEWED,
+    /** A manager withdrew a PASSED revision from use (property-create requalification spec 4). */
+    REQUALIFICATION_MARKED
 }

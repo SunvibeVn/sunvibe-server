@@ -199,6 +199,43 @@ class EarlierHazardChainTest {
         assertEquals(false, EarlierHazardChain.warns(second.hazards().get(0)));
     }
 
+    // ==================== a marked revision (property-create requalification D5-19, S-11) ====================
+
+    /** A hazard "resolved" on the wrong asset was never seen on the right one. */
+    @Test
+    void chain_resolvedOnMarkedRevision_warnsAgain() {
+        ChecklistHazards marked = marked(C2, 2, hazard(H2, IMPORTANT, OBSERVED_RESOLVED, link(C1, H1)));
+
+        List<EarlierHazard> earlier = EarlierHazardChain.of(List.of(FIRST, marked), checklist(C3, 3));
+
+        assertEquals(List.of(H1), open(earlier));
+    }
+
+    /** I-2: the marked revision's own read keeps its own links and reads as it did. */
+    @Test
+    void chain_readOfTheMarkedRevision_ownLinksStand() {
+        ChecklistHazards marked = marked(C2, 2, hazard(H2, IMPORTANT, OBSERVED_RESOLVED, link(C1, H1)));
+
+        assertEquals(List.of(new EarlierHazard(C1, 1, FIRST.hazards().get(0),
+                List.of(new AddressedBy(C2, 2, H2, AddressKind.RESOLVED)))), EarlierHazardChain.of(List.of(FIRST), marked));
+    }
+
+    @Test
+    void chain_newObservationAfterTheMark_addressesIt() {
+        ChecklistHazards marked = marked(C2, 2, hazard(H2, IMPORTANT, OBSERVED_RESOLVED, link(C1, H1)));
+
+        assertEquals(List.of(), open(EarlierHazardChain.of(List.of(FIRST, marked),
+                checklist(C3, 3, hazard(H3, IMPORTANT, OBSERVED_RESOLVED, link(C1, H1))))));
+    }
+
+    /** Only a RESOLVED link loses its effect: a carried hazard warns in turn, on the marked revision too. */
+    @Test
+    void chain_carriedOnMarkedRevision_stillWarnsInTurn() {
+        ChecklistHazards marked = marked(C2, 2, hazard(H2, IMPORTANT, OPEN, link(C1, H1)));
+
+        assertEquals(List.of(H2), open(EarlierHazardChain.of(List.of(FIRST, marked), checklist(C3, 3))));
+    }
+
     // ==================== helpers ====================
 
     private static List<String> open(List<EarlierHazard> earlier) {
@@ -211,7 +248,11 @@ class EarlierHazardChainTest {
     }
 
     private static ChecklistHazards revision(String id, int no, String visitId, Hazard... hazards) {
-        return new ChecklistHazards(id, visitId, no, List.of(hazards));
+        return new ChecklistHazards(id, visitId, no, List.of(hazards), false);
+    }
+
+    private static ChecklistHazards marked(String id, int no, Hazard... hazards) {
+        return new ChecklistHazards(id, "01JVISIT0000000000000000" + no + "0", no, List.of(hazards), true);
     }
 
     private static HazardLink link(String checklistId, String hazardId) {

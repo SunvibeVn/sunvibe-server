@@ -290,7 +290,7 @@ class SurveyOpenApiTest {
 				fieldNames(schema("ChecklistReviewResponse").path("properties")).stream().sorted().toList());
 		assertEquals(List.of("NOT_REVIEWER_ROLE", "NOT_SUBMITTED", "LEAD_STATUS", "INTENT_CHANGED", "SERVING_DISABLED",
 				"NOT_INDEPENDENT"), values(schema("ChecklistReviewResponse").path("properties").path("reason")));
-		assertEquals(List.of("INTENT_CHANGED", "LEAD_CLOSED", "EVIDENCE_HELD", "EVIDENCE_GONE"),
+		assertEquals(List.of("INTENT_CHANGED", "LEAD_CLOSED", "EVIDENCE_HELD", "EVIDENCE_GONE", "REQUALIFIED"),
 				values(schema("ChecklistPassedResponse").path("properties").path("reason")));
 	}
 
@@ -322,6 +322,52 @@ class SurveyOpenApiTest {
 				"CHECKLIST_REVIEW_NOT_ALLOWED", "CHECKLIST_DECISION_NOT_ALLOWED")) {
 			assertTrue(descriptions.toString().contains(code), code);
 		}
+	}
+
+	// ==================== property-create requalification spec 7, S-10 ====================
+
+	@Test
+	void openApi_requalification_isTheContractOfTheSpec() {
+		JsonNode post = contract.path("paths").path(CHECKLISTS + "/{checklistId}/requalification").path("post");
+
+		assertEquals("requalifySurveyChecklist", post.path("operationId").asString());
+		assertEquals(List.of("200", "400", "401", "403", "404", "409"),
+				fieldNames(post.path("responses")).stream().sorted().toList());
+		String conflicts = post.path("responses").path("409").path("description").asString();
+		for (String code : List.of("CONCURRENT_MODIFICATION", "SURVEY_NOT_ALLOWED", "INVALID_STATE_TRANSITION")) {
+			assertTrue(conflicts.contains(code), code);
+		}
+		assertEquals(List.of("basisDate", "eventSource", "expectedVersion", "reason", "reasonKind", "scope"),
+				fieldNames(schema("ChecklistRequalificationRequest").path("properties")).stream().sorted().toList());
+		assertEquals(List.of("WRONG_ASSET", "WRONG_OWNER", "WRONG_PERSON", "WRONG_SCOPE", "NEED_CHANGED", "PHOTO_PROBLEM",
+				"HAZARD", "OTHER"), values(schema("ChecklistRequalificationRequest").path("properties").path("reasonKind")));
+		assertEquals(List.of("checklist", "historyEntry", "lead"),
+				fieldNames(schema("ChecklistRequalifiedResponse").path("properties")).stream().sorted().toList());
+		assertEquals(List.of("REQUALIFICATION_MARKED"),
+				values(schema("ChecklistRequalificationHistoryEntryResponse").path("properties").path("type")));
+	}
+
+	@Test
+	void openApi_requalificationReads_areTheChangedResponsesOfTheSpec() {
+		JsonNode checklist = schema("ChecklistResponse").path("properties").path("requalification");
+		assertTrue(checklist.toString().contains("ChecklistRequalificationResponse"), checklist.toString());
+		assertTrue(acceptsNull(checklist), checklist.toString());
+		assertEquals(List.of("basisDate", "eventSource", "markedAt", "markedBy", "reason", "reasonKind", "scope"),
+				fieldNames(schema("ChecklistRequalificationResponse").path("properties")).stream().sorted().toList());
+		assertTrue(fieldNames(schema("ChecklistSummaryResponse").path("properties")).contains("requalified"));
+		assertTrue(fieldNames(schema("SurveyRecordResponse").path("properties")).contains("requalification"));
+		JsonNode state = schema("ChecklistRequalificationStateResponse").path("properties");
+		assertEquals(List.of("allowed", "checklistId", "expectedVersion"), fieldNames(state).stream().sorted().toList());
+		assertTrue(acceptsNull(state.path("checklistId")), state.toString());
+		assertTrue(acceptsNull(state.path("expectedVersion")), state.toString());
+		assertTrue(state.path("expectedVersion").toString().contains("\"integer\""), state.toString());
+		assertTrue(values(schema("LeadActivityResponse").path("properties").path("type"))
+				.contains("REQUALIFICATION_MARKED"));
+	}
+
+	/** OpenAPI 3.1: a nullable property lists the null type (SV-020). */
+	private static boolean acceptsNull(JsonNode property) {
+		return property.toString().contains("\"null\"");
 	}
 
 	private static List<String> values(JsonNode property) {

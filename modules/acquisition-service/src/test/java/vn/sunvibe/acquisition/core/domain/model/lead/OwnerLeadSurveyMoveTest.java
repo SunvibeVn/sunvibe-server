@@ -11,6 +11,7 @@ import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.CHECKLIST_REVIEWED;
+import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.REQUALIFICATION_MARKED;
 import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.SURVEY_BOOKED;
 import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.SURVEY_CANCELLED;
 import static vn.sunvibe.acquisition.core.domain.model.activity.OwnerLeadActivityType.SURVEY_CHANGED;
@@ -49,7 +50,9 @@ class OwnerLeadSurveyMoveTest {
             new Row(SURVEY_RESUMED, ON_HOLD, QUALIFIED),
             new Row(CHECKLIST_REVIEWED, SURVEY_SCHEDULED, QUALIFIED),
             new Row(CHECKLIST_REVIEWED, SURVEY_SCHEDULED, null),
-            new Row(CHECKLIST_REVIEWED, SURVEY_SCHEDULED, CONTACTED));
+            new Row(CHECKLIST_REVIEWED, SURVEY_SCHEDULED, CONTACTED),
+            new Row(REQUALIFICATION_MARKED, QUALIFIED, CONTACTED),
+            new Row(REQUALIFICATION_MARKED, ON_HOLD, null));
 
     private static final String CLOSE_REASON = "Survey failed: out of scope (checklist #1)";
 
@@ -122,6 +125,42 @@ class OwnerLeadSurveyMoveTest {
             assertThrows(InvalidLeadTransitionException.class,
                     () -> lead.moveForSurvey(SURVEY_RESUMED, QUALIFIED, APPOINTMENT_ID, 2), from.name());
         }
+    }
+
+    /** property-create requalification spec 4: a QUALIFIED lead goes back to a new survey with the mark. */
+    @Test
+    void move_qualifiedToContacted_ok() {
+        OwnerLead lead = lead(QUALIFIED, ASSIGNEE);
+
+        LeadChange change = lead.moveForSurvey(REQUALIFICATION_MARKED, CONTACTED, APPOINTMENT_ID, 2);
+
+        assertEquals(CONTACTED, lead.getStatus());
+        assertEquals(QUALIFIED, change.fromStatus());
+        assertEquals(CONTACTED, change.toStatus());
+        assertEquals(APPOINTMENT_ID, change.referenceId());
+    }
+
+    /** property-create requalification D5-2: a held lead stays held; the row still changes, so the version rises. */
+    @Test
+    void move_onHoldKept_ok() {
+        OwnerLead lead = lead(ON_HOLD, ASSIGNEE);
+
+        LeadChange change = lead.moveForSurvey(REQUALIFICATION_MARKED, null, APPOINTMENT_ID, 2);
+
+        assertEquals(ON_HOLD, lead.getStatus());
+        assertNull(change.fromStatus());
+        assertNull(change.toStatus());
+        assertTrue(lead.getUpdatedAt().isAfter(LONG_AGO));
+    }
+
+    @Test
+    void move_fromOther_refused() {
+        for (OwnerLeadStatus from : List.of(NEW, ASSIGNED, CONTACTED, SURVEY_SCHEDULED, DUPLICATE, REJECTED, WITHDRAWN)) {
+            assertRefused(REQUALIFICATION_MARKED, from, CONTACTED);
+            assertRefused(REQUALIFICATION_MARKED, from, null);
+        }
+        assertRefused(REQUALIFICATION_MARKED, QUALIFIED, null);
+        assertRefused(REQUALIFICATION_MARKED, ON_HOLD, CONTACTED);
     }
 
     @Test

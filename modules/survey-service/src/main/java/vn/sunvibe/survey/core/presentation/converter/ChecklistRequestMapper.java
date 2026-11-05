@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.command.BasisInput;
 import vn.sunvibe.survey.core.application.command.CorrectionInput;
 import vn.sunvibe.survey.core.application.command.DecideChecklistCommand;
+import vn.sunvibe.survey.core.application.command.RequalifyCommand;
 import vn.sunvibe.survey.core.application.command.IntakeInput;
 import vn.sunvibe.survey.core.application.command.SaveChecklistGroupCommand;
 import vn.sunvibe.survey.core.application.command.StartChecklistCommand;
@@ -82,6 +83,7 @@ import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistPartsI
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistPartsSpaceInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistPetsTermInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistPropertyTypeFieldInput;
+import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRequalificationRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRentTermInput;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRevisionRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSafetyInput;
@@ -159,6 +161,11 @@ public class ChecklistRequestMapper {
                 .map(mark -> mark == null ? null
                         : new DecideChecklistCommand.RejectedEvidence(mark.mediaId(), mark.reason()))
                 .toList());
+    }
+
+    public RequalifyCommand toCommand(String checklistId, ChecklistRequalificationRequest request) {
+        return new RequalifyCommand(checklistId, request.expectedVersion(), request.reasonKind(), request.reason(),
+                request.eventSource(), request.scope(), request.basisDate());
     }
 
     // ==================== group saves ====================

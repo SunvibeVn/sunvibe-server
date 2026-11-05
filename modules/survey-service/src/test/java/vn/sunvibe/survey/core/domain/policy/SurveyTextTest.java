@@ -22,6 +22,21 @@ class SurveyTextTest {
         assertEquals("Line one\n  café", SurveyText.require("note", "  Line one\n  café  ", 2000));
     }
 
+    /** SV-087: PostgreSQL cannot store U+0000; property-create requalification spec A-6. */
+    @Test
+    void requireStorable_nul_isRefusedOnTheField() {
+        assertField("reason", () -> SurveyText.requireStorable("reason", "Ly do\u0000", 500));
+        assertField("reason", () -> SurveyText.requireStorable("reason", "\u0000", 500));
+    }
+
+    @Test
+    void requireStorable_otherwiseAsRequire() {
+        assertEquals("Line one", SurveyText.requireStorable("reason", "  Line one  ", 500));
+        assertField("reason", () -> SurveyText.requireStorable("reason", null, 500));
+        assertField("reason", () -> SurveyText.requireStorable("reason", "x".repeat(501), 500));
+        assertField("reason", () -> SurveyText.requireStorable("reason", "Goi 0905123456", 500));
+    }
+
     @Test
     void require_blankOrTooLong_isRefusedOnTheField() {
         assertField("reason", () -> SurveyText.require("reason", null, 500));

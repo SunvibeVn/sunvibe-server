@@ -6,6 +6,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
 import vn.sunvibe.survey.core.domain.model.checklist.FailedKind;
 import vn.sunvibe.survey.core.domain.model.checklist.NeedsChangesKind;
+import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 import vn.sunvibe.survey.core.domain.model.media.HoldReason;
@@ -74,6 +75,28 @@ class SurveyStateServiceTest {
         assertEquals(new LeadSurveyState(true, true, false, false), state());
     }
 
+    /** property-create requalification spec 4: after a mark the cycle reads as before a PASSED. */
+    @Test
+    void state_afterMark_noPassed() {
+        SurveyChecklistId id = passedRevision();
+
+        mark(id);
+
+        assertEquals(new LeadSurveyState(false, false, false, false), state());
+    }
+
+    /** property-create requalification D5-1: the current PASSED is the unmarked one, whatever its age. */
+    @Test
+    void state_secondPassed_isCurrent() {
+        mark(passedRevision());
+        SurveyChecklistId second = draft();
+        frozenPhoto(second);
+        h.submitted(second, SALE_A);
+        h.decided(second, DecisionOutcome.PASSED, null, null, LEADER);
+
+        assertEquals(new LeadSurveyState(true, true, false, false), state());
+    }
+
     /** spec 4.7: a hold makes the PASSED unusable until its release; the revision itself stays PASSED. */
     @Test
     void surveyState_passedWithHeldPhoto_notUsable_thenReleased() {
@@ -126,6 +149,19 @@ class SurveyStateServiceTest {
         h.submitted(draft(), SALE_A);
 
         assertEquals(new LeadSurveyState(false, false, false, false), h.surveyStates.surveyState(LEAD, 2));
+    }
+
+    private SurveyChecklistId passedRevision() {
+        SurveyChecklistId id = draft();
+        h.submitted(id, SALE_A);
+        h.decided(id, DecisionOutcome.PASSED, null, null, LEADER);
+        return id;
+    }
+
+    private void mark(SurveyChecklistId id) {
+        SurveyChecklist checklist = h.checklists.findById(id).orElseThrow();
+        checklist.markRequalified(Instant.now());
+        h.checklists.update(checklist);
     }
 
     private SurveyMedia frozenPhoto(SurveyChecklistId id) {

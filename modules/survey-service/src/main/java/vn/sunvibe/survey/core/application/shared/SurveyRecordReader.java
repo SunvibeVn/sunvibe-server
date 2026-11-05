@@ -51,9 +51,13 @@ public class SurveyRecordReader {
     public record CycleRecord(List<SurveyChecklist> ofCycle, Map<SurveyChecklistId, ChecklistDecision> decisions,
                               Optional<SurveyAppointment> currentVisit) {
 
-        /** A cycle has at most one: a PASSED refuses booking and every later revision (spec 4.8). */
+        /**
+         * The current PASSED: a cycle has at most one unmarked, by a unique index, and it refuses booking and every later
+         * revision (spec 4.8). A requalified one stopped being used (property-create requalification D5-1).
+         */
         public Optional<SurveyChecklist> passed() {
-            return ofCycle.stream().filter(checklist -> checklist.getStatus() == ChecklistStatus.PASSED).findFirst();
+            return ofCycle.stream().filter(checklist -> checklist.getStatus() == ChecklistStatus.PASSED
+                    && !checklist.isRequalified()).findFirst();
         }
 
         public boolean hasPassed() {
@@ -108,7 +112,8 @@ public class SurveyRecordReader {
     public Usability usability(SurveyChecklist passed, int leadIntentCycle, boolean leadClosed) {
         List<SurveyMediaId> frozen = evidence.findByChecklistId(passed.getId()).stream().map(EvidenceEntry::mediaId)
                 .map(SurveyMediaId::of).toList();
-        return PassedUsability.of(passed.getIntentCycle(), leadIntentCycle, leadClosed, media.findByIds(frozen));
+        return PassedUsability.of(passed.isRequalified(), passed.getIntentCycle(), leadIntentCycle, leadClosed,
+                media.findByIds(frozen));
     }
 
     /**

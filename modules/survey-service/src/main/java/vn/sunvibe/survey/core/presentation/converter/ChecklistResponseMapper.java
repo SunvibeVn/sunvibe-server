@@ -2,6 +2,7 @@ package vn.sunvibe.survey.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.query.ChecklistDecideResult;
+import vn.sunvibe.survey.core.application.query.ChecklistRequalifyResult;
 import vn.sunvibe.survey.core.application.query.ChecklistRevisionResult;
 import vn.sunvibe.survey.core.application.query.ChecklistStartResult;
 import vn.sunvibe.survey.core.application.query.ChecklistSubmitResult;
@@ -28,6 +29,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.Charge;
 import vn.sunvibe.survey.core.domain.model.checklist.ChargeOverrides;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistRequalification;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSource;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSubmission;
 import vn.sunvibe.survey.core.domain.model.checklist.ConditionContent;
@@ -72,6 +74,7 @@ import vn.sunvibe.survey.core.domain.policy.checklist.EffectiveCharge;
 import vn.sunvibe.survey.core.domain.policy.checklist.InputForm;
 import vn.sunvibe.survey.core.domain.policy.checklist.LocationDifference;
 import vn.sunvibe.survey.core.domain.policy.checklist.Readiness;
+import vn.sunvibe.survey.core.domain.policy.checklist.RequalificationState;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewAccess;
 import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.SpaceTerms;
@@ -152,6 +155,10 @@ import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistPrope
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReadiness;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRentMoney;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRentTerm;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRequalificationHistoryEntryResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRequalificationResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRequalificationStateResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRequalifiedResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReviewHistoryEntryResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReviewQueueItemResponse;
@@ -238,7 +245,8 @@ public class ChecklistResponseMapper {
                 checklist.getPreviousChecklistIdOrNull() == null ? null
                         : checklist.getPreviousChecklistIdOrNull().getValue(),
                 submission(view.review().submissionOrNull(), names), decision(view.review().decisionOrNull(), names),
-                review(view.review().review()), toPassed(view.review().passedOrNull()));
+                review(view.review().review()), toPassed(view.review().passedOrNull()),
+                requalification(view.review().requalificationOrNull(), names));
     }
 
     /** survey-checklist submission spec 7.1: one page of the review queue. */
@@ -269,6 +277,16 @@ public class ChecklistResponseMapper {
                 lead.status(), lead.version(), lead.lastActivityAt()), new ChecklistReviewHistoryEntryResponse(
                 entry.type(), entry.actorUserId(), entry.actorName(), entry.fromStatus(), entry.toStatus(),
                 entry.occurredAt(), entry.referenceId(), entry.referenceNo(), entry.referenceDetail()));
+    }
+
+    /** property-create requalification spec 7: the revision, the lead and the History entry. */
+    public ChecklistRequalifiedResponse toRequalified(ChecklistRequalifyResult result) {
+        LeadState lead = result.lead();
+        LeadHistoryEntry entry = result.historyEntry();
+        return new ChecklistRequalifiedResponse(toResponse(result.view()), new SurveyLeadStateResponse(lead.id(),
+                lead.status(), lead.version(), lead.lastActivityAt()), new ChecklistRequalificationHistoryEntryResponse(
+                entry.type(), entry.actorUserId(), entry.actorName(), entry.fromStatus(), entry.toStatus(),
+                entry.occurredAt(), entry.referenceId(), entry.referenceNo()));
     }
 
     public ChecklistRevisionStartedResponse toRevisionStarted(ChecklistRevisionResult result) {
@@ -304,12 +322,18 @@ public class ChecklistResponseMapper {
                         .map(space -> new ChecklistSurveyedSpace(space.spaceId(), space.code())).toList()));
     }
 
+    /** property-create requalification spec 7: the action on the survey block. */
+    public static ChecklistRequalificationStateResponse toRequalificationState(RequalificationState state) {
+        return new ChecklistRequalificationStateResponse(state.allowed(), state.checklistIdOrNull(),
+                state.expectedVersionOrNull());
+    }
+
     /** survey-checklist spec 7.2 {@code checklists[]} of a VISITED appointment in the survey block. */
     public static ChecklistSummaryResponse toSummary(ChecklistSummaryView view, Function<String, String> names) {
         return new ChecklistSummaryResponse(view.id(), view.checklistNo(), view.status(), view.outcomeOrNull(),
                 view.editability().editable(), view.editability().reason(), view.missingCount(), view.holderUserId(),
                 names.apply(view.holderUserId()), view.updatedAt(), view.updatedByUserIdOrNull(),
-                names.apply(view.updatedByUserIdOrNull()));
+                names.apply(view.updatedByUserIdOrNull()), view.requalified());
     }
 
     // ==================== checklist parts ====================
@@ -334,6 +358,13 @@ public class ChecklistResponseMapper {
                 decision.needsChangesKindOrNull(), decision.failedKindOrNull(), decision.reasonOrNull(),
                 decision.notesOrNull(), decision.limitationsOrNull(), new ChecklistStaffMember(
                 decision.reviewerUserId(), names.apply(decision.reviewerUserId())), decision.decidedAt());
+    }
+
+    private static ChecklistRequalificationResponse requalification(ChecklistRequalification mark,
+                                                                    Function<String, String> names) {
+        return mark == null ? null : new ChecklistRequalificationResponse(mark.kind(), mark.reason(), mark.eventSource(),
+                mark.scope(), mark.basisDate(), new ChecklistStaffMember(mark.markedByUserId(),
+                names.apply(mark.markedByUserId())), mark.markedAt());
     }
 
     private static ChecklistReviewResponse review(ReviewAccess access) {

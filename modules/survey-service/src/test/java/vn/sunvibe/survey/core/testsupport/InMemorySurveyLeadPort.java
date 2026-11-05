@@ -158,6 +158,8 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
             case SURVEY_RESUMED -> (target == LeadMoveTarget.SURVEY_SCHEDULED || target == LeadMoveTarget.QUALIFIED)
                     && status.equals("ON_HOLD");
             case CHECKLIST_REVIEWED -> target != LeadMoveTarget.SURVEY_SCHEDULED && status.equals("SURVEY_SCHEDULED");
+            case REQUALIFICATION_MARKED -> target == LeadMoveTarget.CONTACTED && status.equals("QUALIFIED")
+                    || target == LeadMoveTarget.KEEP && status.equals("ON_HOLD");
         };
     }
 
