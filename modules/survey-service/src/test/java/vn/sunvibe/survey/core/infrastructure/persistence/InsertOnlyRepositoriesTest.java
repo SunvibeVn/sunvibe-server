@@ -6,6 +6,7 @@ import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentHistoryDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDecisionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistEvidenceDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyChecklistRequalificationDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSubmissionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistTakeoverDomainRepository;
@@ -16,6 +17,7 @@ import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyAccessLog
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyAppointmentHistoryRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistDecisionRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistEvidenceRepositoryAdapter;
+import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistRequalificationRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistSaveRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistSubmissionRepositoryAdapter;
 import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyChecklistTakeoverRepositoryAdapter;
@@ -28,6 +30,7 @@ import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmen
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistDecisionEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistEvidenceEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistEvidenceRejectionEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistRequalificationEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistSaveEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistSubmissionEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyChecklistTakeoverEntity;
@@ -60,7 +63,8 @@ class InsertOnlyRepositoriesTest {
                 SurveyResumptionEntity.class, SurveyAccessLogEntity.class, SurveyChecklistTakeoverEntity.class,
                 SurveyChecklistSaveEntity.class, SurveySecurityEventEntity.class, SurveyMediaVariantEntity.class,
                 SurveyChecklistSubmissionEntity.class, SurveyChecklistEvidenceEntity.class,
-                SurveyChecklistDecisionEntity.class, SurveyChecklistEvidenceRejectionEntity.class)) {
+                SurveyChecklistDecisionEntity.class, SurveyChecklistEvidenceRejectionEntity.class,
+                SurveyChecklistRequalificationEntity.class)) {
             assertNotNull(entity.getAnnotation(Immutable.class), entity.getSimpleName() + " must be @Immutable");
         }
     }
@@ -72,7 +76,8 @@ class InsertOnlyRepositoriesTest {
                 SurveyChecklistTakeoverDomainRepository.class, SurveyChecklistSaveDomainRepository.class,
                 SurveySecurityEventDomainRepository.class, SurveyMediaVariantDomainRepository.class,
                 SurveyChecklistSubmissionDomainRepository.class, SurveyChecklistEvidenceDomainRepository.class,
-                SurveyChecklistDecisionDomainRepository.class)) {
+                SurveyChecklistDecisionDomainRepository.class,
+                SurveyChecklistRequalificationDomainRepository.class)) {
             Method[] methods = port.getDeclaredMethods();
             assertTrue(methods.length > 0, port.getSimpleName() + " declares no method");
             for (Method method : methods) {
@@ -89,7 +94,8 @@ class InsertOnlyRepositoriesTest {
                 SurveyChecklistTakeoverRepositoryAdapter.class, SurveyChecklistSaveRepositoryAdapter.class,
                 SurveySecurityEventRepositoryAdapter.class, SurveyMediaVariantRepositoryAdapter.class,
                 SurveyChecklistSubmissionRepositoryAdapter.class, SurveyChecklistEvidenceRepositoryAdapter.class,
-                SurveyChecklistDecisionRepositoryAdapter.class)) {
+                SurveyChecklistDecisionRepositoryAdapter.class,
+                SurveyChecklistRequalificationRepositoryAdapter.class)) {
             Arrays.stream(adapter.getDeclaredMethods())
                     .filter(method -> Modifier.isPublic(method.getModifiers()))
                     .forEach(method -> assertFalse(

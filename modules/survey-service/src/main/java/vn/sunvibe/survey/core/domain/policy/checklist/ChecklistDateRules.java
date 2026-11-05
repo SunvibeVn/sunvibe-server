@@ -35,6 +35,15 @@ public final class ChecklistDateRules {
     }
 
     /**
+     * The day the source confirmed a problem with a PASSED revision: from the day of its decision to today
+     * (property-create requalification spec A-6).
+     */
+    public static Optional<Violation> requireRequalificationDate(String path, LocalDate date, LocalDate decisionDate,
+                                                                 LocalDate today) {
+        return within(path, date, decisionDate, today, "the day of the decision", "today");
+    }
+
+    /**
      * The day the owner reported a fix ({@code ownerReportedOn}): from the arrival date of the visit where the hazard
      * was first recorded (the first hazard of its chain) to today (spec A-7).
      */

@@ -24,11 +24,13 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.survey.core.application.usecase.SurveyChecklistCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyChecklistQueryUseCase;
+import vn.sunvibe.survey.core.application.usecase.SurveyChecklistRequalificationCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyChecklistReviewCommandUseCase;
 import vn.sunvibe.survey.core.presentation.converter.ChecklistRequestMapper;
 import vn.sunvibe.survey.core.presentation.converter.ChecklistResponseMapper;
 import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistDecisionRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRequalificationRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRevisionRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSaveIdentificationRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSavePartsRequest;
@@ -41,6 +43,7 @@ import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistSubmit
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistTakeoverRequest;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistCheckpointResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistDecidedResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRequalifiedResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReviewQueueResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRevisionStartedResponse;
@@ -66,6 +69,7 @@ public class SurveyChecklistController {
     private final SurveyChecklistQueryUseCase queryUseCase;
     private final SurveyChecklistCommandUseCase commandUseCase;
     private final SurveyChecklistReviewCommandUseCase reviewUseCase;
+    private final SurveyChecklistRequalificationCommandUseCase requalificationUseCase;
     private final SurveyViewerResolver viewerResolver;
     private final ChecklistRequestMapper requestMapper;
     private final ChecklistResponseMapper responseMapper;
@@ -252,6 +256,44 @@ public class SurveyChecklistController {
     public ResponseEntity<ChecklistDecidedResponse> decide(@PathVariable("checklistId") String checklistId,
                                                            @RequestBody ChecklistDecisionRequest request) {
         return ResponseEntity.ok(responseMapper.toDecided(reviewUseCase.decide(viewerResolver.current(),
+                requestMapper.toCommand(checklistId, request))));
+    }
+
+    /**
+     * POST /api/v1/staff/survey-checklists/{checklistId}/requalification
+     * <p>
+     * A manager withdraws the lead's current PASSED revision from use and the lead goes back to a new survey
+     * (property-create requalification spec 4, 5.3, 7). The role is checked before any lookup.
+     */
+    @PostMapping("/{checklistId}/requalification")
+    @PreAuthorize("hasAnyRole('SALE_LEADER','SALES_MANAGER','ADMIN')")
+    @Operation(operationId = "requalifySurveyChecklist",
+            summary = "Withdraw the current PASSED survey checklist revision from use (SALE_LEADER, SALES_MANAGER, "
+                    + "ADMIN, SUPER_ADMIN)",
+            description = "The revision stays exactly as it is and its result stops being used; the mark is never "
+                    + "removed. A QUALIFIED lead moves to CONTACTED; an ON_HOLD lead stays held and can then be moved "
+                    + "to CONTACTED by hand. The reason, source and scope stay on the revision, out of History and "
+                    + "lists. A repeat answers 409.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The revision, the lead and the History entry",
+                    content = @Content(schema = @Schema(implementation = ChecklistRequalifiedResponse.class))),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on expectedVersion, reasonKind, reason, "
+                    + "eventSource, scope or basisDate (a missing or unknown key too); MALFORMED_REQUEST",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller's role may not withdraw a revision",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such checklist",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION (field expectedVersion); "
+                    + "SURVEY_NOT_ALLOWED (field checklist): the revision is not the current PASSED of the lead's "
+                    + "cycle; INVALID_STATE_TRANSITION (field status): the lead is neither QUALIFIED nor ON_HOLD",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<ChecklistRequalifiedResponse> requalify(@PathVariable("checklistId") String checklistId,
+                                                                  @RequestBody ChecklistRequalificationRequest request) {
+        return ResponseEntity.ok(responseMapper.toRequalified(requalificationUseCase.mark(viewerResolver.current(),
                 requestMapper.toCommand(checklistId, request))));
     }
 

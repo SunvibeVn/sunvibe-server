@@ -22,8 +22,9 @@ public interface SurveyChecklistDomainRepository {
      * Update the checklist row guarded by its version and flush; the aggregate gets the new version. A row changed
      * since it was read fails with an optimistic locking failure.
      *
-     * @throws vn.sunvibe.survey.core.domain.exception.ChecklistSubmittedConflictException a SUBMITTED revision of the
-     *                                                                                     lead and cycle exists
+     * @throws vn.sunvibe.survey.core.domain.exception.ChecklistSubmittedConflictException a SUBMITTED or an unmarked
+     *                                                                                     PASSED revision of the lead
+     *                                                                                     and cycle exists
      */
     void update(SurveyChecklist checklist);
 

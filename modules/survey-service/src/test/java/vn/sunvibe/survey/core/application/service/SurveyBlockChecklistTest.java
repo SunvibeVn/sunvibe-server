@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static vn.sunvibe.survey.core.domain.policy.checklist.RequalificationState.NOT_ALLOWED;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.LEAD;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.LEADER;
 import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.OTHER_LEAD;
@@ -226,10 +227,10 @@ class SurveyBlockChecklistTest {
 
     @Test
     void block_surveyRecord_forTheTransitionMenu() {
-        assertEquals(new SurveyRecordView(false, false, null), recordOfNewLead());
+        assertEquals(new SurveyRecordView(false, false, null, NOT_ALLOWED), recordOfNewLead());
 
         SurveyChecklist checklist = submitted();
-        assertEquals(new SurveyRecordView(false, true, null), h.surveys.block(own(SALE_A), LEAD).survey());
+        assertEquals(new SurveyRecordView(false, true, null, NOT_ALLOWED), h.surveys.block(own(SALE_A), LEAD).survey());
 
         h.evidence.saveAll(checklist.getId(), List.of());
         h.decided(checklist.getId(), DecisionOutcome.PASSED, null, null, LEADER);

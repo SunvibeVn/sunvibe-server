@@ -74,7 +74,8 @@ public class SurveyResponseMapper {
                 ChecklistResponseMapper.toRevisionStart(block.revisionStart()),
                 new SurveyResumeResponse(block.resumeTargetOrNull()),
                 new SurveyRecordResponse(block.survey().hasPassed(), block.survey().hasSubmitted(),
-                        ChecklistResponseMapper.toPassed(block.survey().passedOrNull())));
+                        ChecklistResponseMapper.toPassed(block.survey().passedOrNull()),
+                        ChecklistResponseMapper.toRequalificationState(block.survey().requalification())));
     }
 
     public SurveyOverlapsResponse toOverlaps(List<OverlapView> overlaps) {

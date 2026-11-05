@@ -33,6 +33,19 @@ public final class SurveyText {
     }
 
     /**
+     * As {@link #require}, also refusing U+0000, which PostgreSQL cannot store (SV-087): the answer is a 400 on the
+     * field, not a database error.
+     *
+     * @throws InvalidSurveyValueException on the field
+     */
+    public static String requireStorable(String field, String value, int max) {
+        if (value != null && value.indexOf('\u0000') >= 0) {
+            throw new InvalidSurveyValueException(field, field + " must not contain a NUL character.");
+        }
+        return require(field, value, max);
+    }
+
+    /**
      * Optional text: null when absent or blank, else as {@link #require}.
      *
      * @throws InvalidSurveyValueException on the field

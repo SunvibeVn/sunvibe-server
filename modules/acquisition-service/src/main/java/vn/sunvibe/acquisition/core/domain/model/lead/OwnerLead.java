@@ -233,7 +233,8 @@ public final class OwnerLead {
      * SURVEY_CHANGED, SURVEY_CONFIRMED, SURVEY_UNCONFIRMED and SURVEY_VISITED kept in SURVEY_SCHEDULED;
      * SURVEY_CANCELLED kept in SURVEY_SCHEDULED or to CONTACTED; SURVEY_RESUMED from ON_HOLD to SURVEY_SCHEDULED or
      * QUALIFIED; CHECKLIST_REVIEWED from SURVEY_SCHEDULED to QUALIFIED, CONTACTED or REJECTED, or kept
-     * (survey-checklist submission spec 4.5). Every allowed move touches {@code updatedAt}, so persistence bumps the
+     * (survey-checklist submission spec 4.5); REQUALIFICATION_MARKED from QUALIFIED to CONTACTED, or kept in ON_HOLD
+     * (property-create requalification spec 4). Every allowed move touches {@code updatedAt}, so persistence bumps the
      * version even when the status stays (survey-schedule spec A-2). The change carries the reference and no text
      * (survey-schedule BR-8).
      *
@@ -287,6 +288,8 @@ public final class OwnerLead {
             case CHECKLIST_REVIEWED -> scheduledKept || from == OwnerLeadStatus.SURVEY_SCHEDULED
                     && (target == OwnerLeadStatus.QUALIFIED || target == OwnerLeadStatus.CONTACTED
                     || target == OwnerLeadStatus.REJECTED);
+            case REQUALIFICATION_MARKED -> from == OwnerLeadStatus.QUALIFIED && target == OwnerLeadStatus.CONTACTED
+                    || from == OwnerLeadStatus.ON_HOLD && target == null;
             default -> false;
         };
     }

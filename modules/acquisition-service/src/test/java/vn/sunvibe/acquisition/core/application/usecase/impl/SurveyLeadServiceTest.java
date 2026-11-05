@@ -514,6 +514,40 @@ class SurveyLeadServiceTest {
         assertEquals(null, stored.getNote());
     }
 
+    /** property-create requalification spec 7: the History entry names the checklist and has no detail. */
+    @Test
+    void applySurveyMove_requalificationMarked_movesToContactedWithNoDetail() {
+        OwnerLead lead = stored(OwnerLeadStatus.QUALIFIED, SALE_A);
+
+        SurveyLeadMoveResult result = service.applySurveyMove(id(lead), 0L, new SurveyLeadMove(
+                SurveyLeadEvent.REQUALIFICATION_MARKED, SurveyLeadTarget.CONTACTED, SALE_A, CHECKLIST, 2, T0, null, null));
+
+        assertEquals("CONTACTED", result.status());
+        assertEquals(1L, result.version());
+        assertEquals("REQUALIFICATION_MARKED", result.entry().type());
+        assertEquals("QUALIFIED", result.entry().fromStatus());
+        assertEquals("CONTACTED", result.entry().toStatus());
+        assertEquals(CHECKLIST, result.entry().referenceId());
+        assertEquals(2, result.entry().referenceNo());
+        assertEquals(null, result.entry().referenceDetail());
+        OwnerLeadActivity stored = activities.all().get(0);
+        assertEquals(OwnerLeadActivityType.REQUALIFICATION_MARKED, stored.getType());
+        assertEquals(null, stored.getReferenceDetail());
+        assertEquals(null, stored.getNote());
+    }
+
+    @Test
+    void applySurveyMove_requalificationMarked_keepsAHeldLeadAndBumpsTheVersion() {
+        OwnerLead lead = stored(OwnerLeadStatus.ON_HOLD, SALE_A);
+
+        SurveyLeadMoveResult result = service.applySurveyMove(id(lead), 0L, new SurveyLeadMove(
+                SurveyLeadEvent.REQUALIFICATION_MARKED, SurveyLeadTarget.KEEP, SALE_A, CHECKLIST, 2, T0, null, null));
+
+        assertEquals("ON_HOLD", result.status());
+        assertEquals(1L, result.version());
+        assertEquals(null, result.entry().toStatus());
+    }
+
     @Test
     void applySurveyMove_documentsOnly_keepsTheStatusAndBumpsTheVersion() {
         OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);

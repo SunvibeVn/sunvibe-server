@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PassedUsabilityTest {
 
     private static Usability of(int revisionCycle, int leadCycle, boolean leadClosed, List<SurveyMedia> frozen) {
-        return PassedUsability.of(revisionCycle, leadCycle, leadClosed, frozen);
+        return PassedUsability.of(false, revisionCycle, leadCycle, leadClosed, frozen);
     }
 
     @Test
@@ -81,5 +81,21 @@ class PassedUsabilityTest {
 
         assertFalse(usability.usable());
         assertEquals(UsabilityReason.INTENT_CHANGED, usability.reasonOrNull());
+    }
+
+    /** property-create requalification spec 4: a mark followed by a requirement change still reads REQUALIFIED. */
+    @Test
+    void usability_requalified_beforeIntentChanged() {
+        assertEquals(new Usability(false, UsabilityReason.REQUALIFIED),
+                PassedUsability.of(true, 1, 2, false, List.of()));
+    }
+
+    @Test
+    void usability_requalified_beforeLeadClosedAndEvidence() {
+        SurveyMedia gone = MediaFixture.ready();
+        gone.markContentMissing(MediaFixture.T0.plusSeconds(600));
+
+        assertEquals(new Usability(false, UsabilityReason.REQUALIFIED),
+                PassedUsability.of(true, 1, 1, true, List.of(gone)));
     }
 }

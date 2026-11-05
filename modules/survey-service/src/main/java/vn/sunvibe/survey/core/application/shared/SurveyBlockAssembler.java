@@ -24,6 +24,7 @@ import vn.sunvibe.survey.core.domain.model.resumption.SurveyResumption;
 import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStartPolicy;
+import vn.sunvibe.survey.core.domain.policy.checklist.RequalificationPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.ResumeTarget;
 import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStartPolicy;
@@ -117,7 +118,8 @@ public class SurveyBlockAssembler {
         RevisionStart revisionStart = RevisionStartPolicy.of(currentVisit.isPresent(), record.latestOfCurrentVisit(),
                 record.latestMark(), lead.status(), lead.assignedUserId(), assigneeEligible, viewer.userId());
         SurveyRecordView survey = new SurveyRecordView(record.hasPassed(), record.hasSubmitted(),
-                record.passed().map(passed -> reviews.passed(passed, lead)).orElse(null));
+                record.passed().map(passed -> reviews.passed(passed, lead)).orElse(null),
+                RequalificationPolicy.state(!viewer.seesOwnLeadsOnly(), record.passed(), lead.status()));
         Map<String, Integer> numbers = new HashMap<>();
         ofLead.forEach(appointment -> numbers.put(appointment.getId().getValue(), appointment.getAppointmentNo()));
         List<SurveyResumption> rows = new ArrayList<>(resumptions.findByLeadIdOrderByOccurredAt(lead.leadId()));

@@ -143,7 +143,8 @@ public final class InMemoryChecklistRepositories {
             return SurveyChecklist.load(c.getId(), c.getLeadId(), c.getChecklistNo(), c.getVisitAppointmentId(),
                     c.getIntentCycle(), c.getHolderUserId(), c.getTemplateCode(), c.getTemplateVersion(), c.getKind(),
                     c.getStatus(), c.getCreatedBy(), c.getCreatedAt(), c.getPreviousChecklistIdOrNull(),
-                    c.getSubmittedAt(), c.getSubmittedByUserId(), c.getDecidedAt(), c.getVersion());
+                    c.getSubmittedAt(), c.getSubmittedByUserId(), c.getDecidedAt(), c.getRequalifiedAt(),
+                    c.getVersion());
         }
     }
 

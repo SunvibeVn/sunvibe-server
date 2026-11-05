@@ -711,6 +711,33 @@ class SeedE2eOwnerLeadsPostgresTest {
 		assertEquals(201, post(sale, "/api/v1/staff/survey-appointments/" + L15_VISIT + "/checklists", nullIntake()));
 	}
 
+	/** property-create requalification plan Task A6: the row of a mark on L15 never stops a re-run. */
+	@Test
+	void reseed_afterARequalification_clearsItsRows() throws Exception {
+		seedAccounts();
+		assertEquals(0, runLeads("local").getExitCode());
+		String sale = accessToken("0900000102", salePassword());
+		String l15 = LEAD_IDS.get(14);
+		assertEquals(201, post(sale, "/api/v1/staff/survey-appointments/" + L15_VISIT + "/checklists", nullIntake()));
+		String checklist = jdbc.queryForObject("SELECT id FROM survey_checklists WHERE lead_id = ?", String.class, l15);
+		Timestamp now = Timestamp.from(Instant.now());
+		jdbc.update("UPDATE survey_checklists SET status = 'PASSED', submitted_at = ?, submitted_by_user_id = ?,"
+				+ " decided_at = ?, requalified_at = ? WHERE id = ?", now, SALE_ID, now, now, checklist);
+		jdbc.update("INSERT INTO survey_checklist_requalifications (checklist_id, reason_kind, reason, event_source, scope,"
+				+ " basis_date, marked_by_user_id, marked_at, lead_status_before, lead_status_after) VALUES (?, 'WRONG_ASSET',"
+				+ " 'Sai tài sản', 'Chủ nhà báo', 'Toàn bộ', CURRENT_DATE, ?, ?, 'QUALIFIED', 'CONTACTED')", checklist,
+				LEADER_ID, now);
+
+		ExecResult again = runLeads("local");
+
+		assertEquals(0, again.getExitCode(), "re-run after a requalification failed: " + again.getStderr());
+		assertEquals(SEEDED, printedCounts(again));
+		assertEquals(0, count("SELECT count(*) FROM survey_checklist_requalifications WHERE checklist_id = '" + checklist
+				+ "'"));
+		assertEquals(0, count("SELECT count(*) FROM survey_checklists WHERE lead_id = '" + l15 + "'"));
+		assertEquals(201, post(sale, "/api/v1/staff/survey-appointments/" + L15_VISIT + "/checklists", nullIntake()));
+	}
+
 	/**
 	 * survey-media spec 6.4 (plan Task A23): after the media flows on L14 (a checklist started through the API, photos
 	 * in the shapes create, content, removal and an ADMIN hold leave, their set, job and variants, the budget and slot

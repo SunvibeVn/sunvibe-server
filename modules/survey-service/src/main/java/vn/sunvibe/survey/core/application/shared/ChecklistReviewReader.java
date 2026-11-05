@@ -33,6 +33,7 @@ import vn.sunvibe.survey.core.domain.policy.checklist.ReviewerExclusionFacts;
 import vn.sunvibe.survey.core.domain.policy.checklist.Usability;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDecisionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistEvidenceDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyChecklistRequalificationDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSubmissionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
 
@@ -46,8 +47,8 @@ import java.util.stream.Collectors;
 
 /**
  * The review part of the reads (survey-checklist submission spec 4.2, 4.7, 7.2): the frozen facts of a revision, whether
- * the viewer can decide it and whether a PASSED one can still be used, on the rules the decision itself runs. A draft
- * costs no read of the review tables.
+ * the viewer can decide it and whether a PASSED one can still be used, on the rules the decision itself runs, and why it
+ * was withdrawn (property-create requalification spec 4). A draft costs no read of the review tables.
  */
 @Component
 public class ChecklistReviewReader {
@@ -55,6 +56,7 @@ public class ChecklistReviewReader {
     private final SurveyChecklistSubmissionDomainRepository submissions;
     private final SurveyChecklistEvidenceDomainRepository evidence;
     private final SurveyChecklistDecisionDomainRepository decisions;
+    private final SurveyChecklistRequalificationDomainRepository requalifications;
     private final SurveyMediaDomainRepository media;
     private final ReviewerExclusionLoader exclusions;
     private final SurveyRecordReader records;
@@ -63,12 +65,15 @@ public class ChecklistReviewReader {
 
     public ChecklistReviewReader(SurveyChecklistSubmissionDomainRepository submissions,
                                  SurveyChecklistEvidenceDomainRepository evidence,
-                                 SurveyChecklistDecisionDomainRepository decisions, SurveyMediaDomainRepository media,
-                                 ReviewerExclusionLoader exclusions, SurveyRecordReader records,
+                                 SurveyChecklistDecisionDomainRepository decisions,
+                                 SurveyChecklistRequalificationDomainRepository requalifications,
+                                 SurveyMediaDomainRepository media, ReviewerExclusionLoader exclusions,
+                                 SurveyRecordReader records,
                                  SurveyorDirectoryPort directory, MediaSwitches switches) {
         this.submissions = submissions;
         this.evidence = evidence;
         this.decisions = decisions;
+        this.requalifications = requalifications;
         this.media = media;
         this.exclusions = exclusions;
         this.records = records;
@@ -91,7 +96,8 @@ public class ChecklistReviewReader {
                 ? passedBlockers(readiness, states, photosOf(entries), Set.of(), ofLead) : List.of();
         return new ChecklistReviewView(submission.map(row -> new SubmissionView(row, views(entries, decision)))
                 .orElse(null), decision, new ReviewAccess(refusal.isEmpty(), refusal.orElse(null), blockedBy),
-                status == ChecklistStatus.PASSED ? passed(checklist, lead) : null);
+                status == ChecklistStatus.PASSED ? passed(checklist, lead) : null,
+                checklist.isRequalified() ? requalifications.findByChecklistId(id).orElse(null) : null);
     }
 
     /** spec 4.2, plan PD-6: a reviewer role and an account that can sign in; both first in the command too. */

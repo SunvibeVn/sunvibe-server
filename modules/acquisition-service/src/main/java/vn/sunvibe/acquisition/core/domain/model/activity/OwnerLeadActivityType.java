@@ -56,5 +56,7 @@ public enum OwnerLeadActivityType {
     /** A reviewer decided a revision; the detail is the outcome and kind (survey-checklist submission spec 4.9). */
     CHECKLIST_REVIEWED,
     /** The assignee started a new revision on the same visit (survey-checklist submission spec 4.6, 4.9). */
-    CHECKLIST_REVISION_STARTED
+    CHECKLIST_REVISION_STARTED,
+    /** A manager withdrew a PASSED revision from use (property-create requalification spec 4). */
+    REQUALIFICATION_MARKED
 }

@@ -9,7 +9,8 @@ import java.time.Instant;
  * long-term appointment and its intent cycle, numbered within the lead, of template LONG_TERM_RENT v1, kind
  * FULL_ASSESSMENT. The holder is the starter, then each person who took the draft over. A revision goes from DRAFT to
  * SUBMITTED to one decided status and never back (submission spec 4.1); submit and decide write the row too (A-1). Group
- * contents live in their own rows.
+ * contents live in their own rows. A PASSED revision can be marked as requalified, once and for good: the mark says its
+ * result stopped being used and changes nothing of its content (property-create requalification spec I-2, A-3).
  */
 public final class SurveyChecklist {
 
@@ -29,13 +30,15 @@ public final class SurveyChecklist {
     private Instant submittedAt;
     private String submittedByUserId;
     private Instant decidedAt;
+    private Instant requalifiedAt;
     private Long version;
 
     private SurveyChecklist(SurveyChecklistId id, String leadId, int checklistNo,
                             SurveyAppointmentId visitAppointmentId, int intentCycle, String holderUserId,
                             String templateCode, int templateVersion, ChecklistKind kind, ChecklistStatus status,
                             String createdBy, Instant createdAt, SurveyChecklistId previousChecklistIdOrNull,
-                            Instant submittedAt, String submittedByUserId, Instant decidedAt, Long version) {
+                            Instant submittedAt, String submittedByUserId, Instant decidedAt,
+                            Instant requalifiedAt, Long version) {
         if (id == null || leadId == null || visitAppointmentId == null || holderUserId == null
                 || templateCode == null || kind == null || status == null || createdBy == null
                 || createdAt == null) {
@@ -61,6 +64,7 @@ public final class SurveyChecklist {
         this.submittedAt = submittedAt;
         this.submittedByUserId = submittedByUserId;
         this.decidedAt = decidedAt;
+        this.requalifiedAt = requalifiedAt;
         this.version = version;
     }
 
@@ -70,7 +74,7 @@ public final class SurveyChecklist {
                                         Instant now) {
         return new SurveyChecklist(id, leadId, checklistNo, visitAppointmentId, intentCycle, starterUserId,
                 TemplateV1.CODE, TemplateV1.VERSION, ChecklistKind.FULL_ASSESSMENT, ChecklistStatus.DRAFT,
-                starterUserId, now, null, null, null, null, null);
+                starterUserId, now, null, null, null, null, null, null);
     }
 
     /**
@@ -82,7 +86,7 @@ public final class SurveyChecklist {
                                              String starterUserId, Instant now, SurveyChecklistId previousChecklistId) {
         return new SurveyChecklist(id, leadId, checklistNo, visitAppointmentId, intentCycle, starterUserId,
                 TemplateV1.CODE, TemplateV1.VERSION, ChecklistKind.FULL_ASSESSMENT, ChecklistStatus.DRAFT,
-                starterUserId, now, previousChecklistId, null, null, null, null);
+                starterUserId, now, previousChecklistId, null, null, null, null, null);
     }
 
     /** Load from database (reconstruct). */
@@ -91,10 +95,11 @@ public final class SurveyChecklist {
                                        String templateCode, int templateVersion, ChecklistKind kind,
                                        ChecklistStatus status, String createdBy, Instant createdAt,
                                        SurveyChecklistId previousChecklistIdOrNull, Instant submittedAt,
-                                       String submittedByUserId, Instant decidedAt, Long version) {
+                                       String submittedByUserId, Instant decidedAt, Instant requalifiedAt,
+                                       Long version) {
         return new SurveyChecklist(id, leadId, checklistNo, visitAppointmentId, intentCycle, holderUserId,
                 templateCode, templateVersion, kind, status, createdBy, createdAt, previousChecklistIdOrNull,
-                submittedAt, submittedByUserId, decidedAt, version);
+                submittedAt, submittedByUserId, decidedAt, requalifiedAt, version);
     }
 
     /**
@@ -135,6 +140,22 @@ public final class SurveyChecklist {
         }
         status = outcome.status();
         decidedAt = at;
+    }
+
+    /**
+     * property-create requalification spec I-2: the result of a PASSED revision stops being used. The revision stays
+     * PASSED, and a mark is never moved or removed.
+     *
+     * @throws IllegalStateException the revision is not PASSED or is marked already (checked before by the use case)
+     */
+    public void markRequalified(Instant at) {
+        if (status != ChecklistStatus.PASSED) {
+            throw new IllegalStateException("A " + status + " checklist cannot be requalified.");
+        }
+        if (requalifiedAt != null) {
+            throw new IllegalStateException("The checklist is requalified already.");
+        }
+        requalifiedAt = at;
     }
 
     private void requireDraft(String action) {
@@ -216,6 +237,15 @@ public final class SurveyChecklist {
 
     public Instant getDecidedAt() {
         return decidedAt;
+    }
+
+    /** Null while the revision is not requalified. */
+    public Instant getRequalifiedAt() {
+        return requalifiedAt;
+    }
+
+    public boolean isRequalified() {
+        return requalifiedAt != null;
     }
 
     public Long getVersion() {

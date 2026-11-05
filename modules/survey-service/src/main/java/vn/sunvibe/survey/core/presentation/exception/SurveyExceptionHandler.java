@@ -333,7 +333,7 @@ public class SurveyExceptionHandler {
                 .map(field -> ValidationError.of(field, DECISION_NOT_ALLOWED_MESSAGE)).toList()));
     }
 
-    /** plan PD-8: a SUBMITTED revision of the cycle was committed first. */
+    /** plan PD-8: a SUBMITTED revision of the cycle, or its unmarked PASSED, was committed first. */
     @ExceptionHandler(ChecklistSubmittedConflictException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleSubmittedConflict(
             ChecklistSubmittedConflictException e) {

@@ -70,8 +70,9 @@ import java.util.Set;
  * row (one wins, the other gets a version conflict) and never deadlock. It never calls survey-service back.
  * <p>
  * Survey checklists (survey-checklist spec 5.3) read the lead under a share lock and add History entries as activity
- * rows only, so the lead's version and status stay as they are. Only a decision moves the lead: it locks the row first
- * ({@link #findVisibleForUpdate}) and moves it through {@link #applySurveyMove} (submission spec 5.4, plan PD-5).
+ * rows only, so the lead's version and status stay as they are. Only a decision or a requalification moves the lead: it
+ * locks the row first ({@link #findVisibleForUpdate}) and moves it through {@link #applySurveyMove} (submission spec 5.4,
+ * plan PD-5).
  */
 @Service
 @Transactional

@@ -8,10 +8,13 @@ import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** DRAFT → SUBMITTED → PASSED | NEEDS_CHANGES | FAILED; nothing returns to DRAFT (survey-checklist submission 4.1). */
 class ChecklistLifecycleTest {
@@ -22,6 +25,13 @@ class ChecklistLifecycleTest {
     private static SurveyChecklist draft() {
         return SurveyChecklist.start(SurveyChecklistId.of("01JCHECK000000000000000001"), "01JLEAD0000000000000000001",
                 1, SurveyAppointmentId.of("01JV1S1T000000000000000001"), 1, SALE, T0);
+    }
+
+    private static SurveyChecklist passed() {
+        SurveyChecklist checklist = draft();
+        checklist.submit(SALE, T0.plusSeconds(60));
+        checklist.decide(DecisionOutcome.PASSED, T0.plusSeconds(120));
+        return checklist;
     }
 
     @Test
@@ -106,5 +116,55 @@ class ChecklistLifecycleTest {
         assertEquals(true, ChecklistStatus.PASSED.isDecided());
         assertEquals(true, ChecklistStatus.NEEDS_CHANGES.isDecided());
         assertEquals(true, ChecklistStatus.FAILED.isDecided());
+    }
+
+    /** property-create requalification spec I-2, A-3: the mark records a fact about use; the revision stays PASSED. */
+    @Test
+    void lifecycle_markPassed_ok() {
+        SurveyChecklist checklist = passed();
+
+        checklist.markRequalified(T0.plusSeconds(180));
+
+        assertTrue(checklist.isRequalified());
+        assertEquals(T0.plusSeconds(180), checklist.getRequalifiedAt());
+        assertEquals(ChecklistStatus.PASSED, checklist.getStatus());
+        assertEquals(T0.plusSeconds(120), checklist.getDecidedAt());
+    }
+
+    @Test
+    void lifecycle_passed_isNotRequalified() {
+        SurveyChecklist checklist = passed();
+
+        assertFalse(checklist.isRequalified());
+        assertNull(checklist.getRequalifiedAt());
+    }
+
+    @Test
+    void lifecycle_markNonPassed_refused() {
+        SurveyChecklist submitted = draft();
+        submitted.submit(SALE, T0.plusSeconds(60));
+        SurveyChecklist returned = draft();
+        returned.submit(SALE, T0.plusSeconds(60));
+        returned.decide(DecisionOutcome.NEEDS_CHANGES, T0.plusSeconds(120));
+        SurveyChecklist failed = draft();
+        failed.submit(SALE, T0.plusSeconds(60));
+        failed.decide(DecisionOutcome.FAILED, T0.plusSeconds(120));
+
+        for (SurveyChecklist checklist : List.of(draft(), submitted, returned, failed)) {
+            assertThrows(IllegalStateException.class, () -> checklist.markRequalified(T0.plusSeconds(180)),
+                    checklist.getStatus().name());
+            assertFalse(checklist.isRequalified(), checklist.getStatus().name());
+        }
+    }
+
+    /** spec I-2: a mark is never removed or moved. */
+    @Test
+    void lifecycle_markTwice_refused() {
+        SurveyChecklist checklist = passed();
+        checklist.markRequalified(T0.plusSeconds(180));
+
+        assertThrows(IllegalStateException.class, () -> checklist.markRequalified(T0.plusSeconds(240)));
+
+        assertEquals(T0.plusSeconds(180), checklist.getRequalifiedAt());
     }
 }

@@ -17,7 +17,12 @@ public class SurveyNotAllowedException extends RuntimeException {
     private final List<String> allowedValues;
 
     public SurveyNotAllowedException(String field, List<String> allowedValues) {
-        super("A survey cannot be booked for this lead now.");
+        this(field, allowedValues, "A survey cannot be booked for this lead now.");
+    }
+
+    /** A refusal of another survey command, with its own fixed message; it never quotes a submitted value. */
+    public SurveyNotAllowedException(String field, List<String> allowedValues, String message) {
+        super(message);
         this.field = field;
         this.allowedValues = List.copyOf(allowedValues);
     }

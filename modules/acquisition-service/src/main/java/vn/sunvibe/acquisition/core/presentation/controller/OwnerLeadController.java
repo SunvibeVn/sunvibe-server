@@ -258,8 +258,8 @@ public class OwnerLeadController {
     @PostMapping("/{leadId}/intent-changes")
     @Operation(summary = "Change the requirement (rental intent and price) of an owner lead (SALE: own leads only; "
             + "SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
-            description = "Allowed in ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED, unless the cycle has a PASSED "
-                    + "checklist revision; ASSIGNED and "
+            description = "Allowed in ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED, unless the cycle has a "
+                    + "current PASSED checklist revision (one that was not requalified); ASSIGNED and "
                     + "SURVEY_SCHEDULED move to CONTACTED. Starts a new intent cycle and cancels the scheduled survey "
                     + "appointment, if any. askingPrice must be sent: a price or null.")
     @ApiResponses({

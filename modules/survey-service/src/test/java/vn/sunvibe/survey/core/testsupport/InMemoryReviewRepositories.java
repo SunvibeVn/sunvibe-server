@@ -1,6 +1,7 @@
 package vn.sunvibe.survey.core.testsupport;
 
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistRequalification;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSubmission;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
@@ -8,6 +9,7 @@ import vn.sunvibe.survey.core.domain.model.media.MediaSelection;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDecisionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistEvidenceDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.SurveyChecklistRequalificationDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSubmissionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
 
@@ -110,6 +112,39 @@ public final class InMemoryReviewRepositories {
                 }
             });
             return found;
+        }
+    }
+
+    public static class Requalifications implements SurveyChecklistRequalificationDomainRepository {
+
+        private final Map<SurveyChecklistId, ChecklistRequalification> stored = new LinkedHashMap<>();
+        private final List<String> journal;
+        public RuntimeException failNextSave;
+
+        public Requalifications(List<String> journal) {
+            this.journal = journal;
+        }
+
+        @Override
+        public void save(ChecklistRequalification requalification) {
+            journal.add("requalification:insert");
+            if (failNextSave != null) {
+                RuntimeException failure = failNextSave;
+                failNextSave = null;
+                throw failure;
+            }
+            if (stored.putIfAbsent(requalification.checklistId(), requalification) != null) {
+                throw new IllegalStateException("One requalification per revision.");
+            }
+        }
+
+        @Override
+        public Optional<ChecklistRequalification> findByChecklistId(SurveyChecklistId checklistId) {
+            return Optional.ofNullable(stored.get(checklistId));
+        }
+
+        public List<ChecklistRequalification> all() {
+            return List.copyOf(stored.values());
         }
     }
 

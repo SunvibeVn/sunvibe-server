@@ -241,6 +241,8 @@ $$;
 DELETE FROM survey_security_events WHERE lead_id IN (SELECT id FROM seed_leads);
 -- survey-checklist submission: the insert-only review rows of the fixture leads' revisions, first, as they point at
 -- the photos and the checklists.
+DELETE FROM survey_checklist_requalifications
+WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
 DELETE FROM survey_checklist_evidence_rejections
 WHERE checklist_id IN (SELECT id FROM survey_checklists WHERE lead_id IN (SELECT id FROM seed_leads));
 DELETE FROM survey_checklist_decisions

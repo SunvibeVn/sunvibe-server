@@ -10,6 +10,7 @@ import vn.sunvibe.survey.core.application.command.StartChecklistCommand;
 import vn.sunvibe.survey.core.application.query.ChecklistStartResult;
 import vn.sunvibe.survey.core.application.service.SurveyChecklistCommandService;
 import vn.sunvibe.survey.core.application.service.SurveyChecklistQueryService;
+import vn.sunvibe.survey.core.application.service.SurveyChecklistRequalificationCommandService;
 import vn.sunvibe.survey.core.application.service.SurveyQueryService;
 import vn.sunvibe.survey.core.application.shared.ChecklistReviewReader;
 import vn.sunvibe.survey.core.application.shared.SurveyBlockAssembler;
@@ -105,6 +106,8 @@ public final class ChecklistServiceHarness {
     public final InMemoryReviewRepositories.Evidence evidence = new InMemoryReviewRepositories.Evidence(journal);
     public final InMemoryReviewRepositories.Decisions decisions = new InMemoryReviewRepositories.Decisions(journal);
     public final InMemoryReviewRepositories.Selections selections = new InMemoryReviewRepositories.Selections(journal);
+    public final InMemoryReviewRepositories.Requalifications requalifications =
+            new InMemoryReviewRepositories.Requalifications(journal);
     public final InMemoryIntakeHealth health = new InMemoryIntakeHealth().open(now());
     /** Uploads never on, as every profile's default (survey-media spec A-1): the W16 readiness. */
     public final MutableMediaSwitches switches = new MutableMediaSwitches();
@@ -119,6 +122,7 @@ public final class ChecklistServiceHarness {
     public final ReviewerExclusionLoader exclusions;
     public final ChecklistReviewReader reviewReader;
     public final SurveyChecklistReviewCommandService reviews;
+    public final SurveyChecklistRequalificationCommandService requalification;
     public final SurveyChecklistQueryService queries;
     public final SurveyQueryService surveys;
     private final AtomicLong appointmentNo = new AtomicLong();
@@ -136,8 +140,8 @@ public final class ChecklistServiceHarness {
         surveyStates = new SurveyStateService(records, appointments);
         revisionPhotos = new RevisionPhotos(media, selections);
         exclusions = new ReviewerExclusionLoader(checklists, takeovers, saves, media, selections);
-        reviewReader = new ChecklistReviewReader(submissions, evidence, decisions, media, exclusions, records, directory,
-                switches);
+        reviewReader = new ChecklistReviewReader(submissions, evidence, decisions, requalifications, media, exclusions,
+                records, directory, switches);
         views = new ChecklistViewAssembler(checklists, groups, takeovers, saves, leads, directory, mediaSets,
                 revisionPhotos, switches, () -> submissionOn, health, reviewReader);
         commands = new SurveyChecklistCommandService(checklists, groups, takeovers, saves, appointments, accessLogs,
@@ -147,6 +151,8 @@ public final class ChecklistServiceHarness {
                 decisions, media, mediaSets, selections, accessLogs, leads, directory, loader, exclusions, records,
                 recorder, views, switches, () -> submissionOn,
                 (contents, frozen) -> contents.keySet() + "|" + frozen, ulids, snowflakes, new NoTransactions());
+        requalification = new SurveyChecklistRequalificationCommandService(checklists, requalifications, accessLogs,
+                leads, loader, records, views, snowflakes, new NoTransactions());
         queries = new SurveyChecklistQueryService(checklists, appointments, takeovers, accessLogs, leads, directory,
                 loader, views, reviewReader, exclusions, snowflakes);
         surveys = new SurveyQueryService(appointments, accessLogs, leads, directory, new SurveyBlockAssembler(
@@ -309,7 +315,8 @@ public final class ChecklistServiceHarness {
         InMemoryChecklistRepositories.Checklists checklists = new InMemoryChecklistRepositories.Checklists(journal);
         InMemoryMediaRepositories.Media media = new InMemoryMediaRepositories.Media(journal);
         return new ChecklistReviewReader(new InMemoryReviewRepositories.Submissions(journal),
-                new InMemoryReviewRepositories.Evidence(journal), new InMemoryReviewRepositories.Decisions(journal), media,
+                new InMemoryReviewRepositories.Evidence(journal), new InMemoryReviewRepositories.Decisions(journal),
+                new InMemoryReviewRepositories.Requalifications(journal), media,
                 new ReviewerExclusionLoader(checklists, new InMemoryChecklistRepositories.Takeovers(journal),
                         new InMemoryChecklistRepositories.Saves(journal), media,
                         new InMemoryReviewRepositories.Selections(journal)), noRecords(), directory,

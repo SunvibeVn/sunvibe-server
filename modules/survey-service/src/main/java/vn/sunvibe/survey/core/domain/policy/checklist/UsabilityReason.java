@@ -9,5 +9,7 @@ public enum UsabilityReason {
     /** A frozen photo is under a security hold; its release restores the revision. */
     EVIDENCE_HELD,
     /** A frozen photo lost its content for good. */
-    EVIDENCE_GONE
+    EVIDENCE_GONE,
+    /** A manager withdrew the revision from use (property-create requalification spec 4): the mark is never removed. */
+    REQUALIFIED
 }
