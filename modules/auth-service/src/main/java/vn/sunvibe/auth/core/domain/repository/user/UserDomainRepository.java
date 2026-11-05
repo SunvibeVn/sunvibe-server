@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.domain.repository.user;
 
+import vn.sunvibe.auth.core.domain.exception.user.IdentifierConflictException;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
@@ -19,7 +20,11 @@ import java.util.Set;
  */
 public interface UserDomainRepository {
 
+    /** Whether a live row stores exactly this username: the raw check that covers a row without a key. */
     boolean existsByUsername(String userName);
+
+    /** Whether a live row holds this canonical phone. */
+    boolean existsByPhoneKey(String phoneKey);
 
     /** @param email lower-case, as stored by {@code Email} */
     boolean existsByEmail(String email);
@@ -27,23 +32,59 @@ public interface UserDomainRepository {
     boolean existsByIdCardNumber(IdCardNumber idCardNumber);
 
     /**
-     * Inserts or updates the account. A new account is stored with its roles; for an existing one the stored
-     * roles are kept as they are (roles change only through {@link #addRole} and {@link #removeRole}), so saving
-     * an aggregate loaded before a role change cannot undo it.
+     * The only insert (auth-email-access I-4): stores a new account with its roles, at once, so a lost race for an
+     * identifier surfaces here.
      *
      * @return the account as stored
-     * @throws IllegalStateException if a role of a new account has no row in the roles table
+     * @throws IdentifierConflictException if a unique index on an identifier refused it; the transaction is lost
+     * @throws IllegalStateException if a role of the account has no row in the roles table
      */
-    AppUser save(AppUser user);
+    AppUser create(AppUser user);
 
-    /** @throws UserNotFoundException if no account has this username */
-    AppUser findByUsername(String username);
+    /**
+     * The only update (auth-email-access I-4): writes an account read under its row lock, at once. The stored roles
+     * are kept as they are (roles change only through {@link #addRole} and {@link #removeRole}).
+     *
+     * @return the account as stored
+     * @throws IdentifierConflictException if a unique index on an identifier refused it; the transaction is lost
+     */
+    AppUser save(LockedUser user);
 
-    /** @throws UserNotFoundException if no account has this e-mail */
-    AppUser findByEmail(String email);
+    /** The live account that holds this canonical email, verified or not. */
+    Optional<AppUser> findByEmailKey(String emailKey);
+
+    /**
+     * Who holds this canonical email among live rows, by its key or, on a row without a key, by the stored address
+     * folded the same way (auth-email-access I-3).
+     *
+     * @param selfOrNull an account to leave out: an address it holds itself is no obstacle
+     */
+    EmailOccupancy emailOccupancy(String emailKey, UserId selfOrNull);
+
+    /** The live account with this canonical phone. */
+    Optional<AppUser> findByPhoneKey(String phoneKey);
+
+    /** The live account that stores exactly this username and has no phone key: the legacy lookup only. */
+    Optional<AppUser> findKeylessByUsername(String username);
 
     /** The user with this id, unless it does not exist or is soft-deleted. */
     Optional<AppUser> findById(UserId userId);
+
+    /**
+     * Locks the row of a live account until the transaction ends, then reads it again, also when the persistence
+     * context already holds it (auth-email-access spec 5.4). The lock is {@code FOR NO KEY UPDATE}: {@code FOR UPDATE}
+     * would block every foreign key insert into refresh_tokens.
+     *
+     * @return the fresh account; empty if it does not exist or is soft-deleted
+     */
+    Optional<LockedUser> findByIdForSecurity(UserId userId);
+
+    /**
+     * Holds the row against a change of credentials for the rest of the transaction, waiting 3 seconds at most: two
+     * refreshes do not wait for each other, and a reset waits for the refresh, so it revokes the token it issues.
+     * The holder must not write users, or two refreshes would deadlock on the upgrade (auth-email-access spec 5.4).
+     */
+    void lockForSessionRefresh(UserId userId);
 
     /**
      * Adds one role to the account with a single-row write, so concurrent role changes cannot undo each other.

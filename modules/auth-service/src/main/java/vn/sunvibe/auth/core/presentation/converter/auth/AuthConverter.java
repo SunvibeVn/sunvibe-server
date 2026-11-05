@@ -23,6 +23,7 @@ public class AuthConverter {
 
     public LoginCommand toLoginCommand(LoginRequest loginRequest) {
         return LoginCommand.builder()
+                .email(loginRequest.email())
                 .username(loginRequest.username())
                 .password(loginRequest.password())
                 .build();

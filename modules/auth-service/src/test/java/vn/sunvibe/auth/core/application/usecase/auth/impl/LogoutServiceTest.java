@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.application.usecase.auth.impl;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,7 +8,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
@@ -15,9 +15,11 @@ import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
-import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
+import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
+import vn.sunvibe.auth.core.testsupport.SignedIn;
+import vn.sunvibe.auth.core.testsupport.UnsupportedUserRepository;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -33,6 +35,8 @@ class LogoutServiceTest {
     private static final UserId USER_ID = UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV");
     private static final String USERNAME = "0912345678";
 
+    private AppUser user;
+    private final List<String> calls = new java.util.ArrayList<>();
     private InMemoryRefreshTokenRepository refreshTokens;
     private LogoutService service;
     private final RecordingAuditLog audit = new RecordingAuditLog();
@@ -40,31 +44,17 @@ class LogoutServiceTest {
     @BeforeEach
     void setUp() {
         refreshTokens = new InMemoryRefreshTokenRepository();
-        AppUser user = AppUser.create(USER_ID, "Nguyen Van A", Username.create(USERNAME), null,
+        user = AuthTestUsers.withPhone(USER_ID, "Nguyen Van A", USERNAME, null,
                 Password.create("hashed-password"), ProfileImage.create(null), null,
                 new HashSet<>(Set.of("TENANT")), Instant.now());
-        service = new LogoutService(refreshTokens, new UserDomainRepository() {
+        refreshTokens.calls = calls;
+        service = new LogoutService(refreshTokens, new UnsupportedUserRepository() {
             @Override
-            public boolean existsByUsername(String userName) { throw new UnsupportedOperationException(); }
-            @Override
-            public boolean existsByEmail(String email) { throw new UnsupportedOperationException(); }
-            @Override
-            public boolean existsByIdCardNumber(IdCardNumber idCardNumber) { throw new UnsupportedOperationException(); }
-            @Override
-            public AppUser save(AppUser appUser) { throw new UnsupportedOperationException(); }
-            @Override
-            public AppUser findByUsername(String username) {
-                assertEquals(USERNAME, username);
-                return user;
+            public Optional<LockedUser> findByIdForSecurity(UserId userId) {
+                assertEquals(USER_ID, userId);
+                calls.add("lock-user");
+                return Optional.of(new LockedUser(user));
             }
-            @Override
-            public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
-            @Override
-            public Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
-            @Override public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
-            @Override public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
-            @Override public java.util.List<vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow> findSignInAbleByAnyRole(java.util.Set<String> roleNames, int limit) { throw new UnsupportedOperationException(); }
-            @Override public java.util.Map<String, String> findFullNamesByIds(java.util.Collection<String> ids) { throw new UnsupportedOperationException(); }
         }, audit);
     }
 
@@ -117,14 +107,46 @@ class LogoutServiceTest {
     void executeAllDevices_endsEverySessionOfTheSignedInUser() {
         session(1L, "phone-secret");
         session(2L, "laptop-secret");
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(USERNAME, null, List.of()));
+        SignedIn.as(USER_ID.getValue());
 
         service.executeAllDevices();
 
         assertEquals(List.of("user:" + USER_ID.getValue() + ":" + RevokeReason.LOGOUT_ALL), refreshTokens.revocations);
         assertTrue(refreshTokens.all().stream().allMatch(RefreshToken::isRevoked));
         assertEquals(List.of(AuditEventType.LOGOUT_ALL_DEVICES), audit.types());
+    }
+
+    /** auth-email-access spec 5.4: user row first, or logout deadlocks with a reset on the family rows. */
+    @Test
+    void logout_locksUserBeforeToken() {
+        session(1L, "phone-secret");
+
+        service.execute("phone-secret");
+
+        assertEquals(List.of("read-token-owner", "lock-user", "lock-token"), calls);
+    }
+
+    @Test
+    void logoutAll_locksUser() {
+        session(1L, "phone-secret");
+        SignedIn.as(USER_ID.getValue());
+
+        service.executeAllDevices();
+
+        assertEquals(List.of("lock-user"), calls);
+    }
+
+    /** auth-email-access S-20: an account without a phone. */
+    @Test
+    void logoutAll_nullUsername() {
+        user = AppUser.registerWithEmail(USER_ID, "Nguyen Van A", Email.create("a@example.com"),
+                Password.create("hashed-password"), new HashSet<>(Set.of("TENANT")), Instant.now());
+        session(1L, "laptop-secret");
+        SignedIn.as(USER_ID.getValue());
+
+        service.executeAllDevices();
+
+        assertEquals(List.of("user:" + USER_ID.getValue() + ":" + RevokeReason.LOGOUT_ALL), refreshTokens.revocations);
     }
 
     @Test

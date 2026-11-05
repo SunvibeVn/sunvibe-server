@@ -12,8 +12,11 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   MAIL_PASSWORD, JWT_SECRET (base64). A missing JWT_SECRET or MAIL_USERNAME fails startup; a missing MAIL_PASSWORD
   fails only when mail is sent. The dev profile has a public dev-only JWT_SECRET and empty mail values; env vars win if set.
   Also required outside dev/test: ID_CARD_CRYPTO_KEY and ID_CARD_CRYPTO_INDEX_KEY (two different base64 32-byte keys),
-  ACQUISITION_HASH_KEY (base64, at least 32 bytes) and SMS_PROVIDER (only `log` exists, for dev/test); each fails
-  startup when missing. The dev profile has dev-only values for them.
+  ACQUISITION_HASH_KEY and AUTH_OTP_HASH_KEY (base64, at least 32 bytes); each fails startup when missing. The dev profile
+  has dev-only values for them. SMS_PROVIDER is `none` unless set (`log` exists for dev/test only).
+  Auth: AUTH_PHONE_MODE is `off` unless set (`legacy-login` needs AUTH_PHONE_LEGACY_LOGIN_UNTIL, `on` needs an SMS provider;
+  the guards stop the start-up otherwise), AUTH_FRONTEND_BASE_URL is the web app of the reset link, and MAIL_HOST, MAIL_PORT,
+  MAIL_SMTP_AUTH, MAIL_STARTTLS, MAIL_FROM and AUTH_MAIL_MAX_PER_HOUR set the mail: .env.example lists them.
 - Run on the LAN (phone/tablet testing): set LAN_FE_ORIGIN=http://<LAN-IP>:3000, then
   ./gradlew :app:bootRun --args='--spring.profiles.active=dev,lan' (refresh cookie not Secure; never with prod).
   Steps for both repos: ../docs/setup/lan-device-testing.md
@@ -22,7 +25,8 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v target=local -v customer_password="$E2E_CUSTOMER_PASSWORD"
   -v sale_password="$E2E_SALE_PASSWORD" -v leader_password="$E2E_LEADER_PASSWORD"
   -v admin_password="$E2E_ADMIN_PASSWORD" -f scripts/dev/seed-e2e-accounts.sql (re-run resets passwords and roles;
-  creates the CUSTOMER, SALE, SALE_LEADER 0900000103 and ADMIN 0900000104 accounts),
+  creates the CUSTOMER, SALE, SALE_LEADER 0900000103 and ADMIN 0900000104 accounts with verified e2e.*@sunvibe.test emails,
+  and the phone-only CUSTOMER 0900000105),
   then npm run e2e in sunvibe-ui with the same env vars. Never commit the passwords. Both seed scripts refuse a
   server that is not on this machine (psql host other than localhost, 127.0.0.1, ::1 or a socket), even with target=local.
 - E2E lead fixtures (local DB only; run AFTER the accounts seed, which it needs): fifteen owner leads (L13, L14 and L15
@@ -30,6 +34,8 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   (idempotent: deletes and re-inserts only its own fixture rows, their survey photos included). The survey photo E2E
   API run: scripts/dev/run-e2e-media-api.sh or .ps1 (fresh local store, stub scanner, dev processing container). `npm run e2e:workspace` in sunvibe-ui (the lead
   queue workspace) uses both seeds.
+- The auth E2E API run: scripts/dev/run-e2e-auth-api.sh or .ps1 [off|legacy-login|on] (Mailpit on 127.0.0.1:8025, profile dev,
+  that phone channel, the API log in build/e2e-auth-api.log for the codes of the `log` SMS sender).
 - Export API contract: ./gradlew exportOpenApi -> api/openapi.json (commit it; CI fails when the export differs from
   the committed file). Swagger UI (local): http://localhost:8081/swagger-ui/index.html
 - Migration history: bash scripts/ci/check-migration-history.sh origin/main --include-worktree (CI job
@@ -39,7 +45,8 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 ## Modules
 - app: Spring Boot entry point (vn.sunvibe.SunvibeServerApplication) and the single SecurityFilterChain (app/.../config/SecurityConfig.java).
 - modules/shared-service: shared exceptions, ErrorResponse, crypto, ID generators, AppClock (package vn.sunvibe.shared).
-- modules/auth-service: login, refresh-token rotation, registration, contact verification, password reset, audit, rate limit.
+- modules/auth-service: login by email or phone, refresh-token rotation, registration, email bind and replace, phone
+  verification, password reset, audit, rate limit. A Java Flyway migration lives in src/main/java/db/migration.
 - modules/property-service: properties (prices, images, amenities, rules, documents, availability), units and
   ownership, the province/ward catalog.
 - modules/acquisition-service: owner intake (public form), owner leads, ward territories, the staff lead queue

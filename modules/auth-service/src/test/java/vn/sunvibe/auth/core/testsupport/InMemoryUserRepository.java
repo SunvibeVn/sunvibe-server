@@ -6,6 +6,8 @@ import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
+import vn.sunvibe.auth.core.domain.repository.user.EmailOccupancy;
+import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.domain.repository.user.PendingAccountRepository;
 import vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
@@ -21,23 +23,60 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Hand-written fake of the user ports, keyed by username. Lookups throw
+ * Hand-written fake of the user ports, keyed by user id. Lookups throw
  * {@link UserNotFoundException} like the real adapter.
  */
 public class InMemoryUserRepository implements UserDomainRepository, UserLoginAttemptRepository, PendingAccountRepository {
 
     private final Map<String, AppUser> users = new LinkedHashMap<>();
     public int saveCount;
+    /** The order of lock and token calls, shared with the token fakes of a test. */
+    public final List<String> calls = new java.util.ArrayList<>();
+    public int loginSuccessWrites;
     public int findFullNamesByIdsCalls;
 
     public InMemoryUserRepository with(AppUser user) {
-        users.put(user.getUsername().getValue(), user);
+        users.put(user.getId().getValue(), user);
         return this;
     }
 
     @Override
     public boolean existsByUsername(String userName) {
-        return users.containsKey(userName);
+        return users.values().stream().anyMatch(u -> userName.equals(u.usernameValue()));
+    }
+
+    @Override
+    public Optional<AppUser> findByEmailKey(String emailKey) {
+        return users.values().stream().filter(u -> emailKey.equals(u.getEmailKey())).findFirst();
+    }
+
+    @Override
+    public EmailOccupancy emailOccupancy(String emailKey, UserId selfOrNull) {
+        List<AppUser> holders = users.values().stream()
+                .filter(u -> !u.getId().equals(selfOrNull))
+                .filter(u -> emailKey.equals(u.getEmailKey()) || (u.getEmailKey() == null && u.getEmail() != null
+                        && emailKey.equals(u.getEmail().getValue().strip().toLowerCase(java.util.Locale.ROOT))))
+                .toList();
+        if (holders.isEmpty()) {
+            return EmailOccupancy.FREE;
+        }
+        return holders.stream().anyMatch(AppUser::isEmailVerified) ? EmailOccupancy.VERIFIED : EmailOccupancy.OTHER;
+    }
+
+    @Override
+    public boolean existsByPhoneKey(String phoneKey) {
+        return findByPhoneKey(phoneKey).isPresent();
+    }
+
+    @Override
+    public Optional<AppUser> findByPhoneKey(String phoneKey) {
+        return users.values().stream().filter(u -> phoneKey.equals(u.getPhoneKey())).findFirst();
+    }
+
+    @Override
+    public Optional<AppUser> findKeylessByUsername(String username) {
+        return users.values().stream()
+                .filter(u -> u.getPhoneKey() == null && username.equals(u.usernameValue())).findFirst();
     }
 
     @Override
@@ -51,28 +90,65 @@ public class InMemoryUserRepository implements UserDomainRepository, UserLoginAt
     }
 
     @Override
-    public AppUser save(AppUser user) {
+    public AppUser create(AppUser user) {
+        users.put(user.getId().getValue(), user);
+        return user;
+    }
+
+    @Override
+    public AppUser save(LockedUser locked) {
         saveCount++;
-        users.put(user.getUsername().getValue(), user);
-        return user;
+        users.put(locked.user().getId().getValue(), locked.user());
+        return locked.user();
     }
 
     @Override
-    public AppUser findByUsername(String username) {
-        AppUser user = users.get(username);
-        if (user == null) {
-            throw new UserNotFoundException("User not found with username: " + username);
+    public Optional<LockedUser> findByIdForSecurity(UserId userId) {
+        calls.add("lock-user");
+        return findById(userId).map(LockedUser::new);
+    }
+
+    @Override
+    public void lockForSessionRefresh(UserId userId) {
+        calls.add("share-user");
+    }
+
+    @Override
+    public int incrementReauthFailures(UserId userId) {
+        AppUser user = findById(userId).orElseThrow();
+        user.setReauthFailedAttempts(user.getReauthFailedAttempts() + 1);
+        return user.getReauthFailedAttempts();
+    }
+
+    @Override
+    public void lockReauthUntil(UserId userId, Instant until) {
+        findById(userId).orElseThrow().setReauthLockedUntil(until);
+    }
+
+    @Override
+    public void clearReauthFailures(UserId userId) {
+        AppUser user = findById(userId).orElseThrow();
+        user.setReauthFailedAttempts(0);
+        user.setReauthLockedUntil(null);
+    }
+
+    @Override
+    public void recordLoginSuccess(UserId userId, Instant when) {
+        loginSuccessWrites++;
+        AppUser user = findById(userId).orElseThrow();
+        user.setLastLogin(when);
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+    }
+
+    @Override
+    public void activateIfPending(UserId userId) {
+        AppUser user = findById(userId).orElseThrow();
+        if (user.getUserStatus() == UserStatus.PENDING) {
+            user.setUserStatus(UserStatus.ACTIVE);
         }
-        return user;
     }
 
-    @Override
-    public AppUser findByEmail(String email) {
-        return users.values().stream()
-                .filter(u -> u.getEmail() != null && u.getEmail().getValue().equals(email))
-                .findFirst()
-                .orElseThrow(() -> new UserNotFoundException("User not found with email: " + email));
-    }
 
     @Override
     public Optional<AppUser> findById(UserId userId) {
@@ -104,7 +180,8 @@ public class InMemoryUserRepository implements UserDomainRepository, UserLoginAt
     @Override
     public List<UserId> findUnverifiedPendingCreatedBefore(Instant cutoff, int limit) {
         return users.values().stream()
-                .filter(u -> u.getUserStatus() == UserStatus.PENDING && !u.isPhoneVerified() && u.getDeletedAt() == null
+                .filter(u -> u.getUserStatus() == UserStatus.PENDING && !u.isPhoneVerified()
+                        && u.getEmailVerifiedAt() == null && u.getDeletedAt() == null
                         && u.getCreatedDate().isBefore(cutoff))
                 .sorted(Comparator.comparing(AppUser::getCreatedDate))
                 .limit(limit)

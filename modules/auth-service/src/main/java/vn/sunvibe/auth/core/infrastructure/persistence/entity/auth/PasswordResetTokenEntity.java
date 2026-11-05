@@ -27,6 +27,7 @@ public class PasswordResetTokenEntity {
     @Id
     private Long id;
 
+    /** SHA-256 of the value the user holds. */
     @Column(name = "token", nullable = false, unique = true)
     private String token;
 
@@ -41,6 +42,7 @@ public class PasswordResetTokenEntity {
     @Column(name = "destination", nullable = false)
     private String destination;
 
+    /** The keyed hash of the OTP; the name of the column is older than the hash. */
     @Column(name = "otp_code", nullable = false)
     private String otpCode;
 
@@ -60,6 +62,10 @@ public class PasswordResetTokenEntity {
     @Column(name = "failed_attempts", nullable = false)
     private int failedAttempts;
 
+    /** The credential version of the account when the token was issued; null on a row from before that existed. */
+    @Column(name = "credential_version")
+    private Long credentialVersion;
+
     public static PasswordResetTokenEntity toEntity(PasswordResetToken passwordResetToken) {
         PasswordResetTokenEntity entity = new PasswordResetTokenEntity();
         entity.setId(passwordResetToken.getId());
@@ -67,12 +73,13 @@ public class PasswordResetTokenEntity {
         entity.setUserId(passwordResetToken.getUserId());
         entity.setChannel(passwordResetToken.getChannel());
         entity.setDestination(passwordResetToken.getDestination());
-        entity.setOtpCode(passwordResetToken.getOtpCode());
+        entity.setOtpCode(passwordResetToken.getOtpHash());
         entity.setCreatedAt(passwordResetToken.getCreatedAt());
         entity.setExpiresAt(passwordResetToken.getExpiresAt());
         entity.setIsUsed(passwordResetToken.isUsed());
         entity.setUsedAt(passwordResetToken.getUsedAt());
         entity.setFailedAttempts(passwordResetToken.getFailedAttempts());
+        entity.setCredentialVersion(passwordResetToken.getCredentialVersion());
         return entity;
     }
 
@@ -88,7 +95,8 @@ public class PasswordResetTokenEntity {
                 Boolean.TRUE.equals(entity.getIsUsed()),
                 entity.getUsedAt(),
                 entity.getFailedAttempts(),
-                entity.getOtpCode());
+                entity.getOtpCode(),
+                entity.getCredentialVersion());
     }
 
 }

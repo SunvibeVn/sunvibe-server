@@ -136,6 +136,38 @@ class RateLimitFilterTest {
         assertEquals(200, send(filter, "POST", "/api/v1/auth/login", "198.51.100.1").getStatus());
     }
 
+    /** auth-email-access 5.1: one IPv6 client holds a whole /64, so rotating inside it passes no limit. */
+    @Test
+    void rateKey_ipv6SamePrefix_oneBucket() throws Exception {
+        RateLimitFilter filter = filter(true);
+        for (int i = 1; i <= 3; i++) {
+            assertEquals(200, send(filter, "POST", "/api/v1/auth/login", "2001:db8:1:2::" + i).getStatus());
+        }
+
+        assertEquals(429, send(filter, "POST", "/api/v1/auth/login", "2001:db8:1:2:ffff:ffff:ffff:ffff").getStatus());
+    }
+
+    @Test
+    void rateKey_ipv6OtherPrefix_ownBucket() throws Exception {
+        RateLimitFilter filter = filter(true);
+        for (int i = 1; i <= 3; i++) {
+            send(filter, "POST", "/api/v1/auth/login", "2001:db8:1:2::" + i);
+        }
+
+        assertEquals(200, send(filter, "POST", "/api/v1/auth/login", "2001:db8:1:3::1").getStatus());
+    }
+
+    /** The same client written two ways is one client. */
+    @Test
+    void rateKey_ipv4MappedAddress_sharesTheBucketOfItsIpv4() throws Exception {
+        RateLimitFilter filter = filter(true);
+        for (int i = 0; i < 3; i++) {
+            send(filter, "POST", "/api/v1/auth/login", "203.0.113.9");
+        }
+
+        assertEquals(429, send(filter, "POST", "/api/v1/auth/login", "::ffff:203.0.113.9").getStatus());
+    }
+
     @Test
     void pathsAndMethodsWithoutARuleAreNeverLimited() throws Exception {
         RateLimitFilter filter = filter(true);

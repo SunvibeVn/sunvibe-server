@@ -1,16 +1,18 @@
 -- E2E seed accounts for a LOCAL development database (auth-browser-session spec §3.13).
 -- Not a Flyway migration: never copy it under db/migration and never run it against a shared or production database.
 --
--- Creates or resets four ACTIVE accounts with a verified phone:
---   01JE2EACCT0000000000000001  0900000101  "E2E Customer"      roles TENANT, CUSTOMER
---   01JE2EACCT0000000000000002  0900000102  "E2E Sale"          role  SALE
---   01JE2EACCT0000000000000003  0900000103  "E2E Trưởng nhóm"   role  SALE_LEADER
---   01JE2EACCT0000000000000004  0900000104  "E2E Admin"         role  ADMIN
+-- Creates or resets five ACTIVE accounts with a verified phone and their canonical keys; the first four have a verified
+-- email too, the fifth has no email (auth-email-access plan PD-10; the backfill never sees these rows):
+--   01JE2EACCT0000000000000001  0900000101  e2e.customer@sunvibe.test  "E2E Customer"      roles TENANT, CUSTOMER
+--   01JE2EACCT0000000000000002  0900000102  e2e.sale@sunvibe.test      "E2E Sale"          role  SALE
+--   01JE2EACCT0000000000000003  0900000103  e2e.leader@sunvibe.test    "E2E Trưởng nhóm"   role  SALE_LEADER
+--   01JE2EACCT0000000000000004  0900000104  e2e.admin@sunvibe.test     "E2E Admin"         role  ADMIN
+--   01JE2EACCT0000000000000005  0900000105  (no email)                 "E2E Phone Only"    role  CUSTOMER, password of the customer
 -- Idempotent: a re-run resets the passwords, the lockout counters and the roles.
 -- The passwords come only from psql variables, filled from the env vars the UI E2E tests read (at least 8 characters
 -- each); the script hashes them first, so the INSERT carries only the bcrypt hashes (pgcrypto, $2a$, cost 10), which
 -- Spring's BCrypt encoder reads.
--- Fails before any change when one of the four phones already belongs to another account, or when the server is
+-- Fails before any change when one of the five phones already belongs to another account, or when the server is
 -- not on this machine (psql host other than localhost, 127.0.0.1, ::1 or a Unix socket), whatever -v target says.
 --
 -- Run (bash; DATABASE_URL is a libpq URL such as postgresql://sunvibe@localhost:5432/sunvibe, not the JDBC DB_URL):
@@ -137,14 +139,14 @@ $$;
 
 SELECT count(*) = 0 AS seed_staff_phones_free
 FROM users
-WHERE username IN ('0900000103', '0900000104')
+WHERE username IN ('0900000103', '0900000104', '0900000105')
   AND deleted_at IS NULL
-  AND id NOT IN ('01JE2EACCT0000000000000003', '01JE2EACCT0000000000000004') \gset
+  AND id NOT IN ('01JE2EACCT0000000000000003', '01JE2EACCT0000000000000004', '01JE2EACCT0000000000000005') \gset
 \if :seed_staff_phones_free
 \else
 DO $$
 BEGIN
-    RAISE EXCEPTION 'seed-e2e-accounts.sql refused: 0900000103 or 0900000104 already belongs to another account';
+    RAISE EXCEPTION 'seed-e2e-accounts.sql refused: 0900000103, 0900000104 or 0900000105 already belongs to another account';
 END
 $$;
 \endif
@@ -159,19 +161,29 @@ SELECT crypt(:'customer_password', gen_salt('bf', 10)) AS customer_hash,
        crypt(:'leader_password', gen_salt('bf', 10)) AS leader_hash,
        crypt(:'admin_password', gen_salt('bf', 10)) AS admin_hash \gset
 
-INSERT INTO users (id, full_name, username, password, user_status, phone_verified_at, failed_login_attempts,
-                   locked_until, created_date, last_update, deleted_at)
-VALUES ('01JE2EACCT0000000000000001', 'E2E Customer', '0900000101',
+INSERT INTO users (id, full_name, username, phone_key, email, email_key, email_verified_at, password, user_status,
+                   phone_verified_at, failed_login_attempts, locked_until, created_date, last_update, deleted_at)
+VALUES ('01JE2EACCT0000000000000001', 'E2E Customer', '0900000101', '+84900000101',
+        'e2e.customer@sunvibe.test', 'e2e.customer@sunvibe.test', now(),
         :'customer_hash', 'ACTIVE', now(), 0, NULL, now(), now(), NULL),
-       ('01JE2EACCT0000000000000002', 'E2E Sale', '0900000102',
+       ('01JE2EACCT0000000000000002', 'E2E Sale', '0900000102', '+84900000102',
+        'e2e.sale@sunvibe.test', 'e2e.sale@sunvibe.test', now(),
         :'sale_hash', 'ACTIVE', now(), 0, NULL, now(), now(), NULL),
-       ('01JE2EACCT0000000000000003', 'E2E Trưởng nhóm', '0900000103',
+       ('01JE2EACCT0000000000000003', 'E2E Trưởng nhóm', '0900000103', '+84900000103',
+        'e2e.leader@sunvibe.test', 'e2e.leader@sunvibe.test', now(),
         :'leader_hash', 'ACTIVE', now(), 0, NULL, now(), now(), NULL),
-       ('01JE2EACCT0000000000000004', 'E2E Admin', '0900000104',
-        :'admin_hash', 'ACTIVE', now(), 0, NULL, now(), now(), NULL)
+       ('01JE2EACCT0000000000000004', 'E2E Admin', '0900000104', '+84900000104',
+        'e2e.admin@sunvibe.test', 'e2e.admin@sunvibe.test', now(),
+        :'admin_hash', 'ACTIVE', now(), 0, NULL, now(), now(), NULL),
+       ('01JE2EACCT0000000000000005', 'E2E Phone Only', '0900000105', '+84900000105', NULL, NULL, NULL,
+        :'customer_hash', 'ACTIVE', now(), 0, NULL, now(), now(), NULL)
 ON CONFLICT (id) DO UPDATE SET
     full_name = EXCLUDED.full_name,
     username = EXCLUDED.username,
+    phone_key = EXCLUDED.phone_key,
+    email = EXCLUDED.email,
+    email_key = EXCLUDED.email_key,
+    email_verified_at = EXCLUDED.email_verified_at,
     password = EXCLUDED.password,
     user_status = EXCLUDED.user_status,
     phone_verified_at = COALESCE(users.phone_verified_at, EXCLUDED.phone_verified_at),
@@ -182,7 +194,8 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Roles are replaced, not merged, so a role granted by hand since the last run is removed.
 DELETE FROM user_roles WHERE user_id IN ('01JE2EACCT0000000000000001', '01JE2EACCT0000000000000002',
-                                         '01JE2EACCT0000000000000003', '01JE2EACCT0000000000000004');
+                                         '01JE2EACCT0000000000000003', '01JE2EACCT0000000000000004',
+                                         '01JE2EACCT0000000000000005');
 
 INSERT INTO user_roles (user_id, role_id)
 SELECT seed.user_id, roles.id
@@ -190,7 +203,8 @@ FROM (VALUES ('01JE2EACCT0000000000000001', 'TENANT'),
              ('01JE2EACCT0000000000000001', 'CUSTOMER'),
              ('01JE2EACCT0000000000000002', 'SALE'),
              ('01JE2EACCT0000000000000003', 'SALE_LEADER'),
-             ('01JE2EACCT0000000000000004', 'ADMIN')) AS seed (user_id, role_name)
+             ('01JE2EACCT0000000000000004', 'ADMIN'),
+             ('01JE2EACCT0000000000000005', 'CUSTOMER')) AS seed (user_id, role_name)
 JOIN roles ON roles.name = seed.role_name;
 
 -- Every role must exist (the Flyway role seed must have run); otherwise roll everything back.
@@ -198,7 +212,8 @@ DO $$
 BEGIN
     IF (SELECT count(*) FROM user_roles
         WHERE user_id IN ('01JE2EACCT0000000000000001', '01JE2EACCT0000000000000002',
-                          '01JE2EACCT0000000000000003', '01JE2EACCT0000000000000004')) <> 5 THEN
+                          '01JE2EACCT0000000000000003', '01JE2EACCT0000000000000004',
+                          '01JE2EACCT0000000000000005')) <> 6 THEN
         RAISE EXCEPTION 'seed-e2e-accounts.sql: role TENANT, CUSTOMER, SALE, SALE_LEADER or ADMIN is missing; run the Flyway migrations first';
     END IF;
 END

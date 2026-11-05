@@ -2,17 +2,20 @@ package vn.sunvibe.auth.core.infrastructure.persistence.converter.auto;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 
 /**
  * Maps {@link AppUser} to and from {@link UserEntity} (MapStruct). Roles and
  * value objects are converted by {@link UserVOMapper}; the ID card blind index
- * is set by the repository adapter.
+ * is set by the repository adapter. An unmapped field fails the build, so a new
+ * column cannot be lost on the way through the aggregate (auth-email-access A-6).
  */
 @Mapper(
         componentModel = "spring",
-        uses = UserVOMapper.class
+        uses = UserVOMapper.class,
+        unmappedTargetPolicy = ReportingPolicy.ERROR
 )
 public interface UserMapper {
 
@@ -36,6 +39,11 @@ public interface UserMapper {
     @Mapping(target = "lockedUntil", source = "lockedUntil")
     @Mapping(target = "phoneVerifiedAt", source = "phoneVerifiedAt")
     @Mapping(target = "emailVerifiedAt", source = "emailVerifiedAt")
+    @Mapping(target = "emailKey", source = "emailKey")
+    @Mapping(target = "phoneKey", source = "phoneKey")
+    @Mapping(target = "credentialVersion", source = "credentialVersion")
+    @Mapping(target = "reauthFailedAttempts", source = "reauthFailedAttempts")
+    @Mapping(target = "reauthLockedUntil", source = "reauthLockedUntil")
     AppUser toDomain(UserEntity userEntity);
 
     /*────────────── DOMAIN → ENTITY ──────────────*/
@@ -58,6 +66,11 @@ public interface UserMapper {
     @Mapping(target = "lockedUntil", source = "lockedUntil")
     @Mapping(target = "phoneVerifiedAt", source = "phoneVerifiedAt")
     @Mapping(target = "emailVerifiedAt", source = "emailVerifiedAt")
+    @Mapping(target = "emailKey", source = "emailKey")
+    @Mapping(target = "phoneKey", source = "phoneKey")
+    @Mapping(target = "credentialVersion", source = "credentialVersion")
+    @Mapping(target = "reauthFailedAttempts", source = "reauthFailedAttempts")
+    @Mapping(target = "reauthLockedUntil", source = "reauthLockedUntil")
     @Mapping(target = "idCardNumberHash", ignore = true)
     UserEntity toEntity(AppUser appUser);
 

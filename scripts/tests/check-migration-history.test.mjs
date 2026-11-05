@@ -44,6 +44,43 @@ test("fails when the branch modifies a migration that exists on the base", () =>
   });
 });
 
+test("javaMigrationEdit_failsHistoryCheck: a Java migration has no checksum, so this is the only guard", () => {
+  const javaMigration = "modules/auth-service/src/main/java/db/migration/V202610091300__Backfill_x.java";
+  const repo = makeRepo({ [javaMigration]: "class V202610091300__Backfill_x {}\n", "README.md": "x\n" });
+  try {
+    git(repo.dir, "checkout", "-q", "-b", "feature/x");
+    writeFile(repo.dir, javaMigration, "class V202610091300__Backfill_x { int changed; }\n");
+    commitAll(repo.dir, "edit java migration");
+    const result = runHook(SCRIPT, { cwd: repo.dir, args: ["main"] });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout + result.stderr, /V202610091300__Backfill_x\.java/);
+  } finally {
+    repo.cleanup();
+  }
+});
+
+test("fails when the branch edits the logic class of a Java migration", () => {
+  const logic = "modules/auth-service/src/main/java/vn/sunvibe/auth/core/infrastructure/persistence/migration/Backfill.java";
+  const repo = makeRepo({ [logic]: "class Backfill {}\n", "README.md": "x\n" });
+  try {
+    git(repo.dir, "checkout", "-q", "-b", "feature/x");
+    writeFile(repo.dir, logic, "class Backfill { int changed; }\n");
+    commitAll(repo.dir, "edit backfill logic");
+    assert.equal(runHook(SCRIPT, { cwd: repo.dir, args: ["main"] }).status, 1);
+  } finally {
+    repo.cleanup();
+  }
+});
+
+test("passes when the branch only adds a new Java migration", () => {
+  withBranch((dir) => {
+    writeFile(dir, "modules/auth-service/src/main/java/db/migration/V202610191300__Backfill_y.java", "class Y {}\n");
+    commitAll(dir, "add java migration");
+    const result = runHook(SCRIPT, { cwd: dir, args: ["main"] });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  });
+});
+
 test("fails when the branch deletes or renames a base migration", () => {
   withBranch((dir) => {
     git(dir, "mv", BASE_MIG, `${MIG}/V202610091201__create_roles_table.sql`);

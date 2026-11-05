@@ -18,21 +18,14 @@ class RegistrationPhoneChallengeTest {
     }
 
     @Test
-    void issue_storesOnlyAHashOfTheCode() {
+    void issue_keepsTheHashItIsGiven() {
         RegistrationPhoneChallenge challenge = issue("123456");
 
-        assertNotEquals("123456", challenge.getCodeHash());
+        assertEquals("123456", challenge.getCodeHash());
         assertTrue(challenge.matches("123456"));
         assertFalse(challenge.matches("654321"));
         assertFalse(challenge.matches(null));
         assertEquals(NOW.plus(CODE_LIFETIME), challenge.getExpiresAt());
-    }
-
-    @Test
-    void sameCodeHashesDifferentlyPerChallenge() {
-        RegistrationPhoneChallenge other = RegistrationPhoneChallenge.issue(8L, "0912345678", "123456", NOW, CODE_LIFETIME);
-
-        assertNotEquals(issue("123456").getCodeHash(), other.getCodeHash());
     }
 
     @Test

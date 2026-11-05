@@ -42,7 +42,7 @@ public record PropertyCreateCommand(
         // ==================== Ownership & Audit ====================
         // The owner named in the request (auth-roles BR-6: required for every caller, never the caller by default)
         String ownerId,
-        // The authenticated caller: user id (actor of the OWNER grant) and username (created_by)
+        // The authenticated caller: user id, both as the actor of the OWNER grant and as created_by
         String actorUserId,
         String createdBy,
 

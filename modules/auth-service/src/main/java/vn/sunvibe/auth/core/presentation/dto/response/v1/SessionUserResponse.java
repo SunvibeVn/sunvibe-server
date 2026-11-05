@@ -12,7 +12,8 @@ import java.util.List;
 public record SessionUserResponse(
         @Schema(description = "Opaque ULID of the account", example = "01JAXXXXXXXXXXXXXXXXXXXXXX")
         String userId,
-        @Schema(description = "The account's phone number", example = "0901234567")
+        @Schema(description = "The account's phone number; null on an account signed up by email", example = "0901234567",
+                nullable = true)
         String username,
         @Schema(description = "Display name of the account")
         String fullName,
@@ -23,5 +24,14 @@ public record SessionUserResponse(
         @Schema(description = "False right after registration: show the enter-the-SMS-code screen")
         boolean phoneVerified,
         @Schema(description = "False when there is no e-mail or it is not confirmed yet")
-        boolean emailVerified) {
+        boolean emailVerified,
+        @Schema(description = "What the account must do next; null when nothing", nullable = true,
+                allowableValues = {"BIND_EMAIL", "VERIFY_PHONE"})
+        String requiredAction) {
+
+    /** Contacts and secrets stay out of logs (auth-email-access 4.10). */
+    @Override
+    public String toString() {
+        return "SessionUserResponse[userId=" + userId + ", username=[hidden], email=[hidden], roles=" + roles + "]";
+    }
 }

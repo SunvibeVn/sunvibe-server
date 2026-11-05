@@ -160,3 +160,22 @@ Before uploads are turned on in production (spec 9.4), and at each deploy where 
 - **The spool** (`app.survey.media.spool-dir`, on tmpfs or a volume outside backups): each instance keeps its bodies
   in a subdirectory named by its instance id and locks it while it runs, so instances may share the directory; set
   `app.survey.media.instance-id` per instance when its logs should name it across restarts.
+
+## 8. Auth identifier backfill (auth-email-access spec 5.3, 8)
+
+Both scripts are read-only, print counts only and run in a `READ ONLY` transaction.
+
+- `psql "$DATABASE_URL" -f scripts/ops/auth-identifier-preflight.sql` before the release (O-1), also on the old schema. The
+  counts are indicative; the rehearsal on a restored copy with the release bootJar decides (O-1b).
+- Run the preflight again once the old server has stopped, and keep that `row_hash`: `last_login` is part of the hash, so one
+  taken while the old server still answers cannot match.
+- `psql "$DATABASE_URL" -f scripts/ops/auth-identifier-verify.sql` after the migration (O-3), before traffic reaches the new
+  server: a sign-in moves the hash and a new account moves the counts. It exits non-zero if the backfill is not recorded, if
+  rows hold values and no key exists, if a deleted row holds a key, if a key differs from its email or if a canonical value is
+  shared with a key. Compare `row_hash` with that preflight, and `emails_keyed`, `phones_keyed` with the log line
+  `auth.backfill.identifier-keys`.
+- If rows hold values and no key was written, the migration did not run or did not take: stop (spec 7.5).
+- The rehearsal times every file: `V202611051000` above all, which holds an ACCESS EXCLUSIVE lock on `users` through the
+  rebuild of the partial `idx_users_email`, and the backfill, whose two passes touch every index of `users`. Note the size
+  of `users` before and after.
+- After the verify, `VACUUM ANALYZE users`: the backfill leaves dead rows, and `email_key` and `phone_key` have no statistics.

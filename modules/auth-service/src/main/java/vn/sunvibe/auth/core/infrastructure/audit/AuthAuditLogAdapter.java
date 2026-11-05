@@ -6,8 +6,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -22,12 +20,12 @@ import vn.sunvibe.shared.time.AppClock;
 import java.time.Instant;
 
 /**
- * Writes audit events to {@code auth_audit_events}.
+ * Records audit events in {@code auth_audit_events}.
  * <p>
- * Each event is written in its own transaction ({@code REQUIRES_NEW}), so it is
- * kept when the request that produced it fails and rolls back, which is exactly
- * when security events matter most. Any failure is logged and swallowed. The
- * client IP and User-Agent come from the current HTTP request, if any.
+ * {@link #record} only hands the event to {@link AuthAuditWriter}: it is kept when the request that produced it fails
+ * and rolls back, which is exactly when security events matter most, and the request takes no second connection.
+ * {@link #recordAfterCommit} inserts in the caller's transaction, so a role event and its change commit together or
+ * not at all. The client IP and User-Agent come from the current HTTP request, if any, read on the request's thread.
  */
 @Log4j2
 @Component
@@ -40,12 +38,14 @@ public class AuthAuditLogAdapter implements AuditLogPort {
 
     private final AuthAuditEventJpaRepository repository;
     private final IdGenerator<Long> snowflakeIdGenerator;
+    private final AuthAuditWriter writer;
     private final TransactionTemplate inNewTransaction;
 
     public AuthAuditLogAdapter(AuthAuditEventJpaRepository repository, IdGenerator<Long> snowflakeIdGenerator,
-                               PlatformTransactionManager transactionManager) {
+                               AuthAuditWriter writer, PlatformTransactionManager transactionManager) {
         this.repository = repository;
         this.snowflakeIdGenerator = snowflakeIdGenerator;
+        this.writer = writer;
         this.inNewTransaction = new TransactionTemplate(transactionManager);
         this.inNewTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -53,35 +53,15 @@ public class AuthAuditLogAdapter implements AuditLogPort {
     @Override
     public void record(AuthAuditEvent event) {
         try {
-            AuthAuditEventEntity entity = toEntity(event);
-            inNewTransaction.executeWithoutResult(status -> repository.save(entity));
+            writer.enqueue(toEntity(event));
         } catch (RuntimeException e) {
-            log.error("Could not write audit event {} for user {}", event.type(), event.userId(), e);
+            log.error("Could not record audit event {} for user {}", event.type(), event.userId(), e);
         }
     }
 
     @Override
     public void recordAfterCommit(AuthAuditEvent event) {
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            record(event);
-            return;
-        }
-        try {
-            // Built now, while the request (IP, User-Agent) is still at hand; written after the commit
-            AuthAuditEventEntity entity = toEntity(event);
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    try {
-                        inNewTransaction.executeWithoutResult(status -> repository.save(entity));
-                    } catch (RuntimeException e) {
-                        log.error("Could not write audit event {} for user {}", event.type(), event.userId(), e);
-                    }
-                }
-            });
-        } catch (RuntimeException e) {
-            log.error("Could not write audit event {} for user {}", event.type(), event.userId(), e);
-        }
+        repository.save(toEntity(event));
     }
 
     private AuthAuditEventEntity toEntity(AuthAuditEvent event) {

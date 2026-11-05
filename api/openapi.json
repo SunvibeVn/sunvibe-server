@@ -11,7 +11,7 @@
   "paths" : {
     "/api/v1/auth/login" : {
       "post" : {
-        "description" : "Starts a new session for this device: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session).",
+        "description" : "Takes exactly one of email and username, which is the phone. Starts a new session for this device: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session).",
         "operationId" : "authLogin",
         "requestBody" : {
           "content" : {
@@ -48,7 +48,7 @@
                 }
               }
             },
-            "description" : "VALIDATION_FAILED on username or password; MALFORMED_REQUEST (unreadable JSON)"
+            "description" : "VALIDATION_FAILED on email (none or both of the two identifiers, or a value the policy refuses), username or password; MALFORMED_REQUEST (unreadable JSON)"
           },
           "401" : {
             "content" : {
@@ -58,7 +58,17 @@
                 }
               }
             },
-            "description" : "INVALID_CREDENTIALS: unknown phone, wrong password, or an account that may not sign in (one answer for all)"
+            "description" : "INVALID_CREDENTIALS: unknown or unverified identifier, wrong password, or an account that may not sign in (one answer for all)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AUTH_CHANNEL_DISABLED: sign-in by phone is closed"
           },
           "415" : {
             "content" : {
@@ -113,7 +123,7 @@
             "description" : "INTERNAL_ERROR"
           }
         },
-        "summary" : "Sign in with phone number and password (public)",
+        "summary" : "Sign in with email or phone and a password (public)",
         "tags" : [ "Auth session" ]
       }
     },
@@ -160,6 +170,16 @@
               }
             },
             "description" : "ACCOUNT_DISABLED: the account is locked or terminated"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AUTH_CHANNEL_DISABLED: this token came by SMS, and that channel is closed"
           },
           "415" : {
             "content" : {
@@ -271,7 +291,7 @@
                 }
               }
             },
-            "description" : "INTERNAL_ERROR, for example the e-mail hand-off failed"
+            "description" : "INTERNAL_ERROR; a mail that cannot leave never shows here"
           }
         },
         "summary" : "Start a password reset by e-mail (public)",
@@ -312,6 +332,16 @@
               }
             },
             "description" : "VALIDATION_FAILED on phoneNumber; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AUTH_CHANNEL_DISABLED: reset by SMS is closed"
           },
           "415" : {
             "content" : {
@@ -393,7 +423,17 @@
                 }
               }
             },
-            "description" : "VALIDATION_FAILED (bean validation, or phone, e-mail or ID card in use); REGISTRATION_TOKEN_INVALID; MALFORMED_REQUEST (unreadable JSON)"
+            "description" : "VALIDATION_FAILED (bean validation, or phone or ID card in use); REGISTRATION_TOKEN_INVALID; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AUTH_CHANNEL_DISABLED: sign-up by phone is closed"
           },
           "415" : {
             "content" : {
@@ -436,6 +476,276 @@
         "tags" : [ "Auth registration" ]
       }
     },
+    "/api/v1/auth/registration/email" : {
+      "post" : {
+        "description" : "Creates the account with the registration token of the proven mailbox and signs it in: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session).",
+        "operationId" : "authRegisterEmail",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailRegisterRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description" : "Registered and signed in; sets the refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "The refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED; REGISTRATION_TOKEN_INVALID; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "EMAIL_NOT_AVAILABLE: the address was taken meanwhile"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Register a new account by email (public)",
+        "tags" : [ "Auth registration" ]
+      }
+    },
+    "/api/v1/auth/registration/email/send-code" : {
+      "post" : {
+        "description" : "Mails a code that proves the registrant controls this mailbox. The answer does not depend on whether an account holds the address.",
+        "operationId" : "authRegistrationEmailSendCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegistrationEmailSendRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CodeSentResponse"
+                }
+              }
+            },
+            "description" : "Code sent"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on email; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CODE_RESEND_TOO_SOON or CODE_DAILY_LIMIT (the code limits), or RATE_LIMITED (too many requests from this IP address); Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          },
+          "503" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "EMAIL_DELIVERY_FAILED: nothing was kept, try again",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          }
+        },
+        "summary" : "Send a registration code by email (public)",
+        "tags" : [ "Auth registration" ]
+      }
+    },
+    "/api/v1/auth/registration/email/verify-code" : {
+      "post" : {
+        "description" : "Answers a registration token for an address no one holds. The right code for an address an account holds is used up and answers 409.",
+        "operationId" : "authRegistrationEmailVerifyCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegistrationEmailVerifyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RegistrationTokenResponse"
+                }
+              }
+            },
+            "description" : "Mailbox proven"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on email or code; CODE_INCORRECT, CODE_EXPIRED, CODE_ATTEMPTS_EXCEEDED; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "EMAIL_ACCOUNT_EXISTS: the verified address of an account; EMAIL_NOT_AVAILABLE: this address cannot be used now"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Check the registration code of a mailbox (public)",
+        "tags" : [ "Auth registration" ]
+      }
+    },
     "/api/v1/auth/registration/phone/send-code" : {
       "post" : {
         "description" : "Texts a code that proves the registrant controls this phone number. A number already in use gets no code.",
@@ -470,6 +780,16 @@
               }
             },
             "description" : "VALIDATION_FAILED on phoneNumber, or on username when the number is already in use; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AUTH_CHANNEL_DISABLED: sign-up by phone is closed"
           },
           "415" : {
             "content" : {
@@ -546,6 +866,16 @@
               }
             },
             "description" : "VALIDATION_FAILED on phoneNumber or code; CODE_INCORRECT, CODE_EXPIRED, CODE_ATTEMPTS_EXCEEDED; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AUTH_CHANNEL_DISABLED: sign-up by phone is closed"
           },
           "415" : {
             "content" : {
@@ -774,6 +1104,252 @@
         "tags" : [ "Me" ]
       }
     },
+    "/api/v1/me/email/confirm-code" : {
+      "post" : {
+        "description" : "Ends every other session and starts a new one for this device: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session). A replaced address gets a notice that does not name the new one.",
+        "operationId" : "meConfirmEmailBindCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailBindConfirmRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description" : "Email bound; sets the new refresh cookie",
+            "headers" : {
+              "Set-Cookie" : {
+                "description" : "The refresh cookie",
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on newEmail or code; CODE_INCORRECT, CODE_EXPIRED, CODE_ATTEMPTS_EXCEEDED; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain); ACCOUNT_DISABLED"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "EMAIL_NOT_AVAILABLE: this address cannot be used now"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Confirm the code and bind or replace the account email",
+        "tags" : [ "Me" ]
+      }
+    },
+    "/api/v1/me/email/send-code" : {
+      "post" : {
+        "description" : "Needs the current password: an open session alone binds nothing. A wrong password counts on a counter of its own. Whether another account holds the address does not show here.",
+        "operationId" : "meSendEmailBindCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EmailBindSendRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CodeSentResponse"
+                }
+              }
+            },
+            "description" : "Code sent"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on newEmail or currentPassword (a wrong password too); ALREADY_VERIFIED: it is the verified address of this account; MALFORMED_REQUEST (unreadable JSON)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "415" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "423" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ACCOUNT_LOCKED: too many wrong passwords",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CODE_RESEND_TOO_SOON or CODE_DAILY_LIMIT (the code limits), or RATE_LIMITED (too many requests from this IP address); Retry-After gives the seconds to wait",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          },
+          "503" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "EMAIL_DELIVERY_FAILED: nothing was kept, try again",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Send a code to bind or replace the account email",
+        "tags" : [ "Me" ]
+      }
+    },
     "/api/v1/me/password/change" : {
       "post" : {
         "description" : "Ends every session of the account and starts a new one for this device: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session). A wrong current password is a field error on currentPassword, never a 401.",
@@ -844,6 +1420,22 @@
               }
             },
             "description" : "MALFORMED_REQUEST: the body is not JSON"
+          },
+          "423" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ACCOUNT_LOCKED: too many wrong passwords",
+            "headers" : {
+              "Retry-After" : {
+                "description" : "Seconds to wait",
+                "style" : "simple"
+              }
+            }
           },
           "429" : {
             "content" : {
@@ -931,177 +1523,6 @@
         "tags" : [ "Me" ]
       }
     },
-    "/api/v1/me/verification/email/confirm-code" : {
-      "post" : {
-        "description" : "Marks the e-mail address verified.",
-        "operationId" : "meConfirmEmailCode",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/VerificationConfirmRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "204" : {
-            "description" : "E-mail verified"
-          },
-          "400" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "VALIDATION_FAILED on code; CODE_INCORRECT, CODE_EXPIRED, CODE_ATTEMPTS_EXCEEDED, ALREADY_VERIFIED; MALFORMED_REQUEST (unreadable JSON)"
-          },
-          "401" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "No valid access token (security chain)"
-          },
-          "403" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "Access denied (security chain)"
-          },
-          "415" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "MALFORMED_REQUEST: the body is not JSON"
-          },
-          "429" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "RATE_LIMITED: too many requests from this IP address; Retry-After gives the seconds to wait",
-            "headers" : {
-              "Retry-After" : {
-                "description" : "Seconds to wait",
-                "style" : "simple"
-              }
-            }
-          },
-          "500" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "INTERNAL_ERROR"
-          }
-        },
-        "security" : [ {
-          "bearerAuth" : [ ]
-        } ],
-        "summary" : "Confirm the e-mail verification code",
-        "tags" : [ "Me" ]
-      }
-    },
-    "/api/v1/me/verification/email/send-code" : {
-      "post" : {
-        "description" : "E-mails a code to the account's e-mail address.",
-        "operationId" : "meSendEmailCode",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/CodeSentResponse"
-                }
-              }
-            },
-            "description" : "Code sent"
-          },
-          "400" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "NO_EMAIL or ALREADY_VERIFIED"
-          },
-          "401" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "No valid access token (security chain)"
-          },
-          "403" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "Access denied (security chain)"
-          },
-          "429" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "CODE_RESEND_TOO_SOON or CODE_DAILY_LIMIT (the code limits), or RATE_LIMITED (too many requests from this IP address); Retry-After gives the seconds to wait",
-            "headers" : {
-              "Retry-After" : {
-                "description" : "Seconds to wait",
-                "style" : "simple"
-              }
-            }
-          },
-          "500" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description" : "INTERNAL_ERROR, for example the e-mail hand-off failed"
-          }
-        },
-        "security" : [ {
-          "bearerAuth" : [ ]
-        } ],
-        "summary" : "Send an e-mail verification code",
-        "tags" : [ "Me" ]
-      }
-    },
     "/api/v1/me/verification/phone/confirm-code" : {
       "post" : {
         "description" : "Marks the phone number verified; a PENDING account becomes ACTIVE.",
@@ -1148,7 +1569,7 @@
                 }
               }
             },
-            "description" : "Access denied (security chain)"
+            "description" : "Access denied (security chain), or AUTH_CHANNEL_DISABLED: phone verification is closed"
           },
           "415" : {
             "content" : {
@@ -1217,7 +1638,7 @@
                 }
               }
             },
-            "description" : "ALREADY_VERIFIED"
+            "description" : "ALREADY_VERIFIED; NO_PHONE: the account has no phone"
           },
           "401" : {
             "content" : {
@@ -1237,7 +1658,7 @@
                 }
               }
             },
-            "description" : "Access denied (security chain)"
+            "description" : "Access denied (security chain), or AUTH_CHANNEL_DISABLED: phone verification is closed"
           },
           "429" : {
             "content" : {
@@ -10884,6 +11305,62 @@
           }
         }
       },
+      "EmailBindConfirmRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[0-9]{6}$"
+          },
+          "newEmail" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "newEmail" ]
+      },
+      "EmailBindSendRequest" : {
+        "type" : "object",
+        "properties" : {
+          "currentPassword" : {
+            "type" : "string",
+            "maxLength" : 256,
+            "minLength" : 1
+          },
+          "newEmail" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "currentPassword", "newEmail" ]
+      },
+      "EmailRegisterRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirmPassword" : {
+            "type" : "string",
+            "maxLength" : 256,
+            "minLength" : 0
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "fullName" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 6,
+            "pattern" : "^\\P{Cntrl}*$"
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "registrationToken" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "confirmPassword", "email", "fullName", "password", "registrationToken" ]
+      },
       "ErrorResponse" : {
         "type" : "object",
         "properties" : {
@@ -11112,15 +11589,21 @@
       "LoginRequest" : {
         "type" : "object",
         "properties" : {
-          "password" : {
+          "email" : {
             "type" : "string"
+          },
+          "password" : {
+            "type" : "string",
+            "maxLength" : 256,
+            "minLength" : 1
           },
           "username" : {
             "type" : "string",
-            "pattern" : "^[0-9]{10,12}$"
+            "maxLength" : 32,
+            "minLength" : 0
           }
         },
-        "required" : [ "password", "username" ]
+        "required" : [ "password" ]
       },
       "MeResponse" : {
         "type" : "object",
@@ -11154,9 +11637,14 @@
             "type" : [ "string", "null" ],
             "description" : "URL of the profile image; null when there is none"
           },
+          "requiredAction" : {
+            "type" : [ "string", "null" ],
+            "description" : "What the account must do next; null when nothing",
+            "enum" : [ "BIND_EMAIL", "VERIFY_PHONE" ]
+          },
           "username" : {
-            "type" : "string",
-            "description" : "The account's phone number",
+            "type" : [ "string", "null" ],
+            "description" : "The account's phone number; null on an account signed up by email",
             "example" : "0901234567"
           }
         }
@@ -11600,10 +12088,12 @@
         "properties" : {
           "confirmPassword" : {
             "type" : "string",
+            "maxLength" : 256,
             "minLength" : 1
           },
           "currentPassword" : {
             "type" : "string",
+            "maxLength" : 256,
             "minLength" : 1
           },
           "newPassword" : {
@@ -11618,7 +12108,6 @@
         "properties" : {
           "email" : {
             "type" : "string",
-            "format" : "email",
             "minLength" : 1
           }
         },
@@ -11629,8 +12118,7 @@
         "properties" : {
           "phoneNumber" : {
             "type" : "string",
-            "minLength" : 1,
-            "pattern" : "^[0-9]{10,12}$"
+            "minLength" : 1
           }
         },
         "required" : [ "phoneNumber" ]
@@ -11640,6 +12128,7 @@
         "properties" : {
           "confirmPassword" : {
             "type" : "string",
+            "maxLength" : 256,
             "minLength" : 1
           },
           "newPassword" : {
@@ -11653,6 +12142,7 @@
           },
           "resetToken" : {
             "type" : "string",
+            "maxLength" : 256,
             "minLength" : 1
           }
         },
@@ -11955,12 +12445,34 @@
         },
         "required" : [ "arrivedAt", "expectedAppointmentVersion", "expectedLeadVersion", "note", "performedByUserId" ]
       },
+      "RegistrationEmailSendRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "email" ]
+      },
+      "RegistrationEmailVerifyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "minLength" : 1,
+            "pattern" : "^[0-9]{6}$"
+          },
+          "email" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "code", "email" ]
+      },
       "RegistrationPhoneSendRequest" : {
         "type" : "object",
         "properties" : {
           "phoneNumber" : {
-            "type" : "string",
-            "pattern" : "^[0-9]{10,12}$"
+            "type" : "string"
           }
         },
         "required" : [ "phoneNumber" ]
@@ -11974,8 +12486,7 @@
             "pattern" : "^[0-9]{6}$"
           },
           "phoneNumber" : {
-            "type" : "string",
-            "pattern" : "^[0-9]{10,12}$"
+            "type" : "string"
           }
         },
         "required" : [ "code", "phoneNumber" ]
@@ -12089,6 +12600,11 @@
             "type" : "boolean",
             "description" : "False right after registration: show the enter-the-SMS-code screen"
           },
+          "requiredAction" : {
+            "type" : [ "string", "null" ],
+            "description" : "What the account must do next; null when nothing",
+            "enum" : [ "BIND_EMAIL", "VERIFY_PHONE" ]
+          },
           "roles" : {
             "type" : "array",
             "description" : "Role names, sorted, e.g. CUSTOMER, TENANT",
@@ -12102,8 +12618,8 @@
             "example" : "01JAXXXXXXXXXXXXXXXXXXXXXX"
           },
           "username" : {
-            "type" : "string",
-            "description" : "The account's phone number",
+            "type" : [ "string", "null" ],
+            "description" : "The account's phone number; null on an account signed up by email",
             "example" : "0901234567"
           }
         }
@@ -13062,11 +13578,8 @@
         "type" : "object",
         "properties" : {
           "confirmPassword" : {
-            "type" : "string"
-          },
-          "email" : {
             "type" : "string",
-            "maxLength" : 100,
+            "maxLength" : 256,
             "minLength" : 0
           },
           "fullName" : {
@@ -13087,8 +13600,7 @@
             "minLength" : 0
           },
           "username" : {
-            "type" : "string",
-            "pattern" : "^[0-9]{10,12}$"
+            "type" : "string"
           }
         },
         "required" : [ "confirmPassword", "fullName", "password", "username" ]

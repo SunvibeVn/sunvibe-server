@@ -18,6 +18,7 @@ import vn.sunvibe.shared.time.AppClock;
  * Revokes a role and ends every session of the account (auth-roles US-4 AC-5, BR-11): its refresh tokens are
  * revoked, and its access tokens lose the role on the next request because roles are reloaded from the database on
  * every request. Revoking a role that is not held changes nothing and keeps the sessions (auth-roles US-4 AC-3).
+ * The row is locked first, so a login or refresh in flight cannot start a session after the revoke.
  */
 @Service
 @RequiredArgsConstructor
@@ -31,7 +32,7 @@ public class RoleRevokeService implements RoleRevokeUseCase {
     @Override
     public void execute(RoleChangeCommand command) {
         RoleName role = RoleChangeRules.checkedRole(command);
-        AppUser target = RoleChangeRules.target(userRepository, command.targetUserId());
+        AppUser target = RoleChangeRules.lockedTarget(userRepository, command.targetUserId());
         RoleChangeRules.checkAdminAccount(command, target);
         if (userRepository.removeRole(target.getId(), role)) {
             refreshTokenRepository.revokeAllForUser(target.getId(), RevokeReason.ROLE_REVOKED, AppClock.currentUTC());

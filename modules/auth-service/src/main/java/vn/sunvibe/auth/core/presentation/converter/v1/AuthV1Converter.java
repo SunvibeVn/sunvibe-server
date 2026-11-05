@@ -6,6 +6,7 @@ import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.query.auth.PasswordForgotResult;
 import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
 import vn.sunvibe.auth.core.application.query.user.UserProfileResult;
+import vn.sunvibe.auth.core.application.shared.RequiredAction;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.CodeSentResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.MeResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.PasswordResetStartResponse;
@@ -39,13 +40,18 @@ public class AuthV1Converter {
     public SessionResponse toSessionResponse(AuthResult result, Duration accessTokenTtl) {
         List<String> roles = result.roles() == null ? List.of() : result.roles().stream().sorted().toList();
         SessionUserResponse user = new SessionUserResponse(result.userId(), result.username(), result.fullName(),
-                result.email(), roles, result.phoneVerified(), result.emailVerified());
+                result.email(), roles, result.phoneVerified(), result.emailVerified(), name(result.requiredAction()));
         return new SessionResponse(TOKEN_TYPE, result.accessToken(), accessTokenTtl.toSeconds(), user);
     }
 
     public MeResponse toMeResponse(UserProfileResult profile) {
         return new MeResponse(profile.fullName(), profile.username(), profile.email(), profile.profileImageUrl(),
-                profile.kycStatus(), profile.accountStatus(), profile.phoneVerified(), profile.emailVerified());
+                profile.kycStatus(), profile.accountStatus(), profile.phoneVerified(), profile.emailVerified(),
+                name(profile.requiredAction()));
+    }
+
+    private static String name(RequiredAction action) {
+        return action == null ? null : action.name();
     }
 
     public CodeSentResponse toCodeSentResponse(VerificationSendResult result) {

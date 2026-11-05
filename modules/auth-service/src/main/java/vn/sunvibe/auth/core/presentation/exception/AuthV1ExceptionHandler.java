@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import tools.jackson.core.JacksonException;
 import vn.sunvibe.auth.core.application.exception.auth.AccountDisabledException;
+import vn.sunvibe.auth.core.application.exception.auth.AuthChannelDisabledException;
 import vn.sunvibe.auth.core.application.exception.auth.AccountTemporarilyLockedException;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenException;
@@ -38,7 +39,9 @@ import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledExce
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
+import vn.sunvibe.auth.core.domain.exception.user.IdentifierConflictException;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
+import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
 import vn.sunvibe.auth.core.shared.service.SessionCookieService;
 import vn.sunvibe.shared.constant.error.ErrorCode;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -75,7 +78,7 @@ public class AuthV1ExceptionHandler {
     static final String VALIDATION_FAILED_MESSAGE = "Validation failed.";
     static final String MALFORMED_REQUEST_MESSAGE = "Request body could not be read.";
     static final String REQUEST_NOT_PROCESSED_MESSAGE = "The request cannot be processed.";
-    static final String INVALID_CREDENTIALS_MESSAGE = "Phone number or password is incorrect.";
+    static final String INVALID_CREDENTIALS_MESSAGE = "The sign-in details are incorrect.";
     static final String ACCOUNT_LOCKED_MESSAGE = "Too many failed login attempts. Try again later.";
     static final String ACCOUNT_DISABLED_MESSAGE = "This account cannot be used.";
     static final String SESSION_EXPIRED_MESSAGE = "The session has expired. Sign in again.";
@@ -84,8 +87,14 @@ public class AuthV1ExceptionHandler {
     static final String CODE_EXPIRED_MESSAGE = "The code has expired. Ask for a new code.";
     static final String CODE_ATTEMPTS_EXCEEDED_MESSAGE = "Too many wrong codes. Ask for a new code.";
     static final String ALREADY_VERIFIED_MESSAGE = "The contact is already verified.";
-    static final String NO_EMAIL_MESSAGE = "The account has no e-mail address.";
-    static final String REGISTRATION_TOKEN_INVALID_MESSAGE = "The registration has expired. Verify the phone again.";
+    static final String NO_PHONE_MESSAGE = "The account has no phone number.";
+    static final String AUTH_CHANNEL_DISABLED_MESSAGE = "This sign-in method isn't available.";
+    static final String EMAIL_DELIVERY_FAILED_MESSAGE = "We couldn't send the email. Try again in a minute.";
+    private static final String MAIL_RETRY_AFTER_SECONDS = "60";
+    static final String PHONE_IN_USE_MESSAGE = "Phone number is already in use.";
+    static final String EMAIL_ACCOUNT_EXISTS_MESSAGE = "An account already uses this email. Sign in or reset the password.";
+    static final String EMAIL_NOT_AVAILABLE_MESSAGE = "This email can't be used right now. Try another email or contact Sunvibe.";
+    static final String REGISTRATION_TOKEN_INVALID_MESSAGE = "The registration has expired. Start again.";
     static final String RESET_TOKEN_INVALID_MESSAGE = "The password reset has expired. Start again.";
     static final String CODE_RESEND_TOO_SOON_MESSAGE = "A code was sent recently. Try again later.";
     static final String CODE_DAILY_LIMIT_MESSAGE = "Too many codes today. Try again later.";
@@ -162,8 +171,8 @@ public class AuthV1ExceptionHandler {
     }
 
     /**
-     * auth-browser-session S-21: an unknown phone, a wrong password, a deleted account and an account that may not
-     * sign in all get the same body, so the answer never tells which one it was.
+     * auth-browser-session S-21, auth-email-access S-14: an unknown or unverified identifier, a wrong password, a deleted
+     * account and an account that may not sign in all get the same body, so the answer never tells which one it was.
      */
     @ExceptionHandler(AuthenticationFailedException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleAuthenticationFailed(AuthenticationFailedException e) {
@@ -193,9 +202,13 @@ public class AuthV1ExceptionHandler {
             case CODE_EXPIRED -> badRequest(ErrorCode.CODE_EXPIRED, CODE_EXPIRED_MESSAGE);
             case CODE_ATTEMPTS_EXCEEDED -> badRequest(ErrorCode.CODE_ATTEMPTS_EXCEEDED, CODE_ATTEMPTS_EXCEEDED_MESSAGE);
             case ALREADY_VERIFIED -> badRequest(ErrorCode.ALREADY_VERIFIED, ALREADY_VERIFIED_MESSAGE);
-            case NO_EMAIL -> badRequest(ErrorCode.NO_EMAIL, NO_EMAIL_MESSAGE);
+            case NO_PHONE -> badRequest(ErrorCode.NO_PHONE, NO_PHONE_MESSAGE);
             case REGISTRATION_TOKEN_INVALID ->
                     badRequest(ErrorCode.REGISTRATION_TOKEN_INVALID, REGISTRATION_TOKEN_INVALID_MESSAGE);
+            case EMAIL_ACCOUNT_EXISTS ->
+                    error(HttpStatus.CONFLICT, ErrorCode.EMAIL_ACCOUNT_EXISTS, EMAIL_ACCOUNT_EXISTS_MESSAGE);
+            case EMAIL_NOT_AVAILABLE ->
+                    error(HttpStatus.CONFLICT, ErrorCode.EMAIL_NOT_AVAILABLE, EMAIL_NOT_AVAILABLE_MESSAGE);
         };
     }
 
@@ -225,6 +238,30 @@ public class AuthV1ExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .header(HttpHeaders.RETRY_AFTER, retryAfter(e.getRetryAfter()))
                 .body(body);
+    }
+
+    /** The mail hand-off failed: nothing was kept, so the client may try again (auth-email-access spec 5.6). */
+    @ExceptionHandler(SendingMailFailedException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleMailFailed(SendingMailFailedException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .header(HttpHeaders.RETRY_AFTER, MAIL_RETRY_AFTER_SECONDS)
+                .body(ErrorResponse.of(ErrorCode.EMAIL_DELIVERY_FAILED, EMAIL_DELIVERY_FAILED_MESSAGE, List.of()));
+    }
+
+    /** A phone operation closed by the channel mode: the same answer for every request (auth-email-access A-12). */
+    @ExceptionHandler(AuthChannelDisabledException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleChannelDisabled(AuthChannelDisabledException e) {
+        return error(HttpStatus.FORBIDDEN, ErrorCode.AUTH_CHANNEL_DISABLED, AUTH_CHANNEL_DISABLED_MESSAGE);
+    }
+
+    /** A race lost at a unique index of an identifier: nothing was written (auth-email-access spec 5.4). */
+    @ExceptionHandler(IdentifierConflictException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleIdentifierConflict(IdentifierConflictException e) {
+        return switch (e.getKind()) {
+            case EMAIL -> error(HttpStatus.CONFLICT, ErrorCode.EMAIL_NOT_AVAILABLE, EMAIL_NOT_AVAILABLE_MESSAGE);
+            case PHONE -> validationFailed(List.of(
+                    ValidationError.of(AuthFieldName.USER_NAME.getFieldName(), PHONE_IN_USE_MESSAGE)));
+        };
     }
 
     /** The signed-in account no longer exists. */

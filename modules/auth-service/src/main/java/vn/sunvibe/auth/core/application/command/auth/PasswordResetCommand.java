@@ -8,4 +8,10 @@ package vn.sunvibe.auth.core.application.command.auth;
  * @param newPassword the new raw password, already validated for strength
  */
 public record PasswordResetCommand(String resetToken, String otpCode, String newPassword) {
+
+    /** Contacts and secrets stay out of logs (auth-email-access 4.10). */
+    @Override
+    public String toString() {
+        return "PasswordResetCommand[hidden]";
+    }
 }

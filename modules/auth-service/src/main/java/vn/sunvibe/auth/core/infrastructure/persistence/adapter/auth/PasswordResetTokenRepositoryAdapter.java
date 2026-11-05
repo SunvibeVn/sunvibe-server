@@ -3,6 +3,7 @@ package vn.sunvibe.auth.core.infrastructure.persistence.adapter.auth;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
+import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.PasswordResetTokenEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.PasswordResetTokenJpaRepository;
@@ -30,6 +31,11 @@ public class PasswordResetTokenRepositoryAdapter implements PasswordResetTokenDo
     }
 
     @Override
+    public Optional<UserId> findUserIdByToken(String token) {
+        return passwordResetTokenJpaRepository.findUserIdByToken(token).map(UserId::from);
+    }
+
+    @Override
     public Optional<PasswordResetToken> findLatestByDestination(String destination) {
         return passwordResetTokenJpaRepository.findFirstByDestinationOrderByCreatedAtDesc(destination)
                 .map(PasswordResetTokenEntity::toDomain);
@@ -43,6 +49,11 @@ public class PasswordResetTokenRepositoryAdapter implements PasswordResetTokenDo
     @Override
     public long countIssuedSince(String destination, Instant since) {
         return passwordResetTokenJpaRepository.countByDestinationAndCreatedAtAfter(destination, since);
+    }
+
+    @Override
+    public int deleteExpiredBatch(Instant cutoff, int limit) {
+        return passwordResetTokenJpaRepository.deleteExpiredBatch(cutoff, limit);
     }
 
 }

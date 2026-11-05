@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.shared.PhoneChannelPolicy;
 import vn.sunvibe.auth.core.application.shared.RegistrationPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
 import vn.sunvibe.auth.core.application.usecase.auth.RegistrationPhoneVerificationUseCase;
@@ -17,7 +18,6 @@ import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.user.LoginUseCase;
 import vn.sunvibe.auth.core.application.usecase.user.UserRegisterUseCase;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
-import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
@@ -51,21 +51,21 @@ public class UserRegisterService implements UserRegisterUseCase {
     private final LoginUseCase loginUseCase;
     private final RegistrationPhoneVerificationUseCase phoneVerification;
     private final RegistrationPolicy registrationPolicy;
+    private final PhoneChannelPolicy phoneChannel;
 
     @Transactional
     @Override
     public AuthResult execute(UserRegisterCommand userRegisterCommand) {
 
-        // Check username exists
-        if (userRepository.existsByUsername(userRegisterCommand.username())) {
+        phoneChannel.require(PhoneChannelPolicy.Operation.SIGN_UP);
+        PhoneNumber phone = PhoneNumber.create(userRegisterCommand.username());
+
+        // The key answers for every written form; the raw check covers a row that has no key
+        if (userRepository.existsByPhoneKey(phone.key()) || userRepository.existsByUsername(phone.national())) {
             throw new AuthValidationException(AuthFieldName.USER_NAME, "Phone number is already in use.");
         }
 
-        // Optional fields: validated (format) and checked for duplicates only when provided
-        Email emailVO = isProvided(userRegisterCommand.email()) ? Email.create(userRegisterCommand.email().trim()) : null;
-        if (emailVO != null && userRepository.existsByEmail(emailVO.getValue())) {
-            throw new AuthValidationException(AuthFieldName.EMAIL, "Email is already in use.");
-        }
+        // Optional field: validated (format) and checked for duplicates only when provided
         IdCardNumber idCardNumberVO = isProvided(userRegisterCommand.idCardNumber()) ? IdCardNumber.create(userRegisterCommand.idCardNumber().trim()) : null;
         if (idCardNumberVO != null && userRepository.existsByIdCardNumber(idCardNumberVO)) {
             throw new AuthValidationException(AuthFieldName.ID_CARD_NUMBER, "ID card number is already in use.");
@@ -81,11 +81,11 @@ public class UserRegisterService implements UserRegisterUseCase {
 
         // Build Value-Object
         UserId userId = UserId.create(ulidGenerator.generateId());
-        Username usernameVO = Username.create(userRegisterCommand.username());
         Password passwordVO = Password.create(passwordEncoder.encode(userRegisterCommand.password()));
         ProfileImage profileImageVO = ProfileImage.create(null);
 
-        AppUser appUser = AppUser.create(userId, userRegisterCommand.fullName(), usernameVO, emailVO, passwordVO, profileImageVO, idCardNumberVO, new HashSet<>(), AppClock.currentUTC());
+        AppUser appUser = AppUser.createWithPhone(userId, userRegisterCommand.fullName(), phone, passwordVO,
+                profileImageVO, idCardNumberVO, new HashSet<>(), AppClock.currentUTC());
 
         // Self-registered accounts get exactly TENANT and CUSTOMER (auth-roles BR-3); other roles are granted by staff
         for (RoleName role : RoleName.SELF_REGISTRATION) {
@@ -98,18 +98,15 @@ public class UserRegisterService implements UserRegisterUseCase {
         }
 
         // Save in database
-        appUser = userRepository.save(appUser);
+        appUser = userRepository.create(appUser);
 
-        log.info("Register user successful: {}", appUser.getUsername().getValue());
+        log.info("Register user successful: {}", appUser.getId().getValue());
         auditLog.record(AuthAuditEvent.of(AuditEventType.USER_REGISTERED, appUser.getId().getValue(),
                 appUser.getUsername().getValue()));
 
         // Old flow: the account stays PENDING until the phone is verified; send the first code right away
         if (!phoneVerifiedFirst) {
-            contactVerification.sendCodeAfterRegistration(appUser, VerificationChannel.PHONE);
-        }
-        if (appUser.getEmail() != null) {
-            contactVerification.sendCodeAfterRegistration(appUser, VerificationChannel.EMAIL);
+            contactVerification.sendCodeAfterRegistration(appUser);
         }
 
         // The password was just set: no need to check it again to start the first session

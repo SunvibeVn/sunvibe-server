@@ -9,6 +9,7 @@ import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
+import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 
 /**
@@ -51,6 +52,15 @@ final class RoleChangeRules {
             throw new UserNotFoundException(USER_NOT_FOUND);
         }
         return users.findById(UserId.from(userId)).orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND));
+    }
+
+    /** The target under its row lock, read again, for a change that ends sessions. */
+    static AppUser lockedTarget(UserDomainRepository users, String userId) {
+        if (userId == null || userId.isBlank()) {
+            throw new UserNotFoundException(USER_NOT_FOUND);
+        }
+        return users.findByIdForSecurity(UserId.from(userId)).map(LockedUser::user)
+                .orElseThrow(() -> new UserNotFoundException(USER_NOT_FOUND));
     }
 
     /** Ids and the role name only: no PII or secret goes into the audit log. */

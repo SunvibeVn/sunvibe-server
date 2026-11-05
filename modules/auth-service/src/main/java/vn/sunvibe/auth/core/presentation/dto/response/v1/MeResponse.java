@@ -7,7 +7,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record MeResponse(
         @Schema(description = "Display name of the account")
         String fullName,
-        @Schema(description = "The account's phone number", example = "0901234567")
+        @Schema(description = "The account's phone number; null on an account signed up by email", example = "0901234567",
+                nullable = true)
         String username,
         @Schema(description = "E-mail of the account; null when it has none", nullable = true)
         String email,
@@ -20,5 +21,14 @@ public record MeResponse(
         @Schema(description = "Whether the phone number is confirmed")
         boolean phoneVerified,
         @Schema(description = "False when there is no e-mail or it is not confirmed yet")
-        boolean emailVerified) {
+        boolean emailVerified,
+        @Schema(description = "What the account must do next; null when nothing", nullable = true,
+                allowableValues = {"BIND_EMAIL", "VERIFY_PHONE"})
+        String requiredAction) {
+
+    /** Contacts and secrets stay out of logs (auth-email-access 4.10). */
+    @Override
+    public String toString() {
+        return "MeResponse[hidden]";
+    }
 }

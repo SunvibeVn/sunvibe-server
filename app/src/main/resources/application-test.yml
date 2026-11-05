@@ -15,6 +15,12 @@ spring:
     password: test-only-password
 
 app:
+  auth:
+    # Test-only key (public, committed; base64 of a plain phrase); never use for real data.
+    otp-hash-key: ${AUTH_OTP_HASH_KEY:ZGV2LW9ubHktZmFrZS1hdXRoLW90cC1oYXNoLWtleS1kby1ub3QtdXNlLWFueXdoZXJl}
+    phone:
+      # Quoted, or YAML reads a boolean. Dedicated tests set off and legacy-login.
+      mode: 'on'
   sms:
     # Writes SMS (with OTPs) to the log instead of sending them; dev/test only
     provider: ${SMS_PROVIDER:log}

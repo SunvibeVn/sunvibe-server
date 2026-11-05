@@ -42,7 +42,9 @@ import vn.sunvibe.auth.core.application.exception.auth.AccountTemporarilyLockedE
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenException;
 import vn.sunvibe.auth.core.application.exception.auth.OriginNotAllowedException;
+import vn.sunvibe.auth.core.application.exception.auth.AuthChannelDisabledException;
 import vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException;
+import vn.sunvibe.auth.core.domain.exception.user.IdentifierConflictException;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationException;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledException;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
@@ -259,7 +261,7 @@ class AuthV1ExceptionHandlerTest {
                 Arguments.of(VerificationException.Reason.CODE_EXPIRED, ErrorCode.CODE_EXPIRED),
                 Arguments.of(VerificationException.Reason.CODE_ATTEMPTS_EXCEEDED, ErrorCode.CODE_ATTEMPTS_EXCEEDED),
                 Arguments.of(VerificationException.Reason.ALREADY_VERIFIED, ErrorCode.ALREADY_VERIFIED),
-                Arguments.of(VerificationException.Reason.NO_EMAIL, ErrorCode.NO_EMAIL),
+                Arguments.of(VerificationException.Reason.NO_PHONE, ErrorCode.NO_PHONE),
                 Arguments.of(VerificationException.Reason.REGISTRATION_TOKEN_INVALID,
                         ErrorCode.REGISTRATION_TOKEN_INVALID));
     }
@@ -272,9 +274,37 @@ class AuthV1ExceptionHandlerTest {
                 400, code, List.of());
     }
 
+    /** Known only after the mailbox was proven (auth-email-access spec 4.8). */
+    static Stream<Arguments> conflictReasons() {
+        return Stream.of(
+                Arguments.of(VerificationException.Reason.EMAIL_ACCOUNT_EXISTS, ErrorCode.EMAIL_ACCOUNT_EXISTS),
+                Arguments.of(VerificationException.Reason.EMAIL_NOT_AVAILABLE, ErrorCode.EMAIL_NOT_AVAILABLE));
+    }
+
+    @ParameterizedTest
+    @MethodSource("conflictReasons")
+    void handle_verification_answers409CodeByReason(VerificationException.Reason reason, String code) throws Exception {
+        assertBody(handle(new VerificationException(reason, "Address " + SUBMITTED + " is taken.")), 409, code, List.of());
+    }
+
     @Test
     void handle_verification_everyReasonHasACode() {
-        assertEquals(VerificationException.Reason.values().length, verificationReasons().count());
+        assertEquals(VerificationException.Reason.values().length,
+                verificationReasons().count() + conflictReasons().count());
+    }
+
+    /** spec 5.4: the race for an email answers 409 without naming the address, the race for a phone a field error. */
+    @Test
+    void handle_identifierConflict_byKind() throws Exception {
+        assertBody(handle(new IdentifierConflictException(IdentifierConflictException.Kind.EMAIL)),
+                409, ErrorCode.EMAIL_NOT_AVAILABLE, List.of());
+        assertEquals(400, handle(new IdentifierConflictException(IdentifierConflictException.Kind.PHONE))
+                .getStatusCode().value());
+    }
+
+    @Test
+    void handle_channelDisabled_answers403() throws Exception {
+        assertBody(handle(new AuthChannelDisabledException()), 403, ErrorCode.AUTH_CHANNEL_DISABLED, List.of());
     }
 
     @Test
@@ -392,11 +422,19 @@ class AuthV1ExceptionHandlerTest {
                 405, ErrorCode.MALFORMED_REQUEST, List.of());
     }
 
+    /** auth-email-access spec 5.6: the mail hand-off failed, try again in a minute. */
+    @Test
+    void handle_mailFailure_answers503WithRetryAfter() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new SendingMailFailedException("Could not send to user@example.com"));
+
+        assertBody(response, 503, ErrorCode.EMAIL_DELIVERY_FAILED, List.of());
+        assertEquals("60", response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER));
+    }
+
     @Test
     void handle_unexpected_answers500InternalError() throws Exception {
-        assertBody(handle(new SendingMailFailedException("Could not send to user@example.com")),
+        assertBody(handle(new IllegalStateException("Could not reach user@example.com")),
                 500, ErrorCode.INTERNAL_ERROR, List.of());
-        assertOneLogLineWithClassOnly("SendingMailFailedException");
     }
 
     @Test

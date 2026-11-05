@@ -1,12 +1,19 @@
 ---
 paths:
   - "modules/*/src/main/resources/db/migration/**"
+  - "modules/*/src/main/java/db/migration/**"
 ---
 # Flyway rules
 - Folder: modules/<module>/src/main/resources/db/migration/ of the owning module (auth-service, property-service,
   acquisition-service and survey-service have migrations today).
 - File name: V<yyyyMMddHHmm>__<snake_case_desc>.sql, e.g. V202610121100__drop_generated_enum_check_constraints.sql.
   The timestamp must be later than the latest migration in ANY module (versions are global).
+- A backfill that needs a policy only Java has is a Java migration: modules/<module>/src/main/java/db/migration/
+  V<yyyyMMddHHmm>__Pascal_or_snake_desc.java, a plain no-arg BaseJavaMigration with a constant getChecksum(), using only
+  context.getConnection() (never closed or committed), so it stays in Flyway's transaction. The logic goes in a class the
+  test can call, under infrastructure/persistence/migration/ (UserIdentifierKeyBackfill). Flyway keeps no checksum of a
+  class: nothing but the history check, which covers that folder too, and the review notices an edit, and a class missing
+  from the executable jar is skipped silently, so the rehearsal runs the bootJar (auth-email-access spec 5.3).
 - Never edit a committed versioned migration. Fix forward with a new file. The exception is a repeatable
   R__<desc>.sql (master data only, e.g. R__property_master_data.sql): it is edited in place and runs after the versioned
   migrations whenever it changes, so every statement must be safe to repeat (ON CONFLICT ...).
@@ -20,7 +27,7 @@ paths:
   and lets Hibernate validate the mapping. H2 tests with Flyway disabled prove nothing about a migration. That test
   runs on empty tables: it proves neither the run time nor the lock time on populated data (SV-090).
 - CI job migration-history (scripts/ci/check-migration-history.sh) fails a PR that modifies, renames or deletes a
-  versioned migration that exists on its base branch. Locally: bash scripts/ci/check-migration-history.sh origin/main
+  versioned SQL or Java migration that exists on its base branch. Locally: bash scripts/ci/check-migration-history.sh origin/main
   --include-worktree.
 
 ## Locks and populated tables

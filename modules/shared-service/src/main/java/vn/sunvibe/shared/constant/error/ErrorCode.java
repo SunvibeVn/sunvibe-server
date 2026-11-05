@@ -3,6 +3,21 @@ package vn.sunvibe.shared.constant.error;
 /** Stable machine-readable error codes of the error body (ADR-010). The value of each constant is its own name. */
 public final class ErrorCode {
 
+    /** This phone operation is closed by the channel mode (auth-email-access spec 4.5). */
+    public static final String AUTH_CHANNEL_DISABLED = "AUTH_CHANNEL_DISABLED";
+
+    /** The proven mailbox is the verified address of an account: sign in or reset the password. */
+    public static final String EMAIL_ACCOUNT_EXISTS = "EMAIL_ACCOUNT_EXISTS";
+
+    /** This address cannot be used now. */
+    public static final String EMAIL_NOT_AVAILABLE = "EMAIL_NOT_AVAILABLE";
+
+    /** The mail could not be handed to the mail server; the caller may try again in a minute. */
+    public static final String EMAIL_DELIVERY_FAILED = "EMAIL_DELIVERY_FAILED";
+
+    /** The account has no phone to verify. */
+    public static final String NO_PHONE = "NO_PHONE";
+
     /** One or more request fields failed validation. */
     public static final String VALIDATION_FAILED = "VALIDATION_FAILED";
 
@@ -144,9 +159,6 @@ public final class ErrorCode {
 
     /** The contact (phone or e-mail) is already verified. */
     public static final String ALREADY_VERIFIED = "ALREADY_VERIFIED";
-
-    /** E-mail verification was asked for an account that has no e-mail. */
-    public static final String NO_EMAIL = "NO_EMAIL";
 
     /** The registration token is missing, used, expired or issued for another phone number. */
     public static final String REGISTRATION_TOKEN_INVALID = "REGISTRATION_TOKEN_INVALID";

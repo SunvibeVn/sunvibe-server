@@ -60,6 +60,8 @@ class SeedE2eAccountsPostgresTest {
 	private static final String ADMIN_ID = "01JE2EACCT0000000000000004";
 	private static final String LEADER_PHONE = "0900000103";
 	private static final String ADMIN_PHONE = "0900000104";
+	private static final String PHONE_ONLY_ID = "01JE2EACCT0000000000000005";
+	private static final String PHONE_ONLY_PHONE = "0900000105";
 
 	@Value("${local.server.port}")
 	private int port;
@@ -78,7 +80,8 @@ class SeedE2eAccountsPostgresTest {
 
 	@AfterEach
 	void removeSeededAccounts() {
-		jdbc.update("DELETE FROM users WHERE id IN (?, ?, ?, ?)", CUSTOMER_ID, SALE_ID, LEADER_ID, ADMIN_ID);
+		jdbc.update("DELETE FROM users WHERE id IN (?, ?, ?, ?, ?)", CUSTOMER_ID, SALE_ID, LEADER_ID, ADMIN_ID,
+				PHONE_ONLY_ID);
 	}
 
 	@AfterAll
@@ -215,6 +218,36 @@ class SeedE2eAccountsPostgresTest {
 		assertTrue(statement.contains("$2a$10$"), "the INSERT carries the bcrypt hashes");
 	}
 
+	/** auth-email-access plan PD-10: the backfill never sees these rows, so the script writes their keys itself. */
+	@Test
+	void seed_accounts_haveKeysAndVerifiedEmails() throws Exception {
+		ExecResult run = runSeed("local", randomPassword(), randomPassword());
+		assertEquals(0, run.getExitCode(), "run failed: " + run.getStderr());
+
+		Map<String, Object> customer = jdbc.queryForMap("SELECT phone_key, email, email_key, email_verified_at FROM users"
+				+ " WHERE id = ?", CUSTOMER_ID);
+		assertEquals("+84900000101", customer.get("phone_key"));
+		assertEquals("e2e.customer@sunvibe.test", customer.get("email"));
+		assertEquals("e2e.customer@sunvibe.test", customer.get("email_key"));
+		assertTrue(customer.get("email_verified_at") != null, "email verified");
+		assertEquals(4, jdbc.queryForObject("SELECT count(*) FROM users WHERE email_key LIKE 'e2e.%@sunvibe.test'",
+				Integer.class));
+	}
+
+	/** The phone-only fixture of the legacy flows: no email at all, the password of the customer. */
+	@Test
+	void seed_phoneOnlyFixture_signsIn() throws Exception {
+		String customerPassword = randomPassword();
+		ExecResult run = runSeed("local", customerPassword, randomPassword());
+		assertEquals(0, run.getExitCode(), "run failed: " + run.getStderr());
+
+		JsonNode account = logIn(PHONE_ONLY_PHONE, customerPassword);
+
+		assertEquals(PHONE_ONLY_ID, account.path("user").path("userId").asString());
+		assertEquals(List.of("CUSTOMER"), strings(account.path("user").path("roles")));
+		assertTrue(account.path("user").path("email").isNull());
+	}
+
 	/** The lead queue staff accounts: the SALE_LEADER and the ADMIN sign in with their own passwords and roles. */
 	@Test
 	void seed_leaderAndAdmin_signInWithTheirRolesAndNames() throws Exception {
@@ -289,7 +322,7 @@ class SeedE2eAccountsPostgresTest {
 				ExecResult result = runSeed("local", randomPassword(), randomPassword());
 
 				assertNotEquals(0, result.getExitCode(), phone + " taken must fail");
-				assertTrue(result.getStderr().contains("0900000103 or 0900000104 already belongs to another account"),
+				assertTrue(result.getStderr().contains("0900000103, 0900000104 or 0900000105 already belongs to another account"),
 						"the refusal names the conflict");
 				assertNothingSeeded();
 				assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM users WHERE id IN (?, ?)", Integer.class,

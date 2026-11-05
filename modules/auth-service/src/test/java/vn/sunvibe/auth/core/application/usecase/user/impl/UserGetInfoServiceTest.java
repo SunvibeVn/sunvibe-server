@@ -1,18 +1,20 @@
 package vn.sunvibe.auth.core.application.usecase.user.impl;
 
+import vn.sunvibe.auth.core.application.shared.AccountAccessPolicy;
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import vn.sunvibe.auth.core.application.query.user.UserProfileResult;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
+import vn.sunvibe.auth.core.testsupport.SignedIn;
+import vn.sunvibe.auth.core.testsupport.UnsupportedUserRepository;
 
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -39,10 +41,10 @@ class UserGetInfoServiceTest {
     }
 
     private UserProfileResult profileOf(Email email) {
-        AppUser appUser = AppUser.create(
+        AppUser appUser = AuthTestUsers.withPhone(
                 UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"),
                 "Nguyen Van A",
-                Username.create("0912345678"),
+                "0912345678",
                 email,
                 Password.create("hashed-password"),
                 ProfileImage.create(null),
@@ -50,30 +52,13 @@ class UserGetInfoServiceTest {
                 new HashSet<>(),
                 Instant.now());
 
-        UserDomainRepository repository = new UserDomainRepository() {
+        UserDomainRepository repository = new UnsupportedUserRepository() {
             @Override
-            public boolean existsByUsername(String userName) { return false; }
-            @Override
-            public boolean existsByEmail(String email) { return false; }
-            @Override
-            public boolean existsByIdCardNumber(IdCardNumber idCardNumber) { return false; }
-            @Override
-            public AppUser save(AppUser user) { return user; }
-            @Override
-            public AppUser findByUsername(String username) { return appUser; }
-            @Override
-            public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
-            @Override
-            public java.util.Optional<AppUser> findById(UserId userId) { throw new UnsupportedOperationException(); }
-            @Override public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
-            @Override public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) { throw new UnsupportedOperationException(); }
-            @Override public java.util.List<vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow> findSignInAbleByAnyRole(java.util.Set<String> roleNames, int limit) { throw new UnsupportedOperationException(); }
-            @Override public java.util.Map<String, String> findFullNamesByIds(java.util.Collection<String> ids) { throw new UnsupportedOperationException(); }
+            public java.util.Optional<AppUser> findById(UserId userId) { return java.util.Optional.of(appUser); }
         };
 
-        SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken("0912345678", null, List.of()));
+        SignedIn.as("01ARZ3NDEKTSV4RRFFQ69G5FAV");
 
-        return new UserGetInfoService(repository).execute();
+        return new UserGetInfoService(repository, new AccountAccessPolicy(AuthTestUsers.phoneOn())).execute();
     }
 }

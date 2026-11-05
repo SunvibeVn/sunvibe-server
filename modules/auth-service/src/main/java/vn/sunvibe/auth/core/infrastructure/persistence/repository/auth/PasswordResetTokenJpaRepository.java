@@ -22,9 +22,18 @@ public interface PasswordResetTokenJpaRepository extends JpaRepository<PasswordR
     @Query("SELECT t FROM PasswordResetTokenEntity t WHERE t.token = :token")
     Optional<PasswordResetTokenEntity> findByTokenForUpdate(@Param("token") String token);
 
+    /** A plain value, so no token entity stays in the persistence context across the user lock. */
+    @Query("SELECT t.userId FROM PasswordResetTokenEntity t WHERE t.token = :token")
+    Optional<String> findUserIdByToken(@Param("token") String token);
+
     Optional<PasswordResetTokenEntity> findFirstByDestinationOrderByCreatedAtDesc(String destination);
 
     long countByDestinationAndCreatedAtAfter(String destination, Instant since);
+
+    @Modifying
+    @Query(value = "DELETE FROM password_reset_token WHERE id IN "
+            + "(SELECT id FROM password_reset_token WHERE expires_at < :cutoff LIMIT :limit)", nativeQuery = true)
+    int deleteExpiredBatch(@Param("cutoff") Instant cutoff, @Param("limit") int limit);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE PasswordResetTokenEntity t SET t.isUsed = true, t.usedAt = :now " +

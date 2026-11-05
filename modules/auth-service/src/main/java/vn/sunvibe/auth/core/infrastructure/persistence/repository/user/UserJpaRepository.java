@@ -34,16 +34,70 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
             "WHERE u.idCardNumberHash = :idCardNumberHash AND u.deletedAt IS NULL")
     boolean existsByIdCardNumberHash(@Param("idCardNumberHash") String idCardNumberHash);
 
-    @Query("SELECT u FROM UserEntity u WHERE u.email = :email AND u.deletedAt IS NULL")
-    Optional<UserEntity> findByEmail(@Param("email") String email);
+    @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.userRoles " +
+            "WHERE u.emailKey = :emailKey AND u.deletedAt IS NULL")
+    Optional<UserEntity> findByEmailKey(@Param("emailKey") String emailKey);
+
+    /**
+     * True for a row where the address is verified, false for any other row that holds it, through
+     * {@code uq_users_email_key} or {@code idx_users_keyless_email}, whose expression this repeats. Native: JPQL cannot
+     * state the C collation. {@code self} is an id no row has when nobody is left out.
+     */
+    @Query(value = "select email_key is not null and email_verified_at is not null from users"
+            + " where deleted_at is null and id <> :self and (email_key = :emailKey"
+            + " or (email is not null and email_key is null and lower(btrim(email) collate \"C\") = :emailKey))",
+            nativeQuery = true)
+    List<Boolean> findEmailHolders(@Param("emailKey") String emailKey, @Param("self") String self);
+
+    @Query("SELECT CASE WHEN COUNT(u) > 0 THEN true ELSE false END FROM UserEntity u " +
+            "WHERE u.phoneKey = :phoneKey AND u.deletedAt IS NULL")
+    boolean existsByPhoneKey(@Param("phoneKey") String phoneKey);
 
     @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.userRoles " +
-            "WHERE u.username = :username AND u.deletedAt IS NULL")
-    Optional<UserEntity> findByUsername(@Param("username") String username);
+            "WHERE u.phoneKey = :phoneKey AND u.deletedAt IS NULL")
+    Optional<UserEntity> findByPhoneKey(@Param("phoneKey") String phoneKey);
+
+    @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.userRoles " +
+            "WHERE u.username = :username AND u.phoneKey IS NULL AND u.deletedAt IS NULL")
+    Optional<UserEntity> findKeylessByUsername(@Param("username") String username);
 
     @Query("SELECT u FROM UserEntity u LEFT JOIN FETCH u.userRoles " +
             "WHERE u.id = :id AND u.deletedAt IS NULL")
     Optional<UserEntity> findActiveById(@Param("id") String id);
+
+    /**
+     * The row lock of every security command (auth-email-access spec 5.4): native, because
+     * {@code PESSIMISTIC_WRITE} takes {@code FOR UPDATE}, which blocks the key-share lock of a refresh token insert.
+     */
+    @Query(value = "select id from users where id = :id and deleted_at is null for no key update", nativeQuery = true)
+    Optional<String> lockForSecurity(@Param("id") String id);
+
+    /** {@code FOR SHARE} for a session refresh: scalar, so no entity outlives the lock with an old state. */
+    @Query(value = "select id from users where id = :id for share", nativeQuery = true)
+    Optional<String> lockForShare(@Param("id") String id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE UserEntity u SET u.lastLogin = :when, u.failedLoginAttempts = 0, u.lockedUntil = NULL WHERE u.id = :id")
+    int recordLoginSuccess(@Param("id") String id, @Param("when") Instant when);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE UserEntity u SET u.userStatus = :active WHERE u.id = :id AND u.userStatus = :pending")
+    int activateIfPending(@Param("id") String id, @Param("active") UserStatus active, @Param("pending") UserStatus pending);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE UserEntity u SET u.reauthFailedAttempts = u.reauthFailedAttempts + 1 WHERE u.id = :id")
+    int incrementReauthFailures(@Param("id") String id);
+
+    @Query("SELECT u.reauthFailedAttempts FROM UserEntity u WHERE u.id = :id")
+    int findReauthFailures(@Param("id") String id);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE UserEntity u SET u.reauthLockedUntil = :until WHERE u.id = :id")
+    int lockReauthUntil(@Param("id") String id, @Param("until") Instant until);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE UserEntity u SET u.reauthFailedAttempts = 0, u.reauthLockedUntil = NULL WHERE u.id = :id")
+    int clearReauthFailures(@Param("id") String id);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE UserEntity u SET u.failedLoginAttempts = u.failedLoginAttempts + 1 WHERE u.id = :id")
@@ -53,7 +107,7 @@ public interface UserJpaRepository extends JpaRepository<UserEntity, String> {
     int findFailedLoginAttempts(@Param("id") String id);
 
     @Query("SELECT u.id FROM UserEntity u WHERE u.userStatus = :pending AND u.phoneVerifiedAt IS NULL " +
-            "AND u.deletedAt IS NULL AND u.createdDate < :cutoff ORDER BY u.createdDate")
+            "AND u.emailVerifiedAt IS NULL AND u.deletedAt IS NULL AND u.createdDate < :cutoff ORDER BY u.createdDate")
     List<String> findUnverifiedPendingIds(@Param("pending") UserStatus pending, @Param("cutoff") Instant cutoff,
                                           Limit limit);
 

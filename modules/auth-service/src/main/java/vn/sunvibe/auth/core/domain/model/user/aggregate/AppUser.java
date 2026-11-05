@@ -19,7 +19,7 @@ import java.util.Set;
  * Aggregate root of a user account: identity, credentials, contact
  * verification, login lockout and lifecycle status.
  * <p>
- * New accounts are built with {@link #create}. The no-args constructor and the
+ * New accounts are built with {@link #createWithPhone} or {@link #registerWithEmail}. The no-args constructor and the
  * setters exist for the persistence mapper only; application code changes an
  * account through the business methods below so that invariants (e.g.
  * {@link #lastUpdate}) are kept.
@@ -33,7 +33,7 @@ public class AppUser {
 
     private String fullName;
 
-    /** The phone number the user signs in with. */
+    /** The phone in its national form, for display; null for an account without a phone. */
     private Username username;
 
     /** Optional; null until the user provides one. */
@@ -78,6 +78,21 @@ public class AppUser {
     /** When the user proved control of the current e-mail; null until then or after it changes. */
     private Instant emailVerifiedAt;
 
+    /** Canonical value of {@link #email}, the only comparison key of the address; null while it has none. */
+    private String emailKey;
+
+    /** E.164 value of {@link #username}, the only comparison key of the phone; null while it has none. */
+    private String phoneKey;
+
+    /** Raised by every change of a credential or login identifier; proofs and sessions of an older value are void. */
+    private long credentialVersion;
+
+    /** Consecutive wrong passwords at a reauthentication; apart from the login counter (auth-email-access D4-12). */
+    private int reauthFailedAttempts;
+
+    /** Reauthentication is refused until this instant; null when not locked. */
+    private Instant reauthLockedUntil;
+
     private AppUser(UserId id, String fullName, Username username, Email email, Password password,
                     ProfileImage profileImage, Instant createdDate, Set<String> userRoles, UserStatus userStatus) {
         this.id = id;
@@ -98,28 +113,52 @@ public class AppUser {
      * A newly registered account: {@link UserStatus#PENDING} until the phone
      * number is verified (see {@link #verifyPhone}), KYC not started.
      *
-     * @param email        optional, may be null
+     * @param phone        the number, in national form for display and as its canonical key
      * @param idCardNumber optional, may be null
      * @param userRoles    mutable set of role names
      * @param nowUtc       registration time; the current time when null
      */
-    public static AppUser create(UserId id, String fullName, Username username, Email email, Password hashedPassword,
-                                 ProfileImage profileImage, IdCardNumber idCardNumber, Set<String> userRoles, Instant nowUtc) {
+    public static AppUser createWithPhone(UserId id, String fullName, PhoneNumber phone, Password hashedPassword,
+                                          ProfileImage profileImage, IdCardNumber idCardNumber, Set<String> userRoles,
+                                          Instant nowUtc) {
         Instant now = nowUtc != null ? nowUtc : AppClock.currentUTC();
-        AppUser appUser = new AppUser(id, fullName, username, email, hashedPassword, profileImage, now, userRoles,
-                UserStatus.PENDING);
+        AppUser appUser = new AppUser(id, fullName, Username.from(phone.national()), null, hashedPassword, profileImage,
+                now, userRoles, UserStatus.PENDING);
+        appUser.phoneKey = phone.key();
         appUser.idCardNumber = idCardNumber;
+        appUser.kycStatus = KycStatus.UNVERIFIED;
+        return appUser;
+    }
+
+    /**
+     * An account whose mailbox was proven before it existed (auth-email-access 4.4): ACTIVE and verified from the
+     * start, with no phone and no fake value in its place.
+     *
+     * @param email     the canonical address, from {@link Email#create}
+     * @param userRoles mutable set of role names
+     */
+    public static AppUser registerWithEmail(UserId id, String fullName, Email email, Password hashedPassword,
+                                            Set<String> userRoles, Instant now) {
+        AppUser appUser = new AppUser(id, fullName, null, email, hashedPassword, null, now, userRoles, UserStatus.ACTIVE);
+        appUser.emailKey = email.getValue();
+        appUser.emailVerifiedAt = now;
         appUser.kycStatus = KycStatus.UNVERIFIED;
         return appUser;
     }
 
     /*────────── BUSINESS BEHAVIOURS ──────────*/
 
-    /** A new e-mail is unverified until the user confirms the code sent to it. */
-    public void changeEmail(Email newEmail) {
-        this.email = Objects.requireNonNull(newEmail);
-        this.emailVerifiedAt = null;
-        touch();
+    /** The stored phone, or null for an account without one. */
+    public String usernameValue() {
+        return username != null ? username.getValue() : null;
+    }
+
+    /**
+     * Whether phone sign-in and SMS reset may serve this account (auth-email-access D4-9): a verified email with an
+     * unverified phone says nothing about who holds that number, so it may not.
+     */
+    public boolean canUsePhone() {
+        return username != null && (!isEmailVerified() || isPhoneVerified());
     }
 
     /**
@@ -137,29 +176,50 @@ public class AppUser {
     }
 
     /**
-     * The user proved control of the current e-mail.
+     * The user proved a mailbox and re-entered the password: the only way an existing account gets a verified email
+     * (auth-email-access D4-4). The id, the roles and every reference to the account stay; a PENDING account becomes
+     * ACTIVE, other statuses are left alone; proofs and access tokens of the older version die.
      *
-     * @throws IllegalStateException if the account has no e-mail
+     * @param newEmail the canonical address, from {@link Email#create}
      */
-    public void verifyEmail(Instant now) {
-        if (email == null) {
-            throw new IllegalStateException("No e-mail to verify.");
+    public void bindVerifiedEmail(Email newEmail, Instant now) {
+        this.email = Objects.requireNonNull(newEmail);
+        this.emailKey = newEmail.getValue();
+        this.emailVerifiedAt = now;
+        if (userStatus == UserStatus.PENDING) {
+            userStatus = UserStatus.ACTIVE;
         }
-        emailVerifiedAt = now;
+        this.credentialVersion++;
         touch();
+    }
+
+    /**
+     * An email sign-in or reset of a PENDING account with a verified email: it becomes ACTIVE, nothing else changes
+     * (auth-email-access D4-10).
+     *
+     * @return true if the status changed
+     */
+    public boolean activateIfPendingWithVerifiedEmail() {
+        if (userStatus != UserStatus.PENDING || !isEmailVerified()) {
+            return false;
+        }
+        userStatus = UserStatus.ACTIVE;
+        return true;
     }
 
     public boolean isPhoneVerified() {
         return phoneVerifiedAt != null;
     }
 
+    /** A stored address without a key does not count: it can be neither signed in with nor reset by (auth-email-access 4.1). */
     public boolean isEmailVerified() {
-        return email != null && emailVerifiedAt != null;
+        return emailKey != null && emailVerifiedAt != null;
     }
 
-    /** Replaces the password hash (change or reset). */
+    /** Replaces the password hash (change or reset); proofs and sessions of the old one are void. */
     public void changePassword(String newHashedPassword) {
         this.password = Password.create(newHashedPassword);
+        this.credentialVersion++;
         touch();
     }
 
@@ -211,12 +271,6 @@ public class AppUser {
         return RoleName.STAFF.stream().anyMatch(role -> userRoles.contains(role.name()));
     }
 
-    /** A successful password login: records it and forgets earlier failed attempts. */
-    public void recordLoginSuccess(Instant when) {
-        this.lastLogin = when != null ? when : AppClock.currentUTC();
-        clearLoginLockout();
-    }
-
     /**
      * True while password login is refused after too many wrong passwords.
      * Unlike {@link UserStatus#LOCK} (set by an administrator), this lock lifts
@@ -230,6 +284,12 @@ public class AppUser {
     public void clearLoginLockout() {
         this.failedLoginAttempts = 0;
         this.lockedUntil = null;
+    }
+
+    /** Forgets wrong passwords at a reauthentication and lifts its lock, e.g. after the owner reset the password. */
+    public void clearReauthLockout() {
+        this.reauthFailedAttempts = 0;
+        this.reauthLockedUntil = null;
     }
 
     /**

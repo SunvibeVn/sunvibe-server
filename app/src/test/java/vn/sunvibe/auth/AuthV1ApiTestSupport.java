@@ -21,10 +21,11 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
+import vn.sunvibe.auth.core.domain.model.user.vo.Email;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
-import vn.sunvibe.auth.core.domain.model.user.vo.Username;
+import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -107,12 +108,22 @@ final class AuthV1ApiTestSupport implements AutoCloseable {
 		String username = nextPhone();
 		String password = UUID.randomUUID().toString();
 		Instant now = AppClock.currentUTC();
-		AppUser user = AppUser.create(UserId.create(ulidGenerator.generateId()), "W10 user", Username.create(username),
-				null, Password.create(passwordEncoder.encode(password)), ProfileImage.create(null), null,
+		AppUser user = AppUser.createWithPhone(UserId.create(ulidGenerator.generateId()), "W10 user",
+				PhoneNumber.create(username), Password.create(passwordEncoder.encode(password)), ProfileImage.create(null), null,
 				new HashSet<>(Set.of(roles)), now);
 		user.verifyPhone(now);
 		user.setUserStatus(status);
-		return new Created(userRepository.save(user).getId().getValue(), username, password);
+		return new Created(userRepository.create(user).getId().getValue(), username, password);
+	}
+
+	/** An account without a phone, stored directly (no registration flow). */
+	Created createEmailUser(String... roles) {
+		String email = "email-user-" + PHONE_SEQUENCE.getAndIncrement() + "@example.com";
+		String password = UUID.randomUUID().toString();
+		AppUser user = AppUser.registerWithEmail(UserId.create(ulidGenerator.generateId()), "Email user",
+				Email.create(email), Password.create(passwordEncoder.encode(password)), new HashSet<>(Set.of(roles)),
+				AppClock.currentUTC());
+		return new Created(userRepository.create(user).getId().getValue(), email, password);
 	}
 
 	Session logIn(Created user) throws Exception {

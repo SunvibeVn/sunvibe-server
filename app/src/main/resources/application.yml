@@ -26,17 +26,18 @@ spring:
         # The contract types every enum as a string: a JSON number (or numeric string) is no enum code.
         fail-on-numbers-for-enums: true
   mail:
-    host: smtp.gmail.com
-    port: 587
+    # With these and app.mail.from an SMTP relay is a config change (auth-email-access spec 5.6)
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: true
-            required: true
+            enable: ${MAIL_STARTTLS:true}
+            required: ${MAIL_STARTTLS:true}
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
@@ -81,7 +82,24 @@ logging:
 app:
   cors:
     allowed-origins: http://localhost:3000
+  mail:
+    # The sender of every auth mail
+    from: ${MAIL_FROM:${spring.mail.username}}
   auth:
+    # The web app; the reset link starts with it, so it must be in app.cors.allowed-origins (https in prod)
+    frontend-base-url: ${AUTH_FRONTEND_BASE_URL:http://localhost:3000}
+    # No default on purpose: startup fails unless it is set. A base64-encoded key of at least 32 bytes for the stored form
+    # of one-time codes. Changing it voids the codes in flight, which live for minutes. The dev/test value lives in
+    # application-dev.yml / application-test.yml and must never be used in prod.
+    otp-hash-key: ${AUTH_OTP_HASH_KEY}
+    mail:
+      # Auth mails per hour and instance; set it below the real limit of the sender (auth-email-access O-2)
+      max-per-hour: ${AUTH_MAIL_MAX_PER_HOUR:300}
+    phone:
+      # Phone channel (auth-email-access spec 4.5): off (default), legacy-login (phone + password only, until the date
+      # below, an ISO instant at most 60 days ahead) or on (local and test; production needs a real SMS provider)
+      mode: ${AUTH_PHONE_MODE:off}
+      legacy-login-until: ${AUTH_PHONE_LEGACY_LOGIN_UNTIL:}
     refresh-cookie:
       # Browser-session refresh cookie, only sent to /api/v1/auth/session (auth-browser-session spec §3.5).
       # Renamed __Secure-sv_refresh in prod; Secure is off only in the lan profile.
@@ -148,19 +166,22 @@ app:
         - { method: POST, path: /api/v1/auth/password-reset/sms, limit: 5, window: 1h, bucket: reset-sms }
         - { method: POST, path: /api/v1/auth/registration/phone/send-code, limit: 5, window: 1h, bucket: registration-send-code }
         - { method: POST, path: /api/v1/auth/registration/phone/verify-code, limit: 10, window: 15m, bucket: registration-verify-code }
+        - { method: POST, path: /api/v1/auth/registration/email/send-code, limit: 5, window: 1h, bucket: registration-email-send-code }
+        - { method: POST, path: /api/v1/auth/registration/email/verify-code, limit: 10, window: 15m, bucket: registration-email-verify-code }
+        - { method: POST, path: /api/v1/auth/registration/email, limit: 5, window: 1h, bucket: registration-email }
         - { method: POST, path: /api/v1/me/verification/phone/send-code, limit: 5, window: 1h, bucket: verify-phone-send }
-        - { method: POST, path: /api/v1/me/verification/email/send-code, limit: 5, window: 1h, bucket: verify-email-send }
+        - { method: POST, path: /api/v1/me/email/send-code, limit: 10, window: 1h, bucket: me-email-send }
         - { method: POST, path: /api/v1/me/verification/phone/confirm-code, limit: 10, window: 15m, bucket: verify-phone-confirm }
-        - { method: POST, path: /api/v1/me/verification/email/confirm-code, limit: 10, window: 15m, bucket: verify-email-confirm }
+        - { method: POST, path: /api/v1/me/email/confirm-code, limit: 10, window: 15m, bucket: me-email-confirm }
         - { method: POST, path: /api/v1/auth/password-reset/complete, limit: 10, window: 15m, bucket: reset-complete }
         - { method: POST, path: /api/v1/auth/session/refresh, limit: 30, window: 1m, bucket: refresh }
         - { method: POST, path: /api/v1/me/password/change, limit: 10, window: 15m, bucket: password-change }
         # Public owner intake form (acquisition-owner-intake): 10 submissions per client IP per hour
         - { method: POST, path: /api/v1/public/owner-intake-requests, limit: 10, window: 1h }
   sms:
-    # SMS provider for OTPs. No default on purpose: without one the app does not start.
-    # Only "log" exists so far (dev/test profiles; prints OTPs to the log, never use in prod).
-    provider: ${SMS_PROVIDER:}
+    # SMS provider for OTPs: none (default; the phone channel must then not be on) or log, which prints OTPs to the
+    # log and runs only in the dev, test and lan profiles. No real provider exists yet.
+    provider: ${SMS_PROVIDER:none}
   crypto:
     # No defaults on purpose: startup fails unless both are set. Each must be a
     # base64-encoded 32-byte key, and the two must differ. Dev/test values live

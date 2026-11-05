@@ -91,17 +91,10 @@ class UserJpaRepositorySoftDeleteTest {
     }
 
     @Test
-    void findByUsername_ignoresSoftDeletedRow() {
+    void findKeylessByUsername_ignoresSoftDeletedRow() {
         userJpaRepository.save(buildUser("id-7", "0955555555", "g@example.com", Instant.now()));
 
-        assertTrue(userJpaRepository.findByUsername("0955555555").isEmpty());
-    }
-
-    @Test
-    void findByEmail_ignoresSoftDeletedRow() {
-        userJpaRepository.save(buildUser("id-8", "0966666666", "h@example.com", Instant.now()));
-
-        assertTrue(userJpaRepository.findByEmail("h@example.com").isEmpty());
+        assertTrue(userJpaRepository.findKeylessByUsername("0955555555").isEmpty());
     }
 
     /**

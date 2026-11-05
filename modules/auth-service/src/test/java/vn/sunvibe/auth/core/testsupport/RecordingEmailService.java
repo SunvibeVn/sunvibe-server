@@ -12,9 +12,12 @@ public class RecordingEmailService implements EmailServicePort {
     }
 
     public final List<Mail> sent = new ArrayList<>();
+    /** The value a reset mail carried. */
+    public String lastResetToken;
 
     @Override
     public void sendPasswordResetEmail(String email, String otpCode, String resetToken) {
+        lastResetToken = resetToken;
         sent.add(new Mail("RESET", email, otpCode));
     }
 
@@ -24,8 +27,18 @@ public class RecordingEmailService implements EmailServicePort {
     }
 
     @Override
-    public void sendVerificationCodeEmail(String email, String code) {
-        sent.add(new Mail("VERIFICATION", email, code));
+    public void sendRegistrationCodeEmail(String to, String code) {
+        sent.add(new Mail("REGISTRATION", to, code));
+    }
+
+    @Override
+    public void sendEmailBindCodeEmail(String to, String code) {
+        sent.add(new Mail("EMAIL_BIND", to, code));
+    }
+
+    @Override
+    public void sendEmailChangedNotice(String to) {
+        sent.add(new Mail("EMAIL_CHANGED", to, null));
     }
 
     public List<Mail> ofKind(String kind) {

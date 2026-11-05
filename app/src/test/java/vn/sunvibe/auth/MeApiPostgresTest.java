@@ -26,19 +26,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import tools.jackson.databind.JsonNode;
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Created;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Session;
+import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
-import vn.sunvibe.auth.core.domain.model.user.vo.Username;
+import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -61,8 +65,8 @@ class MeApiPostgresTest {
 	private static final String ME = "/api/v1/me";
 	private static final String PHONE_SEND = "/api/v1/me/verification/phone/send-code";
 	private static final String PHONE_CONFIRM = "/api/v1/me/verification/phone/confirm-code";
-	private static final String EMAIL_SEND = "/api/v1/me/verification/email/send-code";
-	private static final String EMAIL_CONFIRM = "/api/v1/me/verification/email/confirm-code";
+	private static final String EMAIL_SEND = "/api/v1/me/email/send-code";
+	private static final String EMAIL_CONFIRM = "/api/v1/me/email/confirm-code";
 	private static final String PASSWORD_CHANGE = "/api/v1/me/password/change";
 	private static final String LOGOUT_ALL = "/api/v1/me/sessions/logout-all";
 	private static final String REFRESH = "/api/v1/auth/session/refresh";
@@ -83,6 +87,15 @@ class MeApiPostgresTest {
 	@Autowired
 	private CapturingMessagesConfig messages;
 
+	@Autowired
+	private AccessTokenIssuerPort accessTokens;
+
+	@Autowired
+	private JdbcTemplate jdbc;
+
+	@Autowired
+	private TransactionTemplate transaction;
+
 	private AuthV1ApiTestSupport api;
 
 	@BeforeAll
@@ -93,6 +106,60 @@ class MeApiPostgresTest {
 	@AfterAll
 	void tearDown() {
 		api.close();
+	}
+
+	// ==================== an account without a phone (auth-email-access S-20) ====================
+
+	/** The token comes from the issuer: these tests are about what happens after sign-in. */
+	private String accessTokenOf(Created user) {
+		return accessTokens.issue(userRepository.findById(UserId.from(user.userId())).orElseThrow());
+	}
+
+	@Test
+	void me_nullUsername_returnsNull() throws Exception {
+		Created user = api.createEmailUser("TENANT", "CUSTOMER");
+
+		HttpResponse<String> response = api.get(ME, accessTokenOf(user));
+
+		assertEquals(200, response.statusCode(), "status " + response.statusCode());
+		JsonNode body = api.body(response);
+		assertTrue(body.path("username").isNull(), "username is null, never a fake value");
+		assertEquals(user.username(), body.path("email").asString());
+		assertTrue(body.path("emailVerified").asBoolean());
+		assertFalse(body.path("phoneVerified").asBoolean());
+	}
+
+	@Test
+	void logoutAll_nullUsername() throws Exception {
+		Created user = api.createEmailUser("CUSTOMER");
+
+		HttpResponse<String> response = api.post(LOGOUT_ALL, null, null, accessTokenOf(user), null);
+
+		assertEquals(204, response.statusCode(), "status " + response.statusCode());
+	}
+
+	@Test
+	void passwordChange_nullUsername() throws Exception {
+		Created user = api.createEmailUser("CUSTOMER");
+
+		HttpResponse<String> response = api.post(PASSWORD_CHANGE, null, null, accessTokenOf(user),
+				passwordChangeBody(user.password(), NEW_PASSWORD));
+
+		assertEquals(200, response.statusCode(), "status " + response.statusCode());
+		assertTrue(api.body(response).path("user").path("username").isNull());
+	}
+
+	/** Roles are read from the database on every request, by the user id of the token. */
+	@Test
+	void roleReload_nullUsername() throws Exception {
+		Created user = api.createEmailUser("CUSTOMER");
+		String token = accessTokenOf(user);
+		String roles = "/api/v1/staff/users/" + user.userId() + "/roles";
+		assertEquals(403, api.get(roles, token).statusCode());
+
+		transaction.executeWithoutResult(status -> userRepository.addRole(UserId.from(user.userId()), RoleName.ADMIN));
+
+		assertEquals(200, api.get(roles, token).statusCode());
 	}
 
 	// ==================== profile ====================
@@ -108,11 +175,22 @@ class MeApiPostgresTest {
 		assertEquals(200, response.statusCode(), "status " + response.statusCode());
 		JsonNode body = api.body(response);
 		assertEquals(List.of("accountStatus", "email", "emailVerified", "fullName", "kycStatus", "phoneVerified",
-				"profileImageUrl", "username"), body.propertyNames().stream().sorted().toList());
+				"profileImageUrl", "requiredAction", "username"), body.propertyNames().stream().sorted().toList());
 		assertEquals(user.username(), body.path("username").asString());
 		assertEquals("ACTIVE", body.path("accountStatus").asString());
 		assertTrue(body.path("phoneVerified").asBoolean());
 		assertFalse(body.path("emailVerified").asBoolean());
+		assertTrue(body.path("requiredAction").isNull(), "with the channel on a verified phone is enough");
+	}
+
+	/** auth-email-access 4.6: the server says it, in the session and in the profile. */
+	@Test
+	void me_phoneNotVerified_requiresVerifyPhone() throws Exception {
+		Created user = api.createUser(UserStatus.ACTIVE, "CUSTOMER");
+		Session session = api.logIn(user);
+		assertEquals(1, jdbc.update("UPDATE users SET phone_verified_at = NULL WHERE id = ?", user.userId()));
+
+		assertEquals("VERIFY_PHONE", api.body(api.get(ME, session.accessToken())).path("requiredAction").asString());
 	}
 
 	/** spec §3.9: the default rule of the security chain answers, with its own body. */
@@ -209,17 +287,6 @@ class MeApiPostgresTest {
 		assertTrue(body.path("errors").isArray() && body.path("errors").isEmpty(), "errors []");
 	}
 
-	/** W10-3 */
-	@Test
-	void emailSend_noEmail_answers400NoEmail() throws Exception {
-		Session session = api.logIn(api.createUser(UserStatus.ACTIVE, "CUSTOMER"));
-
-		HttpResponse<String> response = api.post(EMAIL_SEND, null, null, session.accessToken(), null);
-
-		assertEquals(400, response.statusCode(), "status " + response.statusCode());
-		assertEquals("NO_EMAIL", api.body(response).path("code").asString());
-	}
-
 	// ==================== password change ====================
 
 	/** W10-3, spec §3.4: a wrong current password is a field refusal, never a 401 the client would refresh on. */
@@ -298,10 +365,10 @@ class MeApiPostgresTest {
 		String username = AuthV1ApiTestSupport.nextPhone();
 		String password = UUID.randomUUID().toString();
 		Instant now = AppClock.currentUTC();
-		AppUser user = AppUser.create(UserId.create(ulidGenerator.generateId()), "W10 user", Username.create(username),
-				null, Password.create(passwordEncoder.encode(password)), ProfileImage.create(null), null,
+		AppUser user = AppUser.createWithPhone(UserId.create(ulidGenerator.generateId()), "W10 user",
+				PhoneNumber.create(username), Password.create(passwordEncoder.encode(password)), ProfileImage.create(null), null,
 				new HashSet<>(Set.of("TENANT", "CUSTOMER")), now);
-		return new Created(userRepository.save(user).getId().getValue(), username, password);
+		return new Created(userRepository.create(user).getId().getValue(), username, password);
 	}
 
 	private String codeBody(String code) throws Exception {

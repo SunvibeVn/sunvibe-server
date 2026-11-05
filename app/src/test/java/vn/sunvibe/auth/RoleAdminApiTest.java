@@ -41,7 +41,7 @@ import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
-import vn.sunvibe.auth.core.domain.model.user.vo.Username;
+import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -76,6 +76,9 @@ class RoleAdminApiTest {
 
 	@Autowired
 	private UserDomainRepository userRepository;
+
+	@Autowired
+	private vn.sunvibe.auth.core.infrastructure.audit.AuthAuditWriter auditWriter;
 
 	@Autowired
 	private BCryptPasswordEncoder passwordEncoder;
@@ -399,12 +402,13 @@ class RoleAdminApiTest {
 	}
 
 	private List<String> auditDetails(String type, String userId) {
+		assertTrue(auditWriter.awaitIdle(java.time.Duration.ofSeconds(10)), "the audit writer stayed busy");
 		return jdbc.queryForList("SELECT details FROM auth_audit_events WHERE event_type = ? AND user_id = ?",
 				String.class, type, userId);
 	}
 
 	private static String nextPhone() {
-		return "08" + String.format("%08d", PHONE_SEQUENCE.getAndIncrement());
+		return "094" + String.format("%07d", PHONE_SEQUENCE.getAndIncrement());
 	}
 
 	private record Created(String userId, String username, String password) {
@@ -414,12 +418,12 @@ class RoleAdminApiTest {
 		String username = nextPhone();
 		String password = UUID.randomUUID().toString();
 		Instant now = AppClock.currentUTC();
-		AppUser user = AppUser.create(UserId.create(ulidGenerator.generateId()), "W6 user", Username.create(username),
-				null, Password.create(passwordEncoder.encode(password)), ProfileImage.create(null), null,
+		AppUser user = AppUser.createWithPhone(UserId.create(ulidGenerator.generateId()), "W6 user",
+				PhoneNumber.create(username), Password.create(passwordEncoder.encode(password)), ProfileImage.create(null), null,
 				new HashSet<>(Set.of(roles)), now);
 		user.verifyPhone(now);
 		user.setUserStatus(status);
-		return new Created(userRepository.save(user).getId().getValue(), username, password);
+		return new Created(userRepository.create(user).getId().getValue(), username, password);
 	}
 
 	private Caller logIn(Created user) throws Exception {

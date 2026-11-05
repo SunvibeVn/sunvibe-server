@@ -65,7 +65,7 @@ public class AuthV1PasswordResetController {
             @ApiResponse(responseCode = "429", description = AuthV1ApiDocs.RATE_LIMITED,
                     headers = @Header(name = HttpHeaders.RETRY_AFTER, description = "Seconds to wait"),
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR, for example the e-mail hand-off failed",
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR; a mail that cannot leave never shows here",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<PasswordResetStartResponse> startByEmail(@Valid @RequestBody PasswordForgotRequest request) {
@@ -89,6 +89,8 @@ public class AuthV1PasswordResetController {
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on phoneNumber; "
                     + "MALFORMED_REQUEST (unreadable JSON)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "AUTH_CHANNEL_DISABLED: reset by SMS is closed",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "415", description = "MALFORMED_REQUEST: the body is not JSON",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "429", description = AuthV1ApiDocs.RATE_LIMITED,
@@ -101,6 +103,9 @@ public class AuthV1PasswordResetController {
         return ResponseEntity.ok(authV1Converter.toPasswordResetStartResponse(
                 passwordForgotUseCase.executeBySms(new PasswordForgotSmsCommand(request.phoneNumber()))));
     }
+
+    // POST /email answers the same when the mail fails: a failure that only eligible accounts could cause would reveal
+    // them (auth-email-access D4-8), so 503 is not part of its contract.
 
     /**
      * POST /api/v1/auth/password-reset/complete
@@ -117,6 +122,8 @@ public class AuthV1PasswordResetController {
                     headers = @Header(name = HttpHeaders.SET_COOKIE, description = "Clears the refresh cookie")),
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED; CODE_INCORRECT; "
                     + "CODE_ATTEMPTS_EXCEEDED; RESET_TOKEN_INVALID; MALFORMED_REQUEST (unreadable JSON)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "AUTH_CHANNEL_DISABLED: this token came by SMS, and that channel is closed",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "ACCOUNT_DISABLED: the account is locked or terminated",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),

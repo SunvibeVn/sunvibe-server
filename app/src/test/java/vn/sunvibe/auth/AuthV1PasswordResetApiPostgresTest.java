@@ -37,7 +37,7 @@ import vn.sunvibe.auth.core.domain.model.user.vo.Email;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
-import vn.sunvibe.auth.core.domain.model.user.vo.Username;
+import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -110,7 +110,7 @@ class AuthV1PasswordResetApiPostgresTest {
 		List<String> unknownKeys = api.body(unknownResponse).propertyNames().stream().sorted().toList();
 		assertEquals(List.of("expiresAt", "otpExpirationMinutes"), knownKeys);
 		assertEquals(knownKeys, unknownKeys);
-		assertTrue(messages.hasMessage(known), "a code was e-mailed to the account");
+		assertTrue(messages.awaitMessage(known), "a code was e-mailed to the account");
 		assertFalse(messages.hasMessage(unknown), "nothing sent to an unknown address");
 	}
 
@@ -218,14 +218,14 @@ class AuthV1PasswordResetApiPostgresTest {
 	private String userWithVerifiedEmail() {
 		String email = "w10-" + UUID.randomUUID() + "@example.com";
 		Instant now = AppClock.currentUTC();
-		AppUser user = AppUser.create(UserId.create(ulidGenerator.generateId()), "W10 user",
-				Username.create(AuthV1ApiTestSupport.nextPhone()), Email.create(email),
+		AppUser user = AppUser.createWithPhone(UserId.create(ulidGenerator.generateId()), "W10 user",
+				PhoneNumber.create(AuthV1ApiTestSupport.nextPhone()),
 				Password.create(passwordEncoder.encode(UUID.randomUUID().toString())), ProfileImage.create(null), null,
 				new HashSet<>(Set.of("TENANT", "CUSTOMER")), now);
 		user.verifyPhone(now);
-		user.verifyEmail(now);
+		user.bindVerifiedEmail(Email.create(email), now);
 		user.setUserStatus(UserStatus.ACTIVE);
-		userRepository.save(user);
+		userRepository.create(user);
 		return email;
 	}
 

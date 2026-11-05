@@ -33,12 +33,14 @@ class ConfigSecretsGuardTest {
 	private static final String MAIL_PASSWORD = "spring.mail.password";
 	private static final String JWT_SECRET = "app.jwt.secret";
 	private static final String ACQUISITION_HASH_KEY = "app.acquisition.hash-key";
+	private static final String OTP_HASH_KEY = "app.auth.otp-hash-key";
 
 	private static final Map<String, String> BASE_PLACEHOLDERS = Map.of(
 			MAIL_USERNAME, "${MAIL_USERNAME}",
 			MAIL_PASSWORD, "${MAIL_PASSWORD}",
 			JWT_SECRET, "${JWT_SECRET}",
-			ACQUISITION_HASH_KEY, "${ACQUISITION_HASH_KEY}");
+			ACQUISITION_HASH_KEY, "${ACQUISITION_HASH_KEY}",
+			OTP_HASH_KEY, "${AUTH_OTP_HASH_KEY}");
 
 	@Test
 	void baseProfile_defaultServerPort_is8081() throws IOException {
@@ -106,6 +108,7 @@ class ConfigSecretsGuardTest {
 		});
 		assertBase64(JWT_SECRET, resolver.getProperty(JWT_SECRET), "test");
 		assertBase64(ACQUISITION_HASH_KEY, resolver.getProperty(ACQUISITION_HASH_KEY), "test");
+		assertBase64(OTP_HASH_KEY, resolver.getProperty(OTP_HASH_KEY), "test");
 	}
 
 	@Test
@@ -119,6 +122,7 @@ class ConfigSecretsGuardTest {
 		assertTrue(resolver.getProperty(MAIL_PASSWORD).isEmpty(), MAIL_PASSWORD + " must default to empty in dev");
 		assertBase64(JWT_SECRET, resolver.getProperty(JWT_SECRET), "dev");
 		assertBase64(ACQUISITION_HASH_KEY, resolver.getProperty(ACQUISITION_HASH_KEY), "dev");
+		assertBase64(OTP_HASH_KEY, resolver.getProperty(OTP_HASH_KEY), "dev");
 	}
 
 	/** The secret is base64-decoded by its consumer (JWT HS256, the consent hasher) and needs at least 256 bits. */

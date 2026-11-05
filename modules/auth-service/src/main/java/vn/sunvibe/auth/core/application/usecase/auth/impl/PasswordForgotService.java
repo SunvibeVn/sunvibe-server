@@ -7,18 +7,24 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.auth.core.application.command.auth.PasswordForgotCommand;
 import vn.sunvibe.auth.core.application.command.auth.PasswordForgotSmsCommand;
 import vn.sunvibe.auth.core.application.query.auth.PasswordForgotResult;
+import vn.sunvibe.auth.core.application.shared.ContactMasker;
+import vn.sunvibe.auth.core.application.shared.OtpHasher;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
+import vn.sunvibe.auth.core.application.shared.PhoneChannelPolicy;
+import vn.sunvibe.auth.core.application.shared.RecoveryMailDispatcher;
 import vn.sunvibe.auth.core.application.usecase.auth.PasswordForgotUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
 import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
+import vn.sunvibe.auth.core.application.usecase.external.lock.AuthAdvisoryLockPort;
 import vn.sunvibe.auth.core.application.usecase.external.sms.SmsSenderPort;
-import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.vo.Email;
 import vn.sunvibe.auth.core.domain.model.user.vo.OtpCode;
 import vn.sunvibe.auth.core.domain.model.user.vo.PasswordResetToken;
+import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 import vn.sunvibe.auth.core.domain.repository.auth.PasswordResetTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
@@ -26,21 +32,20 @@ import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Supplier;
 
 /**
  * Step 1 of the password reset: sends an OTP by e-mail or SMS.
  * <p>
  * The answer has the same shape whether or not the e-mail/phone belongs to an
  * account, so this endpoint cannot tell who is registered: whenever no code is
- * sent (unknown or ineligible account, cooldown, daily limit) the answer
- * carries a fresh random decoy token and a fresh expiry, exactly like a newly
- * sent code. Only a <em>verified</em> e-mail may be used. Codes are not re-sent
- * within the cooldown, at most {@code maxCodesPerDay} are sent per destination
- * per 24 h, and a new code burns the previous ones.
+ * sent (unknown or ineligible account, cooldown, daily limit, a parallel request)
+ * the answer carries a fresh random decoy token and a fresh expiry, exactly like a
+ * newly sent code. Only a <em>verified</em> e-mail may be used. Codes are not
+ * re-sent within the cooldown, at most {@code maxCodesPerDay} are sent per
+ * destination per 24 h, and a new code burns the previous ones. The mail leaves
+ * after the commit, so a failed send cannot show in the answer either.
  */
 @Log4j2
 @RequiredArgsConstructor
@@ -57,18 +62,24 @@ public class PasswordForgotService implements PasswordForgotUseCase {
     private final PasswordResetPolicy passwordResetPolicy;
     private final AuditLogPort auditLog;
     private final SmsSenderPort smsSender;
+    private final PhoneChannelPolicy phoneChannel;
+    private final AuthAdvisoryLockPort advisoryLock;
+    private final OtpHasher otpHasher;
+    private final RecoveryMailDispatcher recoveryMail;
 
     @Override
     @Transactional
     public PasswordForgotResult execute(PasswordForgotCommand command) {
-        // Stored e-mails are lower-case (see Email VO)
-        String email = command.email().trim().toLowerCase(Locale.ROOT);
+        String emailKey = Email.create(command.email()).getValue();
         // An unverified e-mail proves nothing: whoever typed it at sign-up may not own it
-        Optional<AppUser> account = find(() -> userDomainRepository.findByEmail(email))
+        Optional<AppUser> account = userDomainRepository.findByEmailKey(emailKey)
                 .filter(user -> user.canAuthenticate() && user.isEmailVerified());
 
-        Optional<PasswordResetToken> issued = issue(VerificationChannel.EMAIL, email, account,
-                (token, otp) -> emailService.sendPasswordResetEmail(email, otp, token.getToken()));
+        Optional<PasswordResetToken.Issued> issued = issue(VerificationChannel.EMAIL, emailKey, account,
+                (userId, token, otp) -> recoveryMail.dispatch(AuditEventType.PASSWORD_RESET_REQUESTED, userId, () -> {
+                    emailService.sendPasswordResetEmail(emailKey, otp, token);
+                    audit(userId, emailKey, VerificationChannel.EMAIL, "SENT");
+                }));
 
         // The e-mail flow never returns the token: it travels in the e-mail
         return response(GENERIC_MESSAGE, null, issued);
@@ -77,16 +88,22 @@ public class PasswordForgotService implements PasswordForgotUseCase {
     @Override
     @Transactional
     public PasswordForgotResult executeBySms(PasswordForgotSmsCommand command) {
-        String phone = command.phoneNumber().trim();
-        Optional<AppUser> account = find(() -> userDomainRepository.findByUsername(phone)).filter(AppUser::canAuthenticate);
+        phoneChannel.require(PhoneChannelPolicy.Operation.SMS_RESET);
+        String phone = PhoneNumber.create(command.phoneNumber()).key();
+        // auth-email-access D4-9: a verified email with an unproven phone gets no SMS reset
+        Optional<AppUser> account = userDomainRepository.findByPhoneKey(phone)
+                .filter(AppUser::canAuthenticate)
+                .filter(AppUser::canUsePhone);
 
-        Optional<PasswordResetToken> issued = issue(VerificationChannel.PHONE, phone, account,
-                (token, otp) -> smsSender.send(phone, "Ma dat lai mat khau Sunvibe cua ban la " + otp
-                        + ". Ma het han sau " + PasswordResetToken.LIFETIME.toMinutes()
-                        + " phut. Khong chia se ma nay cho bat ky ai."));
+        Optional<PasswordResetToken.Issued> issued = issue(VerificationChannel.PHONE, phone, account, (userId, token, otp) -> {
+            smsSender.send(phone, "Ma dat lai mat khau Sunvibe cua ban la " + otp
+                    + ". Ma het han sau " + PasswordResetToken.LIFETIME.toMinutes()
+                    + " phut. Khong chia se ma nay cho bat ky ai.");
+            audit(userId, phone, VerificationChannel.PHONE, "SENT");
+        });
 
         // A random token when nothing was issued keeps the answer indistinguishable
-        String token = issued.map(PasswordResetToken::getToken).orElseGet(() -> UUID.randomUUID().toString());
+        String token = issued.map(PasswordResetToken.Issued::plainToken).orElseGet(() -> UUID.randomUUID().toString());
         return response(GENERIC_SMS_MESSAGE, token, issued);
     }
 
@@ -99,8 +116,8 @@ public class PasswordForgotService implements PasswordForgotUseCase {
      *
      * @return the new token, empty when nothing was sent
      */
-    private Optional<PasswordResetToken> issue(VerificationChannel channel, String destination, Optional<AppUser> account,
-                                               Delivery delivery) {
+    private Optional<PasswordResetToken.Issued> issue(VerificationChannel channel, String destination,
+                                                      Optional<AppUser> account, Delivery delivery) {
         Instant now = AppClock.currentUTC();
         if (account.isEmpty()) {
             log.info("Password reset by {} requested for an unknown or ineligible account; nothing sent", channel);
@@ -109,6 +126,13 @@ public class PasswordForgotService implements PasswordForgotUseCase {
         }
         AppUser user = account.get();
         String userId = user.getId().getValue();
+
+        // Before the throttle, or parallel requests would all pass it; a miss is as neutral as the rest
+        if (!advisoryLock.tryLock("reset:" + destination)) {
+            log.info("Password reset code for user {} not sent: a parallel request holds the destination", userId);
+            audit(userId, destination, channel, "LOCK_MISS");
+            return Optional.empty();
+        }
 
         Optional<PasswordResetToken> latest = passwordResetTokenDomainRepository.findLatestByDestination(destination);
         if (latest.isPresent() && latest.get().isValid()
@@ -127,38 +151,31 @@ public class PasswordForgotService implements PasswordForgotUseCase {
         // Only the newest code may work
         passwordResetTokenDomainRepository.invalidateActiveTokens(destination, now);
 
-        OtpCode otpCode = OtpCode.create();
-        PasswordResetToken token = PasswordResetToken.create(snowflakeIdGenerator.generateId(), userId, channel,
-                destination, otpCode.getCode());
-        passwordResetTokenDomainRepository.save(token);
-        delivery.send(token, otpCode.getCode());
+        String otp = OtpCode.create().getCode();
+        Long id = snowflakeIdGenerator.generateId();
+        PasswordResetToken.Issued issued = PasswordResetToken.issue(id, userId, channel, destination, otpHasher.hash(id, otp),
+                user.getCredentialVersion());
+        passwordResetTokenDomainRepository.save(issued.token());
+        delivery.send(userId, issued.plainToken(), otp);
 
-        log.info("Password reset code sent by {} for user {}", channel, userId);
-        audit(userId, destination, channel, "SENT");
-        return Optional.of(token);
+        log.info("Password reset code issued by {} for user {}", channel, userId);
+        return Optional.of(issued);
     }
 
-    private static PasswordForgotResult response(String message, String resetToken, Optional<PasswordResetToken> issued) {
-        Instant expiresAt = issued.map(PasswordResetToken::getExpiresAt)
+    private static PasswordForgotResult response(String message, String resetToken, Optional<PasswordResetToken.Issued> issued) {
+        Instant expiresAt = issued.map(i -> i.token().getExpiresAt())
                 .orElseGet(() -> AppClock.currentUTC().plus(PasswordResetToken.LIFETIME));
         return new PasswordForgotResult(message, resetToken, expiresAt, PasswordResetToken.LIFETIME);
     }
 
     private void audit(String userId, String destination, VerificationChannel channel, String outcome) {
-        auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_RESET_REQUESTED, userId, destination,
-                channel + " " + outcome));
-    }
-
-    private static Optional<AppUser> find(Supplier<AppUser> lookup) {
-        try {
-            return Optional.of(lookup.get());
-        } catch (UserNotFoundException e) {
-            return Optional.empty();
-        }
+        String masked = channel == VerificationChannel.EMAIL
+                ? ContactMasker.maskEmail(destination) : ContactMasker.maskPhone(destination);
+        auditLog.record(AuthAuditEvent.of(AuditEventType.PASSWORD_RESET_REQUESTED, userId, masked, channel + " " + outcome));
     }
 
     @FunctionalInterface
     private interface Delivery {
-        void send(PasswordResetToken token, String otp);
+        void send(String userId, String plainToken, String otp);
     }
 }

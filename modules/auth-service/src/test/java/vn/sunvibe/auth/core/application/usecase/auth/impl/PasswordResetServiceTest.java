@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.application.usecase.auth.impl;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -9,6 +10,7 @@ import vn.sunvibe.auth.core.application.command.auth.PasswordResetCommand;
 import vn.sunvibe.auth.core.application.exception.auth.AccountDisabledException;
 import vn.sunvibe.auth.core.application.exception.auth.AuthenticationFailedException;
 import vn.sunvibe.auth.core.application.shared.PasswordResetPolicy;
+import vn.sunvibe.auth.core.application.shared.RecoveryMailDispatcher;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.exception.auth.InvalidOtpException;
 import vn.sunvibe.auth.core.domain.exception.auth.PasswordResetTokenException;
@@ -17,6 +19,8 @@ import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
+import vn.sunvibe.auth.core.testsupport.FakeMailGate;
+import vn.sunvibe.auth.core.testsupport.FakeMailPool;
 import vn.sunvibe.auth.core.testsupport.InMemoryPasswordResetTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
@@ -24,6 +28,7 @@ import vn.sunvibe.auth.core.testsupport.RecordingEmailService;
 import vn.sunvibe.auth.core.testsupport.RecordingSmsSender;
 import vn.sunvibe.shared.time.AppClock;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
+import vn.sunvibe.auth.core.testsupport.TestOtpHasher;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -66,27 +71,135 @@ class PasswordResetServiceTest {
     private RecordingSmsSender sms;
     private PasswordResetService service;
     private RecordingAuditLog audit;
+    private final TestOtpHasher hasher = new TestOtpHasher();
+    private final FakeMailPool mailPool = new FakeMailPool();
 
     @BeforeEach
     void setUp() {
-        user = AppUser.create(USER_ID, "Nguyen Van A", Username.create("0912345678"), Email.create(EMAIL),
+        user = AuthTestUsers.withPhone(USER_ID, "Nguyen Van A", "0912345678", Email.create(EMAIL),
                 Password.create(ORIGINAL_PASSWORD_HASH), ProfileImage.create(null), IdCardNumber.create("123456789012"),
                 new HashSet<>(), Instant.now());
+        user.setEmailKey(EMAIL);
         users = new InMemoryUserRepository().with(user);
         resetTokens = new InMemoryPasswordResetTokenRepository();
-        Instant now = AppClock.currentUTC();
-        resetTokens.save(PasswordResetToken.restore(1L, RESET_TOKEN, USER_ID.getValue(), EMAIL,
-                now, now.plusSeconds(900), false, OTP));
+        resetTokens.save(token(1L, RESET_TOKEN, VerificationChannel.EMAIL, EMAIL, 0L));
         refreshTokens = new InMemoryRefreshTokenRepository();
         audit = new RecordingAuditLog();
         email = new RecordingEmailService();
         sms = new RecordingSmsSender();
         service = new PasswordResetService(resetTokens, users, PASSWORD_ENCODER, email, refreshTokens,
-                new PasswordResetPolicy(5, Duration.ofSeconds(60)), audit, sms);
+                new PasswordResetPolicy(5, Duration.ofSeconds(60)), audit, sms, AuthTestUsers.phoneOn(), hasher,
+                new RecoveryMailDispatcher(mailPool, new FakeMailGate(), audit));
+    }
+
+    private PasswordResetToken token(long id, String value, VerificationChannel channel, String destination, Long version) {
+        Instant now = AppClock.currentUTC();
+        return PasswordResetToken.restore(id, PasswordResetToken.hashToken(value), USER_ID.getValue(), channel, destination,
+                now, now.plusSeconds(900), false, null, 0, hasher.hash(id, OTP), version);
+    }
+
+    private void assertRefusedWithoutAChange() {
+        PasswordResetTokenException refused = assertThrows(PasswordResetTokenException.class,
+                () -> service.verifyOtpAndResetPassword(request(OTP)));
+
+        assertEquals(PasswordResetTokenException.Reason.TOKEN_INVALID, refused.getReason());
+        assertEquals(ORIGINAL_PASSWORD_HASH, user.getPassword().getHashedValue());
+        assertEquals(0, users.saveCount);
+        assertTrue(refreshTokens.revocations.isEmpty());
+    }
+
+    /** auth-email-access spec 4.7: never rebound by string. */
+    @Test
+    void reset_otherAddressOnTheAccount_refused() {
+        user.setEmailKey("moved@example.com");
+
+        assertRefusedWithoutAChange();
+    }
+
+    /** I-5: a change of credentials voids what was issued before it. */
+    @Test
+    void reset_versionMoved_refused() {
+        user.setCredentialVersion(1);
+
+        assertRefusedWithoutAChange();
+    }
+
+    @Test
+    void reset_rowWithoutVersion_refused() {
+        resetTokens.save(token(1L, RESET_TOKEN, VerificationChannel.EMAIL, EMAIL, null));
+
+        assertRefusedWithoutAChange();
+    }
+
+    /** spec 5.5: the order is OTP, then version: a wrong code tells nothing about the account. */
+    @Test
+    void reset_wrongCodeOnAVoidToken_countedAsWrongCode() {
+        user.setCredentialVersion(1);
+
+        assertThrows(InvalidOtpException.class, () -> service.verifyOtpAndResetPassword(request("000000")));
+    }
+
+    /** D4-10. */
+    @Test
+    void reset_verifiedEmailOfAPendingAccount_activates() {
+        user.setEmailVerifiedAt(AppClock.currentUTC());
+        assertEquals(UserStatus.PENDING, user.getUserStatus());
+
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        assertEquals(UserStatus.ACTIVE, user.getUserStatus());
+    }
+
+    @Test
+    void reset_clearsTheReauthCounterToo() {
+        user.setReauthFailedAttempts(4);
+        user.setReauthLockedUntil(Instant.now().plus(Duration.ofMinutes(15)));
+
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        assertEquals(0, user.getReauthFailedAttempts());
+        assertNull(user.getReauthLockedUntil());
+    }
+
+    /** spec 5.4: the users row is held here, so no mail is sent from under it. */
+    @Test
+    void reset_confirmationLeavesAfterTheCommit() {
+        mailPool.holding = true;
+
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        assertTrue(email.sent.isEmpty());
+        mailPool.held.getFirst().run();
+        assertEquals(List.of(new RecordingEmailService.Mail("RESET_CONFIRMATION", EMAIL, null)), email.sent);
+    }
+
+    @Test
+    void reset_auditSubjectIsMasked() {
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        assertEquals("a***@example.com", audit.last().subject());
     }
 
     private static PasswordResetCommand request(String otp) {
         return new PasswordResetCommand(RESET_TOKEN, otp, "N3wP@ssw0rd!");
+    }
+
+    /** auth-email-access spec 5.4: the token owner as a plain value, the user row, then the token. */
+    @Test
+    void reset_locksUserBeforeToken() {
+        resetTokens.calls = users.calls;
+
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        assertEquals(List.of("read-token-owner", "lock-user", "lock-token"), users.calls);
+    }
+
+    /** auth-email-access I-5: sessions, access tokens and proofs of the old password die with it. */
+    @Test
+    void reset_raisesVersion() {
+        service.verifyOtpAndResetPassword(request(OTP));
+
+        assertEquals(1L, user.getCredentialVersion(), "the token was issued for version 0");
     }
 
     @ParameterizedTest
@@ -176,9 +289,7 @@ class PasswordResetServiceTest {
      */
     @Test
     void verifyOtpAndResetPassword_bySmsVerifiesThePhone() {
-        Instant now = AppClock.currentUTC();
-        resetTokens.save(PasswordResetToken.restore(2L, "sms-token", USER_ID.getValue(), VerificationChannel.PHONE,
-                "0912345678", now, now.plusSeconds(900), false, null, 0, OTP));
+        resetTokens.save(token(2L, "sms-token", VerificationChannel.PHONE, "0912345678", 0L));
         assertEquals(UserStatus.PENDING, user.getUserStatus());
 
         service.verifyOtpAndResetPassword(new PasswordResetCommand("sms-token", OTP, "N3wP@ssw0rd!"));

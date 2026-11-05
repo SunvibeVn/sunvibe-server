@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.application.query.auth;
 
+import vn.sunvibe.auth.core.application.shared.RequiredAction;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 
 import java.util.Set;
@@ -10,33 +11,37 @@ import java.util.Set;
  *
  * @param accessToken   signed JWT for {@code Authorization: Bearer ...}
  * @param refreshToken  secret for the refresh-token cookie; only its hash is stored
+ * @param username      the phone; null for an account without one
  * @param email         null when the account has no e-mail
  * @param phoneVerified false right after registration
  * @param emailVerified false when there is no e-mail or it is not confirmed yet
  * @param userId        opaque ULID of the account
  * @param fullName      display name of the account
+ * @param requiredAction what the account must do next; null when nothing
  */
 public record AuthResult(String accessToken, String refreshToken, String username, String email, Set<String> roles,
-                         boolean phoneVerified, boolean emailVerified, String userId, String fullName) {
+                         boolean phoneVerified, boolean emailVerified, String userId, String fullName,
+                         RequiredAction requiredAction) {
 
-    public static AuthResult of(AppUser user, String accessToken, String refreshToken) {
+    public static AuthResult of(AppUser user, String accessToken, String refreshToken, RequiredAction requiredAction) {
         return new AuthResult(
                 accessToken,
                 refreshToken,
-                user.getUsername().getValue(),
+                user.usernameValue(),
                 user.getEmail() != null ? user.getEmail().getValue() : null,
                 user.getUserRoles() != null ? Set.copyOf(user.getUserRoles()) : Set.of(),
                 user.isPhoneVerified(),
                 user.isEmailVerified(),
                 user.getId().getValue(),
-                user.getFullName());
+                user.getFullName(),
+                requiredAction);
     }
 
-    /** Both tokens stay out of logs. */
+    /** Both tokens and the contacts stay out of logs. */
     @Override
     public String toString() {
-        return "AuthResult[accessToken=[hidden], refreshToken=[hidden], username=" + username + ", email=" + email
-                + ", roles=" + roles + ", phoneVerified=" + phoneVerified + ", emailVerified=" + emailVerified
-                + ", userId=" + userId + ", fullName=" + fullName + "]";
+        return "AuthResult[accessToken=[hidden], refreshToken=[hidden], username=[hidden], email=[hidden], roles=" + roles
+                + ", phoneVerified=" + phoneVerified + ", emailVerified=" + emailVerified + ", userId=" + userId
+                + ", requiredAction=" + requiredAction + "]";
     }
 }

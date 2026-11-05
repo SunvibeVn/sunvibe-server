@@ -18,23 +18,6 @@ class VerificationCodeTest {
     }
 
     @Test
-    void issue_storesOnlyAHashOfTheCode() {
-        VerificationCode code = code();
-
-        assertNotEquals("123456", code.getCodeHash());
-        assertFalse(code.getCodeHash().contains("123456"));
-        assertEquals(64, code.getCodeHash().length());
-    }
-
-    @Test
-    void sameCodeHashesDifferentlyPerRow() {
-        VerificationCode other = VerificationCode.issue(2L, "user-1", VerificationChannel.PHONE, "0912345678", "123456",
-                NOW, Duration.ofMinutes(10));
-
-        assertNotEquals(code().getCodeHash(), other.getCodeHash());
-    }
-
-    @Test
     void matches_onlyTheRightCode() {
         VerificationCode code = code();
 

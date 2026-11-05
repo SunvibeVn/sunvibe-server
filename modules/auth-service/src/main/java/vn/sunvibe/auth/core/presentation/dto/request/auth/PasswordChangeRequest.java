@@ -1,6 +1,7 @@
 package vn.sunvibe.auth.core.presentation.dto.request.auth;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.ConfirmPasswordMatch;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
@@ -17,6 +18,7 @@ import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPasswo
 public record PasswordChangeRequest(
 
         @NotBlank(message = "Current password is required.")
+        @Size(min = 1, max = 256, message = "From 1 to 256 characters in length.")
         String currentPassword,
 
         @StrongPassword
@@ -24,8 +26,15 @@ public record PasswordChangeRequest(
         String newPassword,
 
         @NotBlank(message = "Confirm password is required.")
+        @Size(min = 1, max = 256, message = "From 1 to 256 characters in length.")
         String confirmPassword
 
 ) {
 
+
+    /** Contacts and secrets stay out of logs (auth-email-access 4.10). */
+    @Override
+    public String toString() {
+        return "PasswordChangeRequest[hidden]";
+    }
 }

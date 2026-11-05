@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @DataJpaTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
-@Import({AuthAuditLogAdapter.class, AesGcmCryptoService.class, AuthAuditLogAdapterTest.Ids.class})
+@Import({AuthAuditLogAdapter.class, AuthAuditWriter.class, AesGcmCryptoService.class, AuthAuditLogAdapterTest.Ids.class})
 @TestPropertySource(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.flyway.enabled=false",
@@ -57,6 +57,9 @@ class AuthAuditLogAdapterTest {
     private AuthAuditLogAdapter adapter;
 
     @Autowired
+    private AuthAuditWriter writer;
+
+    @Autowired
     private AuthAuditEventJpaRepository repository;
 
     @Autowired
@@ -65,35 +68,43 @@ class AuthAuditLogAdapterTest {
     @AfterEach
     void cleanUp() {
         RequestContextHolder.resetRequestAttributes();
+        written();
         repository.deleteAll();
+    }
+
+    /** The queue is empty: every event recorded so far is in the table. */
+    private void written() {
+        assertTrue(writer.awaitIdle(Duration.ofSeconds(10)), "the audit writer stayed busy");
     }
 
     /** Security events usually end in an exception that rolls the request back; the event must survive it. */
     @Test
-    void record_survivesARollbackOfTheCallersTransaction() {
+    void audit_survivesRollback() {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             adapter.record(AuthAuditEvent.of(AuditEventType.LOGIN_FAILED, "user-1", "0912345678", "BAD_CREDENTIALS"));
             status.setRollbackOnly();
         });
 
+        written();
         List<AuthAuditEventEntity> events = repository.findAll();
         assertEquals(1, events.size());
         AuthAuditEventEntity event = events.getFirst();
         assertEquals(AuditEventType.LOGIN_FAILED, event.getEventType());
         assertEquals("user-1", event.getUserId());
-        assertEquals("0912345678", event.getSubject());
+        assertEquals("091****678", event.getSubject());
         assertEquals("BAD_CREDENTIALS", event.getDetails());
         assertNotNull(event.getOccurredAt());
     }
 
     /** Success events (a role granted) must not outlive a rolled-back change (auth-roles US-4 AC-4, BR-8). */
     @Test
-    void recordAfterCommit_callersTransactionRollsBack_writesNothing() {
+    void audit_recordAfterCommit_atomicWithRoleChange() {
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             adapter.recordAfterCommit(AuthAuditEvent.of(AuditEventType.ROLE_GRANTED, "user-1", null, "role=OWNER"));
             status.setRollbackOnly();
         });
 
+        written();
         assertEquals(0, repository.count());
     }
 
@@ -105,7 +116,7 @@ class AuthAuditLogAdapterTest {
 
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             adapter.recordAfterCommit(AuthAuditEvent.of(AuditEventType.ROLE_GRANTED, "user-1", null, "role=SALE"));
-            assertEquals(0, repository.count(), "not written before the commit");
+            assertEquals(1, repository.count(), "written in the transaction of the change, so it cannot be lost after it");
         });
 
         AuthAuditEventEntity event = repository.findAll().getFirst();
@@ -130,6 +141,7 @@ class AuthAuditLogAdapterTest {
 
         adapter.record(AuthAuditEvent.of(AuditEventType.LOGIN_SUCCEEDED, "user-1", "0912345678"));
 
+        written();
         AuthAuditEventEntity event = repository.findAll().getFirst();
         assertEquals("203.0.113.7", event.getIpAddress());
         assertEquals("Mozilla/5.0", event.getUserAgent());
@@ -139,6 +151,7 @@ class AuthAuditLogAdapterTest {
     void record_withoutARequestStillWorks() {
         adapter.record(AuthAuditEvent.of(AuditEventType.LOGOUT, "user-1", null));
 
+        written();
         AuthAuditEventEntity event = repository.findAll().getFirst();
         assertNull(event.getIpAddress());
         assertNull(event.getUserAgent());
@@ -150,8 +163,9 @@ class AuthAuditLogAdapterTest {
         request.addHeader(HttpHeaders.USER_AGENT, "x".repeat(1000));
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
 
-        adapter.record(AuthAuditEvent.of(AuditEventType.LOGIN_FAILED, null, "s".repeat(500), "d".repeat(500)));
+        adapter.record(AuthAuditEvent.of(AuditEventType.LOGIN_FAILED, null, "s@" + "s".repeat(500), "d".repeat(500)));
 
+        written();
         AuthAuditEventEntity event = repository.findAll().getFirst();
         assertEquals(100, event.getSubject().length());
         assertEquals(255, event.getDetails().length());
@@ -163,9 +177,10 @@ class AuthAuditLogAdapterTest {
     void record_neverThrows() {
         AuthAuditLogAdapter broken = new AuthAuditLogAdapter(repository, () -> {
             throw new IllegalStateException("id generator down");
-        }, transactionManager);
+        }, writer, transactionManager);
 
         assertDoesNotThrow(() -> broken.record(AuthAuditEvent.of(AuditEventType.LOGIN_FAILED, null, null)));
+        written();
         assertEquals(0, repository.count());
     }
 
@@ -177,6 +192,7 @@ class AuthAuditLogAdapterTest {
         old.setOccurredAt(Instant.now().minus(Duration.ofDays(200)));
         repository.save(old);
         adapter.record(AuthAuditEvent.of(AuditEventType.LOGIN_SUCCEEDED, "user-1", null));
+        written();
 
         int deleted = adapter.purgeOlderThan(Instant.now().minus(Duration.ofDays(180)));
 

@@ -7,6 +7,10 @@ app:
     # never use them for real data. Env vars still win if set.
     id-card-key: ${ID_CARD_CRYPTO_KEY:bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=}
     id-card-index-key: ${ID_CARD_CRYPTO_INDEX_KEY:HM5Eo9BtYz7DTj8eSdV0Dn9CwAEgWoqjDFTxfcLXtvw=}
+  auth:
+    # Local-development key only (base64 of a plain phrase). It is committed to git, so it is public: never use it for
+    # real data. The env var wins if set.
+    otp-hash-key: ${AUTH_OTP_HASH_KEY:ZGV2LW9ubHktZmFrZS1hdXRoLW90cC1oYXNoLWtleS1kby1ub3QtdXNlLWFueXdoZXJl}
   acquisition:
     # Local-development hash key only (base64 of a plain phrase). It is committed to git, so it is public:
     # never use it for real data. The env var wins if set.

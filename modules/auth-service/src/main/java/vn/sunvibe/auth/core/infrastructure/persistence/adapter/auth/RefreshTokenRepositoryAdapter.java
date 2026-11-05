@@ -35,6 +35,11 @@ public class RefreshTokenRepositoryAdapter implements RefreshTokenDomainReposito
     }
 
     @Override
+    public Optional<UserId> findUserIdByTokenHash(String tokenHash) {
+        return refreshTokenJpaRepository.findUserIdByTokenHash(tokenHash).map(UserId::from);
+    }
+
+    @Override
     public void revokeFamily(UUID familyId, RevokeReason reason, Instant now) {
         refreshTokenJpaRepository.revokeFamily(familyId, reason, now, TokenStatus.REVOKED);
     }

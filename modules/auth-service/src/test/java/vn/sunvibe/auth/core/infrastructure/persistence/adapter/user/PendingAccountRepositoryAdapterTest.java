@@ -58,6 +58,9 @@ class PendingAccountRepositoryAdapterTest {
         UserEntity verified = user("id-00000005", UserStatus.PENDING, Duration.ofDays(30));
         verified.setPhoneVerifiedAt(NOW);                                                        // verified
         userJpaRepository.save(verified);
+        UserEntity mailbox = user("id-00000007", UserStatus.PENDING, Duration.ofDays(30));
+        mailbox.setEmailVerifiedAt(NOW);                                                         // verified by mail
+        userJpaRepository.save(mailbox);
         UserEntity deleted = user("id-00000006", UserStatus.PENDING, Duration.ofDays(30));
         deleted.setDeletedAt(NOW);                                                               // already gone
         userJpaRepository.save(deleted);

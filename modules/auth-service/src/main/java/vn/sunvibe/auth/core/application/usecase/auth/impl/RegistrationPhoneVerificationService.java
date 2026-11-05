@@ -9,6 +9,8 @@ import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledExce
 import vn.sunvibe.auth.core.application.query.auth.RegistrationTokenResult;
 import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
 import vn.sunvibe.auth.core.application.shared.ContactMasker;
+import vn.sunvibe.auth.core.application.shared.OtpHasher;
+import vn.sunvibe.auth.core.application.shared.PhoneChannelPolicy;
 import vn.sunvibe.auth.core.application.shared.VerificationPolicy;
 import vn.sunvibe.auth.core.application.usecase.auth.RegistrationPhoneVerificationUseCase;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
@@ -19,6 +21,7 @@ import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.domain.model.auth.RegistrationPhoneChallenge;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.vo.OtpCode;
+import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 import vn.sunvibe.auth.core.domain.repository.auth.RegistrationPhoneChallengeRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
@@ -58,17 +61,21 @@ public class RegistrationPhoneVerificationService implements RegistrationPhoneVe
     private final RegistrationPhoneChallengeRepository challengeRepository;
     private final SmsSenderPort smsSender;
     private final IdGenerator<Long> snowflakeIdGenerator;
+    private final OtpHasher otpHasher;
     private final VerificationPolicy policy;
     private final AuditLogPort auditLog;
+    private final PhoneChannelPolicy phoneChannel;
 
     @Override
     @Transactional
     public VerificationSendResult sendCode(String phoneNumber) {
-        String phone = phoneNumber.trim();
+        phoneChannel.require(PhoneChannelPolicy.Operation.SIGN_UP);
+        PhoneNumber number = PhoneNumber.create(phoneNumber);
+        String phone = number.key();
         Instant now = AppClock.currentUTC();
 
         // Same rule and message as registration itself: a taken number never gets a code
-        if (userRepository.existsByUsername(phone)) {
+        if (userRepository.existsByPhoneKey(phone) || userRepository.existsByUsername(number.national())) {
             throw new AuthValidationException(AuthFieldName.USER_NAME, PHONE_IN_USE);
         }
 
@@ -87,22 +94,24 @@ public class RegistrationPhoneVerificationService implements RegistrationPhoneVe
 
         challengeRepository.invalidateActive(phone, now);
         String code = OtpCode.create().getCode();
-        RegistrationPhoneChallenge challenge = RegistrationPhoneChallenge.issue(snowflakeIdGenerator.generateId(),
-                phone, code, now, policy.getCodeLifetime());
+        Long id = snowflakeIdGenerator.generateId();
+        RegistrationPhoneChallenge challenge = RegistrationPhoneChallenge.issue(id, phone, otpHasher.hash(id, code), now,
+                policy.getCodeLifetime());
         challengeRepository.save(challenge);
 
         smsSender.send(phone, "Ma xac minh dang ky Sunvibe cua ban la " + code + ". Ma het han sau "
                 + policy.getCodeLifetime().toMinutes() + " phut. Khong chia se ma nay cho bat ky ai.");
 
         auditLog.record(AuthAuditEvent.of(AuditEventType.REGISTRATION_PHONE_CODE_SENT, null, phone));
-        return new VerificationSendResult(VerificationChannel.PHONE, ContactMasker.maskPhone(phone),
+        return new VerificationSendResult(VerificationChannel.PHONE, ContactMasker.maskPhone(number.national()),
                 challenge.getExpiresAt(), now.plus(policy.getResendCooldown()));
     }
 
     @Override
     @Transactional(noRollbackFor = VerificationException.class)
     public RegistrationTokenResult verifyCode(String phoneNumber, String code) {
-        String phone = phoneNumber.trim();
+        phoneChannel.require(PhoneChannelPolicy.Operation.SIGN_UP);
+        String phone = PhoneNumber.create(phoneNumber).key();
         Instant now = AppClock.currentUTC();
 
         Optional<RegistrationPhoneChallenge> latest = challengeRepository.findLatestForUpdate(phone);
@@ -112,7 +121,7 @@ public class RegistrationPhoneVerificationService implements RegistrationPhoneVe
         }
 
         RegistrationPhoneChallenge challenge = latest.get();
-        if (!challenge.matches(code)) {
+        if (!challenge.matches(otpHasher.hash(challenge.getId(), code))) {
             boolean burned = challenge.registerFailedAttempt(policy.getMaxAttempts(), now);
             challengeRepository.save(challenge);
             fail(phone, burned ? "BURNED" : "WRONG_CODE attempt=" + challenge.getFailedAttempts());
@@ -126,14 +135,14 @@ public class RegistrationPhoneVerificationService implements RegistrationPhoneVe
         challengeRepository.save(challenge);
 
         auditLog.record(AuthAuditEvent.of(AuditEventType.REGISTRATION_PHONE_VERIFIED, null, phone));
-        log.info("Phone {} verified for registration", ContactMasker.maskPhone(phone));
+        log.info("Phone verified for registration");
         return new RegistrationTokenResult(token, challenge.getTokenExpiresAt());
     }
 
     @Override
     @Transactional(noRollbackFor = VerificationException.class)
     public void consumeRegistrationToken(String registrationToken, String phoneNumber) {
-        String phone = phoneNumber.trim();
+        String phone = PhoneNumber.create(phoneNumber).key();
         Instant now = AppClock.currentUTC();
 
         Optional<RegistrationPhoneChallenge> found = registrationToken == null || registrationToken.isBlank()

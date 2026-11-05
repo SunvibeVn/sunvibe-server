@@ -14,6 +14,31 @@ public interface VerificationCodeRepository {
     /** Inserts a new code or updates an existing one. */
     void save(VerificationCode code);
 
+    /** Inserts a new code at once, before its mail leaves. */
+    void insert(VerificationCode code);
+
+    /** The newest bind code of the user, without a lock. */
+    Optional<VerificationCode> findLatestBind(String userId);
+
+    /** The newest bind code of the user, locked until the transaction ends. */
+    Optional<VerificationCode> findLatestBindForUpdate(String userId);
+
+    /** Burns every bind code of the user but {@code keptId}. */
+    void burnOtherBindCodes(String userId, Long keptId, Instant now);
+
+    /** Bind codes the user asked for since {@code since} (daily cap per user). */
+    long countBindIssuedSince(String userId, Instant since);
+
+    /** Bind codes mailed to this address since {@code since}, whoever asked (daily cap per destination). */
+    long countBindIssuedToDestinationSince(String destination, Instant since);
+
+    /**
+     * Deletes up to {@code limit} rows whose last expiry is before {@code cutoff}.
+     *
+     * @return the number of deleted rows
+     */
+    int deleteExpiredBatch(Instant cutoff, int limit);
+
     /**
      * The newest code of the user on this channel, locked until the transaction
      * ends so concurrent guesses are counted one at a time.

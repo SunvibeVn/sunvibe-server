@@ -33,9 +33,13 @@ public class VerificationException extends ApplicationException {
         CODE_ATTEMPTS_EXCEEDED,
         /** The contact is already verified. */
         ALREADY_VERIFIED,
-        /** E-mail verification on an account without e-mail. */
-        NO_EMAIL,
+        /** Phone verification on an account without a phone. */
+        NO_PHONE,
         /** The registration token is missing, used, expired or bound to another phone number. */
-        REGISTRATION_TOKEN_INVALID
+        REGISTRATION_TOKEN_INVALID,
+        /** The mailbox was proven, and it is the verified address of an account. */
+        EMAIL_ACCOUNT_EXISTS,
+        /** The mailbox was proven, and the address cannot be used now. */
+        EMAIL_NOT_AVAILABLE
     }
 }

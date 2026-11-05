@@ -7,6 +7,7 @@ import vn.sunvibe.auth.core.application.query.auth.AuthResult;
 import vn.sunvibe.auth.core.application.query.auth.PasswordForgotResult;
 import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
 import vn.sunvibe.auth.core.application.query.user.UserProfileResult;
+import vn.sunvibe.auth.core.application.shared.RequiredAction;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.CodeSentResponse;
 import vn.sunvibe.auth.core.presentation.dto.response.v1.MeResponse;
@@ -27,7 +28,8 @@ class AuthV1ConverterTest {
     private static final Instant EXPIRES_AT = Instant.parse("2026-10-17T10:15:00Z");
 
     private static final AuthResult RESULT = new AuthResult("access-token", "refresh-secret", "0912345678", null,
-            Set.of("TENANT", "CUSTOMER"), true, false, "01ARZ3NDEKTSV4RRFFQ69G5FAV", "Nguyen Van A");
+            Set.of("TENANT", "CUSTOMER"), true, false, "01ARZ3NDEKTSV4RRFFQ69G5FAV", "Nguyen Van A",
+            RequiredAction.BIND_EMAIL);
 
     private final AuthV1Converter converter = new AuthV1Converter();
 
@@ -46,6 +48,19 @@ class AuthV1ConverterTest {
         assertEquals(List.of("CUSTOMER", "TENANT"), response.user().roles());
         assertTrue(response.user().phoneVerified());
         assertFalse(response.user().emailVerified());
+        assertEquals("BIND_EMAIL", response.user().requiredAction());
+    }
+
+    /** auth-email-access 4.6: no action is an explicit null, as a missing e-mail is. */
+    @Test
+    void toSessionResponse_noAction_isAnExplicitNull() {
+        AuthResult nothingToDo = new AuthResult("access-token", "refresh-secret", "0912345678", null, Set.of(), true, false,
+                "01ARZ3NDEKTSV4RRFFQ69G5FAV", "Nguyen Van A", null);
+
+        JsonNode user = JSON.readTree(JSON.writeValueAsString(converter.toSessionResponse(nothingToDo, ACCESS_TTL))).get("user");
+
+        assertTrue(user.has("requiredAction"));
+        assertTrue(user.get("requiredAction").isNull());
     }
 
     /** auth-browser-session BR-4: the refresh token never travels in a body; a missing e-mail is an explicit null. */
@@ -105,11 +120,11 @@ class AuthV1ConverterTest {
     @Test
     void toMeResponse_copiesEveryProfileField() {
         UserProfileResult profile = new UserProfileResult("Nguyen Van A", "0912345678", "a@example.com",
-                "https://img/a.png", "VERIFIED", "ACTIVE", true, true);
+                "https://img/a.png", "VERIFIED", "ACTIVE", true, true, RequiredAction.VERIFY_PHONE);
 
         MeResponse response = converter.toMeResponse(profile);
 
         assertEquals(new MeResponse("Nguyen Van A", "0912345678", "a@example.com", "https://img/a.png",
-                "VERIFIED", "ACTIVE", true, true), response);
+                "VERIFIED", "ACTIVE", true, true, "VERIFY_PHONE"), response);
     }
 }

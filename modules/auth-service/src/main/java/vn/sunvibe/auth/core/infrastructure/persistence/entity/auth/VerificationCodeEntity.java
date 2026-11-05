@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationPurpose;
 
 import java.time.Instant;
 
@@ -32,7 +33,11 @@ public class VerificationCodeEntity {
     @Column(name = "channel", nullable = false, length = 10)
     private VerificationChannel channel;
 
-    @Column(name = "destination", nullable = false, length = 100)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose", nullable = false, length = 20)
+    private VerificationPurpose purpose;
+
+    @Column(name = "destination", nullable = false, length = 254)
     private String destination;
 
     /** Hex SHA-256 of "id:code"; the code itself is never stored. */
@@ -50,5 +55,9 @@ public class VerificationCodeEntity {
 
     @Column(name = "consumed_at")
     private Instant consumedAt;
+
+    /** For a bind code: the credential version it was issued for. */
+    @Column(name = "credential_version")
+    private Long credentialVersion;
 
 }

@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.application.usecase.user.impl;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,8 +46,9 @@ class UserRegisterServiceTest {
      * {@code existsByIdCardNumber} lookup for an equal value matches. (The
      * real adapter's hashing is covered by {@code UserRepositoryAdapterEncryptionTest}.)
      */
-    private static class FakeUserDomainRepository implements UserDomainRepository {
+    private static class FakeUserDomainRepository extends vn.sunvibe.auth.core.testsupport.UnsupportedUserRepository {
         private final Set<String> usernames = new HashSet<>();
+        private final Set<String> phoneKeys = new HashSet<>();
         private final Set<String> emails = new HashSet<>();
         private final Set<IdCardNumber> idCardNumbers = new HashSet<>();
         private final Map<String, AppUser> saved = new HashMap<>();
@@ -67,8 +69,14 @@ class UserRegisterServiceTest {
         }
 
         @Override
-        public AppUser save(AppUser user) {
+        public boolean existsByPhoneKey(String phoneKey) {
+            return phoneKeys.contains(phoneKey);
+        }
+
+        @Override
+        public AppUser create(AppUser user) {
             usernames.add(user.getUsername().getValue());
+            phoneKeys.add(user.getPhoneKey());
             if (user.getEmail() != null) {
                 emails.add(user.getEmail().getValue());
             }
@@ -79,39 +87,16 @@ class UserRegisterServiceTest {
             return user;
         }
 
-        @Override
-        public AppUser findByUsername(String username) {
+        AppUser findByUsername(String username) {
             return saved.get(username);
         }
 
-        @Override
-        public AppUser findByEmail(String email) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Optional<AppUser> findById(UserId userId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override public java.util.List<vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow> findSignInAbleByAnyRole(java.util.Set<String> roleNames, int limit) { throw new UnsupportedOperationException(); }
-        @Override public java.util.Map<String, String> findFullNamesByIds(java.util.Collection<String> ids) { throw new UnsupportedOperationException(); }
     }
 
     private FakeUserDomainRepository repository;
     private UserRegisterService service;
     private RecordingAuditLog audit;
-    private List<VerificationChannel> codesSent;
+    private List<AppUser> codesSent;
     private List<ClientInfo> sessionsStarted;
     private List<String> consumedTokens;
     private boolean tokenIsValid;
@@ -135,18 +120,18 @@ class UserRegisterServiceTest {
         codesSent = new ArrayList<>();
         ContactVerificationUseCase contactVerification = new ContactVerificationUseCase() {
             @Override
-            public VerificationSendResult sendCode(VerificationChannel channel) {
+            public VerificationSendResult sendCode() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public void confirm(VerificationChannel channel, String code) {
+            public void confirm(String code) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
-            public void sendCodeAfterRegistration(AppUser user, VerificationChannel channel) {
-                codesSent.add(channel);
+            public void sendCodeAfterRegistration(AppUser user) {
+                codesSent.add(user);
             }
         };
         sessionsStarted = new ArrayList<>();
@@ -159,7 +144,7 @@ class UserRegisterServiceTest {
             @Override
             public AuthResult loginInternal(AppUser appUser, ClientInfo clientInfo) {
                 sessionsStarted.add(clientInfo);
-                return AuthResult.of(appUser, "access-token", "refresh-token");
+                return AuthResult.of(appUser, "access-token", "refresh-token", null);
             }
         };
         consumedTokens = new ArrayList<>();
@@ -202,7 +187,7 @@ class UserRegisterServiceTest {
         login = sessions;
         phone = phoneVerification;
         return new UserRegisterService(repository, passwordEncoder, ulidGenerator, audit, contactVerification, sessions,
-                phoneVerification, new RegistrationPolicy(requirePhoneVerification));
+                phoneVerification, new RegistrationPolicy(requirePhoneVerification), AuthTestUsers.phoneOn());
     }
 
     private UserRegisterService requiringPhoneVerification() {
@@ -214,11 +199,10 @@ class UserRegisterServiceTest {
                 .registrationToken(token).build();
     }
 
-    private UserRegisterCommand command(String username, String email, String idCardNumber) {
+    private UserRegisterCommand command(String username, String idCardNumber) {
         return UserRegisterCommand.builder()
                 .fullName("Nguyen Van A")
                 .username(username)
-                .email(email)
                 .password("P@ssw0rd!")
                 .idCardNumber(idCardNumber)
                 .build();
@@ -226,7 +210,7 @@ class UserRegisterServiceTest {
 
     @Test
     void execute_registersWithOnlyFullNameUsernameAndPassword() {
-        service.execute(command("0912345678", null, null));
+        service.execute(command("0912345678", null));
 
         AppUser saved = repository.findByUsername("0912345678");
         assertNotNull(saved);
@@ -238,20 +222,12 @@ class UserRegisterServiceTest {
     /** "Register first, verify later": the account is PENDING and an SMS code goes out at once. */
     @Test
     void execute_newAccountIsPendingAndGetsAPhoneCode() {
-        service.execute(command("0912345678", null, null));
+        service.execute(command("0912345678", null));
 
         AppUser saved = repository.findByUsername("0912345678");
         assertEquals(UserStatus.PENDING, saved.getUserStatus());
         assertFalse(saved.isPhoneVerified());
-        assertEquals(List.of(VerificationChannel.PHONE), codesSent);
-    }
-
-    @Test
-    void execute_withEmailAlsoSendsAnEmailCode() {
-        service.execute(command("0912345678", "a@example.com", null));
-
-        assertEquals(List.of(VerificationChannel.PHONE, VerificationChannel.EMAIL), codesSent);
-        assertFalse(repository.findByUsername("0912345678").isEmailVerified());
+        assertEquals(1, codesSent.size());
     }
 
     @Test
@@ -268,77 +244,76 @@ class UserRegisterServiceTest {
 
     @Test
     void execute_rejectedRegistrationStartsNoSession() {
-        service.execute(command("0912345678", null, null));
+        service.execute(command("0912345678", null));
         sessionsStarted.clear();
 
-        assertThrows(AuthValidationException.class, () -> service.execute(command("0912345678", null, null)));
+        assertThrows(AuthValidationException.class, () -> service.execute(command("0912345678", null)));
         assertTrue(sessionsStarted.isEmpty());
     }
 
     /** auth-roles US-1 AC-1, BR-3 (W6-3): exactly TENANT and CUSTOMER. */
     @Test
     void execute_assignsExactlyTenantAndCustomer() {
-        service.execute(command("0912345678", null, null));
+        service.execute(command("0912345678", null));
 
         assertEquals(Set.of(RoleName.TENANT.name(), RoleName.CUSTOMER.name()),
                 repository.findByUsername("0912345678").getUserRoles());
     }
 
     @Test
-    void execute_treatsBlankEmailAndIdCardNumberAsAbsent() {
-        service.execute(command("0912345678", "  ", ""));
+    void execute_treatsBlankIdCardNumberAsAbsent() {
+        service.execute(command("0912345678", ""));
 
-        AppUser saved = repository.findByUsername("0912345678");
-        assertNull(saved.getEmail());
-        assertNull(saved.getIdCardNumber());
+        assertNull(repository.findByUsername("0912345678").getIdCardNumber());
     }
 
     @Test
     void execute_allowsSeveralUsersWithoutIdCardNumber() {
-        service.execute(command("0912345678", null, null));
-        service.execute(command("0987654321", null, null));
+        service.execute(command("0912345678", null));
+        service.execute(command("0987654321", null));
 
         assertNotNull(repository.findByUsername("0987654321"));
     }
 
     @Test
-    void execute_storesOptionalEmailAndIdCardNumberWhenProvided() {
-        service.execute(command("0912345678", "A@Example.com", "123456789012"));
+    void execute_storesOptionalIdCardNumberWhenProvided() {
+        service.execute(command("0912345678", "123456789012"));
 
-        AppUser saved = repository.findByUsername("0912345678");
-        assertEquals("a@example.com", saved.getEmail().getValue());
-        assertEquals("123456789012", saved.getIdCardNumber().getValue());
+        assertEquals("123456789012", repository.findByUsername("0912345678").getIdCardNumber().getValue());
     }
 
+    /** auth-email-access S-35: any written form of a number reaches the one key. */
     @Test
-    void execute_rejectsDuplicateEmail() {
-        service.execute(command("0912345678", "a@example.com", null));
+    void on_reRegisterByVariant_refused() {
+        service.execute(command("0912345678", null));
 
-        AuthValidationException exception = assertThrows(AuthValidationException.class,
-                () -> service.execute(command("0987654321", "a@example.com", null)));
-        assertEquals(AuthFieldName.EMAIL, exception.getField());
+        AuthValidationException refused = assertThrows(AuthValidationException.class,
+                () -> service.execute(command("+84 912 345 678", null)));
+
+        assertEquals(AuthFieldName.USER_NAME, refused.getField());
     }
 
+    /** auth-email-access S-2: a use case called directly refuses what the DTO would have. */
     @Test
-    void execute_rejectsInvalidEmailFormat() {
-        AuthValidationException exception = assertThrows(AuthValidationException.class,
-                () -> service.execute(command("0912345678", "not-an-email", null)));
-        assertEquals(AuthFieldName.EMAIL, exception.getField());
+    void execute_refusedPhone_throws_noRow() {
+        assertThrows(AuthValidationException.class, () -> service.execute(command("0123456789", null)));
+
+        assertNull(repository.findByUsername("0123456789"));
     }
 
     @Test
     void execute_rejectsDuplicateIdCardNumber() {
-        service.execute(command("0912345678", null, "123456789012"));
+        service.execute(command("0912345678", "123456789012"));
 
         AuthValidationException exception = assertThrows(AuthValidationException.class,
-                () -> service.execute(command("0987654321", null, "123456789012")));
+                () -> service.execute(command("0987654321", "123456789012")));
         assertEquals(AuthFieldName.ID_CARD_NUMBER, exception.getField());
     }
 
     @Test
     void execute_rejectsInvalidIdCardNumberFormat() {
         AuthValidationException exception = assertThrows(AuthValidationException.class,
-                () -> service.execute(command("0912345678", null, "not-a-number")));
+                () -> service.execute(command("0912345678", "not-a-number")));
         assertEquals(AuthFieldName.ID_CARD_NUMBER, exception.getField());
     }
 
@@ -354,16 +329,6 @@ class UserRegisterServiceTest {
         assertEquals(List.of("the-token@0912345678"), consumedTokens);
         assertEquals("0912345678", result.username());
         assertEquals(1, sessionsStarted.size());
-    }
-
-    @Test
-    void execute_withATokenAndAnEmailStillSendsTheEmailCode() {
-        UserRegisterCommand command = UserRegisterCommand.builder().fullName("Nguyen Van A").username("0912345678")
-                .email("a@example.com").password("P@ssw0rd!").registrationToken("the-token").build();
-
-        requiringPhoneVerification().execute(command);
-
-        assertEquals(List.of(VerificationChannel.EMAIL), codesSent);
     }
 
     @Test
@@ -398,7 +363,7 @@ class UserRegisterServiceTest {
 
     @Test
     void execute_existingPhoneIsRefusedBeforeTheTokenIsUsed() {
-        service.execute(command("0912345678", null, null));
+        service.execute(command("0912345678", null));
 
         assertThrows(AuthValidationException.class,
                 () -> requiringPhoneVerification().execute(commandWithToken("0912345678", "the-token")));
