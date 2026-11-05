@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.infrastructure.persistence.adapter.user;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
+import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapperImpl;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserVOMapperImpl;
@@ -64,12 +66,12 @@ class UserRepositoryAdapterStaffQueryTest {
     private String saveUser(String fullName, UserStatus status, Instant deletedAt, String... roles) {
         int n = ++counter;
         String id = String.format("01STAF%020d", n);
-        AppUser user = AppUser.create(UserId.create(id), fullName, Username.create(String.format("09%08d", n)), null,
+        AppUser user = AuthTestUsers.withPhone(UserId.create(id), fullName, String.format("09%08d", n), null,
                 Password.create("hashed"), ProfileImage.create(null), null, new HashSet<>(Set.of(roles)),
                 Instant.parse("2026-01-01T00:00:00Z"));
         user.setUserStatus(status);
         user.setDeletedAt(deletedAt);
-        adapter.save(user);
+        adapter.create(user);
         entityManager.flush();
         entityManager.clear();
         return id;
@@ -154,8 +156,8 @@ class UserRepositoryAdapterStaffQueryTest {
         adapter.findSignInAbleByAnyRole(ASSIGNEE_ROLES, 500);
 
         AppUser loaded = adapter.findById(UserId.from(id)).orElseThrow();
-        loaded.recordLoginSuccess(Instant.now());
-        adapter.save(loaded);
+        loaded.setLastLogin(Instant.now());
+        adapter.save(new LockedUser(loaded));
 
         assertEquals(Set.of("SALE", "SALE_LEADER", "CUSTOMER", "LISTING_REVIEWER"), storedRoles(id));
     }

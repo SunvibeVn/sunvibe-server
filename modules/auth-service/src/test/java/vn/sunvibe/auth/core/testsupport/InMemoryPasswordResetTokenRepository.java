@@ -17,6 +17,8 @@ import java.util.Optional;
 public class InMemoryPasswordResetTokenRepository implements PasswordResetTokenDomainRepository {
 
     private final Map<Long, PasswordResetToken> tokens = new LinkedHashMap<>();
+    /** The order of token calls; a test may share the list of the user fake. */
+    public java.util.List<String> calls = new java.util.ArrayList<>();
 
     @Override
     public void save(PasswordResetToken token) {
@@ -24,7 +26,15 @@ public class InMemoryPasswordResetTokenRepository implements PasswordResetTokenD
     }
 
     @Override
+    public Optional<vn.sunvibe.auth.core.domain.model.user.vo.UserId> findUserIdByToken(String token) {
+        calls.add("read-token-owner");
+        return tokens.values().stream().filter(t -> t.getToken().equals(token)).findFirst()
+                .map(t -> vn.sunvibe.auth.core.domain.model.user.vo.UserId.from(t.getUserId()));
+    }
+
+    @Override
     public Optional<PasswordResetToken> findByTokenForUpdate(String token) {
+        calls.add("lock-token");
         return tokens.values().stream().filter(t -> t.getToken().equals(token)).findFirst()
                 .map(t -> copy(t, t.isUsed(), t.getUsedAt()));
     }
@@ -47,6 +57,11 @@ public class InMemoryPasswordResetTokenRepository implements PasswordResetTokenD
                 .filter(t -> t.getDestination().equals(destination) && t.getCreatedAt().isAfter(since)).count();
     }
 
+    @Override
+    public int deleteExpiredBatch(Instant cutoff, int limit) {
+        throw new UnsupportedOperationException("The purge is tested on PostgreSQL");
+    }
+
     public PasswordResetToken get(Long id) {
         return tokens.get(id);
     }
@@ -60,11 +75,12 @@ public class InMemoryPasswordResetTokenRepository implements PasswordResetTokenD
         PasswordResetToken t = tokens.get(id);
         tokens.put(id, PasswordResetToken.restore(t.getId(), t.getToken(), t.getUserId(), t.getChannel(),
                 t.getDestination(), t.getCreatedAt().minus(by), t.getExpiresAt(), t.isUsed(), t.getUsedAt(),
-                t.getFailedAttempts(), t.getOtpCode()));
+                t.getFailedAttempts(), t.getOtpHash(), t.getCredentialVersion()));
     }
 
     private static PasswordResetToken copy(PasswordResetToken t, boolean used, Instant usedAt) {
         return PasswordResetToken.restore(t.getId(), t.getToken(), t.getUserId(), t.getChannel(), t.getDestination(),
-                t.getCreatedAt(), t.getExpiresAt(), used, usedAt, t.getFailedAttempts(), t.getOtpCode());
+                t.getCreatedAt(), t.getExpiresAt(), used, usedAt, t.getFailedAttempts(), t.getOtpHash(),
+                t.getCredentialVersion());
     }
 }

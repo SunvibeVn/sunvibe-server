@@ -12,6 +12,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PasswordResetRequestTest {
 
+    /** Any framework debug line can print a request. */
+    @Test
+    void toString_hidesTheProofsAndThePassword() {
+        String text = PasswordResetRequest.builder().resetToken("reset-token-value").otpCode("123456").newPassword("New@Passw0rd")
+                .confirmPassword("New@Passw0rd").build().toString();
+
+        assertFalse(text.contains("reset-token-value"), text);
+        assertFalse(text.contains("123456"), text);
+        assertFalse(text.contains("New@Passw0rd"), text);
+    }
+
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     /** Regression: without a no-args constructor every reset request failed with a 500. */

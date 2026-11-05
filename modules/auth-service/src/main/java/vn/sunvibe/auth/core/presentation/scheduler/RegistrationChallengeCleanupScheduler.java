@@ -20,6 +20,6 @@ public class RegistrationChallengeCleanupScheduler {
     @Scheduled(cron = "${app.security.verification.registration-cleanup-cron:0 45 3 * * *}")
     public void purgeExpiredRegistrationChallenges() {
         int deleted = registrationChallengePurgeUseCase.execute();
-        log.info("Purged {} expired registration phone challenges", deleted);
+        log.info("Purged {} spent proofs", deleted);
     }
 }

@@ -4,15 +4,14 @@ import org.springframework.security.core.AuthenticatedPrincipal;
 import vn.sunvibe.shared.security.AuthenticatedUser;
 
 /**
- * Principal set by the JWT request filter: only the user id and the username, no password hash or e-mail.
- * {@link #getName()} is the username, so {@code Authentication.getName()} is unchanged.
+ * Principal set by the JWT request filter: only the user id, no identifier, password hash or e-mail.
+ * {@link #getName()} is the user id too, so {@code Authentication.getName()} is the identity of the request.
  */
-public record AuthenticatedUserPrincipal(String userId, String username)
-        implements AuthenticatedUser, AuthenticatedPrincipal {
+public record AuthenticatedUserPrincipal(String userId) implements AuthenticatedUser, AuthenticatedPrincipal {
 
     public AuthenticatedUserPrincipal {
-        if (userId == null || userId.isBlank() || username == null || username.isBlank()) {
-            throw new IllegalArgumentException("userId and username are required");
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("userId is required");
         }
     }
 
@@ -23,12 +22,6 @@ public record AuthenticatedUserPrincipal(String userId, String username)
 
     @Override
     public String getName() {
-        return username;
-    }
-
-    /** Without the username: it is the phone number (PII). */
-    @Override
-    public String toString() {
-        return "AuthenticatedUserPrincipal[userId=" + userId + "]";
+        return userId;
     }
 }

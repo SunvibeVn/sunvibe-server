@@ -36,13 +36,14 @@ paths:
   500 (SV-087, not reproduced). Keep spring.jackson.datatype.enum.fail-on-numbers-for-enums on: without it a JSON number
   selects an enum by ordinal.
 - CORS allow-list from app.cors.allowed-origins per profile; allowCredentials=true; never "*".
-- No PII (phone, ID card number, email, address) in logs. The username is a phone number: log the user id or a fixed
-  reason code (SV-009). Bound any client-controlled value in a log line and strip CR/LF (log injection). ID card numbers
+- No PII (phone, ID card number, email, address) in logs. The username, when an account has one, is a phone number: log
+  the user id or a fixed reason code (SV-009). Bound any client-controlled value in a log line and strip CR/LF (log injection). ID card numbers
   stay encrypted (CryptoService). Keep logServerErrorDetail=false: PostgreSQL error text would log row values.
 - Secrets come from env vars only (${...} placeholders). Never add a literal secret to application*.yml.
 - OTPs compared in Java use MessageDigest.isEqual; passwords go through PasswordEncoder. A new high-entropy token is
-  stored hashed and found by its hash, as refresh and registration tokens are; the password reset token still keeps
-  its value in clear (legacy). Randomness comes from SecureRandom or UUID.randomUUID, never Random.
+  stored hashed and found by its hash, as refresh, registration and password reset tokens are. A stored one-time code
+  goes through OtpHasher (keyed HMAC, AUTH_OTP_HASH_KEY): a plain hash of six digits falls to a reader of the table.
+  Randomness comes from SecureRandom or UUID.randomUUID, never Random.
 - Keep rate-limit rules (app.security.rate-limit.rules) in sync when adding public endpoints. The limiter is in memory,
   per instance, and keys on getRemoteAddr(): never read X-Forwarded-For yourself, any client can spoof it.
   server.forward-headers-strategy is not set in any profile: behind a proxy, getRemoteAddr() is the proxy until a setup

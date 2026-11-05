@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.infrastructure.persistence.adapter.user;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import org.springframework.test.context.TestPropertySource;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
+import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapperImpl;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserVOMapperImpl;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
@@ -59,9 +61,9 @@ class UserRepositoryAdapterRoleTest {
     }
 
     private AppUser saveUser(String... roles) {
-        AppUser user = AppUser.create(USER_ID, "Nguyen Van A", Username.create("0912345678"), null,
+        AppUser user = AuthTestUsers.withPhone(USER_ID, "Nguyen Van A", "0912345678", null,
                 Password.create("hashed"), ProfileImage.create(null), null, new HashSet<>(Set.of(roles)), Instant.now());
-        AppUser saved = adapter.save(user);
+        AppUser saved = adapter.create(user);
         entityManager.flush();
         entityManager.clear();
         return saved;
@@ -125,8 +127,8 @@ class UserRepositoryAdapterRoleTest {
         entityManager.flush();
         entityManager.clear();
 
-        loadedBeforeTheRevoke.recordLoginSuccess(Instant.now());
-        adapter.save(loadedBeforeTheRevoke);
+        loadedBeforeTheRevoke.setLastLogin(Instant.now());
+        adapter.save(new LockedUser(loadedBeforeTheRevoke));
 
         assertEquals(Set.of("CUSTOMER"), storedRoles());
     }
@@ -134,10 +136,10 @@ class UserRepositoryAdapterRoleTest {
     /** A new account with a role that has no row in roles would silently get no role. */
     @Test
     void save_newUserWithARoleMissingFromRolesTable_fails() {
-        AppUser user = AppUser.create(USER_ID, "Nguyen Van A", Username.create("0912345678"), null,
+        AppUser user = AuthTestUsers.withPhone(USER_ID, "Nguyen Van A", "0912345678", null,
                 Password.create("hashed"), ProfileImage.create(null), null,
                 new HashSet<>(Set.of("CUSTOMER", "LISTING_REVIEWER")), Instant.now());
 
-        assertThrows(IllegalStateException.class, () -> adapter.save(user));
+        assertThrows(IllegalStateException.class, () -> adapter.create(user));
     }
 }

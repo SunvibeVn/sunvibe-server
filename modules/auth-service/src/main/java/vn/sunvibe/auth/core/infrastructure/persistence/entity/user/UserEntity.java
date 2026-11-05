@@ -40,17 +40,24 @@ public class UserEntity {
     private String fullName;
 
     /**
-     * Username (VO → String)
+     * The phone in its national form, for display (VO → String); null for an account without a phone.
      */
-    @Column(nullable = false, length = 32)
+    @Column(length = 32)
     private String username;
 
     /**
-     * Email (VO → String, lower-case). Stays nullable — a user may not
-     * have one set yet.
+     * Email as stored (VO → String). Stays nullable: a user may not have one set yet.
      */
-    @Column(name = "email", length = 100)
+    @Column(name = "email", length = 254)
     private String email; // nullable – user may not be update yet
+
+    /** Canonical email, the only comparison key; unique among live rows, by a partial index of the migration. */
+    @Column(name = "email_key", length = 254)
+    private String emailKey;
+
+    /** E.164 phone, the only comparison key; unique among live rows, by a partial index of the migration. */
+    @Column(name = "phone_key", length = 16)
+    private String phoneKey;
 
     /**
      * Hash of password(Password VO → String)
@@ -110,6 +117,19 @@ public class UserEntity {
     /** Password login is refused until this instant (temporary lockout); null when not locked. */
     @Column(name = "locked_until")
     private Instant lockedUntil;
+
+    /*─────────────── CREDENTIALS ───────────────*/
+    /** Raised by every change of a credential or login identifier. */
+    @Column(name = "credential_version", nullable = false)
+    private long credentialVersion;
+
+    /** Consecutive wrong passwords at a reauthentication; apart from the login counter. */
+    @Column(name = "reauth_failed_attempts", nullable = false)
+    private int reauthFailedAttempts;
+
+    /** Reauthentication is refused until this instant; null when not locked. */
+    @Column(name = "reauth_locked_until")
+    private Instant reauthLockedUntil;
 
     /*─────────────── CONTACT VERIFICATION ───────────────*/
     @Column(name = "phone_verified_at")

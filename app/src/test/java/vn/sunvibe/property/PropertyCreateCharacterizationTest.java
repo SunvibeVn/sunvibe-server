@@ -42,7 +42,7 @@ import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
-import vn.sunvibe.auth.core.domain.model.user.vo.Username;
+import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -91,6 +91,9 @@ class PropertyCreateCharacterizationTest {
 
 	@Autowired
 	private UserDomainRepository userRepository;
+
+	@Autowired
+	private vn.sunvibe.auth.core.infrastructure.audit.AuthAuditWriter auditWriter;
 
 	@Autowired
 	private BCryptPasswordEncoder passwordEncoder;
@@ -185,8 +188,8 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(0, new BigDecimal("5000000").compareTo(response.path("monthlyPrice").decimalValue()));
 		assertEquals("AVAILABLE", response.path("status").asString());
 		assertEquals(landlordA.userId(), response.path("ownerId").asString());
-		assertEquals(admin.username(), response.path("createdBy").asString(),
-				"createdBy is authentication.getName(), i.e. the caller's username (phone number), not the user id");
+		assertEquals(admin.userId(), response.path("createdBy").asString(),
+				"createdBy is authentication.getName(), which is the user id (auth-email-access A-5)");
 		assertEquals(2, response.path("imageCount").asInt());
 		assertEquals(2, response.path("ruleCount").asInt());
 		assertEquals(2, response.path("amenityCount").asInt());
@@ -196,8 +199,8 @@ class PropertyCreateCharacterizationTest {
 		Map<String, Object> row = propertyRow(code);
 		assertEquals(id, row.get("ID"));
 		assertEquals(landlordA.userId(), row.get("OWNER_ID"), "an ADMIN names the owner in the request body");
-		assertEquals(admin.username(), row.get("CREATED_BY"), "created_by stores the username (phone number)");
-		assertEquals(admin.username(), row.get("UPDATED_BY"));
+		assertEquals(admin.userId(), row.get("CREATED_BY"), "created_by stores the user id");
+		assertEquals(admin.userId(), row.get("UPDATED_BY"));
 		assertEquals("AVAILABLE", row.get("STATUS"));
 		assertEquals("Hồ Chí Minh", row.get("CITY"));
 		assertEquals("STUDIO", row.get("PROPERTY_TYPE"));
@@ -221,9 +224,9 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(Map.of("amenity_name", "Air Conditioner", "category", "Bedroom"),
 				jdbc.queryForMap("select amenity_name, category from property_amenity"
 						+ " where property_id = ? and amenity_type_id = 11", id));
-		assertEquals(Set.of(admin.username()), Set.copyOf(jdbc.queryForList(
+		assertEquals(Set.of(admin.userId()), Set.copyOf(jdbc.queryForList(
 				"select uploaded_by from property_images where property_id = ?", String.class, id)),
-				"image uploaded_by is the username too");
+				"image uploaded_by is the user id too");
 	}
 
 	@Test
@@ -255,10 +258,10 @@ class PropertyCreateCharacterizationTest {
 
 		assertEquals(201, result.status(), result.rawBody());
 		assertEquals(owner.userId(), result.body().path("ownerId").asString());
-		assertEquals(sale.username(), result.body().path("createdBy").asString());
+		assertEquals(sale.userId(), result.body().path("createdBy").asString());
 		Map<String, Object> row = propertyRow(code);
 		assertEquals(owner.userId(), row.get("OWNER_ID"), "the caller never becomes the owner");
-		assertEquals(sale.username(), row.get("CREATED_BY"));
+		assertEquals(sale.userId(), row.get("CREATED_BY"));
 		assertEquals(Set.of("TENANT", "CUSTOMER", "OWNER"), roles(owner.userId()));
 		assertEquals(List.of("role=OWNER;actorUserId=" + sale.userId()), ownerGrantAudit(owner.userId()));
 	}
@@ -589,7 +592,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals(400, result.status(), result.rawBody());
 		assertEquals("Validation failed.", result.body().path("message").asString());
 		assertEquals(Map.of(
-				"username", "Phone numbers is mandatory.",
+				"email", "Enter an email.",
 				"password", "Password is mandatory."), validationErrors(result.body()));
 	}
 
@@ -788,11 +791,10 @@ class PropertyCreateCharacterizationTest {
 		String password = UUID.randomUUID().toString();
 		Instant now = AppClock.currentUTC();
 
-		AppUser user = AppUser.create(
+		AppUser user = AppUser.createWithPhone(
 				UserId.create(ulidGenerator.generateId()),
 				"W6 " + String.join(" ", roles),
-				Username.create(username),
-				null,
+				PhoneNumber.create(username),
 				Password.create(passwordEncoder.encode(password)),
 				ProfileImage.create(null),
 				null,
@@ -802,7 +804,7 @@ class PropertyCreateCharacterizationTest {
 			user.verifyPhone(now);
 			user.setUserStatus(status);
 		}
-		AppUser saved = userRepository.save(user);
+		AppUser saved = userRepository.create(user);
 		return new TestUser(saved.getId().getValue(), username, password);
 	}
 
@@ -831,6 +833,7 @@ class PropertyCreateCharacterizationTest {
 	}
 
 	private List<String> ownerGrantAudit(String userId) {
+		assertTrue(auditWriter.awaitIdle(java.time.Duration.ofSeconds(10)), "the audit writer stayed busy");
 		return jdbc.queryForList(
 				"select details from auth_audit_events where event_type = 'ROLE_GRANTED' and user_id = ?", String.class,
 				userId);

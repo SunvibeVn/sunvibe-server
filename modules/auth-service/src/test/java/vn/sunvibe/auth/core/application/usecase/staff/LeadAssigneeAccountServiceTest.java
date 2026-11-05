@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.application.usecase.staff;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -41,7 +42,7 @@ class LeadAssigneeAccountServiceTest {
         for (RoleName role : roles) {
             names.add(role.name());
         }
-        AppUser user = AppUser.create(UserId.create(USER_ID), "Staff", Username.create("0900000009"), null,
+        AppUser user = AuthTestUsers.withPhone(UserId.create(USER_ID), "Staff", "0900000009", null,
                 Password.create("hashed"), ProfileImage.create(null), null, names, Instant.parse("2026-01-01T00:00:00Z"));
         user.setUserStatus(status);
         users.with(user);
@@ -113,8 +114,8 @@ class LeadAssigneeAccountServiceTest {
         for (RoleName role : roles) {
             names.add(role.name());
         }
-        AppUser user = AppUser.create(UserId.create(id), name,
-                Username.create(String.format("09%08d", ++accountCounter)), null, Password.create("hashed"),
+        AppUser user = AuthTestUsers.withPhone(UserId.create(id), name,
+                String.format("09%08d", ++accountCounter), null, Password.create("hashed"),
                 ProfileImage.create(null), null, names, Instant.parse("2026-01-01T00:00:00Z"));
         user.setUserStatus(status);
         users.with(user);

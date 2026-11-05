@@ -1,0 +1,740 @@
+{
+  "version": 1,
+  "source": "docs/features/auth/auth-email-access/brief/auth-email-access-brief.md BR-20, BR-21, BR-23, E-14, E-15, E-18",
+  "rawLimits": {
+    "email": 320,
+    "phone": 32
+  },
+  "email": [
+    {
+      "id": "E01",
+      "raw": "name@example.com",
+      "valid": true,
+      "canonical": "name@example.com",
+      "note": "plain"
+    },
+    {
+      "id": "E02",
+      "raw": "Name.Surname@Example.COM",
+      "valid": true,
+      "canonical": "name.surname@example.com",
+      "note": "case folded"
+    },
+    {
+      "id": "E03",
+      "raw": "  name@example.com  ",
+      "valid": true,
+      "canonical": "name@example.com",
+      "note": "ASCII spaces at both ends"
+    },
+    {
+      "id": "E04",
+      "raw": "name+tag@example.com",
+      "valid": true,
+      "canonical": "name+tag@example.com",
+      "note": "plus kept, not an alias of E01"
+    },
+    {
+      "id": "E05",
+      "raw": "first.last@gmail.com",
+      "valid": true,
+      "canonical": "first.last@gmail.com",
+      "note": "dots kept, no Gmail rewrite"
+    },
+    {
+      "id": "E06",
+      "raw": "firstlast@gmail.com",
+      "valid": true,
+      "canonical": "firstlast@gmail.com",
+      "note": "distinct from E05"
+    },
+    {
+      "id": "E07",
+      "raw": "o'brien@example.com",
+      "valid": true,
+      "canonical": "o'brien@example.com",
+      "note": "apostrophe is atext"
+    },
+    {
+      "id": "E08",
+      "raw": "a!#$%&'*+/=?^_`{|}~-z@example.com",
+      "valid": true,
+      "canonical": "a!#$%&'*+/=?^_`{|}~-z@example.com",
+      "note": "every atext symbol"
+    },
+    {
+      "id": "E09",
+      "raw": "user@mail.example.co.uk",
+      "valid": true,
+      "canonical": "user@mail.example.co.uk",
+      "note": "several labels"
+    },
+    {
+      "id": "E10",
+      "raw": "user@my-domain.vn",
+      "valid": true,
+      "canonical": "user@my-domain.vn",
+      "note": "hyphen inside a label"
+    },
+    {
+      "id": "E11",
+      "raw": "user@xn--bcher-kva.example",
+      "valid": true,
+      "canonical": "user@xn--bcher-kva.example",
+      "note": "Punycode label"
+    },
+    {
+      "id": "E12",
+      "raw": "user@example.xn--p1ai",
+      "valid": true,
+      "canonical": "user@example.xn--p1ai",
+      "note": "Punycode top-level label"
+    },
+    {
+      "id": "E13",
+      "raw": "1234@456.example",
+      "valid": true,
+      "canonical": "1234@456.example",
+      "note": "digits in local part and label"
+    },
+    {
+      "id": "E14",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "valid": true,
+      "canonical": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "note": "total 100"
+    },
+    {
+      "id": "E15",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "valid": true,
+      "canonical": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "note": "total 101, above the old column"
+    },
+    {
+      "id": "E16",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "valid": true,
+      "canonical": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "note": "total 254, the limit"
+    },
+    {
+      "id": "E17",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "valid": false,
+      "canonical": null,
+      "note": "total 255"
+    },
+    {
+      "id": "E18",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "valid": true,
+      "canonical": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "note": "local part 64, the limit"
+    },
+    {
+      "id": "E19",
+      "raw": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "valid": false,
+      "canonical": null,
+      "note": "local part 65"
+    },
+    {
+      "id": "E20",
+      "raw": "                                                                                                                                                      name@example.com                                                                                                                                                          ",
+      "valid": true,
+      "canonical": "name@example.com",
+      "note": "raw 320 with padding"
+    },
+    {
+      "id": "E21",
+      "raw": "                                                                                                                                                      name@example.com                                                                                                                                                           ",
+      "valid": false,
+      "canonical": null,
+      "note": "raw 321, over the raw limit"
+    },
+    {
+      "id": "E22",
+      "raw": "",
+      "valid": false,
+      "canonical": null,
+      "note": "empty"
+    },
+    {
+      "id": "E23",
+      "raw": "   ",
+      "valid": false,
+      "canonical": null,
+      "note": "spaces only"
+    },
+    {
+      "id": "E24",
+      "raw": "nameexample.com",
+      "valid": false,
+      "canonical": null,
+      "note": "no @"
+    },
+    {
+      "id": "E25",
+      "raw": "a@b@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "two @"
+    },
+    {
+      "id": "E26",
+      "raw": "Nam <name@example.com>",
+      "valid": false,
+      "canonical": null,
+      "note": "display name"
+    },
+    {
+      "id": "E27",
+      "raw": "a@example.com,b@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "address list with comma"
+    },
+    {
+      "id": "E28",
+      "raw": "a@example.com;b@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "address list with semicolon"
+    },
+    {
+      "id": "E29",
+      "raw": "user@[127.0.0.1]",
+      "valid": false,
+      "canonical": null,
+      "note": "address literal"
+    },
+    {
+      "id": "E30",
+      "raw": "user@127.0.0.1",
+      "valid": false,
+      "canonical": null,
+      "note": "IP as domain: numeric top label"
+    },
+    {
+      "id": "E31",
+      "raw": "user@localhost",
+      "valid": false,
+      "canonical": null,
+      "note": "single label domain"
+    },
+    {
+      "id": "E32",
+      "raw": "nguy\u1ec5n@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "Unicode local part"
+    },
+    {
+      "id": "E33",
+      "raw": "user@v\u00ed-d\u1ee5.vn",
+      "valid": false,
+      "canonical": null,
+      "note": "Unicode domain"
+    },
+    {
+      "id": "E34",
+      "raw": "user@example.com\r\n",
+      "valid": false,
+      "canonical": null,
+      "note": "CRLF at the end, not trimmed"
+    },
+    {
+      "id": "E35",
+      "raw": "user@exam\nple.com",
+      "valid": false,
+      "canonical": null,
+      "note": "LF inside"
+    },
+    {
+      "id": "E36",
+      "raw": "\tuser@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "TAB at the start, not trimmed"
+    },
+    {
+      "id": "E37",
+      "raw": "user\u0000@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "NUL"
+    },
+    {
+      "id": "E38",
+      "raw": "user\u007f@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "DEL"
+    },
+    {
+      "id": "E39",
+      "raw": "first last@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "space inside"
+    },
+    {
+      "id": "E40",
+      "raw": ".user@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "dot first in the local part"
+    },
+    {
+      "id": "E41",
+      "raw": "user.@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "dot last in the local part"
+    },
+    {
+      "id": "E42",
+      "raw": "fi..rst@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "two dots in the local part"
+    },
+    {
+      "id": "E43",
+      "raw": "user@example..com",
+      "valid": false,
+      "canonical": null,
+      "note": "empty label"
+    },
+    {
+      "id": "E44",
+      "raw": "user@example.com.",
+      "valid": false,
+      "canonical": null,
+      "note": "domain ends with a dot"
+    },
+    {
+      "id": "E45",
+      "raw": "user@.example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "domain starts with a dot"
+    },
+    {
+      "id": "E46",
+      "raw": "user@-example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "label starts with a hyphen"
+    },
+    {
+      "id": "E47",
+      "raw": "user@example-.com",
+      "valid": false,
+      "canonical": null,
+      "note": "label ends with a hyphen"
+    },
+    {
+      "id": "E48",
+      "raw": "\"first last\"@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "quoted local part"
+    },
+    {
+      "id": "E49",
+      "raw": "\u00a0user@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "NBSP is not an ASCII space"
+    },
+    {
+      "id": "E50",
+      "raw": "@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "empty local part"
+    },
+    {
+      "id": "E51",
+      "raw": "user@",
+      "valid": false,
+      "canonical": null,
+      "note": "empty domain"
+    },
+    {
+      "id": "E52",
+      "raw": "user@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "valid": false,
+      "canonical": null,
+      "note": "label of 64"
+    },
+    {
+      "id": "E53",
+      "raw": "user@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "valid": true,
+      "canonical": "user@bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.com",
+      "note": "label of 63"
+    },
+    {
+      "id": "E54",
+      "raw": "user@example.c",
+      "valid": false,
+      "canonical": null,
+      "note": "one-letter top label"
+    },
+    {
+      "id": "E55",
+      "raw": "user@exa_mple.com",
+      "valid": false,
+      "canonical": null,
+      "note": "underscore in a label"
+    },
+    {
+      "id": "E56",
+      "raw": "\u0130stanbul@example.com",
+      "valid": false,
+      "canonical": null,
+      "note": "dotted capital I is not ASCII"
+    }
+  ],
+  "phone": [
+    {
+      "id": "P01",
+      "raw": "0901234567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "national"
+    },
+    {
+      "id": "P02",
+      "raw": "+84901234567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "international"
+    },
+    {
+      "id": "P03",
+      "raw": "84901234567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "country code without plus"
+    },
+    {
+      "id": "P04",
+      "raw": "+84 901 234 567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "spaces"
+    },
+    {
+      "id": "P05",
+      "raw": "090 123 4567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "spaces, national"
+    },
+    {
+      "id": "P06",
+      "raw": "090.123.4567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "dots"
+    },
+    {
+      "id": "P07",
+      "raw": "090-123-4567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "hyphens"
+    },
+    {
+      "id": "P08",
+      "raw": "(090) 123-4567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "brackets"
+    },
+    {
+      "id": "P09",
+      "raw": "(+84) 901 234 567",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "plus inside brackets"
+    },
+    {
+      "id": "P10",
+      "raw": "  0901234567  ",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "spaces at both ends"
+    },
+    {
+      "id": "P11",
+      "raw": "0351234567",
+      "valid": true,
+      "canonical": "+84351234567",
+      "national": "0351234567",
+      "note": "another mobile range"
+    },
+    {
+      "id": "P12",
+      "raw": "0900000101",
+      "valid": true,
+      "canonical": "+84900000101",
+      "national": "0900000101",
+      "note": "E2E fixture"
+    },
+    {
+      "id": "P13",
+      "raw": "02838221234",
+      "valid": true,
+      "canonical": "+842838221234",
+      "national": "02838221234",
+      "note": "fixed line, valid VN number"
+    },
+    {
+      "id": "P14",
+      "raw": "",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "empty"
+    },
+    {
+      "id": "P15",
+      "raw": "090123456",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "too short"
+    },
+    {
+      "id": "P16",
+      "raw": "09012345678",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "too long"
+    },
+    {
+      "id": "P17",
+      "raw": "0123456789",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "retired range"
+    },
+    {
+      "id": "P18",
+      "raw": "901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "no trunk 0: ambiguous"
+    },
+    {
+      "id": "P19",
+      "raw": "+1 202 555 0123",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "another country"
+    },
+    {
+      "id": "P20",
+      "raw": "+65 6123 4567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "another country"
+    },
+    {
+      "id": "P21",
+      "raw": "0084901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "international prefix 00"
+    },
+    {
+      "id": "P22",
+      "raw": "abc0901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "letters"
+    },
+    {
+      "id": "P23",
+      "raw": "0901234567 ext 12",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "extension"
+    },
+    {
+      "id": "P24",
+      "raw": "0901234567x12",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "extension"
+    },
+    {
+      "id": "P25",
+      "raw": "0901234567;ext=12",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "extension"
+    },
+    {
+      "id": "P26",
+      "raw": "++84901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "two plus signs"
+    },
+    {
+      "id": "P27",
+      "raw": "84+901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "plus in the middle"
+    },
+    {
+      "id": "P28",
+      "raw": "+84(0)901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "trunk 0 after the country code"
+    },
+    {
+      "id": "P29",
+      "raw": "+840901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "trunk 0 after the country code"
+    },
+    {
+      "id": "P30",
+      "raw": "840901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "12 digits, legacy shape"
+    },
+    {
+      "id": "P31",
+      "raw": "\uff10\uff19\uff10\uff11\uff12\uff13\uff14\uff15\uff16\uff17",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "full-width digits"
+    },
+    {
+      "id": "P32",
+      "raw": "\u0660\u0669\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "Arabic-Indic digits"
+    },
+    {
+      "id": "P33",
+      "raw": "Call 0901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "number inside a sentence"
+    },
+    {
+      "id": "P34",
+      "raw": "tel:+84901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "URI"
+    },
+    {
+      "id": "P35",
+      "raw": "0901234567\n",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "LF at the end, not trimmed"
+    },
+    {
+      "id": "P36",
+      "raw": "\t0901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "TAB at the start, not trimmed"
+    },
+    {
+      "id": "P37",
+      "raw": "0901234567\u0000",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "NUL"
+    },
+    {
+      "id": "P38",
+      "raw": "090/123/4567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "slash is not a presentation mark"
+    },
+    {
+      "id": "P39",
+      "raw": "+",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "plus only"
+    },
+    {
+      "id": "P40",
+      "raw": "           0901234567           ",
+      "valid": true,
+      "canonical": "+84901234567",
+      "national": "0901234567",
+      "note": "raw 32 with padding"
+    },
+    {
+      "id": "P41",
+      "raw": "            0901234567           ",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "raw 33, over the raw limit"
+    },
+    {
+      "id": "P42",
+      "raw": "00901234567",
+      "valid": false,
+      "canonical": null,
+      "national": null,
+      "note": "00 before the national number; the parser would drop one 0"
+    }
+  ]
+}

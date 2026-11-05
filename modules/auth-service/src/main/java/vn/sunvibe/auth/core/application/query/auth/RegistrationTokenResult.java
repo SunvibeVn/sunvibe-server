@@ -9,4 +9,10 @@ import java.time.Instant;
  * @param expiresAt         when the token stops being accepted
  */
 public record RegistrationTokenResult(String registrationToken, Instant expiresAt) {
+
+    /** Contacts and secrets stay out of logs (auth-email-access 4.10). */
+    @Override
+    public String toString() {
+        return "RegistrationTokenResult[hidden]";
+    }
 }

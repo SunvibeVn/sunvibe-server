@@ -12,12 +12,18 @@ class CustomUserDetailsTest {
     private CustomUserDetails detailsWithStatus(UserStatus status) {
         CustomUserDetails details = new CustomUserDetails();
         details.setUserId("id");
-        details.setUsername("0912345678");
+        details.setPhone("0912345678");
         details.setPassword("hashed");
         details.setEmail("a@example.com");
         details.setAuthorities(Set.of());
         details.setUserStatus(status);
         return details;
+    }
+
+    /** auth-email-access A-5: Authentication.getName() of a checked login is the user id, phone or not. */
+    @Test
+    void getUsername_isTheUserId() {
+        assertEquals("id", detailsWithStatus(UserStatus.ACTIVE).getUsername());
     }
 
     @Test

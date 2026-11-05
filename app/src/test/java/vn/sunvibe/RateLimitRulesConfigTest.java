@@ -53,13 +53,16 @@ class RateLimitRulesConfigTest {
 			List.of("registration-send-code", "/api/v1/auth/registration/phone/send-code", "5", "1h"),
 			List.of("registration-verify-code", "/api/v1/auth/registration/phone/verify-code", "10", "15m"),
 			List.of("registration", "/api/v1/auth/registration", "5", "1h"),
+			List.of("registration-email-send-code", "/api/v1/auth/registration/email/send-code", "5", "1h"),
+			List.of("registration-email-verify-code", "/api/v1/auth/registration/email/verify-code", "10", "15m"),
+			List.of("registration-email", "/api/v1/auth/registration/email", "5", "1h"),
 			List.of("reset-email", "/api/v1/auth/password-reset/email", "5", "1h"),
 			List.of("reset-sms", "/api/v1/auth/password-reset/sms", "5", "1h"),
 			List.of("reset-complete", "/api/v1/auth/password-reset/complete", "10", "15m"),
 			List.of("verify-phone-send", "/api/v1/me/verification/phone/send-code", "5", "1h"),
-			List.of("verify-email-send", "/api/v1/me/verification/email/send-code", "5", "1h"),
+			List.of("me-email-send", "/api/v1/me/email/send-code", "10", "1h"),
 			List.of("verify-phone-confirm", "/api/v1/me/verification/phone/confirm-code", "10", "15m"),
-			List.of("verify-email-confirm", "/api/v1/me/verification/email/confirm-code", "10", "15m"),
+			List.of("me-email-confirm", "/api/v1/me/email/confirm-code", "10", "15m"),
 			List.of("password-change", "/api/v1/me/password/change", "10", "15m"));
 
 	/** W10-11 */

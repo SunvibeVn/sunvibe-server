@@ -76,8 +76,20 @@ class FlywayPostgresMigrationTest {
 						"V202611041532__checklist_submission_and_review.sql",
 						"V202611041533__validate_checklist_review_constraints.sql",
 						"V202611041534__index_survey_checklists_review.sql",
+						"V202611051000__expand_user_identifiers.sql",
+						"V202611051001__validate_users_email_key_check.sql",
+						"V202611051002__index_users_email_key.sql",
+						"V202611051003__index_users_phone_key.sql",
+						"V202611051004__index_users_keyless_email.sql",
+						"V202611051005__expand_proofs_for_email.sql",
+						"V202611051006__index_verification_codes_destination.sql",
+						"V202611051007__index_verification_codes_expires_at.sql",
+						"V202611051008__index_password_reset_token_expires_at.sql",
+						"V202611051009__create_registration_email_challenges.sql",
+						"V202611051010__create_auth_email_notifications.sql",
+						"db.migration.V202611051011__Backfill_user_identifier_keys",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 31, applied.size()));
+				applied.subList(applied.size() - 43, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */

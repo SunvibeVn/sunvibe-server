@@ -90,7 +90,7 @@ class AuthV1OpenApiTest {
 	@Test
 	void openApi_authPaths_requireNoBearer() {
 		List<Map.Entry<String, JsonNode>> operations = operationsUnder("/api/v1/auth");
-		assertEquals(9, operations.size(), "the nine operations of spec §3.1 rows 1-9");
+		assertEquals(12, operations.size(), "the nine operations of spec §3.1 rows 1-9 and the three of email registration");
 
 		for (Map.Entry<String, JsonNode> operation : operations) {
 			List<String> names = securityNames(operation.getValue());
@@ -101,6 +101,70 @@ class AuthV1OpenApiTest {
 				assertTrue(names.isEmpty(), operation.getKey());
 			}
 		}
+	}
+
+	private static boolean nullable(JsonNode property) {
+		for (JsonNode type : property.path("type")) {
+			if ("null".equals(type.asString())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private void assertDocuments(String key, String status, String code) {
+		String description = operation(key).path("responses").path(status).path("description").asString();
+		assertTrue(description.contains(code), key + " " + status + ": " + description);
+	}
+
+	/** auth-email-access 7.2, 4.6: an email account has no username, and the server says what comes next. */
+	@Test
+	void openapi_usernameNullable_requiredActionEnum() {
+		for (String schema : List.of("SessionUserResponse", "MeResponse")) {
+			JsonNode properties = contract.path("components").path("schemas").path(schema).path("properties");
+
+			assertTrue(nullable(properties.path("username")), schema + " username");
+			JsonNode action = properties.path("requiredAction");
+			assertTrue(nullable(action), schema + " requiredAction");
+			List<String> values = new ArrayList<>();
+			action.path("enum").forEach(value -> values.add(value.asString()));
+			assertTrue(values.containsAll(List.of("BIND_EMAIL", "VERIFY_PHONE")), schema + ": " + values);
+		}
+	}
+
+	/** auth-email-access 7.1..7.3: the new operations and the codes the client branches on. */
+	@Test
+	void openapi_newPathsAndCodes() {
+		assertDocuments("post /api/v1/auth/registration/email/send-code", "503", "EMAIL_DELIVERY_FAILED");
+		assertDocuments("post /api/v1/auth/registration/email/send-code", "429", "CODE_RESEND_TOO_SOON");
+		assertDocuments("post /api/v1/auth/registration/email/verify-code", "409", "EMAIL_ACCOUNT_EXISTS");
+		assertDocuments("post /api/v1/auth/registration/email/verify-code", "409", "EMAIL_NOT_AVAILABLE");
+		assertDocuments("post /api/v1/auth/registration/email", "409", "EMAIL_NOT_AVAILABLE");
+		assertDocuments("post /api/v1/auth/registration/email", "400", "REGISTRATION_TOKEN_INVALID");
+		assertDocuments("post /api/v1/me/email/send-code", "423", "ACCOUNT_LOCKED");
+		assertDocuments("post /api/v1/me/email/send-code", "503", "EMAIL_DELIVERY_FAILED");
+		assertDocuments("post /api/v1/me/email/send-code", "400", "ALREADY_VERIFIED");
+		assertDocuments("post /api/v1/me/email/confirm-code", "409", "EMAIL_NOT_AVAILABLE");
+		assertDocuments("post /api/v1/me/password/change", "423", "ACCOUNT_LOCKED");
+		assertDocuments("post /api/v1/me/verification/phone/send-code", "400", "NO_PHONE");
+		for (String phoneOperation : List.of(
+				"post /api/v1/auth/login",
+				"post /api/v1/auth/registration",
+				"post /api/v1/auth/registration/phone/send-code",
+				"post /api/v1/auth/registration/phone/verify-code",
+				"post /api/v1/auth/password-reset/sms",
+				"post /api/v1/auth/password-reset/complete",
+				"post /api/v1/me/verification/phone/send-code",
+				"post /api/v1/me/verification/phone/confirm-code")) {
+			assertDocuments(phoneOperation, "403", "AUTH_CHANNEL_DISABLED");
+		}
+	}
+
+	/** D4-4: a verified email comes from a bind alone. */
+	@Test
+	void openapi_emailVerificationPathsGone() {
+		assertFalse(contract.path("paths").has("/api/v1/me/verification/email/send-code"));
+		assertFalse(contract.path("paths").has("/api/v1/me/verification/email/confirm-code"));
 	}
 
 	/** W10-14, spec §3.1 row 6: registration creates an account, 201. */
@@ -130,8 +194,8 @@ class AuthV1OpenApiTest {
 				"post /api/v1/auth/password-reset/complete",
 				"post /api/v1/me/verification/phone/send-code",
 				"post /api/v1/me/verification/phone/confirm-code",
-				"post /api/v1/me/verification/email/send-code",
-				"post /api/v1/me/verification/email/confirm-code",
+				"post /api/v1/me/email/send-code",
+				"post /api/v1/me/email/confirm-code",
 				"post /api/v1/me/password/change");
 		for (String key : limited) {
 			JsonNode tooMany = operation(key).path("responses").path("429");
@@ -174,17 +238,20 @@ class AuthV1OpenApiTest {
 		v1.put("post /api/v1/auth/registration/phone/send-code", "authRegistrationSendCode");
 		v1.put("post /api/v1/auth/registration/phone/verify-code", "authRegistrationVerifyCode");
 		v1.put("post /api/v1/auth/registration", "authRegister");
+		v1.put("post /api/v1/auth/registration/email/send-code", "authRegistrationEmailSendCode");
+		v1.put("post /api/v1/auth/registration/email/verify-code", "authRegistrationEmailVerifyCode");
+		v1.put("post /api/v1/auth/registration/email", "authRegisterEmail");
 		v1.put("post /api/v1/auth/password-reset/email", "authPasswordResetByEmail");
 		v1.put("post /api/v1/auth/password-reset/sms", "authPasswordResetBySms");
 		v1.put("post /api/v1/auth/password-reset/complete", "authPasswordResetComplete");
 		v1.put("get /api/v1/me", "getMe");
 		v1.put("post /api/v1/me/verification/phone/send-code", "meSendPhoneCode");
 		v1.put("post /api/v1/me/verification/phone/confirm-code", "meConfirmPhoneCode");
-		v1.put("post /api/v1/me/verification/email/send-code", "meSendEmailCode");
-		v1.put("post /api/v1/me/verification/email/confirm-code", "meConfirmEmailCode");
+		v1.put("post /api/v1/me/email/send-code", "meSendEmailBindCode");
+		v1.put("post /api/v1/me/email/confirm-code", "meConfirmEmailBindCode");
 		v1.put("post /api/v1/me/password/change", "meChangePassword");
 		v1.put("post /api/v1/me/sessions/logout-all", "meLogoutAll");
-		assertEquals(16, v1.size());
+		assertEquals(19, v1.size());
 		v1.forEach((key, id) -> assertEquals(id, operation(key).path("operationId").asString(), key));
 	}
 

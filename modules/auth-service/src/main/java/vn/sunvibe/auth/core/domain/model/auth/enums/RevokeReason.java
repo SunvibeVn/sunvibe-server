@@ -18,6 +18,8 @@ public enum RevokeReason {
     /** The owner no longer exists or is locked/disabled. */
     ACCOUNT_INACTIVE,
     /** A role was revoked from the account by staff; every session is ended (auth-roles BR-11). */
-    ROLE_REVOKED
+    ROLE_REVOKED,
+    /** The email of the account was bound or replaced; every other session is ended. */
+    EMAIL_CHANGED
 
 }

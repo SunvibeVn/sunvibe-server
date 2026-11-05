@@ -127,6 +127,30 @@ test("guards only files named V*.sql, not every file under a folder whose name s
   });
 });
 
+test("blocks an edit of a committed Java migration", () => {
+  const javaMigration = "modules/auth-service/src/main/java/db/migration/V202610091300__Backfill_x.java";
+  withRepo({ [javaMigration]: "class V202610091300__Backfill_x {}\n" }, (dir) => {
+    const result = runHook(HOOK, { input: edit(join(dir, javaMigration)), env: { CLAUDE_PROJECT_DIR: dir } });
+    assert.equal(result.status, 2);
+  });
+});
+
+test("blocks an edit of the committed logic class of a Java migration", () => {
+  const logic = "modules/auth-service/src/main/java/vn/sunvibe/auth/core/infrastructure/persistence/migration/Backfill.java";
+  withRepo({ [logic]: "class Backfill {}\n" }, (dir) => {
+    assert.equal(runHook(HOOK, { input: edit(join(dir, logic)), env: { CLAUDE_PROJECT_DIR: dir } }).status, 2);
+  });
+});
+
+test("allows a new Java migration and other Java files", () => {
+  const javaMigration = "modules/auth-service/src/main/java/db/migration/V202610191300__Backfill_y.java";
+  const other = "modules/auth-service/src/main/java/vn/sunvibe/V1.java";
+  withRepo({ [other]: "class V1 {}\n" }, (dir) => {
+    assert.equal(runHook(HOOK, { input: edit(join(dir, javaMigration), "Write"), env: { CLAUDE_PROJECT_DIR: dir } }).status, 0);
+    assert.equal(runHook(HOOK, { input: edit(join(dir, other)), env: { CLAUDE_PROJECT_DIR: dir } }).status, 0);
+  });
+});
+
 test("does not guard repeatable migrations or other files", () => {
   const repeatable = `${MIG_DIR}/R__refresh_views.sql`;
   withRepo({ [repeatable]: "x\n", "AGENTS.md": "x\n" }, (dir) => {

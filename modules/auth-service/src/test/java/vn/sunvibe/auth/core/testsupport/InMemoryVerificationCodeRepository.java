@@ -2,6 +2,7 @@ package vn.sunvibe.auth.core.testsupport;
 
 import vn.sunvibe.auth.core.domain.model.auth.VerificationCode;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
+import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationPurpose;
 import vn.sunvibe.auth.core.domain.repository.auth.VerificationCodeRepository;
 
 import java.time.Instant;
@@ -19,6 +20,47 @@ public class InMemoryVerificationCodeRepository implements VerificationCodeRepos
     @Override
     public void save(VerificationCode code) {
         codes.put(code.getId(), copy(code, code.getConsumedAt()));
+    }
+
+    @Override
+    public int deleteExpiredBatch(Instant cutoff, int limit) {
+        throw new UnsupportedOperationException("The purge is tested on PostgreSQL");
+    }
+
+    @Override
+    public void insert(VerificationCode code) {
+        save(code);
+    }
+
+    @Override
+    public Optional<VerificationCode> findLatestBind(String userId) {
+        return codes.values().stream()
+                .filter(c -> c.getUserId().equals(userId) && c.getPurpose() == VerificationPurpose.EMAIL_BIND)
+                .max(Comparator.comparing(VerificationCode::getCreatedAt).thenComparing(VerificationCode::getId))
+                .map(c -> copy(c, c.getConsumedAt()));
+    }
+
+    @Override
+    public Optional<VerificationCode> findLatestBindForUpdate(String userId) {
+        return findLatestBind(userId);
+    }
+
+    @Override
+    public void burnOtherBindCodes(String userId, Long keptId, Instant now) {
+        codes.replaceAll((id, c) -> c.getUserId().equals(userId) && c.getPurpose() == VerificationPurpose.EMAIL_BIND
+                && !id.equals(keptId) && c.getConsumedAt() == null ? copy(c, now) : c);
+    }
+
+    @Override
+    public long countBindIssuedSince(String userId, Instant since) {
+        return codes.values().stream().filter(c -> c.getUserId().equals(userId)
+                && c.getPurpose() == VerificationPurpose.EMAIL_BIND && c.getCreatedAt().isAfter(since)).count();
+    }
+
+    @Override
+    public long countBindIssuedToDestinationSince(String destination, Instant since) {
+        return codes.values().stream().filter(c -> c.getDestination().equals(destination)
+                && c.getPurpose() == VerificationPurpose.EMAIL_BIND && c.getCreatedAt().isAfter(since)).count();
     }
 
     @Override
@@ -49,12 +91,14 @@ public class InMemoryVerificationCodeRepository implements VerificationCodeRepos
     /** Moves a code back in time (cooldown / daily window tests). */
     public void age(Long id, java.time.Duration by) {
         VerificationCode c = codes.get(id);
-        codes.put(id, VerificationCode.load(c.getId(), c.getUserId(), c.getChannel(), c.getDestination(), c.getCodeHash(),
-                c.getCreatedAt().minus(by), c.getExpiresAt().minus(by), c.getFailedAttempts(), c.getConsumedAt()));
+        codes.put(id, VerificationCode.load(c.getId(), c.getUserId(), c.getChannel(), c.getPurpose(), c.getDestination(),
+                c.getCodeHash(), c.getCreatedAt().minus(by), c.getExpiresAt().minus(by), c.getFailedAttempts(),
+                c.getConsumedAt(), c.getCredentialVersion()));
     }
 
     private static VerificationCode copy(VerificationCode c, Instant consumedAt) {
-        return VerificationCode.load(c.getId(), c.getUserId(), c.getChannel(), c.getDestination(), c.getCodeHash(),
-                c.getCreatedAt(), c.getExpiresAt(), c.getFailedAttempts(), consumedAt);
+        return VerificationCode.load(c.getId(), c.getUserId(), c.getChannel(), c.getPurpose(), c.getDestination(),
+                c.getCodeHash(), c.getCreatedAt(), c.getExpiresAt(), c.getFailedAttempts(), consumedAt,
+                c.getCredentialVersion());
     }
 }

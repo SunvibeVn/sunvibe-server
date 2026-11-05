@@ -11,14 +11,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import vn.sunvibe.auth.core.infrastructure.security.provider.CustomUserDetailsService;
 import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.AuthenticatedUserPrincipal;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
@@ -40,7 +39,7 @@ import java.util.Set;
 public class JWTRequestFilter extends OncePerRequestFilter {
 
     private final JWTProvider jwtProvider;
-    private final UserDetailsService userDetailsService;
+    private final CustomUserDetailsService userDetailsService;
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
@@ -85,40 +84,51 @@ public class JWTRequestFilter extends OncePerRequestFilter {
 
     /**
      * A valid signature only proves the token was issued; whether it may still be
-     * used depends on the account as it is now. Reloads the user and authenticates
-     * only if it still exists, is the same account the token was issued for (the
-     * {@code uid} claim matches, so a re-registered username can't inherit an old
-     * token) and is neither disabled nor locked. Authorities come from the reloaded
-     * user, never from the token. Any failure leaves the request unauthenticated.
+     * used depends on the account as it is now. Reloads the account the {@code uid}
+     * claim names and authenticates only if it still exists, the subject is that
+     * account (its id, or on a token of the previous release its phone), the token
+     * has no older credential version, and the account is neither disabled nor
+     * locked. Authorities come from the reloaded user, never from the token. Any
+     * failure leaves the request unauthenticated. No line names the subject: on an
+     * older token it is a phone number.
      */
     Optional<UsernamePasswordAuthenticationToken> resolveAuthentication(Claims claims) {
-        String username = claims.getSubject();
+        String subject = claims.getSubject();
         String tokenUserId = claims.get(JWTProvider.USER_ID_CLAIM, String.class);
-        if (username == null || tokenUserId == null) {
+        if (subject == null || tokenUserId == null) {
             log.info("Rejected token without subject or {} claim", JWTProvider.USER_ID_CLAIM);
             return Optional.empty();
         }
 
-        UserDetails loaded;
+        CustomUserDetails user;
         try {
-            loaded = userDetailsService.loadUserByUsername(username);
+            user = userDetailsService.loadUserById(tokenUserId);
         } catch (UsernameNotFoundException e) {
-            log.info("Rejected token for {}: user no longer exists", username);
+            log.info("Rejected token: user no longer exists");
             return Optional.empty();
         }
 
-        if (!(loaded instanceof CustomUserDetails user) || !tokenUserId.equals(user.getUserId())) {
-            log.info("Rejected token for {}: issued to a different account", username);
+        if (!subject.equals(user.getUserId()) && !subject.equals(user.getPhone())) {
+            log.info("Rejected token of user {}: issued to a different account", user.getUserId());
+            return Optional.empty();
+        }
+        if (isOlderCredential(claims, user)) {
+            log.info("Rejected token of user {}: older credential version", user.getUserId());
             return Optional.empty();
         }
         if (!user.isEnabled() || !user.isAccountNonLocked()) {
-            log.info("Rejected token for {}: account is locked or disabled", username);
+            log.info("Rejected token of user {}: account is locked or disabled", user.getUserId());
             return Optional.empty();
         }
 
-        // The principal carries the user id of the reloaded account (already matched against uid); getName() stays the username
-        AuthenticatedUserPrincipal principal = new AuthenticatedUserPrincipal(user.getUserId(), user.getUsername());
+        AuthenticatedUserPrincipal principal = new AuthenticatedUserPrincipal(user.getUserId());
         return Optional.of(new UsernamePasswordAuthenticationToken(principal, null, user.getAuthorities()));
+    }
+
+    /** A token without the claim was issued before it existed and passes until it expires (auth-email-access A-4). */
+    private static boolean isOlderCredential(Claims claims, CustomUserDetails user) {
+        return claims.get(JWTProvider.CREDENTIAL_VERSION_CLAIM) instanceof Number version
+                && version.longValue() < user.credentialVersion();
     }
 
     /** The access token from {@code Authorization: Bearer ...}; a cookie never carries it. */

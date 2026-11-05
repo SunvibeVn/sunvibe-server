@@ -27,9 +27,10 @@ import java.util.Optional;
 /**
  * Issues and verifies the HMAC-SHA256 signed access tokens (JWT).
  * <p>
- * Claims: {@code sub} = username, {@link #USER_ID_CLAIM} = account id,
- * {@code email}, {@code rol} = authorities at issue time (informational only:
- * the request filter reloads authorities from the database).
+ * Claims: {@code sub} and {@link #USER_ID_CLAIM} = account id,
+ * {@link #CREDENTIAL_VERSION_CLAIM} = credential version at issue time,
+ * {@code rol} = authorities at issue time (informational only: the request
+ * filter reloads authorities from the database).
  */
 @Component
 @Slf4j
@@ -40,6 +41,8 @@ public class JWTProvider implements AccessTokenIssuerPort {
     public static final String TOKEN_PREFIX = "Bearer ";
     /** Claim holding the account's immutable id; the request filter checks it against the reloaded user. */
     public static final String USER_ID_CLAIM = "uid";
+    /** Claim holding the credential version at issue time; the request filter refuses a lower one. */
+    public static final String CREDENTIAL_VERSION_CLAIM = "cv";
 
     private final SecretKey signingKey;
     private final Duration lifetime;
@@ -79,9 +82,9 @@ public class JWTProvider implements AccessTokenIssuerPort {
         return Jwts.builder()
                 .header().add("typ", TOKEN_TYPE)
                 .and()
-                .subject(user.getUsername().getValue())
+                .subject(user.getId().getValue())
                 .claim(USER_ID_CLAIM, user.getId().getValue())
-                .claim("email", user.getEmail() != null ? user.getEmail().getValue() : null)
+                .claim(CREDENTIAL_VERSION_CLAIM, user.getCredentialVersion())
                 .claim("rol", roles)
                 .issuer(TOKEN_ISSUER)
                 .issuedAt(Date.from(now))

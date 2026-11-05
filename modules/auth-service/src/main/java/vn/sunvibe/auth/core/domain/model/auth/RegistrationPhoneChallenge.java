@@ -52,9 +52,9 @@ public class RegistrationPhoneChallenge {
         this.registeredAt = registeredAt;
     }
 
-    /** A new challenge for {@code phone}; only the salted hash of {@code code} is kept. */
-    public static RegistrationPhoneChallenge issue(Long id, String phone, String code, Instant now, Duration lifetime) {
-        return new RegistrationPhoneChallenge(id, phone, hashCode(id, code), now, now.plus(lifetime), 0, null, null,
+    /** A new challenge for {@code phone}; only the hash of its code, made by the application layer, is kept. */
+    public static RegistrationPhoneChallenge issue(Long id, String phone, String codeHash, Instant now, Duration lifetime) {
+        return new RegistrationPhoneChallenge(id, phone, codeHash, now, now.plus(lifetime), 0, null, null,
                 null, null, null);
     }
 
@@ -73,9 +73,9 @@ public class RegistrationPhoneChallenge {
     }
 
     /** Compares hashes in constant time. */
-    public boolean matches(String code) {
-        return code != null && MessageDigest.isEqual(
-                codeHash.getBytes(StandardCharsets.US_ASCII), hashCode(id, code).getBytes(StandardCharsets.US_ASCII));
+    public boolean matches(String candidateHash) {
+        return candidateHash != null && MessageDigest.isEqual(
+                codeHash.getBytes(StandardCharsets.US_ASCII), candidateHash.getBytes(StandardCharsets.US_ASCII));
     }
 
     /**
@@ -128,11 +128,6 @@ public class RegistrationPhoneChallenge {
     /** SHA-256 of a registration token, as stored and looked up. */
     public static String hashToken(String token) {
         return sha256(token);
-    }
-
-    /** SHA-256 of the code salted with the row id, so equal codes hash differently. */
-    private static String hashCode(Long id, String code) {
-        return sha256(id + ":" + code);
     }
 
     private static String sha256(String value) {

@@ -23,7 +23,7 @@ public interface UserVOMapper {
 
     @Named("mapUsername")
     default String mapUsername(Username username) {
-        return username.getValue();
+        return username != null ? username.getValue() : null;
     }
 
     @Named("mapEmail")
@@ -64,7 +64,7 @@ public interface UserVOMapper {
 
     @Named("toUserName")
     default Username toUserName(String username) {
-        return Username.from(username);
+        return username != null ? Username.from(username) : null;
     }
 
     @Named("toEmail")

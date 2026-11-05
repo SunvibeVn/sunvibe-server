@@ -2,6 +2,7 @@ package vn.sunvibe.auth.core.infrastructure.persistence.adapter.user;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.user.UserLoginAttemptRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository;
@@ -22,6 +23,33 @@ public class UserLoginAttemptRepositoryAdapter implements UserLoginAttemptReposi
         // UPDATE first: it takes the row lock, so the following read sees this caller's own increment
         userJpaRepository.incrementFailedLoginAttempts(userId.getValue());
         return userJpaRepository.findFailedLoginAttempts(userId.getValue());
+    }
+
+    @Override
+    public int incrementReauthFailures(UserId userId) {
+        // UPDATE first: it takes the row lock, so the following read sees this caller's own increment
+        userJpaRepository.incrementReauthFailures(userId.getValue());
+        return userJpaRepository.findReauthFailures(userId.getValue());
+    }
+
+    @Override
+    public void lockReauthUntil(UserId userId, Instant until) {
+        userJpaRepository.lockReauthUntil(userId.getValue(), until);
+    }
+
+    @Override
+    public void clearReauthFailures(UserId userId) {
+        userJpaRepository.clearReauthFailures(userId.getValue());
+    }
+
+    @Override
+    public void recordLoginSuccess(UserId userId, Instant when) {
+        userJpaRepository.recordLoginSuccess(userId.getValue(), when);
+    }
+
+    @Override
+    public void activateIfPending(UserId userId) {
+        userJpaRepository.activateIfPending(userId.getValue(), UserStatus.ACTIVE, UserStatus.PENDING);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.infrastructure.persistence.adapter.user;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,10 +50,10 @@ class UserRepositoryAdapterEncryptionTest {
     }
 
     private static AppUser newUser(String id, String username, Email email, IdCardNumber idCardNumber) {
-        return AppUser.create(
+        return AuthTestUsers.withPhone(
                 UserId.create(id),
                 "Nguyen Van A",
-                Username.create(username),
+                username,
                 email,
                 Password.create("hashed-password"),
                 ProfileImage.create(null),
@@ -63,8 +64,8 @@ class UserRepositoryAdapterEncryptionTest {
 
     @Test
     void save_userWithoutEmailOrIdCardNumber_storesNullsAndReloads() {
-        userRepositoryAdapter.save(newUser("01ARZ3NDEKTSV4RRFFQ69G5FAW", "0911111111", null, null));
-        userRepositoryAdapter.save(newUser("01ARZ3NDEKTSV4RRFFQ69G5FAX", "0922222222", null, null));
+        userRepositoryAdapter.create(newUser("01ARZ3NDEKTSV4RRFFQ69G5FAW", "0911111111", null, null));
+        userRepositoryAdapter.create(newUser("01ARZ3NDEKTSV4RRFFQ69G5FAX", "0922222222", null, null));
         entityManager.flush();
         entityManager.clear();
 
@@ -76,14 +77,14 @@ class UserRepositoryAdapterEncryptionTest {
         assertNull(row[1]);
         assertNull(row[2]);
 
-        AppUser reloaded = userRepositoryAdapter.findByUsername("0922222222");
+        AppUser reloaded = userRepositoryAdapter.findByPhoneKey("+84922222222").orElseThrow();
         assertNull(reloaded.getEmail());
         assertNull(reloaded.getIdCardNumber());
     }
 
     @Test
     void existsByIdCardNumber_matchesTheBlindIndexWrittenBySave() {
-        userRepositoryAdapter.save(newUser());
+        userRepositoryAdapter.create(newUser());
         entityManager.flush();
         entityManager.clear();
 
@@ -95,7 +96,7 @@ class UserRepositoryAdapterEncryptionTest {
     void save_storesIdCardNumberEncryptedWithBlindIndex() {
         AppUser user = newUser();
 
-        userRepositoryAdapter.save(user);
+        userRepositoryAdapter.create(user);
         entityManager.flush();
         entityManager.clear();
 

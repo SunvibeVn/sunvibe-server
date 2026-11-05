@@ -1,20 +1,26 @@
 package vn.sunvibe.auth.core.infrastructure.persistence.adapter.user;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import vn.sunvibe.auth.core.domain.exception.user.IdentifierConflictException;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.IdCardNumber;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
+import vn.sunvibe.auth.core.domain.repository.user.EmailOccupancy;
+import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
+import vn.sunvibe.auth.core.infrastructure.persistence.adapter.AuthConstraintViolations;
 import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapper;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserJpaRepository;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.user.UserRoleJpaRepository;
-import vn.sunvibe.auth.core.shared.constant.UserMessage;
 import vn.sunvibe.shared.crypto.CryptoService;
 
 import java.util.ArrayList;
@@ -37,6 +43,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserRepositoryAdapter implements UserDomainRepository {
 
+    private static final Set<String> EMAIL_CONSTRAINTS = Set.of("uq_users_email_key", "idx_users_email");
+    private static final Set<String> PHONE_CONSTRAINTS = Set.of("uq_users_phone_key", "idx_users_username");
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
     private final UserJpaRepository userJpaRepository;
     private final UserRoleJpaRepository userRoleJpaRepository;
     private final UserMapper userMapper;
@@ -58,31 +70,95 @@ public class UserRepositoryAdapter implements UserDomainRepository {
     }
 
     @Override
-    public AppUser save(AppUser appUser) {
+    public AppUser create(AppUser appUser) {
+        UserEntity userEntity = toEntity(appUser);
+        userEntity.setUserRoles(rolesOfNewAccount(appUser.getUserRoles()));
+        return write(userEntity);
+    }
+
+    @Override
+    public AppUser save(LockedUser locked) {
+        UserEntity userEntity = toEntity(locked.user());
+        // Roles of an existing account are never rewritten from the aggregate: only addRole and removeRole change them
+        userEntity.setUserRoles(userJpaRepository.findById(userEntity.getId())
+                .map(stored -> (Set<UserRoleEntity>) new HashSet<>(stored.getUserRoles()))
+                .orElseThrow(() -> new IllegalStateException("A locked account has no row")));
+        return write(userEntity);
+    }
+
+    /** Lock first: the reload below must see the row as it is after any commit this lock waited for. */
+    @Override
+    public Optional<LockedUser> findByIdForSecurity(UserId userId) {
+        if (userJpaRepository.lockForSecurity(userId.getValue()).isEmpty()) {
+            return Optional.empty();
+        }
+        // find alone would answer from the persistence context, which open-in-view keeps for the whole request
+        UserEntity userEntity = entityManager.find(UserEntity.class, userId.getValue());
+        entityManager.refresh(userEntity);
+        return Optional.of(new LockedUser(userMapper.toDomain(userEntity)));
+    }
+
+    @Override
+    public void lockForSessionRefresh(UserId userId) {
+        entityManager.createNativeQuery("SET LOCAL lock_timeout = '3s'").executeUpdate();
+        userJpaRepository.lockForShare(userId.getValue());
+    }
+
+    private UserEntity toEntity(AppUser appUser) {
         UserEntity userEntity = userMapper.toEntity(appUser);
         IdCardNumber idCardNumber = appUser.getIdCardNumber();
         userEntity.setIdCardNumberHash(idCardNumber != null ? idCardNumberHash(idCardNumber) : null);
+        return userEntity;
+    }
 
-        // Roles of an existing account are never rewritten from the aggregate (it may be stale): only addRole and
-        // removeRole change them. A new account gets its roles, each of which must exist in the roles table.
-        Set<UserRoleEntity> userRoleEntities = userJpaRepository.findById(userEntity.getId())
-                .map(stored -> (Set<UserRoleEntity>) new HashSet<>(stored.getUserRoles()))
-                .orElseGet(() -> rolesOfNewAccount(appUser.getUserRoles()));
-        userEntity.setUserRoles(userRoleEntities);
+    /** Flushed here, so a lost race for an identifier is translated now and not at commit, where it would be a 500. */
+    private AppUser write(UserEntity userEntity) {
+        try {
+            return userMapper.toDomain(userJpaRepository.saveAndFlush(userEntity));
+        } catch (DataIntegrityViolationException e) {
+            throw identifierConflict(e).orElseThrow(() -> e);
+        }
+    }
 
-        return userMapper.toDomain(userJpaRepository.save(userEntity));
+    private static Optional<RuntimeException> identifierConflict(DataIntegrityViolationException e) {
+        return AuthConstraintViolations.constraintName(e).flatMap(constraint -> {
+            if (EMAIL_CONSTRAINTS.contains(constraint)) {
+                return Optional.of(new IdentifierConflictException(IdentifierConflictException.Kind.EMAIL));
+            }
+            if (PHONE_CONSTRAINTS.contains(constraint)) {
+                return Optional.of(new IdentifierConflictException(IdentifierConflictException.Kind.PHONE));
+            }
+            return Optional.empty();
+        });
     }
 
     @Override
-    public AppUser findByUsername(String username) {
-        UserEntity userEntity = userJpaRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException(String.format(UserMessage.USER_NOT_FOUND_WITH_USERNAME, username)));
-        return userMapper.toDomain(userEntity);
+    public Optional<AppUser> findByEmailKey(String emailKey) {
+        return userJpaRepository.findByEmailKey(emailKey).map(userMapper::toDomain);
     }
 
     @Override
-    public AppUser findByEmail(String email) {
-        UserEntity userEntity = userJpaRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException(String.format(UserMessage.USER_NOT_FOUND_WITH_EMAIL, email)));
-        return userMapper.toDomain(userEntity);
+    public EmailOccupancy emailOccupancy(String emailKey, UserId selfOrNull) {
+        List<Boolean> holders = userJpaRepository.findEmailHolders(emailKey, selfOrNull != null ? selfOrNull.getValue() : "");
+        if (holders.isEmpty()) {
+            return EmailOccupancy.FREE;
+        }
+        return holders.contains(Boolean.TRUE) ? EmailOccupancy.VERIFIED : EmailOccupancy.OTHER;
+    }
+
+    @Override
+    public boolean existsByPhoneKey(String phoneKey) {
+        return userJpaRepository.existsByPhoneKey(phoneKey);
+    }
+
+    @Override
+    public Optional<AppUser> findByPhoneKey(String phoneKey) {
+        return userJpaRepository.findByPhoneKey(phoneKey).map(userMapper::toDomain);
+    }
+
+    @Override
+    public Optional<AppUser> findKeylessByUsername(String username) {
+        return userJpaRepository.findKeylessByUsername(username).map(userMapper::toDomain);
     }
 
     @Override

@@ -30,7 +30,7 @@ import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.Password;
 import vn.sunvibe.auth.core.domain.model.user.vo.ProfileImage;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
-import vn.sunvibe.auth.core.domain.model.user.vo.Username;
+import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;
@@ -107,15 +107,14 @@ public final class AcquisitionApiTestSupport {
 
 	/** Same, with the full name the staff views will show. */
 	public TestUser createUser(String fullName, UserStatus status, String... roles) {
-		String username = "08" + String.format("%08d", USERNAME_SEQUENCE.getAndIncrement());
+		String username = "096" + String.format("%07d", USERNAME_SEQUENCE.getAndIncrement());
 		String password = UUID.randomUUID().toString();
 		Instant now = AppClock.currentUTC();
 
-		AppUser user = AppUser.create(
+		AppUser user = AppUser.createWithPhone(
 				UserId.create(ulidGenerator.generateId()),
 				fullName,
-				Username.create(username),
-				null,
+				PhoneNumber.create(username),
 				Password.create(passwordEncoder.encode(password)),
 				ProfileImage.create(null),
 				null,
@@ -125,7 +124,7 @@ public final class AcquisitionApiTestSupport {
 			user.verifyPhone(now);
 			user.setUserStatus(status);
 		}
-		AppUser saved = userRepository.save(user);
+		AppUser saved = userRepository.create(user);
 		return new TestUser(saved.getId().getValue(), username, password);
 	}
 

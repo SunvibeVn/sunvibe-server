@@ -12,13 +12,31 @@ public interface EmailServicePort {
      */
     void sendPasswordResetEmail(String email, String otpCode, String resetToken);
 
-    /** Tells the owner their password was reset. Never throws: the reset already happened. */
-    void sendPasswordResetConfirmationEmail(String email);
-
     /**
-     * Sends the 6-digit code that proves the user controls this address.
+     * Tells the owner their password was reset.
      *
      * @throws vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException if sending fails
      */
-    void sendVerificationCodeEmail(String email, String code);
+    void sendPasswordResetConfirmationEmail(String email);
+
+    /**
+     * Sends the code that proves a mailbox before an account exists. The code is never in the subject.
+     *
+     * @throws vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException if sending fails
+     */
+    void sendRegistrationCodeEmail(String to, String code);
+
+    /**
+     * Sends the code that proves the address a signed-in user wants on the account.
+     *
+     * @throws vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException if sending fails
+     */
+    void sendEmailBindCodeEmail(String to, String code);
+
+    /**
+     * Tells a replaced address that it no longer signs in, without naming the new one.
+     *
+     * @throws vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException if sending fails
+     */
+    void sendEmailChangedNotice(String to);
 }

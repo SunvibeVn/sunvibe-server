@@ -66,18 +66,22 @@ public class AuthV1SessionController {
      */
     @PostMapping("/login")
     @Operation(operationId = "authLogin",
-            summary = "Sign in with phone number and password (public)",
-            description = "Starts a new session for this device: the access token in the body, the refresh token "
-                    + "in the HttpOnly refresh cookie (Path=/api/v1/auth/session).")
+            summary = "Sign in with email or phone and a password (public)",
+            description = "Takes exactly one of email and username, which is the phone. Starts a new session for this "
+                    + "device: the access token in the body, the refresh token in the HttpOnly refresh cookie "
+                    + "(Path=/api/v1/auth/session).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Signed in; sets the refresh cookie",
                     headers = @Header(name = HttpHeaders.SET_COOKIE, description = "The refresh cookie"),
                     content = @Content(schema = @Schema(implementation = SessionResponse.class))),
-            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on username or password; "
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on email (none or both of the two "
+                    + "identifiers, or a value the policy refuses), username or password; "
                     + "MALFORMED_REQUEST (unreadable JSON)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS: unknown phone, wrong password, "
-                    + "or an account that may not sign in (one answer for all)",
+            @ApiResponse(responseCode = "401", description = "INVALID_CREDENTIALS: unknown or unverified identifier, "
+                    + "wrong password, or an account that may not sign in (one answer for all)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "AUTH_CHANNEL_DISABLED: sign-in by phone is closed",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "415", description = "MALFORMED_REQUEST: the body is not JSON",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),

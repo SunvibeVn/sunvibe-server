@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.ConfirmPasswordMatch;
 import vn.sunvibe.auth.core.presentation.validation.user.constraint.StrongPassword;
+import vn.sunvibe.auth.core.presentation.validation.user.constraint.ValidPhone;
 
 /**
  * Body of {@code POST /api/v1/auth/registration}.
@@ -23,15 +24,8 @@ public record UserRegisterRequest(
         String fullName,
 
         @NotNull(message = "Phone numbers is mandatory.")
-        @Pattern(
-                regexp = "^[0-9]{10,12}$",
-                message = "Phone numbers must be between 10 and 12 digits."
-        )
+        @ValidPhone
         String username,
-
-        // Optional: empty means "not provided"; format is validated by the Email domain VO.
-        @Size(max = 100, message = "At most 100 characters in length.")
-        String email,
 
         // Optional: empty means "not provided".
         @Pattern(
@@ -45,6 +39,7 @@ public record UserRegisterRequest(
         String password,
 
         @NotNull(message = "Confirm password is mandatory.")
+        @Size(max = 256, message = "At most 256 characters in length.")
         String confirmPassword,
 
         // Issued by POST /api/v1/auth/registration/phone/verify-code; proves the phone number belongs to the registrant.
@@ -52,4 +47,10 @@ public record UserRegisterRequest(
         String registrationToken
 
 ) {
+
+    /** Contacts and secrets stay out of logs (auth-email-access 4.10). */
+    @Override
+    public String toString() {
+        return "UserRegisterRequest[hidden]";
+    }
 }

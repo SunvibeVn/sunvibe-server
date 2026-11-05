@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.infrastructure.security.provider;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.DisabledException;
@@ -22,7 +23,7 @@ class JWTProviderTest {
     private final JWTProvider provider = new JWTProvider(SECRET, 60);
 
     private static AppUser user(UserStatus status, Email email) {
-        AppUser user = AppUser.create(UserId.create("id"), "Nguyen Van A", Username.create("0912345678"), email,
+        AppUser user = AuthTestUsers.withPhone(UserId.create("id"), "Nguyen Van A", "0912345678", email,
                 Password.create("hashed"), ProfileImage.create(null), null, new HashSet<>(Set.of("TENANT")),
                 Instant.now());
         user.setUserStatus(status);
@@ -48,25 +49,35 @@ class JWTProviderTest {
         assertThrows(DisabledException.class, () -> provider.issue(user(UserStatus.DELETED, null)));
     }
 
+    /** auth-email-access S-18: nothing reads the claim, and an address has no place in a token. */
     @Test
-    void issue_userWithoutEmail_omitsEmailClaim() {
-        String token = provider.issue(user(UserStatus.ACTIVE, null));
+    void provider_noEmailClaim() {
+        Claims claims = claimsOf(provider.issue(user(UserStatus.ACTIVE, Email.create("a@example.com"))));
 
-        assertNull(claimsOf(token).get("email"));
-        assertEquals("id", claimsOf(token).get("uid", String.class));
+        assertNull(claims.get("email"));
     }
 
+    /** auth-email-access A-4: users.id is the identity, for an account without a phone too. */
     @Test
-    void issue_carriesUserIdUsernameAndRoles() {
+    void provider_subjectIsUserId() {
         AppUser user = user(UserStatus.ACTIVE, Email.create("a@example.com"));
         user.verifyPhone(Instant.now());
+        user.setCredentialVersion(4);
 
         Claims claims = claimsOf(provider.issue(user));
 
+        assertEquals("id", claims.getSubject());
         assertEquals("id", claims.get("uid", String.class));
-        assertEquals("0912345678", claims.getSubject());
-        assertEquals("a@example.com", claims.get("email", String.class));
+        assertEquals(4L, claims.get(JWTProvider.CREDENTIAL_VERSION_CLAIM, Long.class));
         assertEquals(Set.of("ROLE_TENANT", "PHONE_VERIFIED"), Set.copyOf(claims.get("rol", List.class)));
+    }
+
+    @Test
+    void provider_accountWithoutPhone_issues() {
+        AppUser user = AppUser.registerWithEmail(UserId.create("id"), "Nguyen Van A", Email.create("a@example.com"),
+                Password.create("hashed"), new HashSet<>(Set.of("TENANT")), Instant.now());
+
+        assertEquals("id", claimsOf(provider.issue(user)).getSubject());
     }
 
     @Test

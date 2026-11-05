@@ -8,9 +8,12 @@ public final class EmailTemplate {
     private EmailTemplate() {
     }
 
-    /** Password-reset e-mail with the OTP and a link carrying the reset token. */
-
-    public static String getPasswordResetTemplate(String otpCode, String resetToken) {
+    /**
+     * Password-reset e-mail with the OTP and a link.
+     *
+     * @param link the whole link, built from the configured origin; it carries the reset token in its fragment
+     */
+    public static String getPasswordResetTemplate(String otpCode, String link) {
         return String.format("""
             <!DOCTYPE html>
             <html>
@@ -36,7 +39,7 @@ public final class EmailTemplate {
                         <p class="otp">%s</p>
                         <p class="warning">⚠️ This OTP will expire in 15 minutes</p>
                         <p>Or click this link:</p>
-                        <p><a href="https://yourapp.com/reset-password?token=%s">Reset Password</a></p>
+                        <p><a href="%s">Reset Password</a></p>
                         <hr>
                         <p class="footer">If you didn't request this, please ignore this email.</p>
                         <p class="footer">© Sunvibe. All rights reserved.</p>
@@ -44,6 +47,6 @@ public final class EmailTemplate {
                 </div>
             </body>
             </html>
-            """, otpCode, resetToken);
+            """, otpCode, link);
     }
 }

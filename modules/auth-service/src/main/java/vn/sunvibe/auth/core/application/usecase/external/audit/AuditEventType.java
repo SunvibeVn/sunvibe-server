@@ -51,6 +51,22 @@ public enum AuditEventType {
     REGISTRATION_PHONE_VERIFIED,
     /** A registration code or token was rejected (wrong, expired, burned, used or for another phone). */
     REGISTRATION_VERIFICATION_FAILED,
+    /** A code was sent to a mailbox that is registering (no account read yet). */
+    REGISTRATION_EMAIL_CODE_SENT,
+    /** A registering mailbox was proven. */
+    REGISTRATION_EMAIL_VERIFIED,
+    /** A bind code was sent to the address a signed-in user wants on the account. */
+    EMAIL_BIND_CODE_SENT,
+    /** A first verified email was bound to the account. */
+    EMAIL_BOUND,
+    /** The verified email of the account was replaced. */
+    EMAIL_REPLACED,
+    /** A bind was refused (wrong password, wrong or expired code, address not available). */
+    EMAIL_BIND_FAILED,
+    /** A phone operation was refused because the channel is closed for it. */
+    AUTH_CHANNEL_REFUSED,
+    /** The notice to a replaced address could not be delivered and was given up. */
+    EMAIL_NOTICE_FAILED,
     /** A role was granted to an account (role admin API, or OWNER on property create); details name role and actor. */
     ROLE_GRANTED,
     /** A role was revoked from an account; every session of that account was ended. Details name role and actor. */

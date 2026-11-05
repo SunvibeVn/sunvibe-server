@@ -5,6 +5,8 @@ app:
   cors:
     allowed-origins: http://localhost:3000,${LAN_FE_ORIGIN}
   auth:
+    # The reset link must open on the device under test
+    frontend-base-url: ${LAN_FE_ORIGIN}
     refresh-cookie:
       # The LAN origin is plain HTTP, where a browser drops a Secure cookie
       secure: false

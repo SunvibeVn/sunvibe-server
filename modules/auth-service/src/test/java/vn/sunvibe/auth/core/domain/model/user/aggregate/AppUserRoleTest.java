@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.domain.model.user.aggregate;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -20,7 +21,7 @@ class AppUserRoleTest {
         for (RoleName role : roles) {
             names.add(role.name());
         }
-        return AppUser.create(UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"), "Nguyen Van A", Username.create("0912345678"),
+        return AuthTestUsers.withPhone(UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"), "Nguyen Van A", "0912345678",
                 null, Password.create("hashed"), ProfileImage.create(null), null, names,
                 Instant.parse("2026-01-01T00:00:00Z"));
     }

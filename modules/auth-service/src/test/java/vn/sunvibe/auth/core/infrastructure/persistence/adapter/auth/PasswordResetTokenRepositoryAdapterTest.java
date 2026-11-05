@@ -31,7 +31,7 @@ class PasswordResetTokenRepositoryAdapterTest {
 
     private static PasswordResetToken token(long id, String value, Instant createdAt) {
         return PasswordResetToken.restore(id, value, "user-1", VerificationChannel.EMAIL, EMAIL, createdAt,
-                createdAt.plusSeconds(900), false, null, 0, "123456");
+                createdAt.plusSeconds(900), false, null, 0, "123456", 7L);
     }
 
     /** Regression: expiresAt used to be dropped on save, so issuing any reset code failed. */
@@ -49,7 +49,8 @@ class PasswordResetTokenRepositoryAdapterTest {
         assertEquals(1, found.getFailedAttempts());
         assertEquals(VerificationChannel.EMAIL, found.getChannel());
         assertEquals(EMAIL, found.getDestination());
-        assertEquals("123456", found.getOtpCode());
+        assertEquals("123456", found.getOtpHash());
+        assertEquals(7L, found.getCredentialVersion());
         assertTrue(found.isValid());
     }
 
@@ -70,7 +71,7 @@ class PasswordResetTokenRepositoryAdapterTest {
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         adapter.save(token(1L, "mine", now));
         adapter.save(PasswordResetToken.restore(2L, "theirs", "user-2", VerificationChannel.PHONE, "0987654321", now,
-                now.plusSeconds(900), false, null, 0, "654321"));
+                now.plusSeconds(900), false, null, 0, "654321", 7L));
 
         adapter.invalidateActiveTokens(EMAIL, now);
 

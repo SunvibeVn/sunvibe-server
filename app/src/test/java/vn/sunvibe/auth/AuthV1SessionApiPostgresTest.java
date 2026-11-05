@@ -62,7 +62,7 @@ class AuthV1SessionApiPostgresTest {
 	private static final String REFRESH = "/api/v1/auth/session/refresh";
 	private static final String LOGOUT = "/api/v1/auth/session/logout";
 	/** The one INVALID_CREDENTIALS message: a wrong password and an account that may not sign in look the same. */
-	private static final String INVALID_CREDENTIALS_MESSAGE = "Phone number or password is incorrect.";
+	private static final String INVALID_CREDENTIALS_MESSAGE = "The sign-in details are incorrect.";
 
 	@Value("${local.server.port}")
 	private int port;

@@ -1,5 +1,7 @@
 package vn.sunvibe.auth.core.infrastructure.security.filter;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -15,11 +17,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
+import vn.sunvibe.auth.core.infrastructure.security.provider.CustomUserDetailsService;
 import vn.sunvibe.auth.core.infrastructure.security.provider.JWTProvider;
 import vn.sunvibe.auth.core.infrastructure.security.userdetails.CustomUserDetails;
 import vn.sunvibe.shared.security.AuthenticatedUser;
@@ -38,29 +40,33 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * A signed token is only as good as the account behind it right now: the
- * filter must reload the user on every request and refuse tokens for a
- * locked, deleted or different (same username, new id) account.
- * Tokens are minted by the real {@link JWTProvider} while the user is
- * ACTIVE; the fake user store is then changed before the request.
+ * A signed token is only as good as the account behind it right now: the filter reloads the user by {@code uid} on
+ * every request and refuses tokens for a locked, deleted or different account, or for an older credential version.
+ * Tokens are minted by the real {@link JWTProvider} while the user is ACTIVE; the fake user store is then changed
+ * before the request. Tokens of the previous release ({@code sub} = phone, no {@code cv}) are minted by hand.
  */
 class JWTRequestFilterTest {
 
     private static final String SECRET = "bRPKQTY8NxXKMp8utgjOlU9SR5TugGss37yotjTNq64=";
     private static final String USERNAME = "0912345678";
+    private static final String OTHER_PHONE = "0987654321";
     private static final String USER_ID = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    private static final String OTHER_USER_ID = "01BX5ZZKBKACTAV9WEVGEMMVRZ";
     /** The legacy access-token cookie; the filter no longer reads it (W10-60). */
     private static final String ACCESS_COOKIE = "cookie-jwt";
 
-    /** Current state of the user store, as the filter will see it. */
+    /** Current state of the user store by user id, as the filter will see it. */
     private final Map<String, CustomUserDetails> users = new HashMap<>();
 
-    private final UserDetailsService userDetailsService = username -> {
-        CustomUserDetails user = users.get(username);
-        if (user == null) {
-            throw new UsernameNotFoundException("User not found with username: " + username);
+    private final CustomUserDetailsService userDetailsService = new CustomUserDetailsService(null, null) {
+        @Override
+        public CustomUserDetails loadUserById(String userId) {
+            CustomUserDetails user = users.get(userId);
+            if (user == null) {
+                throw new UsernameNotFoundException("Account not found.");
+            }
+            return user;
         }
-        return user;
     };
 
     private JWTProvider jwtProvider;
@@ -81,7 +87,7 @@ class JWTRequestFilterTest {
     private static CustomUserDetails user(String id, UserStatus status, String... authorities) {
         CustomUserDetails details = new CustomUserDetails();
         details.setUserId(id);
-        details.setUsername(USERNAME);
+        details.setPhone(USERNAME);
         details.setPassword("hashed");
         details.setEmail("a@example.com");
         details.setAuthorities(Arrays.stream(authorities).map(SimpleGrantedAuthority::new).collect(Collectors.toSet()));
@@ -91,12 +97,26 @@ class JWTRequestFilterTest {
 
     /** Mint a real access token while the account is ACTIVE with ROLE_USER. */
     private String issueTokenForActiveUser() {
-        users.put(USERNAME, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
-        AppUser active = AppUser.create(UserId.create(USER_ID), "Nguyen Van A", Username.create(USERNAME),
+        users.put(USER_ID, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
+        AppUser active = AuthTestUsers.withPhone(UserId.create(USER_ID), "Nguyen Van A", USERNAME,
                 Email.create("a@example.com"), Password.create("hashed"), ProfileImage.create(null), null,
                 new HashSet<>(Set.of("USER")), Instant.now());
         active.setUserStatus(UserStatus.ACTIVE);
         return jwtProvider.issue(active);
+    }
+
+    /** A token as the previous release issued it: {@code sub} is the phone, and there is no {@code cv}. */
+    private static String previousReleaseToken(String subject, String uid) {
+        return tokenBuilder().subject(subject).claim(JWTProvider.USER_ID_CLAIM, uid).compact();
+    }
+
+    private static JwtBuilder tokenBuilder() {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .claim("rol", List.of("ROLE_USER"))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(60, ChronoUnit.MINUTES)))
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET)));
     }
 
     /** Runs the filter and returns the resulting authentication (or null); asserts the chain continued. */
@@ -116,35 +136,100 @@ class JWTRequestFilterTest {
     void activeUserWithMatchingUid_isAuthenticatedWithReloadedAuthorities() throws Exception {
         String token = issueTokenForActiveUser();
         // Roles changed after the token was issued: the filter must use the fresh ones, not the "rol" claim
-        users.put(USERNAME, user(USER_ID, UserStatus.ACTIVE, "ROLE_HOST"));
+        users.put(USER_ID, user(USER_ID, UserStatus.ACTIVE, "ROLE_HOST"));
 
         Authentication authentication = filterWith(token);
 
         assertNotNull(authentication);
         assertTrue(authentication.isAuthenticated());
-        assertEquals(USERNAME, authentication.getName());
         assertEquals(Set.of("ROLE_HOST"), authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority).collect(Collectors.toSet()));
     }
 
+    /** auth-email-access A-5: the principal and its name are the user id, whatever identifiers the account has. */
     @Test
-    void activeUser_principalExposesUserIdAndNameStaysTheUsername() throws Exception {
+    void principal_nameIsUserId() throws Exception {
         String token = issueTokenForActiveUser();
 
         Authentication authentication = filterWith(token);
 
         assertNotNull(authentication);
-        assertEquals(USERNAME, authentication.getName(), "getName() is still the username (created_by, CurrentUser)");
+        assertEquals(USER_ID, authentication.getName());
         AuthenticatedUser principal = assertInstanceOf(AuthenticatedUser.class, authentication.getPrincipal());
         assertEquals(USER_ID, principal.getUserId());
         assertFalse(authentication.getPrincipal() instanceof CustomUserDetails,
                 "the principal must not carry the password hash or e-mail");
     }
 
+    /** auth-email-access S-18, A-4: a token of the previous release works until it expires. */
+    @Test
+    void filter_oldToken_subPhone_uidValid_noCv_accepted() throws Exception {
+        users.put(USER_ID, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
+
+        Authentication authentication = filterWith(previousReleaseToken(USERNAME, USER_ID));
+
+        assertNotNull(authentication);
+        assertEquals(USER_ID, authentication.getName());
+    }
+
+    /** auth-email-access I-5: a change of credentials ends the access tokens issued before it. */
+    @Test
+    void filter_lowerCv_refused() throws Exception {
+        String token = issueTokenForActiveUser();
+        CustomUserDetails changed = user(USER_ID, UserStatus.ACTIVE, "ROLE_USER");
+        changed.setCredentialVersion(1);
+        users.put(USER_ID, changed);
+
+        assertNull(filterWith(token));
+    }
+
+    @Test
+    void filter_equalCv_accepted() throws Exception {
+        CustomUserDetails account = user(USER_ID, UserStatus.ACTIVE, "ROLE_USER");
+        account.setCredentialVersion(3);
+        users.put(USER_ID, account);
+        String token = tokenBuilder().subject(USER_ID).claim(JWTProvider.USER_ID_CLAIM, USER_ID)
+                .claim(JWTProvider.CREDENTIAL_VERSION_CLAIM, 3L).compact();
+
+        assertNotNull(filterWith(token));
+    }
+
+    /** auth-email-access S-18: the phone in {@code sub} must be the phone of the account {@code uid} names. */
+    @Test
+    void filter_subIsPhoneOfAnotherUser_refused() throws Exception {
+        users.put(USER_ID, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
+
+        assertNull(filterWith(previousReleaseToken(OTHER_PHONE, USER_ID)));
+    }
+
+    @Test
+    void filter_uidOfDeletedUser_refused() throws Exception {
+        // A soft-deleted row is invisible to lookups, so the user is simply not found
+        String token = issueTokenForActiveUser();
+        users.remove(USER_ID);
+
+        assertNull(filterWith(token));
+    }
+
+    /** The account was deleted and its number registered again: the old token cannot reach the new account. */
+    @Test
+    void filter_uidReusedPhone_refused() throws Exception {
+        users.put(OTHER_USER_ID, user(OTHER_USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
+
+        assertNull(filterWith(previousReleaseToken(USERNAME, USER_ID)));
+    }
+
+    @Test
+    void filter_missingSub_refused() throws Exception {
+        users.put(USER_ID, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
+
+        assertNull(filterWith(tokenBuilder().claim(JWTProvider.USER_ID_CLAIM, USER_ID).compact()));
+    }
+
     @Test
     void userLockedAfterLogin_isNotAuthenticated() throws Exception {
         String token = issueTokenForActiveUser();
-        users.put(USERNAME, user(USER_ID, UserStatus.LOCK, "ROLE_USER"));
+        users.put(USER_ID, user(USER_ID, UserStatus.LOCK, "ROLE_USER"));
 
         assertNull(filterWith(token));
     }
@@ -152,42 +237,16 @@ class JWTRequestFilterTest {
     @Test
     void userTerminatedAfterLogin_isNotAuthenticated() throws Exception {
         String token = issueTokenForActiveUser();
-        users.put(USERNAME, user(USER_ID, UserStatus.TERMINATED, "ROLE_USER"));
-
-        assertNull(filterWith(token));
-    }
-
-    @Test
-    void userDeletedAfterLogin_isNotAuthenticated() throws Exception {
-        String token = issueTokenForActiveUser();
-        // A soft-deleted row is invisible to lookups, so the user is simply not found
-        users.remove(USERNAME);
-
-        assertNull(filterWith(token));
-    }
-
-    @Test
-    void usernameReRegisteredByDifferentAccount_isNotAuthenticated() throws Exception {
-        String token = issueTokenForActiveUser();
-        // Old account deleted, same username registered again with a new id
-        users.put(USERNAME, user("01BX5ZZKBKACTAV9WEVGEMMVRZ", UserStatus.ACTIVE, "ROLE_USER"));
+        users.put(USER_ID, user(USER_ID, UserStatus.TERMINATED, "ROLE_USER"));
 
         assertNull(filterWith(token));
     }
 
     @Test
     void tokenWithoutUid_isNotAuthenticated() throws Exception {
-        users.put(USERNAME, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
-        Instant now = Instant.now();
-        String tokenWithoutUid = Jwts.builder()
-                .subject(USERNAME)
-                .claim("rol", List.of("ROLE_USER"))
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(60, ChronoUnit.MINUTES)))
-                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET)))
-                .compact();
+        users.put(USER_ID, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
 
-        assertNull(filterWith(tokenWithoutUid));
+        assertNull(filterWith(tokenBuilder().subject(USERNAME).compact()));
     }
 
     /** W10-60: a valid token sent only in the legacy access-token cookie leaves the request anonymous. */
@@ -219,7 +278,7 @@ class JWTRequestFilterTest {
 
     @Test
     void expiredToken_isNotAuthenticated() throws Exception {
-        users.put(USERNAME, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
+        users.put(USER_ID, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
         Instant past = Instant.now().minus(2, ChronoUnit.HOURS);
         String expired = Jwts.builder()
                 .subject(USERNAME)

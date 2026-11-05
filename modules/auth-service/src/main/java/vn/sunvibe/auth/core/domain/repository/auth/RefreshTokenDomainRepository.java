@@ -23,6 +23,12 @@ public interface RefreshTokenDomainRepository {
      */
     Optional<RefreshToken> findByTokenHashForUpdate(String tokenHash);
 
+    /**
+     * The owner of a token, as a plain value: a token read before the user lock must not stay in the persistence
+     * context, where it would keep its old state across the lock (auth-email-access spec 5.4).
+     */
+    Optional<UserId> findUserIdByTokenHash(String tokenHash);
+
     /** Revokes every not-yet-revoked token of one sign-in session. */
     void revokeFamily(UUID familyId, RevokeReason reason, Instant now);
 

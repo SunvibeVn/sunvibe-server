@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.application.usecase.auth.impl;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationException;
@@ -18,6 +19,7 @@ import vn.sunvibe.auth.core.testsupport.InMemoryRegistrationPhoneChallengeReposi
 import vn.sunvibe.auth.core.testsupport.InMemoryUserRepository;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 import vn.sunvibe.auth.core.testsupport.RecordingSmsSender;
+import vn.sunvibe.auth.core.testsupport.TestOtpHasher;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -30,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class RegistrationPhoneVerificationServiceTest {
 
     private static final String PHONE = "0912345678";
+    private static final String PHONE_KEY = "+84912345678";
 
     private InMemoryUserRepository users;
     private InMemoryRegistrationPhoneChallengeRepository challenges;
@@ -42,8 +45,8 @@ class RegistrationPhoneVerificationServiceTest {
         users = new InMemoryUserRepository();
         challenges = new InMemoryRegistrationPhoneChallengeRepository();
         AtomicLong ids = new AtomicLong();
-        service = new RegistrationPhoneVerificationService(users, challenges, sms, ids::incrementAndGet,
-                new VerificationPolicy(Duration.ofMinutes(10), 5, Duration.ofSeconds(60), 3), audit);
+        service = new RegistrationPhoneVerificationService(users, challenges, sms, ids::incrementAndGet, new TestOtpHasher(),
+                new VerificationPolicy(Duration.ofMinutes(10), 5, Duration.ofSeconds(60), 3), audit, AuthTestUsers.phoneOn());
     }
 
     private String sendAndReadCode() {
@@ -67,7 +70,7 @@ class RegistrationPhoneVerificationServiceTest {
         assertEquals(VerificationChannel.PHONE, result.channel());
         assertEquals("091****678", result.maskedDestination());
         assertTrue(result.resendAvailableAt().isAfter(Instant.now()));
-        assertEquals(PHONE, sms.sent.getFirst().phoneNumber());
+        assertEquals(PHONE_KEY, sms.sent.getFirst().phoneNumber());
         assertEquals(1, challenges.all().size());
         assertEquals(List.of(AuditEventType.REGISTRATION_PHONE_CODE_SENT), audit.types());
     }
@@ -77,12 +80,12 @@ class RegistrationPhoneVerificationServiceTest {
         String code = sendAndReadCode();
 
         assertNotEquals(code, challenges.all().getFirst().getCodeHash());
-        assertTrue(challenges.all().getFirst().matches(code));
+        assertTrue(challenges.all().getFirst().matches(new TestOtpHasher().hash(challenges.all().getFirst().getId(), code)));
     }
 
     @Test
     void sendCode_rejectsAPhoneNumberThatAlreadyHasAnAccount() {
-        users.with(AppUser.create(UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"), "Nguyen Van A", Username.create(PHONE),
+        users.with(AuthTestUsers.withPhone(UserId.create("01ARZ3NDEKTSV4RRFFQ69G5FAV"), "Nguyen Van A", PHONE,
                 null, Password.create("hashed"), ProfileImage.create(null), null, new HashSet<>(), Instant.now()));
 
         AuthValidationException exception = assertThrows(AuthValidationException.class, () -> service.sendCode(PHONE));
@@ -239,7 +242,7 @@ class RegistrationPhoneVerificationServiceTest {
         assertThrows(VerificationException.class, () -> service.consumeRegistrationToken("nope", PHONE));
 
         assertEquals(AuditEventType.REGISTRATION_VERIFICATION_FAILED, audit.last().type());
-        assertEquals(PHONE, audit.last().subject());
+        assertEquals("+84******678", audit.last().subject());
     }
 
     @Test

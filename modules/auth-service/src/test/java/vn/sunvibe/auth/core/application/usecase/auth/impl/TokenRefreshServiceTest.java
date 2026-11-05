@@ -1,7 +1,9 @@
 package vn.sunvibe.auth.core.application.usecase.auth.impl;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.CannotAcquireLockException;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -9,6 +11,7 @@ import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.command.auth.TokenRefreshCommand;
 import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenException;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.shared.AccountAccessPolicy;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenPolicy;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
@@ -18,9 +21,9 @@ import vn.sunvibe.auth.core.domain.model.auth.enums.TokenStatus;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
-import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.shared.constant.AuthMessage;
 import vn.sunvibe.auth.core.testsupport.InMemoryRefreshTokenRepository;
+import vn.sunvibe.auth.core.testsupport.UnsupportedUserRepository;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;
@@ -51,6 +54,7 @@ class TokenRefreshServiceTest {
     private InMemoryRefreshTokenRepository refreshTokens;
     private AppUser user;
     private Optional<AppUser> storedUser;
+    private CannotAcquireLockException lockTimeout;
     private TokenRefreshService service;
     private RecordingAuditLog audit;
 
@@ -58,49 +62,69 @@ class TokenRefreshServiceTest {
     void setUp() {
         refreshTokens = new InMemoryRefreshTokenRepository();
         audit = new RecordingAuditLog();
-        user = AppUser.create(USER_ID, "Nguyen Van A", Username.create(USERNAME), null,
+        user = AuthTestUsers.withPhone(USER_ID, "Nguyen Van A", USERNAME, null,
                 Password.create("hashed-password"), ProfileImage.create(null), null,
                 new HashSet<>(Set.of("TENANT")), Instant.now());
         storedUser = Optional.of(user);
         AtomicLong ids = new AtomicLong(100);
         service = new TokenRefreshService(refreshTokens, new UserLookup(),
                 appUser -> "access-for-" + appUser.getUsername().getValue(), ids::incrementAndGet,
-                new RefreshTokenPolicy(IDLE, ABSOLUTE, GRACE), audit);
+                new RefreshTokenPolicy(IDLE, ABSOLUTE, GRACE), audit, new AccountAccessPolicy(AuthTestUsers.phoneOn()));
     }
 
-    private class UserLookup implements UserDomainRepository {
-        @Override
-        public boolean existsByUsername(String userName) { throw new UnsupportedOperationException(); }
-        @Override
-        public boolean existsByEmail(String email) { throw new UnsupportedOperationException(); }
-        @Override
-        public boolean existsByIdCardNumber(IdCardNumber idCardNumber) { throw new UnsupportedOperationException(); }
-        @Override
-        public AppUser save(AppUser appUser) { throw new UnsupportedOperationException(); }
-        @Override
-        public AppUser findByUsername(String username) { throw new UnsupportedOperationException(); }
-        @Override
-        public AppUser findByEmail(String email) { throw new UnsupportedOperationException(); }
+    private class UserLookup extends UnsupportedUserRepository {
         @Override
         public Optional<AppUser> findById(UserId userId) {
+            refreshTokens.calls.add("read-user");
             return storedUser.filter(u -> u.getId().equals(userId));
         }
 
         @Override
-        public boolean addRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
-            throw new UnsupportedOperationException();
+        public void lockForSessionRefresh(UserId userId) {
+            refreshTokens.calls.add("share-user");
+            if (lockTimeout != null) {
+                throw lockTimeout;
+            }
         }
+    }
 
-        @Override
-        public boolean removeRole(UserId userId, vn.sunvibe.auth.core.domain.model.user.enums.RoleName role) {
-            throw new UnsupportedOperationException();
-        }
+    /** auth-email-access spec 5.4: the owner is read as a plain value, then the user row, then the token. */
+    @Test
+    void refresh_locksUserBeforeToken() {
+        sessionStartedAgo(Duration.ofMinutes(1));
 
-        @Override
-        public java.util.List<vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow> findSignInAbleByAnyRole(java.util.Set<String> roleNames, int limit) { throw new UnsupportedOperationException(); }
+        service.execute(new TokenRefreshCommand(SECRET, DEVICE));
 
-        @Override
-        public java.util.Map<String, String> findFullNamesByIds(java.util.Collection<String> ids) { throw new UnsupportedOperationException(); }
+        assertEquals(List.of("read-token-owner", "share-user", "lock-token", "read-user"), refreshTokens.calls);
+    }
+
+    /** The token is no entity before the lock: a managed one would keep its old state across it. */
+    @Test
+    void refresh_readsUserIdAsScalar() {
+        sessionStartedAgo(Duration.ofMinutes(1));
+
+        service.execute(new TokenRefreshCommand(SECRET, DEVICE));
+
+        assertEquals("read-token-owner", refreshTokens.calls.getFirst());
+    }
+
+    @Test
+    void refresh_unknownToken_locksNothing() {
+        assertThrows(InvalidRefreshTokenException.class,
+                () -> service.execute(new TokenRefreshCommand("no-such-secret", DEVICE)));
+
+        assertEquals(List.of("read-token-owner"), refreshTokens.calls);
+    }
+
+    /** A lock that does not come within its 3 seconds is no 401: the client keeps its session (auth-browser-session BR-9). */
+    @Test
+    void refresh_lockTimeout_answers5xx() {
+        sessionStartedAgo(Duration.ofMinutes(1));
+        lockTimeout = new CannotAcquireLockException("lock_timeout");
+
+        assertThrows(CannotAcquireLockException.class, () -> service.execute(new TokenRefreshCommand(SECRET, DEVICE)));
+
+        assertEquals(List.of("read-token-owner", "share-user"), refreshTokens.calls);
     }
 
     /** The token the client presents, issued {@code age} ago at login. */

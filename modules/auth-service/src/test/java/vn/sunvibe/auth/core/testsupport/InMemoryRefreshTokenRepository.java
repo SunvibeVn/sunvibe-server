@@ -24,6 +24,8 @@ public class InMemoryRefreshTokenRepository implements RefreshTokenDomainReposit
     private final Map<Long, RefreshToken> tokens = new LinkedHashMap<>();
     /** Every revokeFamily/revokeAllForUser call, as "family:&lt;id&gt;:REASON" / "user:&lt;id&gt;:REASON". */
     public final List<String> revocations = new ArrayList<>();
+    /** The order of token calls; a test may share the list of the user fake. */
+    public List<String> calls = new ArrayList<>();
 
     @Override
     public void save(RefreshToken token) {
@@ -31,7 +33,17 @@ public class InMemoryRefreshTokenRepository implements RefreshTokenDomainReposit
     }
 
     @Override
+    public Optional<UserId> findUserIdByTokenHash(String tokenHash) {
+        calls.add("read-token-owner");
+        return tokens.values().stream()
+                .filter(token -> token.getTokenHash().equals(tokenHash))
+                .findFirst()
+                .map(RefreshToken::getUserId);
+    }
+
+    @Override
     public Optional<RefreshToken> findByTokenHashForUpdate(String tokenHash) {
+        calls.add("lock-token");
         return tokens.values().stream()
                 .filter(token -> token.getTokenHash().equals(tokenHash))
                 .findFirst()

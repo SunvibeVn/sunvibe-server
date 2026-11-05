@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.application.usecase.role.impl;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -58,7 +59,7 @@ class RoleChangeServiceTest {
         for (RoleName role : roles) {
             names.add(role.name());
         }
-        AppUser user = AppUser.create(UserId.create(id), "User", Username.create(username), null,
+        AppUser user = AuthTestUsers.withPhone(UserId.create(id), "User", username, null,
                 Password.create("hashed"), ProfileImage.create(null), null, names, Instant.parse("2026-01-01T00:00:00Z"));
         user.setUserStatus(status);
         return user;
@@ -209,6 +210,16 @@ class RoleChangeServiceTest {
     }
 
     // ==================== revoke ====================
+
+    /** auth-email-access spec 5.4: a login or refresh in flight cannot outlive the revoke. */
+    @Test
+    void roleRevoke_locksUser() {
+        target.grantRole(RoleName.SALE);
+
+        revoke.execute(byAdmin("SALE"));
+
+        assertEquals(java.util.List.of("lock-user"), users.calls);
+    }
 
     /** auth-roles US-4 AC-4, AC-5, BR-11: revoke removes the role, audits and ends every session of the target. */
     @Test

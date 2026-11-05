@@ -1,5 +1,6 @@
 package vn.sunvibe.auth.core.application.usecase.role.impl;
 
+import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -33,7 +34,7 @@ class OwnerAccountServiceTest {
         for (RoleName role : roles) {
             names.add(role.name());
         }
-        AppUser user = AppUser.create(UserId.create(OWNER_ID), "Owner", Username.create("0900000009"), null,
+        AppUser user = AuthTestUsers.withPhone(UserId.create(OWNER_ID), "Owner", "0900000009", null,
                 Password.create("hashed"), ProfileImage.create(null), null, names, Instant.parse("2026-01-01T00:00:00Z"));
         user.setUserStatus(status);
         users.with(user);

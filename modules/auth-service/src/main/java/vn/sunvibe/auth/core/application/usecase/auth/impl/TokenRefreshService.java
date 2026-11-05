@@ -8,6 +8,7 @@ import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.command.auth.TokenRefreshCommand;
 import vn.sunvibe.auth.core.application.exception.auth.InvalidRefreshTokenException;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.shared.AccountAccessPolicy;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenPolicy;
 import vn.sunvibe.auth.core.application.shared.RefreshTokenSecrets;
 import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
@@ -18,6 +19,7 @@ import vn.sunvibe.auth.core.application.usecase.auth.TokenRefreshUseCase;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.auth.RefreshTokenDomainRepository;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.auth.core.shared.constant.AuthMessage;
@@ -35,6 +37,11 @@ import java.util.Optional;
  * A token reused after the grace period means it was most likely copied: the
  * whole session is revoked, and that revocation is committed even though the
  * request fails ({@code noRollbackFor}).
+ * <p>
+ * The user row is held first ({@code FOR SHARE}), so a reset or bind waits for this
+ * refresh and revokes the token it issues, or this refresh waits and finds the
+ * token revoked (auth-email-access spec 5.4). A lock that does not come in time
+ * fails as a server error: the client keeps its session and tries again.
  */
 @Log4j2
 @Service
@@ -47,6 +54,7 @@ public class TokenRefreshService implements TokenRefreshUseCase {
     private final IdGenerator<Long> snowflakeIdGenerator;
     private final RefreshTokenPolicy refreshTokenPolicy;
     private final AuditLogPort auditLog;
+    private final AccountAccessPolicy accountAccess;
 
     @Override
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
@@ -57,7 +65,11 @@ public class TokenRefreshService implements TokenRefreshUseCase {
         }
 
         Instant now = AppClock.currentUTC();
-        RefreshToken current = refreshTokenRepository.findByTokenHashForUpdate(RefreshTokenSecrets.hash(presentedSecret))
+        String tokenHash = RefreshTokenSecrets.hash(presentedSecret);
+        UserId tokenOwner = refreshTokenRepository.findUserIdByTokenHash(tokenHash)
+                .orElseThrow(() -> rejected("unknown refresh token"));
+        userRepository.lockForSessionRefresh(tokenOwner);
+        RefreshToken current = refreshTokenRepository.findByTokenHashForUpdate(tokenHash)
                 .orElseThrow(() -> rejected("unknown refresh token"));
 
         if (current.isRevoked()) {
@@ -91,7 +103,7 @@ public class TokenRefreshService implements TokenRefreshUseCase {
         refreshTokenRepository.save(current);
         refreshTokenRepository.save(next);
 
-        return AuthResult.of(user, accessTokenIssuer.issue(user), nextSecret);
+        return AuthResult.of(user, accessTokenIssuer.issue(user), nextSecret, accountAccess.requiredAction(user));
     }
 
     /** Every failure looks the same to the client; the reason is only logged. */

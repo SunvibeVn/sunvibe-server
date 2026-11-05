@@ -1,14 +1,20 @@
 package vn.sunvibe.auth.core.presentation.dto.request.auth;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import vn.sunvibe.auth.core.presentation.validation.user.constraint.ValidPhone;
 
 /**
  * Body of {@code POST /api/v1/auth/password-reset/sms}.
  */
 public record PasswordForgotSmsRequest(
         @NotBlank(message = "Phone number is required.")
-        @Pattern(regexp = "^[0-9]{10,12}$", message = "Phone numbers must be between 10 and 12 digits.")
+        @ValidPhone
         String phoneNumber
 ) {
+
+    /** Contacts and secrets stay out of logs (auth-email-access 4.10). */
+    @Override
+    public String toString() {
+        return "PasswordForgotSmsRequest[hidden]";
+    }
 }

@@ -3,6 +3,7 @@ app:
     # Browser origins allowed to call the API (ADR-001). Comma-separated.
     allowed-origins: https://www.sunvibe.vn
   auth:
+    frontend-base-url: ${AUTH_FRONTEND_BASE_URL:https://www.sunvibe.vn}
     refresh-cookie:
       # The __Secure- prefix makes the browser accept the cookie only over HTTPS
       name: __Secure-sv_refresh

@@ -27,6 +27,10 @@ import vn.sunvibe.shared.logging.CorrelationId;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.io.IOException;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -51,6 +55,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String VERSIONED_API_PREFIX = "/api/v1/";
 
     private static final Pattern DUPLICATE_SLASHES = Pattern.compile("/{2,}");
+    private static final int IPV6_PREFIX_BYTES = 8;
 
     private final RateLimitProperties properties;
     private final List<MatchedRule> rules;
@@ -80,7 +85,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain filterChain) throws ServletException, IOException {
         RateLimitProperties.Rule rule = matchingRule(request).orElseThrow();
         String clientIp = request.getRemoteAddr();
-        long retryAfterSeconds = rateLimiter.tryConsume(rule.bucketKey() + "|" + clientIp,
+        long retryAfterSeconds = rateLimiter.tryConsume(rule.bucketKey() + "|" + rateKey(clientIp),
                 rule.limit(), rule.window(), AppClock.currentUTC());
 
         if (retryAfterSeconds == 0) {
@@ -101,6 +106,25 @@ public class RateLimitFilter extends OncePerRequestFilter {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(versionedApi ? versionedBody() : legacyBody());
+    }
+
+    /**
+     * One IPv6 client holds a whole /64, so the prefix is the client: rotating inside it passes no limit
+     * (auth-email-access 5.1). An IPv4 address written as IPv6 is that IPv4 address. Only a literal is parsed: a value with
+     * a colon never reaches a name lookup.
+     */
+    private static String rateKey(String remoteAddr) {
+        if (remoteAddr == null || remoteAddr.indexOf(':') < 0) {
+            return remoteAddr;
+        }
+        try {
+            InetAddress address = InetAddress.getByName(remoteAddr);
+            return address instanceof Inet6Address
+                    ? HexFormat.of().formatHex(address.getAddress(), 0, IPV6_PREFIX_BYTES) + "/64"
+                    : address.getHostAddress();
+        } catch (UnknownHostException e) {
+            return remoteAddr;
+        }
     }
 
     private String legacyBody() {

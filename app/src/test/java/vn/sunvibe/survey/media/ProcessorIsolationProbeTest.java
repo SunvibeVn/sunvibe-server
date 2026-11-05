@@ -79,7 +79,7 @@ class ProcessorIsolationProbeTest {
 		String names = env.getStdout();
 		assertThat(names).contains("SUPERVISOR_MARKER");
 		for (String secret : List.of("JWT_SECRET", "DB_PASSWORD", "DB_URL", "SURVEY_MEDIA_S3_ACCESS_KEY_ID",
-				"SURVEY_MEDIA_S3_SECRET_ACCESS_KEY", "ID_CARD_CRYPTO_KEY", "ACQUISITION_HASH_KEY", "MAIL_PASSWORD")) {
+				"SURVEY_MEDIA_S3_SECRET_ACCESS_KEY", "ID_CARD_CRYPTO_KEY", "ACQUISITION_HASH_KEY", "AUTH_OTP_HASH_KEY", "MAIL_PASSWORD")) {
 			assertThat(names).doesNotContain(secret);
 		}
 	}

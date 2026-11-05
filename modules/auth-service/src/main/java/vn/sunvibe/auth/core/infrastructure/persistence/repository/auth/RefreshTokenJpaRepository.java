@@ -25,6 +25,10 @@ public interface RefreshTokenJpaRepository extends JpaRepository<RefreshTokenEnt
     @Query("SELECT t FROM RefreshTokenEntity t WHERE t.tokenHash = :tokenHash")
     Optional<RefreshTokenEntity> findByTokenHashForUpdate(@Param("tokenHash") String tokenHash);
 
+    /** A plain value, so no token entity stays in the persistence context across the user lock. */
+    @Query("SELECT t.userId FROM RefreshTokenEntity t WHERE t.tokenHash = :tokenHash")
+    Optional<String> findUserIdByTokenHash(@Param("tokenHash") String tokenHash);
+
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE RefreshTokenEntity t SET t.status = :revoked, t.revokedAt = :now, t.revokeReason = :reason " +
             "WHERE t.familyId = :familyId AND t.status <> :revoked")
