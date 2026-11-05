@@ -9,14 +9,16 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   (Spring does not read .env files), then ./gradlew :app:bootRun --args='--spring.profiles.active=dev'
   Default port 8081 (SERVER_PORT).
   Outside the dev/test profiles these env vars are required (no default in application.yml): MAIL_USERNAME,
-  MAIL_PASSWORD, JWT_SECRET (base64). A missing JWT_SECRET or MAIL_USERNAME fails startup; a missing MAIL_PASSWORD
-  fails only when mail is sent. The dev profile has a public dev-only JWT_SECRET and empty mail values; env vars win if set.
+  MAIL_PASSWORD, JWT_SECRET (base64). A missing JWT_SECRET fails startup. A missing MAIL_USERNAME fails startup only when
+  MAIL_FROM is unset too; with MAIL_FROM set it fails when mail is sent, like a missing MAIL_PASSWORD. The dev profile has a
+  public dev-only JWT_SECRET and empty mail values; env vars win if set.
   Also required outside dev/test: ID_CARD_CRYPTO_KEY and ID_CARD_CRYPTO_INDEX_KEY (two different base64 32-byte keys),
   ACQUISITION_HASH_KEY and AUTH_OTP_HASH_KEY (base64, at least 32 bytes); each fails startup when missing. The dev profile
   has dev-only values for them. SMS_PROVIDER is `none` unless set (`log` exists for dev/test only).
   Auth: AUTH_PHONE_MODE is `off` unless set (`legacy-login` needs AUTH_PHONE_LEGACY_LOGIN_UNTIL, `on` needs an SMS provider;
   the guards stop the start-up otherwise), AUTH_FRONTEND_BASE_URL is the web app of the reset link, and MAIL_HOST, MAIL_PORT,
-  MAIL_SMTP_AUTH, MAIL_STARTTLS, MAIL_FROM and AUTH_MAIL_MAX_PER_HOUR set the mail: .env.example lists them.
+  MAIL_SMTP_AUTH, MAIL_STARTTLS, MAIL_FROM and AUTH_MAIL_MAX_PER_HOUR set the mail: .env.example lists them. Deployment
+  templates for Brevo SMTP: scripts/ops/env/, explained in scripts/ops/README.md section 9.
 - Run on the LAN (phone/tablet testing): set LAN_FE_ORIGIN=http://<LAN-IP>:3000, then
   ./gradlew :app:bootRun --args='--spring.profiles.active=dev,lan' (refresh cookie not Secure; never with prod).
   Steps for both repos: ../docs/setup/lan-device-testing.md

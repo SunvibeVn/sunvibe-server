@@ -40,6 +40,8 @@ out/
 .env
 .env.*
 !.env.example
+scripts/ops/env/*
+!scripts/ops/env/*.env.example
 
 ### Personal Claude Code settings ###
 .claude/settings.local.json
