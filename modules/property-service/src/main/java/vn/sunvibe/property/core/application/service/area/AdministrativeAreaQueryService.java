@@ -1,4 +1,4 @@
-package vn.sunvibe.property.core.application.usecase.area.impl;
+package vn.sunvibe.property.core.application.service.area;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

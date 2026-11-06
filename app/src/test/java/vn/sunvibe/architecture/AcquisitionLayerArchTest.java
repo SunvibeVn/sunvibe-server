@@ -35,7 +35,7 @@ class AcquisitionLayerArchTest {
 	@Test
 	void importedClasses_everyLayer_isPresent() {
 		assertThat(classes.contain(ROOT + ".domain.model.lead.OwnerLead")).isTrue();
-		assertThat(classes.contain(ROOT + ".application.usecase.impl.OwnerIntakeSubmitService")).isTrue();
+		assertThat(classes.contain(ROOT + ".application.service.OwnerIntakeSubmitService")).isTrue();
 		assertThat(classes.contain(ROOT + ".presentation.controller.OwnerIntakeController")).isTrue();
 	}
 

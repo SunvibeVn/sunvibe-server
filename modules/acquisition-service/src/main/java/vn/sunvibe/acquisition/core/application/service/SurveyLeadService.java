@@ -1,4 +1,4 @@
-package vn.sunvibe.acquisition.core.application.usecase.impl;
+package vn.sunvibe.acquisition.core.application.service;
 
 import com.github.f4b6a3.ulid.Ulid;
 import org.springframework.beans.factory.annotation.Qualifier;

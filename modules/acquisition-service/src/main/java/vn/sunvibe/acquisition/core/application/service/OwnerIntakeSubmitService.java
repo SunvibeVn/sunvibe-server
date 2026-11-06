@@ -1,4 +1,4 @@
-package vn.sunvibe.acquisition.core.application.usecase.impl;
+package vn.sunvibe.acquisition.core.application.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

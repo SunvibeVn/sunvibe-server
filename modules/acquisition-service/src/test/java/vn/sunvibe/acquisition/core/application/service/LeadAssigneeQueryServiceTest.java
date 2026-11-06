@@ -1,4 +1,4 @@
-package vn.sunvibe.acquisition.core.application.usecase.impl;
+package vn.sunvibe.acquisition.core.application.service;
 
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.acquisition.core.application.shared.external.staff.EligibleAssignee;
