@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.infrastructure.persistence.adapter;
+package vn.sunvibe.auth.core.infrastructure.persistence.support;
 
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;

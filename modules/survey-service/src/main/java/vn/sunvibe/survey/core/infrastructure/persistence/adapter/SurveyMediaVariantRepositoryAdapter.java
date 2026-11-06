@@ -8,6 +8,7 @@ import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainReposito
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaVariantEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.mapper.manual.SurveyMediaEntityMapper;
 import vn.sunvibe.survey.core.infrastructure.persistence.repository.SurveyMediaVariantJpaRepository;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 import java.util.Collection;
 import java.util.Comparator;

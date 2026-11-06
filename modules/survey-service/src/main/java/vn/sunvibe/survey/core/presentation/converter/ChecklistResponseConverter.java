@@ -201,7 +201,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Converter - ChecklistResponseMapper
+ * Converter - ChecklistResponseConverter
  * <p>
  * Turns the checklist read models into the response bodies of survey-checklist spec 7.2. Each group's content is read
  * through {@code InputForm.ofStored} (plan PD-5), so every per-space list holds one entry per G1 space in G1 order with
@@ -210,7 +210,7 @@ import java.util.function.Function;
  * 7.2. Staff names come from the view's one name lookup; an unknown name is null.
  */
 @Component
-public class ChecklistResponseMapper {
+public class ChecklistResponseConverter {
 
     private static final String CURRENCY = Money.VND;
     private static final String MONTH = RentMoney.MONTH;
@@ -383,8 +383,8 @@ public class ChecklistResponseMapper {
                 appointment.getKind(), appointment.getIntent(), appointment.getIntentCycle(), visit.arrivedAt(),
                 visit.performedBy(), names.apply(visit.performedBy()), visit.kind(), visit.recordedBy(),
                 names.apply(visit.recordedBy()), visit.recordedAt(),
-                SurveyResponseMapper.toLocation(appointment.getDetails().meetingLocation()),
-                SurveyResponseMapper.toLocation(appointment.getLeadLocation()));
+                SurveyResponseConverter.toLocation(appointment.getDetails().meetingLocation()),
+                SurveyResponseConverter.toLocation(appointment.getLeadLocation()));
     }
 
     private static ChecklistReadiness readiness(Readiness readiness) {
@@ -733,14 +733,14 @@ public class ChecklistResponseMapper {
         }
 
         private ChecklistChargeTerm charge(SourcedField<Charge> field, UnitKey key) {
-            return new ChecklistChargeTerm(field.state(), ChecklistResponseMapper.charge(field.value()),
+            return new ChecklistChargeTerm(field.state(), ChecklistResponseConverter.charge(field.value()),
                     field.naReason(), source(ChecklistTermsSource.class, field.source()), field.confirmedOn(),
                     field.receivedByUserId(), field.relayBasis(), meta(key));
         }
 
         private ChecklistFeeListTerm fees(SourcedField<List<Fee>> field, UnitKey key) {
             return new ChecklistFeeListTerm(field.state(), field.value() == null ? null
-                    : field.value().stream().map(ChecklistResponseMapper::fee).toList(), field.naReason(),
+                    : field.value().stream().map(ChecklistResponseConverter::fee).toList(), field.naReason(),
                     source(ChecklistTermsSource.class, field.source()), field.confirmedOn(),
                     field.receivedByUserId(), field.relayBasis(), meta(key));
         }

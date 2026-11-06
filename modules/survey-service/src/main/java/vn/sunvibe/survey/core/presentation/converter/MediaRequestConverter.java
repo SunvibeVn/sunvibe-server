@@ -13,7 +13,7 @@ import vn.sunvibe.survey.core.presentation.dto.request.media.MediaRemovalRequest
 
 /** Converter - survey-media request bodies to commands (survey-media spec 7.2); values are checked by the use case. */
 @Component
-public class MediaRequestMapper {
+public class MediaRequestConverter {
 
     public RemoveMediaCommand toCommand(String mediaId, MediaRemovalRequest request) {
         return new RemoveMediaCommand(mediaId, correction(request));

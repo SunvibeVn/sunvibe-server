@@ -16,13 +16,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Assignee records -> the response (acquisition-owner-lead-queue-ui spec 4.1): order kept, roles as the enum, and a
  * role the API does not know never fails the call.
  */
-class LeadAssigneeResponseMapperTest {
+class LeadAssigneeResponseConverterTest {
 
-    private final LeadAssigneeResponseMapper mapper = new LeadAssigneeResponseMapper();
+    private final LeadAssigneeResponseConverter converter = new LeadAssigneeResponseConverter();
 
     @Test
     void toResponses_keepsOrderAndMapsRoles() {
-        List<LeadAssigneeResponse> responses = mapper.toResponses(List.of(
+        List<LeadAssigneeResponse> responses = converter.toResponses(List.of(
                 new EligibleAssignee("u2", "Ánh", Set.of("SALE", "SALE_LEADER")),
                 new EligibleAssignee("u1", "An", Set.of("SALE"))));
 
@@ -36,14 +36,14 @@ class LeadAssigneeResponseMapperTest {
         Set<String> leaderFirst = new LinkedHashSet<>(List.of("SALE_LEADER", "SALE"));
 
         List<LeadAssigneeResponse> responses =
-                mapper.toResponses(List.of(new EligibleAssignee("u", "An", leaderFirst)));
+                converter.toResponses(List.of(new EligibleAssignee("u", "An", leaderFirst)));
 
         assertEquals(List.of(AssigneeRole.SALE, AssigneeRole.SALE_LEADER), responses.get(0).roles());
     }
 
     @Test
     void toResponses_unknownRole_isDroppedAndTheRestKept() {
-        List<LeadAssigneeResponse> responses = mapper.toResponses(List.of(
+        List<LeadAssigneeResponse> responses = converter.toResponses(List.of(
                 new EligibleAssignee("u1", "An", Set.of("SALE", "TRAINEE"))));
 
         assertEquals(List.of(AssigneeRole.SALE), responses.get(0).roles());
@@ -51,7 +51,7 @@ class LeadAssigneeResponseMapperTest {
 
     @Test
     void toResponses_onlyUnknownRoles_leavesThePersonOutWithoutFailing() {
-        List<LeadAssigneeResponse> responses = mapper.toResponses(List.of(
+        List<LeadAssigneeResponse> responses = converter.toResponses(List.of(
                 new EligibleAssignee("u1", "An", Set.of("TRAINEE")),
                 new EligibleAssignee("u2", "Bình", Set.of()),
                 new EligibleAssignee("u3", "Dũng", Set.of("SALE_LEADER"))));
@@ -61,6 +61,6 @@ class LeadAssigneeResponseMapperTest {
 
     @Test
     void toResponses_emptyList_isEmpty() {
-        assertTrue(mapper.toResponses(List.of()).isEmpty());
+        assertTrue(converter.toResponses(List.of()).isEmpty());
     }
 }

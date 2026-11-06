@@ -13,8 +13,8 @@ import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
-import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapperImpl;
-import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserVOMapperImpl;
+import vn.sunvibe.auth.core.infrastructure.persistence.mapper.auto.UserMapperImpl;
+import vn.sunvibe.auth.core.infrastructure.persistence.mapper.auto.UserVOMapperImpl;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;
 import vn.sunvibe.shared.crypto.AesGcmCryptoService;
 

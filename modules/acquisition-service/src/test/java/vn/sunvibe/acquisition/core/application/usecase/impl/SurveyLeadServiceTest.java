@@ -44,7 +44,7 @@ import vn.sunvibe.acquisition.core.domain.model.lead.PhoneNumber;
 import vn.sunvibe.acquisition.core.domain.model.lead.PriceUnit;
 import vn.sunvibe.acquisition.core.domain.model.lead.RequestCode;
 import vn.sunvibe.acquisition.core.infrastructure.json.JacksonSubmissionSnapshotReader;
-import vn.sunvibe.acquisition.core.presentation.converter.LeadViewerConverter;
+import vn.sunvibe.acquisition.core.presentation.resolver.LeadViewerResolver;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryAdministrativeAreaPort;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryLeadAssigneeDirectory;
 import vn.sunvibe.acquisition.core.testsupport.InMemoryOwnerLeadActivityRepository;
@@ -113,7 +113,7 @@ class SurveyLeadServiceTest {
     void viewerFor_everyRoleSet_givesTheSameAccessAsTheLeadQueueConverter() {
         List<String> roles = List.of("ROLE_SALE", "ROLE_SALE_LEADER", "ROLE_SALES_MANAGER", "ROLE_ADMIN",
                 "ROLE_SUPER_ADMIN", "ROLE_CUSTOMER");
-        LeadViewerConverter converter = new LeadViewerConverter();
+        LeadViewerResolver resolver = new LeadViewerResolver();
         for (int mask = 0; mask < 1 << roles.size(); mask++) {
             List<String> granted = new ArrayList<>();
             for (int i = 0; i < roles.size(); i++) {
@@ -127,7 +127,7 @@ class SurveyLeadServiceTest {
             Set<String> expanded = REAL_HIERARCHY.getReachableGrantedAuthorities(authentication.getAuthorities())
                     .stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 
-            Optional<String> queue = access(() -> converter.toViewer(authentication, REAL_HIERARCHY).access().name());
+            Optional<String> queue = access(() -> resolver.toViewer(authentication, REAL_HIERARCHY).access().name());
             Optional<String> survey = access(() -> service.viewerFor(SALE_A, expanded).access().name());
 
             assertEquals(queue, survey, granted.toString());

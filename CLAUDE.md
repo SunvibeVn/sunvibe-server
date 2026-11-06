@@ -12,9 +12,10 @@ Hub workflow and cross-repo rules below; their paths (docs/...) are relative to 
   self-contained task the owner asks to delegate, with the task, paths, decisions and checks in the prompt.
 - Never edit a brief (../docs/features/**/brief/); a missing or unclear one goes to the owner.
 - Stop and report the exact conflict (files and lines) when brief, spec, API contract, plan, ADR or code disagree in
-  a way that changes behavior, or when a task needs a business decision; a plan "ruling" never decides a business
-  rule. After two evidence-backed failed attempts on one task (failing test or log, a different fix each time),
-  stop: raise the effort once (`/effort xhigh`) with that evidence, and if it still fails, ask the owner.
+  a way that changes behavior, or a plan breaks a rule file or the naming standard, or when a task needs a business
+  decision; a plan "ruling" never decides a business rule. After two evidence-backed failed attempts on one task
+  (failing test or log, a different fix each time), stop: raise the effort once (`/effort xhigh`) with that evidence,
+  and if it still fails, ask the owner.
 - In a flow run (`claude -p` started by the hub scripts/flow): after two evidence-backed failed attempts stop and
   report both instead of raising the effort; the runner's review stage replaces the final review below; skip
   superpowers:finishing-a-development-branch and end with the report (the runner verifies, the owner pushes).

@@ -7,13 +7,13 @@ import vn.sunvibe.acquisition.core.presentation.dto.request.OwnerIntakeRequest.A
 import vn.sunvibe.acquisition.core.presentation.dto.request.OwnerIntakeRequest.ConsentRequest;
 
 /**
- * Converter - OwnerIntakeRequestMapper
+ * Converter - OwnerIntakeRequestConverter
  * <p>
  * Request DTO -> OwnerIntakeCommand. Values are passed as typed; the service normalizes them. The amount was
  * validated as a whole number of at most 15 digits, so it fits a {@code Long}.
  */
 @Component
-public class OwnerIntakeRequestMapper {
+public class OwnerIntakeRequestConverter {
 
     public OwnerIntakeCommand toCommand(OwnerIntakeRequest request, String idempotencyKey, String clientIp,
                                         String userAgent, String snapshot) {

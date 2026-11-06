@@ -13,13 +13,13 @@ import vn.sunvibe.property.core.presentation.dto.request.PropertyCreateRequest;
 import java.util.List;
 
 /**
- * Mapper - PropertyCreateRequestMapper (Record version)
+ * Converter - PropertyCreateRequestConverter (Record version)
  *
  * Converts from API DTO Record (PropertyCreateRequest)
  * to Application Command Record (PropertyCreateCommand).
  */
 @Component
-public class PropertyCreateRequestMapper {
+public class PropertyCreateRequestConverter {
 
     /**
      * Map PropertyCreateRequest -> PropertyCreateCommand

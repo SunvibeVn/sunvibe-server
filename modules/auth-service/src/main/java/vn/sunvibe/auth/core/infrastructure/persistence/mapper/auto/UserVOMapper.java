@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.infrastructure.persistence.converter.auto;
+package vn.sunvibe.auth.core.infrastructure.persistence.mapper.auto;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Named;

@@ -1,4 +1,4 @@
-package vn.sunvibe.property.core.presentation.converter;
+package vn.sunvibe.property.core.presentation.resolver;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;

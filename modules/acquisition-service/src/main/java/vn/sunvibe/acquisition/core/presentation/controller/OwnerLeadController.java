@@ -35,9 +35,9 @@ import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.domain.model.lead.RequestCode;
-import vn.sunvibe.acquisition.core.presentation.converter.LeadViewerConverter;
-import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadRequestMapper;
-import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseMapper;
+import vn.sunvibe.acquisition.core.presentation.resolver.LeadViewerResolver;
+import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadRequestConverter;
+import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseConverter;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AddLeadNoteRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadIntentRequest;
@@ -72,9 +72,9 @@ public class OwnerLeadController {
 
     private final OwnerLeadQueryUseCase queryUseCase;
     private final OwnerLeadCommandUseCase commandUseCase;
-    private final LeadViewerConverter viewerConverter;
-    private final OwnerLeadRequestMapper requestMapper;
-    private final OwnerLeadResponseMapper responseMapper;
+    private final LeadViewerResolver viewerResolver;
+    private final OwnerLeadRequestConverter requestConverter;
+    private final OwnerLeadResponseConverter responseConverter;
     private final RoleHierarchy roleHierarchy;
 
     /**
@@ -155,7 +155,7 @@ public class OwnerLeadController {
 
         LeadListQuery query = new LeadListQuery(leadScope, statuses, wardCode, canonicalRequestCode, assigneeUserId,
                 page, size);
-        return ResponseEntity.ok(responseMapper.toPage(queryUseCase.list(viewer, query)));
+        return ResponseEntity.ok(responseConverter.toPage(queryUseCase.list(viewer, query)));
     }
 
     /**
@@ -178,7 +178,7 @@ public class OwnerLeadController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<OwnerLeadDetailResponse> get(@PathVariable("leadId") String leadId) {
-        return ResponseEntity.ok(responseMapper.toDetail(queryUseCase.get(viewer(), leadId)));
+        return ResponseEntity.ok(responseConverter.toDetail(queryUseCase.get(viewer(), leadId)));
     }
 
     /**
@@ -213,8 +213,8 @@ public class OwnerLeadController {
     @PreAuthorize("hasAnyRole('SALE_LEADER','SALES_MANAGER','ADMIN')")
     public ResponseEntity<OwnerLeadSummaryResponse> assign(@PathVariable("leadId") String leadId,
                                                            @Valid @RequestBody AssignLeadRequest request) {
-        return ResponseEntity.ok(responseMapper.toSummary(
-                commandUseCase.assign(viewer(), requestMapper.toCommand(leadId, request))));
+        return ResponseEntity.ok(responseConverter.toSummary(
+                commandUseCase.assign(viewer(), requestConverter.toCommand(leadId, request))));
     }
 
     /**
@@ -246,8 +246,8 @@ public class OwnerLeadController {
     })
     public ResponseEntity<OwnerLeadSummaryResponse> changeStatus(@PathVariable("leadId") String leadId,
                                                                  @Valid @RequestBody ChangeLeadStatusRequest request) {
-        return ResponseEntity.ok(responseMapper.toSummary(
-                commandUseCase.changeStatus(viewer(), requestMapper.toCommand(leadId, request))));
+        return ResponseEntity.ok(responseConverter.toSummary(
+                commandUseCase.changeStatus(viewer(), requestConverter.toCommand(leadId, request))));
     }
 
     /**
@@ -282,8 +282,8 @@ public class OwnerLeadController {
     })
     public ResponseEntity<OwnerLeadSummaryResponse> changeIntent(@PathVariable("leadId") String leadId,
                                                                  @Valid @RequestBody ChangeLeadIntentRequest request) {
-        return ResponseEntity.ok(responseMapper.toSummary(
-                commandUseCase.changeIntent(viewer(), requestMapper.toCommand(leadId, request))));
+        return ResponseEntity.ok(responseConverter.toSummary(
+                commandUseCase.changeIntent(viewer(), requestConverter.toCommand(leadId, request))));
     }
 
     /**
@@ -315,11 +315,11 @@ public class OwnerLeadController {
     })
     public ResponseEntity<LeadNoteResponse> addNote(@PathVariable("leadId") String leadId,
                                                     @Valid @RequestBody AddLeadNoteRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(responseMapper.toNote(
-                commandUseCase.addNote(viewer(), requestMapper.toCommand(leadId, request))));
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseConverter.toNote(
+                commandUseCase.addNote(viewer(), requestConverter.toCommand(leadId, request))));
     }
 
     private LeadViewer viewer() {
-        return viewerConverter.toViewer(SecurityContextHolder.getContext().getAuthentication(), roleHierarchy);
+        return viewerResolver.toViewer(SecurityContextHolder.getContext().getAuthentication(), roleHierarchy);
     }
 }

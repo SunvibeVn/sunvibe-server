@@ -24,8 +24,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.acquisition.core.application.usecase.SaleTerritoryUseCase;
-import vn.sunvibe.acquisition.core.presentation.converter.LeadViewerConverter;
-import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseMapper;
+import vn.sunvibe.acquisition.core.presentation.resolver.LeadViewerResolver;
+import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseConverter;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignTerritoryRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.response.SaleTerritoryResponse;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -49,8 +49,8 @@ public class SaleTerritoryController {
     private static final String WARD_CODE_MESSAGE = "Ward code must be at most 10 characters.";
 
     private final SaleTerritoryUseCase territoryUseCase;
-    private final LeadViewerConverter viewerConverter;
-    private final OwnerLeadResponseMapper responseMapper;
+    private final LeadViewerResolver viewerResolver;
+    private final OwnerLeadResponseConverter responseConverter;
 
     /**
      * GET /api/v1/staff/sale-territories?provinceCode=48
@@ -77,7 +77,7 @@ public class SaleTerritoryController {
             @RequestParam(name = "provinceCode")
             @NotBlank(message = "Province code is required.") String provinceCode) {
         return ResponseEntity.ok(territoryUseCase.list(provinceCode).stream()
-                .map(responseMapper::toTerritory)
+                .map(responseConverter::toTerritory)
                 .toList());
     }
 
@@ -109,8 +109,8 @@ public class SaleTerritoryController {
     public ResponseEntity<SaleTerritoryResponse> assign(
             @PathVariable("wardCode") @Size(max = 10, message = WARD_CODE_MESSAGE) String wardCode,
             @Valid @RequestBody AssignTerritoryRequest request) {
-        String actorId = viewerConverter.actorId(SecurityContextHolder.getContext().getAuthentication());
-        return ResponseEntity.ok(responseMapper.toTerritory(
+        String actorId = viewerResolver.actorId(SecurityContextHolder.getContext().getAuthentication());
+        return ResponseEntity.ok(responseConverter.toTerritory(
                 territoryUseCase.assign(wardCode, request.userId(), actorId)));
     }
 
@@ -135,7 +135,7 @@ public class SaleTerritoryController {
     })
     public ResponseEntity<Void> unassign(
             @PathVariable("wardCode") @Size(max = 10, message = WARD_CODE_MESSAGE) String wardCode) {
-        String actorId = viewerConverter.actorId(SecurityContextHolder.getContext().getAuthentication());
+        String actorId = viewerResolver.actorId(SecurityContextHolder.getContext().getAuthentication());
         territoryUseCase.unassign(wardCode, actorId);
         return ResponseEntity.noContent().build();
     }

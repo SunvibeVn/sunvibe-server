@@ -19,6 +19,7 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaJobEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.repository.SurveyMediaJobJpaRepository;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 import java.time.Instant;
 import java.util.List;

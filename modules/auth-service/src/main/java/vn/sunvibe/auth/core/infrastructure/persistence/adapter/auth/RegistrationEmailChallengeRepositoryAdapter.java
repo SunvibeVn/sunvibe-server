@@ -6,7 +6,7 @@ import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.domain.model.auth.RegistrationEmailChallenge;
 import vn.sunvibe.auth.core.domain.repository.auth.RegistrationEmailChallengeRepository;
-import vn.sunvibe.auth.core.infrastructure.persistence.adapter.AuthConstraintViolations;
+import vn.sunvibe.auth.core.infrastructure.persistence.support.AuthConstraintViolations;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.auth.RegistrationEmailChallengeEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.RegistrationEmailChallengeJpaRepository;
 

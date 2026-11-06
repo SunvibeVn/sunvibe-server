@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Converter - LeadAssigneeResponseMapper
+ * Converter - LeadAssigneeResponseConverter
  * <p>
  * Eligible assignees -> response DTOs, in the order given. A role name outside {@link AssigneeRole} (the directory
  * learned a new one) is left out instead of failing the call; a person left with no role is left out too, because
@@ -20,7 +20,7 @@ import java.util.Set;
  */
 @Slf4j
 @Component
-public class LeadAssigneeResponseMapper {
+public class LeadAssigneeResponseConverter {
 
     public List<LeadAssigneeResponse> toResponses(List<EligibleAssignee> assignees) {
         List<LeadAssigneeResponse> responses = new ArrayList<>(assignees.size());

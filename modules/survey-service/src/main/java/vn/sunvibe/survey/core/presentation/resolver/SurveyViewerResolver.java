@@ -1,4 +1,4 @@
-package vn.sunvibe.survey.core.presentation.converter;
+package vn.sunvibe.survey.core.presentation.resolver;
 
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.core.Authentication;
@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Converter - SurveyViewerResolver
+ * SurveyViewerResolver
  * <p>
  * The viewer of the authenticated staff member (survey-schedule spec 5.4): the roles are expanded through the role
  * hierarchy (SUPER_ADMIN reaches ADMIN), then the lead queue's one mapping decides OWN or ALL. Anything unexpected

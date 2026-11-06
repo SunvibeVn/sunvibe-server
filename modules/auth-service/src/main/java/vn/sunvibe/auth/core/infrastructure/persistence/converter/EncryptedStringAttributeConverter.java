@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.infrastructure.persistence.converter.manual;
+package vn.sunvibe.auth.core.infrastructure.persistence.converter;
 
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;

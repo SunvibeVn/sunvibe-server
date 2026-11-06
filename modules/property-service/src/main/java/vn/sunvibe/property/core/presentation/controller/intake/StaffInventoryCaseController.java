@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.property.core.application.usecase.intake.InventoryCaseUseCase;
 import vn.sunvibe.property.core.application.usecase.intake.InventoryCaseView;
-import vn.sunvibe.property.core.presentation.converter.IntakeActorResolver;
+import vn.sunvibe.property.core.presentation.resolver.IntakeActorResolver;
 import vn.sunvibe.property.core.presentation.dto.request.intake.CaseDecisionRequest;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 

@@ -18,6 +18,7 @@ import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.IntakeU
 import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.InventoryIntakeEntity;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.OwnerProofEntity;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.OwnerRequestEntity;
+import vn.sunvibe.property.core.infrastructure.persistence.json.IntakeJsonCodec;
 
 /** Maps the intake rows both ways, every column of each. Rebuilds domain objects with their load factories. */
 @Component

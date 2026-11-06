@@ -1,4 +1,4 @@
-package vn.sunvibe.acquisition.core.presentation.converter;
+package vn.sunvibe.acquisition.core.presentation.resolver;
 
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.core.Authentication;
@@ -13,14 +13,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Converter - LeadViewerConverter
+ * LeadViewerResolver
  * <p>
  * Builds the {@link LeadViewer} of the authenticated staff member (acquisition-owner-lead-queue spec 5.5). The roles
  * are first expanded through the role hierarchy, so SUPER_ADMIN counts as ADMIN. Anything unexpected fails closed with
  * an {@link IllegalStateException} (a 500), never with a guessed viewer.
  */
 @Component
-public class LeadViewerConverter {
+public class LeadViewerResolver {
 
     private final LeadAccessPolicy accessPolicy = new LeadAccessPolicy();
 

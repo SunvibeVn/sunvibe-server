@@ -27,8 +27,8 @@ import vn.sunvibe.survey.core.application.command.ContentBody;
 import vn.sunvibe.survey.core.application.command.UploadContentCommand;
 import vn.sunvibe.survey.core.application.query.MediaContentResult;
 import vn.sunvibe.survey.core.application.usecase.SurveyMediaContentUseCase;
-import vn.sunvibe.survey.core.presentation.converter.MediaResponseMapper;
-import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
+import vn.sunvibe.survey.core.presentation.converter.MediaResponseConverter;
+import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.response.media.SurveyMediaContentResponse;
 
 /**
@@ -49,7 +49,7 @@ public class SurveyMediaContentController {
 
     private final SurveyMediaContentUseCase contentUseCase;
     private final SurveyViewerResolver viewerResolver;
-    private final MediaResponseMapper responseMapper;
+    private final MediaResponseConverter responseConverter;
 
     /**
      * PUT /api/v1/staff/survey-media/{mediaId}/content
@@ -121,7 +121,7 @@ public class SurveyMediaContentController {
             MediaContentResult result = contentUseCase.upload(viewerResolver.current(),
                     viewerResolver.currentCanHold(), new UploadContentCommand(mediaId, request.getContentType(),
                             request.getContentLengthLong(), request.getHeader(CONTENT_DIGEST)), body);
-            return ResponseEntity.status(HttpStatus.ACCEPTED).body(responseMapper.toContent(result));
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(responseConverter.toContent(result));
         } catch (RuntimeException refused) {
             if (!body.touched()) {
                 // spec A-13: decided before any byte was read: the connection closes after the answer

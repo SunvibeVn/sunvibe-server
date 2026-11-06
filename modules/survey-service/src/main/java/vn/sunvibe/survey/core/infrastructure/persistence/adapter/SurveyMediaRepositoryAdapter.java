@@ -20,6 +20,7 @@ import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainReposito
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaEntity;
 import vn.sunvibe.survey.core.infrastructure.persistence.mapper.manual.SurveyMediaEntityMapper;
 import vn.sunvibe.survey.core.infrastructure.persistence.repository.SurveyMediaJpaRepository;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;

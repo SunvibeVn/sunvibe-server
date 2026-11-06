@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.infrastructure.persistence.converter.manual;
+package vn.sunvibe.auth.core.infrastructure.persistence.mapper.manual;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;

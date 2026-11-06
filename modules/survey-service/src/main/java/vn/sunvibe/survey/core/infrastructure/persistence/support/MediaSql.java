@@ -1,4 +1,4 @@
-package vn.sunvibe.survey.core.infrastructure.persistence.adapter;
+package vn.sunvibe.survey.core.infrastructure.persistence.support;
 
 /**
  * The SQL of the survey-media adapters (survey-media spec 5.2, 5.4, A-3, A-6, A-19, A-26, A-27), in one place so the

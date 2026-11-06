@@ -32,7 +32,7 @@ import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.survey.core.application.exception.MediaMethodNotAllowedException;
 import vn.sunvibe.survey.core.application.query.MediaRead;
 import vn.sunvibe.survey.core.application.usecase.SurveyMediaReadUseCase;
-import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
+import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
 
 /**
  * The content reads of survey photos (survey-media spec 7.1, ADR-011 decision 2, A-24, A-25, A-30): GET only (HEAD

@@ -3,6 +3,7 @@ paths:
   - "modules/*/src/main/java/**/presentation/controller/**"
   - "modules/*/src/main/java/**/presentation/dto/**"
   - "modules/*/src/main/java/**/presentation/converter/**"
+  - "modules/*/src/main/java/**/presentation/resolver/**"
   - "modules/*/src/main/java/**/presentation/exception/**"
   - "**/src/main/java/**/*Controller.java"
   - "app/src/main/java/**/*ExceptionHandler.java"

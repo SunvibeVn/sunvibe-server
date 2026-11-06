@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import vn.sunvibe.auth.core.domain.model.user.enums.KycStatus;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
-import vn.sunvibe.auth.core.infrastructure.persistence.converter.manual.EncryptedStringAttributeConverter;
+import vn.sunvibe.auth.core.infrastructure.persistence.converter.EncryptedStringAttributeConverter;
 
 import java.time.Instant;
 import java.util.Set;

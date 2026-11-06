@@ -10,7 +10,7 @@ import vn.sunvibe.auth.core.domain.model.auth.RefreshToken;
 import vn.sunvibe.auth.core.domain.model.auth.enums.RevokeReason;
 import vn.sunvibe.auth.core.domain.model.auth.enums.TokenStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
-import vn.sunvibe.auth.core.infrastructure.persistence.converter.manual.RefreshTokenEntityMapper;
+import vn.sunvibe.auth.core.infrastructure.persistence.mapper.manual.RefreshTokenEntityMapper;
 import vn.sunvibe.auth.core.infrastructure.persistence.repository.auth.RefreshTokenJpaRepository;
 import vn.sunvibe.shared.crypto.AesGcmCryptoService;
 
