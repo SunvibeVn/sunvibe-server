@@ -5,7 +5,7 @@ import vn.sunvibe.property.core.domain.model.aggregate.Property;
 import vn.sunvibe.property.core.presentation.dto.response.PropertyCreateResponse;
 
 /**
- * Mapper - PropertyCreateResponseConverter (Record version)
+ * Converter - PropertyCreateResponseConverter (Record version)
  *
  * Converts from Domain Model (Property)
  * to Response DTO Record (PropertyCreateResponse).

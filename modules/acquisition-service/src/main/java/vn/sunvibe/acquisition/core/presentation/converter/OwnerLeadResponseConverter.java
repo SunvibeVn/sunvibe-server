@@ -23,7 +23,7 @@ import vn.sunvibe.acquisition.core.presentation.dto.response.SaleTerritoryRespon
  * <p>
  * Lead and territory views -> response DTOs, field by field. The views already leave out what staff may not see
  * (hashes, the submission snapshot, leads the caller cannot see); nothing is added here. The staff names are
- * already in the views (acquisition-owner-lead-queue-ui C-18): the mapper only copies them.
+ * already in the views (acquisition-owner-lead-queue-ui C-18): the converter only copies them.
  */
 @Component
 public class OwnerLeadResponseConverter {

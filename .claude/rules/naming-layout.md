@@ -57,8 +57,8 @@ exactly, so they keep their records and gain no sub-package.
 Presentation may use domain enums, value records and exceptions, wherever they sit, `domain.policy` and
 `domain.repository` included (`PageResult`, for example). It never uses repository interfaces, classes that hold rules,
 or aggregates, except a named allowlist in the test. The list only shrinks, except that splitting an allowlisted class
-replaces its entry with the new classes. This replaces the sentence on presentation in
-`docs/architecture/backend-architecture.md`, which changes together with its build check (spec N-14).
+replaces its entry with the new classes. The list and its test arrive with spec N-14, and so does the change to the
+sentence on presentation in `docs/architecture/backend-architecture.md`; until then this section is the rule.
 
 ## What each word means
 

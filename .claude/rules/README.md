@@ -19,7 +19,7 @@ tool through `AGENTS.md`).
 | `domain-layer.md` | core/domain | aggregates, value objects, domain repositories |
 | `application-layer.md` | core/application, the integration adapters in app | use cases, ports, transaction boundaries |
 | `persistence.md` | core/infrastructure/persistence | mapping, queries, locks, conflicts, isolation |
-| `api-controller.md` | controllers, DTOs, converters, exception handlers, api/openapi.json | endpoint shape, contract truth, error mapping |
+| `api-controller.md` | controllers, DTOs, converters, resolvers, exception handlers, api/openapi.json | endpoint shape, contract truth, error mapping |
 | `security.md` | config, security, auth, presentation, core/application, core/infrastructure, application yml | authentication, authorization, input, logs, rate limits |
 | `flyway.md` | db/migration | naming, compatibility, locks on populated tables |
 | `testing.md` | test sources | test levels, time, races, real HTTP errors |
