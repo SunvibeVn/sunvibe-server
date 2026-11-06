@@ -240,7 +240,7 @@ class MediaProbeRunnerTest {
         normalizer.result = ProbeResult.INCOMPLETE;
         now.set(T0.plusSeconds(180));
         runner.runAll();
-        assertFalse(runner.processorPassedSince(T0.plusSeconds(180)), "a later failure is no pass");
+        assertFalse(runner.processorPassedSince(T0.plusSeconds(180)), "a failure at since is no pass");
 
         normalizer.result = ProbeResult.PASSED;
         now.set(T0.plusSeconds(225));

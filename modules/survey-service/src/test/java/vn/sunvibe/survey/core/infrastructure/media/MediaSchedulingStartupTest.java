@@ -205,9 +205,26 @@ class MediaSchedulingStartupTest {
         await(() -> scheduling.registeredTasks().contains(WORKER));
     }
 
+    /** spec amendment 2026-11-05: only a pass after the start-up retries counts, not one the last attempts disproved. */
+    @Test
+    void givenUp_passBeforeTheGiveUp_startsNothing() throws Exception {
+        normalizer.probe = ProbeResult.INCOMPLETE;
+        normalizer.onSecondAttempt = () -> {
+            normalizer.probe = ProbeResult.PASSED;
+            assertTrue(probes.runAll());
+            normalizer.probe = ProbeResult.INCOMPLETE;
+        };
+
+        start(ALL_REAL);
+        await(() -> checks.get() >= 3);
+
+        assertFalse(scheduling.registeredTasks().contains(WORKER));
+    }
+
     @Test
     void awaitProcessor_afterShutdown_stopsQuietly() {
         normalizer.probe = ProbeResult.INCOMPLETE;
+        ListAppender<ILoggingEvent> logs = logsOf(MediaWorkerRegistration.class.getName());
         start(ALL_REAL);
         Instant since = h.clock.now();
         scheduling.destroy();
@@ -219,6 +236,7 @@ class MediaSchedulingStartupTest {
         registration.awaitProcessor(since);
 
         assertFalse(scheduling.registeredTasks().contains(WORKER));
+        assertEquals(0, lines(logs, Level.INFO), "no word of a worker that the stopped scheduler refused");
     }
 
     /** A probe can be in flight at shutdown for up to 160 s; the next retry is then refused by a stopped scheduler. */
@@ -352,6 +370,8 @@ class MediaSchedulingStartupTest {
         volatile ProbeResult heldAnswer;
         volatile Thread heldThread;
         final CountDownLatch held = new CountDownLatch(1);
+        /** Runs once, inside attempt 2, before it answers. */
+        volatile Runnable onSecondAttempt = () -> { };
         final AtomicInteger probes = new AtomicInteger();
 
         @Override
@@ -369,6 +389,9 @@ class MediaSchedulingStartupTest {
             int answered = probes.getAndIncrement();
             if (answered + 1 == holdAttempt) {
                 return holdUntilInterrupted();
+            }
+            if (answered + 1 == 2) {
+                onSecondAttempt.run();
             }
             return passAfter >= 0 && answered >= passAfter ? ProbeResult.PASSED : probe;
         }
