@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.presentation.scheduler;
+package vn.sunvibe.auth.core.infrastructure.scheduling;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -12,7 +12,7 @@ import vn.sunvibe.auth.core.application.shared.external.email.AfterCommitMailPor
  */
 @Component
 @RequiredArgsConstructor
-public class EmailNotificationScheduler {
+public class EmailNotificationJob {
 
     private final EmailNotificationDeliveryUseCase delivery;
     private final AfterCommitMailPort mailPool;

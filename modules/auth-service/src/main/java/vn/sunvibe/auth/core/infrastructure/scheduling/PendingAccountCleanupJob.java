@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.presentation.scheduler;
+package vn.sunvibe.auth.core.infrastructure.scheduling;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -13,7 +13,7 @@ import vn.sunvibe.auth.core.application.usecase.user.PendingAccountCleanupUseCas
 @Log4j2
 @Component
 @RequiredArgsConstructor
-public class PendingAccountCleanupScheduler {
+public class PendingAccountCleanupJob {
 
     private final PendingAccountCleanupUseCase pendingAccountCleanupUseCase;
 

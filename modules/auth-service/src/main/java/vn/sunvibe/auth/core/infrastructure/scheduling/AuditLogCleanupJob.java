@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.presentation.scheduler;
+package vn.sunvibe.auth.core.infrastructure.scheduling;
 
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,12 +15,12 @@ import java.time.Duration;
  */
 @Log4j2
 @Component
-public class AuditLogCleanupScheduler {
+public class AuditLogCleanupJob {
 
     private final AuditLogPort auditLog;
     private final Duration retention;
 
-    public AuditLogCleanupScheduler(AuditLogPort auditLog,
+    public AuditLogCleanupJob(AuditLogPort auditLog,
                                     @Value("${app.security.audit.retention:180d}") Duration retention) {
         this.auditLog = auditLog;
         this.retention = retention;
