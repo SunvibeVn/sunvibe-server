@@ -14,6 +14,7 @@ tool through `AGENTS.md`).
 |---|---|---|
 | `review-policy.md` | every session (no `paths`, on purpose) | evidence, requirement levels, severity, report format |
 | `java-core.md` | any Java file | collections, equality, strings, exceptions, money, time |
+| `naming-layout.md` | main Java, the architecture tests | packages, class names, what each word means |
 | `performance-concurrency.md` | main Java, application yml, Gradle files | limits, shared state, async work, scheduled jobs, blocking I/O |
 | `domain-layer.md` | core/domain | aggregates, value objects, domain repositories |
 | `application-layer.md` | core/application, the integration adapters in app | use cases, ports, transaction boundaries |

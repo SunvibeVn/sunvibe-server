@@ -76,7 +76,8 @@ modules/{module-name}/src/main/java/vn/sunvibe/{module}/core/
 │   ├── dto/
 │   │   ├── request/      # Request DTOs
 │   │   └── response/     # Response DTOs
-│   ├── converter/        # DTO ↔ Command/Domain mappers
+│   ├── converter/        # DTO ↔ Command/Domain converters
+│   ├── resolver/         # The signed-in user as a viewer or actor
 │   ├── exception/        # Presentation exception handlers
 │   ├── validation/       # Custom validators
 │   ├── openapi/          # OpenAPI documentation
@@ -99,14 +100,10 @@ modules/{module-name}/src/main/java/vn/sunvibe/{module}/core/
 | Queries | — | `application/query/<area>/` | `application/query/` | `application/query/` |
 | Aggregates | `Property` in `domain/model/aggregate/`; `Unit`, `PropertyOwnership` in `domain/model/<concept>/` | `AppUser` in `domain/model/user/aggregate/`; others in `domain/model/auth/` | `domain/model/<concept>/` | `domain/model/<concept>/` |
 | Value objects | extend `ValueObject<T>`, in `domain/model/vo/` | extend `ValueObject<T>`, in `domain/model/user/vo/` | extend `ValueObject<T>`, or records, in `domain/model/<concept>/` | records in `domain/model/<concept>/` |
-| Domain ↔ entity mappers | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/converter/{auto,manual}/` (auto = MapStruct) | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/mapper/manual/` |
+| Domain ↔ entity mappers | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/mapper/{auto,manual}/` (auto = MapStruct) | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/mapper/manual/` |
 | Security | — | `infrastructure/security/{config,filter,provider,ratelimit,userdetails}` | `infrastructure/security/` (consent hashing only) | — |
 
-**Decision (owner, 2026-10-13): new modules follow the property-service layout (the reference above).**
-auth-service keeps its existing variant; do not restructure it unless a plan says so. The acquisition-service and
-survey-service columns record what their approved specs and plans built after that decision: extend those modules in
-their own shape and do not restructure them in passing. Keep this table in step with `.claude/rules/` (upkeep:
-`.claude/rules/README.md`).
+Standard: `.claude/rules/naming-layout.md` (owner, 2026-11-06). The table shows what W28 still moves.
 
 ## Dependency rules
 
@@ -159,13 +156,13 @@ Full rule: `sunvibe-hub/docs/decisions/ADR-009-cross-module-ports.md`.
 ## Example flow: create entity
 
 1. Controller receives HTTP request
-2. RequestMapper converts Request DTO → Command
+2. RequestConverter converts Request DTO → Command
 3. Service (UseCase implementation) executes Command
 4. Service creates Domain object via factory method: `Aggregate.create()`
 5. Service calls `Repository.save(domain)`
 6. RepositoryAdapter converts Domain → Entity via `mapper.toEntity()`
 7. JpaRepository saves Entity to database
-8. ResponseMapper converts result → Response DTO
+8. ResponseConverter converts result → Response DTO
 9. Controller returns HTTP response
 
 ## Module creation checklist

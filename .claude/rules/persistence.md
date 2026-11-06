@@ -7,8 +7,8 @@ paths:
 - repository/: <Entity>JpaRepository extends JpaRepository; works with entities only.
 - adapter/: <Entity>RepositoryAdapter implements the domain repository interface, uses the JPA
   repository plus a mapper.
-- Mappers: mapper/manual/ in every module except auth-service, which keeps converter/{auto (MapStruct), manual}/.
-  Rebuild aggregates with load(...); never set private fields by reflection.
+- Mappers: mapper/{auto (MapStruct), manual}/ in every module; converter/ holds only JPA AttributeConverter classes
+  (`naming-layout.md`). Rebuild aggregates with load(...); never set private fields by reflection.
 - Every new table or column needs a Flyway migration (see flyway.md).
 - No @Transactional here unless there is a specific technical reason; transactions belong to services.
 - Queries on growing tables: paginate (Pageable or keyset), never findAll; prevent N+1 on list paths

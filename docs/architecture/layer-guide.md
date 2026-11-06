@@ -1,12 +1,10 @@
 # Layer guide (with examples)
 
-How to write each layer of a sunvibe-server module. Moved verbatim from the former `CLAUDE.md`
-(2026-10-13). Overview, package tree and dependency rules: [backend-architecture.md](backend-architecture.md).
+How to write each layer of a sunvibe-server module. Overview, package tree and dependency rules:
+[backend-architecture.md](backend-architecture.md).
 
-> The examples follow `property-service`. `auth-service` uses a variant layout (services in
-> `application/usecase/<area>/impl/`, persistence mappers in `infrastructure/persistence/converter/{auto,manual}/`),
-> and `acquisition-service` and `survey-service` differ in use case shape and value objects; see "Variants in use" in
-> backend-architecture.md. New modules follow the property-service layout.
+> The examples follow `property-service`. Packages and class names for every module:
+> `.claude/rules/naming-layout.md`; what still sits elsewhere: "Variants in use" in backend-architecture.md.
 
 ---
 
@@ -362,21 +360,21 @@ public class PropertyEntityMapper {
 public class PropertyController {
     
     private final PropertyCreateUseCase propertyCreateUseCase;
-    private final PropertyCreateRequestMapper requestMapper;
-    private final PropertyCreateResponseMapper responseMapper;
+    private final PropertyCreateRequestConverter requestConverter;
+    private final PropertyCreateResponseConverter responseConverter;
     
     @PostMapping
     public ResponseEntity<PropertyCreateResponse> createProperty(
             @Valid @RequestBody PropertyCreateRequest request) {
         
         // Convert request to command
-        PropertyCreateCommand command = requestMapper.toCommand(request);
+        PropertyCreateCommand command = requestConverter.toCommand(request);
         
         // Execute use case
         PropertyId propertyId = propertyCreateUseCase.execute(command);
         
         // Build response
-        PropertyCreateResponse response = responseMapper.toResponse(propertyId);
+        PropertyCreateResponse response = responseConverter.toResponse(propertyId);
         
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -403,7 +401,7 @@ public record PropertyCreateRequest(
 ```
 
 #### Converters (`presentation/converter/`)
-- **Location**: `presentation/converter/{Operation}RequestMapper.java` and `presentation/converter/{Operation}ResponseMapper.java`
+- **Location**: `presentation/converter/{Resource}RequestConverter.java` and `presentation/converter/{Resource}ResponseConverter.java`
 - **Purpose**: Convert between DTOs and commands/domain objects
 - **Rules**:
   - Annotated with `@Component`

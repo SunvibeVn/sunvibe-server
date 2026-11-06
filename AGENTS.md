@@ -64,7 +64,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - Domain is pure Java: no Spring/JPA annotations. Aggregates use create()/load() factories; never reflection.
 - Commands and DTOs are Java records. Request DTO -> Command via presentation converters.
 - DTOs at the API edge; never return JPA entities or domain objects.
-- New modules follow the property-service layout. Inside auth-service keep its existing variant (usecase/<area>/impl, persistence/converter).
+- Packages and class names: .claude/rules/naming-layout.md, one standard for every module.
 - Cross-module calls (../docs/decisions/ADR-009-cross-module-ports.md): the consumer declares a port in its
   core/application/shared/external/<topic>/, the provider publishes a use case, and the adapter lives in app
   (vn.sunvibe.integration.<Provider><Topic>Adapter, with a unit test). No Gradle dependency between feature modules:
