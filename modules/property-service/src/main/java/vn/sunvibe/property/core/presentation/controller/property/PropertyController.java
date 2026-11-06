@@ -19,8 +19,8 @@ import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.usecase.PropertyCreateUseCase;
 import vn.sunvibe.property.core.application.usecase.PropertyFindByIdUseCase;
 import vn.sunvibe.property.core.domain.model.vo.PropertyId;
-import vn.sunvibe.property.core.presentation.converter.PropertyCreateRequestMapper;
-import vn.sunvibe.property.core.presentation.converter.PropertyCreateResponseMapper;
+import vn.sunvibe.property.core.presentation.converter.PropertyCreateRequestConverter;
+import vn.sunvibe.property.core.presentation.converter.PropertyCreateResponseConverter;
 import vn.sunvibe.property.core.presentation.dto.request.PropertyCreateRequest;
 import vn.sunvibe.property.core.presentation.dto.response.PropertyCreateResponse;
 import vn.sunvibe.shared.dto.response.error.BaseErrorModel;
@@ -40,8 +40,8 @@ public class PropertyController {
 
     private final PropertyCreateUseCase propertyCreateUseCase;
     private final PropertyFindByIdUseCase propertyFindByIdUseCase;
-    private final PropertyCreateRequestMapper requestMapper;
-    private final PropertyCreateResponseMapper responseMapper;
+    private final PropertyCreateRequestConverter requestConverter;
+    private final PropertyCreateResponseConverter responseConverter;
 
     /**
      * POST /api/v1/properties
@@ -78,7 +78,7 @@ public class PropertyController {
                 request.propertyCode(), request.title());
 
         // ==================== Step 1: Map Request -> Command ====================
-        PropertyCreateCommand command = requestMapper.toCommand(request);
+        PropertyCreateCommand command = requestConverter.toCommand(request);
         log.debug("Request mapped to command");
 
         // ==================== Step 2: Execute UseCase ====================
@@ -89,7 +89,7 @@ public class PropertyController {
         // Best practice: re-fetch the property from database to get full data
         var property = propertyFindByIdUseCase.execute(propertyId);
 
-        PropertyCreateResponse response = responseMapper.toResponse(property);
+        PropertyCreateResponse response = responseConverter.toResponse(property);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
