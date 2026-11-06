@@ -35,7 +35,7 @@ import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLeadStatus;
 import vn.sunvibe.acquisition.core.domain.model.lead.RequestCode;
-import vn.sunvibe.acquisition.core.presentation.converter.LeadViewerConverter;
+import vn.sunvibe.acquisition.core.presentation.resolver.LeadViewerResolver;
 import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadRequestConverter;
 import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseConverter;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AddLeadNoteRequest;
@@ -72,7 +72,7 @@ public class OwnerLeadController {
 
     private final OwnerLeadQueryUseCase queryUseCase;
     private final OwnerLeadCommandUseCase commandUseCase;
-    private final LeadViewerConverter viewerConverter;
+    private final LeadViewerResolver viewerResolver;
     private final OwnerLeadRequestConverter requestConverter;
     private final OwnerLeadResponseConverter responseConverter;
     private final RoleHierarchy roleHierarchy;
@@ -320,6 +320,6 @@ public class OwnerLeadController {
     }
 
     private LeadViewer viewer() {
-        return viewerConverter.toViewer(SecurityContextHolder.getContext().getAuthentication(), roleHierarchy);
+        return viewerResolver.toViewer(SecurityContextHolder.getContext().getAuthentication(), roleHierarchy);
     }
 }

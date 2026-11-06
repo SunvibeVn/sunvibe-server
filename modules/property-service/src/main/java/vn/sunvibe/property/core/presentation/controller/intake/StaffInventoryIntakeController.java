@@ -31,7 +31,7 @@ import vn.sunvibe.property.core.application.usecase.intake.InventorySearchUseCas
 import vn.sunvibe.property.core.application.usecase.intake.OwnerCheckContext;
 import vn.sunvibe.property.core.application.usecase.intake.OwnerCheckUseCase;
 import vn.sunvibe.property.core.application.usecase.intake.OwnerRequestUseCase;
-import vn.sunvibe.property.core.presentation.converter.IntakeActorResolver;
+import vn.sunvibe.property.core.presentation.resolver.IntakeActorResolver;
 import vn.sunvibe.property.core.presentation.dto.request.intake.IntakeRequests;
 import vn.sunvibe.property.core.presentation.dto.request.intake.OwnerCheckRequests;
 import vn.sunvibe.property.core.presentation.dto.request.intake.OwnerConfirmationRequests;

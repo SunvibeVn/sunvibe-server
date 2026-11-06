@@ -24,7 +24,7 @@ import vn.sunvibe.survey.core.application.usecase.SurveyAppointmentCommandUseCas
 import vn.sunvibe.survey.core.application.usecase.SurveyQueryUseCase;
 import vn.sunvibe.survey.core.presentation.converter.SurveyRequestConverter;
 import vn.sunvibe.survey.core.presentation.converter.SurveyResponseConverter;
-import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
+import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.BookAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ResumeSurveyRequest;
 import vn.sunvibe.survey.core.presentation.dto.response.SurveyBlockResponse;

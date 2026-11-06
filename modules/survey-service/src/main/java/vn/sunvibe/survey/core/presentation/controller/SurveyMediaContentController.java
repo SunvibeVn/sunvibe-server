@@ -28,7 +28,7 @@ import vn.sunvibe.survey.core.application.command.UploadContentCommand;
 import vn.sunvibe.survey.core.application.query.MediaContentResult;
 import vn.sunvibe.survey.core.application.usecase.SurveyMediaContentUseCase;
 import vn.sunvibe.survey.core.presentation.converter.MediaResponseConverter;
-import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
+import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.response.media.SurveyMediaContentResponse;
 
 /**

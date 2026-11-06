@@ -28,7 +28,7 @@ import vn.sunvibe.survey.core.application.usecase.SurveyChecklistRequalification
 import vn.sunvibe.survey.core.application.usecase.SurveyChecklistReviewCommandUseCase;
 import vn.sunvibe.survey.core.presentation.converter.ChecklistRequestConverter;
 import vn.sunvibe.survey.core.presentation.converter.ChecklistResponseConverter;
-import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
+import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistDecisionRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRequalificationRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRevisionRequest;

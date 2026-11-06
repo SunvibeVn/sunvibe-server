@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.property.core.application.usecase.intake.OwnerConfirmationDetails;
 import vn.sunvibe.property.core.application.usecase.intake.OwnerConfirmationItem;
 import vn.sunvibe.property.core.application.usecase.intake.OwnerConfirmationUseCase;
-import vn.sunvibe.property.core.presentation.converter.IntakeActorResolver;
+import vn.sunvibe.property.core.presentation.resolver.IntakeActorResolver;
 import vn.sunvibe.property.core.presentation.dto.request.intake.OwnerConfirmationRequests;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 

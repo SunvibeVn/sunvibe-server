@@ -33,7 +33,7 @@ import vn.sunvibe.survey.core.presentation.converter.ChecklistRequestConverter;
 import vn.sunvibe.survey.core.presentation.converter.ChecklistResponseConverter;
 import vn.sunvibe.survey.core.presentation.converter.SurveyRequestConverter;
 import vn.sunvibe.survey.core.presentation.converter.SurveyResponseConverter;
-import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
+import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.CancelAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ChangeAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ConfirmationRequest;
