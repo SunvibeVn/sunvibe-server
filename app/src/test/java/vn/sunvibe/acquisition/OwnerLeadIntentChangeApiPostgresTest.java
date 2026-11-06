@@ -138,6 +138,21 @@ class OwnerLeadIntentChangeApiPostgresTest {
 		assertTrue(entry.path("referenceId").isNull());
 	}
 
+	/** contract-wire D5-5: the requirement dialog sends the amount as a string until the UI moves to a number. */
+	@Test
+	void changeIntent_amountAsANumericString_isAccepted() throws Exception {
+		String leadId = survey.lead(leader, sale, "ASSIGNED");
+		Map<String, Object> price = nightPrice(800_000);
+		price.put("amount", "800000");
+
+		Result changed = api.post(sale, path(leadId), body(survey.version(leadId), "SHORT_TERM_RENT", price,
+				"Owner prefers short stays", today(), "Owner said so on the phone"));
+
+		ok(changed);
+		assertEquals(0, new BigDecimal("800000").compareTo(jdbc.queryForObject(
+				"select asking_price_amount from owner_leads where id = ?", BigDecimal.class, leadId)));
+	}
+
 	@Test
 	void changeIntent_fromContactedOrOnHold_keepsTheStatus() throws Exception {
 		for (String status : List.of("CONTACTED", "ON_HOLD")) {

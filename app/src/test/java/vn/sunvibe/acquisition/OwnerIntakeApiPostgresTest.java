@@ -181,6 +181,10 @@ class OwnerIntakeApiPostgresTest {
 				invalid("price with decimals", b -> price(b).put("amount", 1500.5), "askingPrice.amount"),
 				invalid("price with .0", b -> price(b).put("amount", new BigDecimal("1500.0")), "askingPrice.amount"),
 				invalid("price without amount", b -> price(b).remove("amount"), "askingPrice.amount"),
+				invalid("price as the string 0", b -> price(b).put("amount", "0"), "askingPrice.amount"),
+				invalid("price as a string of 16 digits", b -> price(b).put("amount", "1000000000000000"),
+						"askingPrice.amount"),
+				invalid("price as a string with decimals", b -> price(b).put("amount", "1500.5"), "askingPrice.amount"),
 				invalid("currency USD", b -> price(b).put("currency", "USD"), "askingPrice.currency"),
 				invalid("unit NIGHT for long-term rent", b -> price(b).put("unit", "NIGHT"), "askingPrice.unit"),
 				invalid("unknown unit", b -> price(b).put("unit", "WEEK"), "askingPrice.unit"),
@@ -353,6 +357,19 @@ class OwnerIntakeApiPostgresTest {
 		Map<String, Object> lead = lead(result.body().path("requestCode").asString());
 		assertEquals("SALE", lead.get("intent"));
 		assertEquals("TOTAL", lead.get("asking_price_unit"));
+	}
+
+	/** contract-wire D5-5: the contract says integer, and a numeric string keeps working for a UI not yet moved. */
+	@Test
+	void post_amountAsANumericString_isAccepted() throws Exception {
+		Map<String, Object> body = validBody(nextPhone(), nextAddress());
+		price(body).put("amount", "12000000");
+
+		Result result = post(body);
+
+		assertEquals(202, result.status(), result.rawBody());
+		Map<String, Object> lead = lead(result.body().path("requestCode").asString());
+		assertEquals(0, new BigDecimal("12000000").compareTo((BigDecimal) lead.get("asking_price_amount")));
 	}
 
 	/** W9-5: the ward must be in the catalog and in the chosen province; the province must be known. */

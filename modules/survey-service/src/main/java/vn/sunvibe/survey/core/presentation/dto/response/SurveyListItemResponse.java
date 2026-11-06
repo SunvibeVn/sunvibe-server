@@ -16,12 +16,14 @@ import java.time.Instant;
 @Schema(description = "One scheduled survey appointment in the survey list")
 public record SurveyListItemResponse(String id, String leadId, String requestCode, String ownerContactName,
                                      String wardName, Instant startAt, int durationMinutes, String surveyorUserId,
-                                     String surveyorName, Confirmation confirmation, AppointmentStatus status,
+                                     @Schema(nullable = true) String surveyorName, Confirmation confirmation,
+                                     AppointmentStatus status,
                                      ListGroup group, AppointmentKind kind, boolean cannotBePerformed) {
 
     /** The confirmation as the list shows it. */
     @Schema(name = "SurveyListConfirmation", description = "The owner's confirmation in the survey list")
-    public record Confirmation(ConfirmationState state, ConfirmationCause cause, boolean everConfirmed) {
+    public record Confirmation(ConfirmationState state, @Schema(nullable = true) ConfirmationCause cause,
+                               boolean everConfirmed) {
     }
 
     @Override

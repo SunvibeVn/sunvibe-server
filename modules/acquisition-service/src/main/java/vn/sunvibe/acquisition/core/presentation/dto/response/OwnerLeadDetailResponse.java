@@ -31,28 +31,29 @@ public record OwnerLeadDetailResponse(
         String wardName,
         @Schema(description = "Kind of property the owner describes (not the unit layout of the property create "
                 + "API)", nullable = true) OwnerLeadPropertyType propertyType,
-        @Schema(description = "User id of the assignee; null when nobody holds the lead") String assignedUserId,
+        @Schema(description = "User id of the assignee; null when nobody holds the lead", nullable = true)
+        String assignedUserId,
         @Schema(description = "Full name of the assignee; null when nobody holds the lead "
                 + "or the id has no user row", nullable = true)
         String assignedUserName,
-        Instant nextActionAt,
+        @Schema(nullable = true) Instant nextActionAt,
         @Schema(description = "True when the lead has at least one possible duplicate the caller can see")
         boolean possibleDuplicate,
         Instant createdAt,
         @Schema(description = "Send it back as expectedVersion with the next change") long version,
-        @Schema(description = "Normalized phone number", example = "0909123456") String phone,
-        String email,
+        @Schema(description = "Normalized phone number", example = "+84909123456") String phone,
+        @Schema(nullable = true) String email,
         String addressDetail,
-        @Schema(description = "Null when the owner gave no position") BigDecimal latitude,
-        @Schema(description = "Null when the owner gave no position") BigDecimal longitude,
-        @Schema(description = "Null when the owner gave no price") AskingPriceResponse askingPrice,
-        LocalDate availableFrom,
-        String notes,
-        String preferredCallbackTime,
+        @Schema(description = "Null when the owner gave no position", nullable = true) BigDecimal latitude,
+        @Schema(description = "Null when the owner gave no position", nullable = true) BigDecimal longitude,
+        @Schema(description = "Null when the owner gave no price", nullable = true) AskingPriceResponse askingPrice,
+        @Schema(nullable = true) LocalDate availableFrom,
+        @Schema(nullable = true) String notes,
+        @Schema(nullable = true) String preferredCallbackTime,
         OwnerLeadSource source,
-        @Schema(description = "Lead this one repeats; null unless the caller can see that lead")
+        @Schema(description = "Lead this one repeats; null unless the caller can see that lead", nullable = true)
         String duplicateOfLeadId,
-        String closeReason,
+        @Schema(nullable = true) String closeReason,
         ConsentResponse consent,
         @Schema(description = "Possible duplicates the caller can see, in either direction")
         List<DuplicateCandidateResponse> duplicateCandidates,

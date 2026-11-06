@@ -10,7 +10,9 @@ import java.time.Instant;
  * revision in force then, the note, who entered it and when the server stored it, and the proxy reason and basis.
  */
 @Schema(description = "The visit recorded for the appointment")
-public record SurveyVisitResponse(VisitRecordKind recordKind, String performedByUserId, String performedByName,
-                                  Instant arrivedAt, int revisionNo, String note, String recordedByUserId,
-                                  String recordedByName, Instant recordedAt, SurveyProxyResponse proxy) {
+public record SurveyVisitResponse(VisitRecordKind recordKind, String performedByUserId,
+                                  @Schema(nullable = true) String performedByName, Instant arrivedAt, int revisionNo,
+                                  String note, String recordedByUserId,
+                                  @Schema(nullable = true) String recordedByName, Instant recordedAt,
+                                  @Schema(nullable = true) SurveyProxyResponse proxy) {
 }

@@ -50,9 +50,9 @@ public class StaffUserRoleController {
             @ApiResponse(responseCode = "200", description = "The account's roles",
                     content = @Content(schema = @Schema(implementation = UserRolesResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(type = "object"))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller is not ADMIN or SUPER_ADMIN",
-                    content = @Content(schema = @Schema(type = "object"))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "No such account",
                     content = @Content(schema = @Schema(implementation = BaseErrorModel.class)))
     })
@@ -69,10 +69,10 @@ public class StaffUserRoleController {
             @ApiResponse(responseCode = "400", description = "Role not grantable (SUPER_ADMIN, an old role or an unknown name); field role",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(type = "object"))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller may not change this role (ADMIN changing ADMIN), "
                     + "changes their own roles, or is ADMIN and the account holds ADMIN or SUPER_ADMIN",
-                    content = @Content(schema = @Schema(type = "object"))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "No such account",
                     content = @Content(schema = @Schema(implementation = BaseErrorModel.class))),
             @ApiResponse(responseCode = "422", description = "The account is locked or terminated; field userId",
@@ -93,10 +93,10 @@ public class StaffUserRoleController {
             @ApiResponse(responseCode = "400", description = "Role not revocable (SUPER_ADMIN, an old role or an unknown name); field role",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
-                    content = @Content(schema = @Schema(type = "object"))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Caller may not change this role (ADMIN changing ADMIN), "
                     + "changes their own roles, or is ADMIN and the account holds ADMIN or SUPER_ADMIN",
-                    content = @Content(schema = @Schema(type = "object"))),
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "No such account",
                     content = @Content(schema = @Schema(implementation = BaseErrorModel.class)))
     })

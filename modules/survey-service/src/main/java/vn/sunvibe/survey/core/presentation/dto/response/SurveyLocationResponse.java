@@ -7,7 +7,8 @@ import java.math.BigDecimal;
 /** A place of a survey appointment: the meeting place or the lead's place copied at booking. Private data. */
 @Schema(description = "A place: address, province and ward with names, optional pin")
 public record SurveyLocationResponse(String addressText, String provinceCode, String provinceName, String wardCode,
-                                     String wardName, BigDecimal latitude, BigDecimal longitude) {
+                                     String wardName, @Schema(nullable = true) BigDecimal latitude,
+                                     @Schema(nullable = true) BigDecimal longitude) {
 
     @Override
     public String toString() {

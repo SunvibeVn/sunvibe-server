@@ -8,8 +8,13 @@ import java.time.Instant;
 
 /** One event of the appointment's history, in order. */
 @Schema(description = "One event of the appointment")
-public record SurveyEventResponse(AppointmentEventType type, String actorUserId, String actorName, Instant occurredAt,
-                                  Integer revisionNo, String fromSurveyorUserId, String fromSurveyorName,
-                                  String toSurveyorUserId, String toSurveyorName,
-                                  ConfirmationCause confirmationCause, String note) {
+public record SurveyEventResponse(AppointmentEventType type, @Schema(nullable = true) String actorUserId,
+                                  @Schema(nullable = true) String actorName, Instant occurredAt,
+                                  @Schema(nullable = true) Integer revisionNo,
+                                  @Schema(nullable = true) String fromSurveyorUserId,
+                                  @Schema(nullable = true) String fromSurveyorName,
+                                  @Schema(nullable = true) String toSurveyorUserId,
+                                  @Schema(nullable = true) String toSurveyorName,
+                                  @Schema(nullable = true) ConfirmationCause confirmationCause,
+                                  @Schema(nullable = true) String note) {
 }

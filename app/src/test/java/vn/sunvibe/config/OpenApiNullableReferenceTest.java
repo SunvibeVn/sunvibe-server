@@ -77,6 +77,49 @@ class OpenApiNullableReferenceTest {
 		assertEquals(List.of(), broken);
 	}
 
+	/** Request and response schemas alike: {@code type} allowed null while {@code enum} refused it (SV-022). */
+	@Test
+	void everyNullableEnum_listsNull() {
+		List<String> broken = new ArrayList<>();
+		collectEnumsRefusingNull(contract, "", broken);
+		assertEquals(List.of(), broken);
+	}
+
+	@Test
+	void propertyTypeAndResumeTarget_listNull() {
+		assertTrue(listsNull(schemas.path("OwnerLeadSummaryResponse").path("properties").path("propertyType")));
+		assertTrue(listsNull(schemas.path("SurveyResumeResponse").path("properties").path("target")));
+	}
+
+	@Test
+	void enumThatIsNotNullable_listsNoNull() {
+		assertFalse(listsNull(schemas.path("OwnerLeadSummaryResponse").path("properties").path("status")));
+	}
+
+	private static void collectEnumsRefusingNull(JsonNode node, String path, List<String> broken) {
+		if (node.isObject()) {
+			if (node.path("enum").isArray() && texts(node.path("type")).contains("null") && !listsNull(node)) {
+				broken.add(path);
+			}
+			for (Map.Entry<String, JsonNode> child : node.properties()) {
+				collectEnumsRefusingNull(child.getValue(), path + "/" + child.getKey(), broken);
+			}
+		} else if (node.isArray()) {
+			for (int i = 0; i < node.size(); i++) {
+				collectEnumsRefusingNull(node.get(i), path + "/" + i, broken);
+			}
+		}
+	}
+
+	private static boolean listsNull(JsonNode property) {
+		for (JsonNode value : property.path("enum")) {
+			if (value.isNull()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	private static void collectBroken(JsonNode node, String path, List<String> broken) {
 		if (node.isObject()) {
 			if (node.has("$ref") && (node.has("type") || node.has("nullable"))) {

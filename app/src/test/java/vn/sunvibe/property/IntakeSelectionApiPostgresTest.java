@@ -31,6 +31,15 @@ class IntakeSelectionApiPostgresTest extends IntakeApiTestBase {
 		return "0963";
 	}
 
+	/** property-create intake D5-17: with the intake on, direct create answers as if it did not exist. */
+	@Test
+	void directCreate_switchedOff_answers404() throws Exception {
+		Result created = api.post(sale, "/api/v1/properties", Map.of());
+
+		assertEquals(404, created.status(), created.rawBody());
+		assertEquals("NOT_FOUND", created.body().path("code").asString());
+	}
+
 	// ==================== the gate (S-1) ====================
 
 	@Test

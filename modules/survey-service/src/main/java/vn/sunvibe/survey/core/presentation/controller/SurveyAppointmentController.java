@@ -191,13 +191,15 @@ public class SurveyAppointmentController {
     /**
      * POST /api/v1/staff/survey-appointments/{appointmentId}/cancellation
      * <p>
-     * Cancel with a reason (survey-schedule US-2 AC-2); the lead goes back to CONTACTED unless it has a current visit.
+     * Cancel with a reason (survey-schedule US-2 AC-2); the lead goes back to CONTACTED unless the survey record of its
+     * current visit can still be completed.
      */
     @PostMapping("/{appointmentId}/cancellation")
     @Operation(summary = "Cancel a scheduled survey appointment (SALE: own leads only; SALE_LEADER, SALES_MANAGER, "
             + "ADMIN, SUPER_ADMIN)",
-            description = "The lead stays SURVEY_SCHEDULED when it has a current visit, else goes back to "
-                    + "CONTACTED. An overdue appointment can be cancelled; the surveyor need not be eligible.")
+            description = "The lead stays SURVEY_SCHEDULED while the survey record of its current visit can still be "
+                    + "completed, else goes back to CONTACTED. An overdue appointment can be cancelled; the surveyor "
+                    + "need not be eligible.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "The survey block, the lead and its History entry",
                     content = @Content(schema = @Schema(implementation = SurveyCommandResponse.class))),

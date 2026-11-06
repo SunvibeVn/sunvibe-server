@@ -64,7 +64,8 @@ public class LeadSurveyController {
     @Operation(summary = "Read the survey block of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, "
             + "ADMIN, SUPER_ADMIN)",
             description = "Appointments with places, access notes and on-site contacts, revisions, events, the visit "
-                    + "and the resumptions. Every call is recorded in the survey access log.")
+                    + "and the resumptions, and the block's checklist fields: checklistStart, revisionStart, resume "
+                    + "and survey. Every call is recorded in the survey access log.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "The survey block",
                     content = @Content(schema = @Schema(implementation = SurveyBlockResponse.class))),
@@ -107,7 +108,8 @@ public class LeadSurveyController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION (field expectedLeadVersion), "
                     + "SURVEY_ALREADY_SCHEDULED, SURVEY_NOT_ALLOWED (field status or intent, with the allowed "
-                    + "values) or INVALID_STATE_TRANSITION",
+                    + "values, or field checklist while the current visit's latest revision is SUBMITTED or the cycle "
+                    + "has a PASSED not withdrawn from use) or INVALID_STATE_TRANSITION",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "422", description = "SURVEYOR_INELIGIBLE: the assignee can no longer take "
                     + "leads",
@@ -163,7 +165,8 @@ public class LeadSurveyController {
     @PostMapping("/{leadId}/survey-resumptions")
     @Operation(summary = "Resume the survey work of a held owner lead (SALE: own leads only; SALE_LEADER, "
             + "SALES_MANAGER, ADMIN, SUPER_ADMIN)",
-            description = "ON_HOLD with a current visit goes back to SURVEY_SCHEDULED, with a reason and the owner's "
+            description = "ON_HOLD with a current visit goes to QUALIFIED with a usable PASSED revision, else back to "
+                    + "SURVEY_SCHEDULED when the survey record can still be completed, with a reason and the owner's "
                     + "confirmation (basis) dated from the day the lead went on hold.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "The survey block, the lead and its History entry",
@@ -178,7 +181,8 @@ public class LeadSurveyController {
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION (field expectedLeadVersion), "
-                    + "INVALID_STATE_TRANSITION (field status, allowed ON_HOLD) or NO_CURRENT_VISIT",
+                    + "INVALID_STATE_TRANSITION (field status, allowed ON_HOLD), NO_CURRENT_VISIT or "
+                    + "SURVEY_NOT_ALLOWED (field checklist: the survey record allows neither target)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<SurveyCommandResponse> resume(@PathVariable("leadId") String leadId,

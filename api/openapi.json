@@ -1504,6 +1504,16 @@
               }
             },
             "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the intake switch is off"
           }
         },
         "security" : [ {
@@ -2246,7 +2256,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "oneOf" : [ {
+                  "anyOf" : [ {
                     "$ref" : "#/components/schemas/ErrorResponse"
                   }, {
                     "$ref" : "#/components/schemas/BaseErrorModel"
@@ -2260,7 +2270,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -2270,11 +2280,21 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
             "description" : "Caller is not SALE, SALE_LEADER, SALES_MANAGER, ADMIN or SUPER_ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: direct create is switched off"
           },
           "409" : {
             "content" : {
@@ -2541,6 +2561,16 @@
               }
             },
             "description" : "The caller holds no manager role"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the intake switch is off"
           }
         },
         "summary" : "The cases a manager may act on, oldest first; whoever worked a side does not see them",
@@ -4457,7 +4487,7 @@
     },
     "/api/v1/staff/owner-leads/{leadId}/survey" : {
       "get" : {
-        "description" : "Appointments with places, access notes and on-site contacts, revisions, events, the visit and the resumptions. Every call is recorded in the survey access log.",
+        "description" : "Appointments with places, access notes and on-site contacts, revisions, events, the visit and the resumptions, and the block's checklist fields: checklistStart, revisionStart, resume and survey. Every call is recorded in the survey access log.",
         "operationId" : "block",
         "parameters" : [ {
           "in" : "path",
@@ -4594,7 +4624,7 @@
                 }
               }
             },
-            "description" : "CONCURRENT_MODIFICATION (field expectedLeadVersion), SURVEY_ALREADY_SCHEDULED, SURVEY_NOT_ALLOWED (field status or intent, with the allowed values) or INVALID_STATE_TRANSITION"
+            "description" : "CONCURRENT_MODIFICATION (field expectedLeadVersion), SURVEY_ALREADY_SCHEDULED, SURVEY_NOT_ALLOWED (field status or intent, with the allowed values, or field checklist while the current visit's latest revision is SUBMITTED or the cycle has a PASSED not withdrawn from use) or INVALID_STATE_TRANSITION"
           },
           "422" : {
             "content" : {
@@ -4707,7 +4737,7 @@
     },
     "/api/v1/staff/owner-leads/{leadId}/survey-resumptions" : {
       "post" : {
-        "description" : "ON_HOLD with a current visit goes back to SURVEY_SCHEDULED, with a reason and the owner's confirmation (basis) dated from the day the lead went on hold.",
+        "description" : "ON_HOLD with a current visit goes to QUALIFIED with a usable PASSED revision, else back to SURVEY_SCHEDULED when the survey record can still be completed, with a reason and the owner's confirmation (basis) dated from the day the lead went on hold.",
         "operationId" : "resume",
         "parameters" : [ {
           "in" : "path",
@@ -4786,7 +4816,7 @@
                 }
               }
             },
-            "description" : "CONCURRENT_MODIFICATION (field expectedLeadVersion), INVALID_STATE_TRANSITION (field status, allowed ON_HOLD) or NO_CURRENT_VISIT"
+            "description" : "CONCURRENT_MODIFICATION (field expectedLeadVersion), INVALID_STATE_TRANSITION (field status, allowed ON_HOLD), NO_CURRENT_VISIT or SURVEY_NOT_ALLOWED (field checklist: the survey record allows neither target)"
           }
         },
         "summary" : "Resume the survey work of a held owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
@@ -5113,7 +5143,7 @@
     },
     "/api/v1/staff/survey-appointments/{appointmentId}/cancellation" : {
       "post" : {
-        "description" : "The lead stays SURVEY_SCHEDULED when it has a current visit, else goes back to CONTACTED. An overdue appointment can be cancelled; the surveyor need not be eligible.",
+        "description" : "The lead stays SURVEY_SCHEDULED while the survey record of its current visit can still be completed, else goes back to CONTACTED. An overdue appointment can be cancelled; the surveyor need not be eligible.",
         "operationId" : "cancel",
         "parameters" : [ {
           "in" : "path",
@@ -7646,15 +7676,6 @@
         },
         "summary" : "Read one image of a survey photo (anyone who can see the lead)",
         "tags" : [ "Survey photos (staff)" ]
-      },
-      "head" : {
-        "operationId" : "head",
-        "responses" : {
-          "200" : {
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "Survey photos (staff)" ]
       }
     },
     "/api/v1/staff/survey-media/{mediaId}/hold" : {
@@ -7977,7 +7998,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -7987,7 +8008,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -8046,7 +8067,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -8056,7 +8077,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -8113,7 +8134,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -8123,7 +8144,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "type" : "object"
+                  "$ref" : "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -8178,7 +8199,7 @@
         "type" : "object",
         "properties" : {
           "amount" : {
-            "type" : "string",
+            "type" : "integer",
             "format" : "int64",
             "example" : 15000000,
             "maximum" : 999999999999999,
@@ -8914,7 +8935,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "MEASURED", "ESTIMATED", "OWNER_STATED" ]
+            "enum" : [ "MEASURED", "ESTIMATED", "OWNER_STATED", null ]
           },
           "state" : {
             "type" : "string",
@@ -8950,7 +8971,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "MEASURED", "ESTIMATED", "OWNER_STATED" ]
+            "enum" : [ "MEASURED", "ESTIMATED", "OWNER_STATED", null ]
           },
           "state" : {
             "type" : "string",
@@ -9011,7 +9032,7 @@
           "chargeUnit" : {
             "type" : [ "string", "null" ],
             "description" : "AMOUNT only",
-            "enum" : [ "PER_MONTH", "PER_KWH", "PER_M3", "PER_PERSON_PER_MONTH", "PER_VEHICLE_PER_MONTH", "ONE_OFF" ]
+            "enum" : [ "PER_MONTH", "PER_KWH", "PER_M3", "PER_PERSON_PER_MONTH", "PER_VEHICLE_PER_MONTH", "ONE_OFF", null ]
           },
           "note" : {
             "type" : [ "string", "null" ],
@@ -9135,7 +9156,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -9175,7 +9196,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -9432,7 +9453,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", null ]
           },
           "state" : {
             "type" : "string",
@@ -9469,7 +9490,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", null ]
           },
           "state" : {
             "type" : "string",
@@ -9515,7 +9536,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -9552,7 +9573,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -9593,7 +9614,7 @@
           "failedKind" : {
             "type" : [ "string", "null" ],
             "description" : "Required with FAILED, refused otherwise",
-            "enum" : [ "OUT_OF_SCOPE", "NOT_ACCEPTED", "TEMPORARY" ]
+            "enum" : [ "OUT_OF_SCOPE", "NOT_ACCEPTED", "TEMPORARY", null ]
           },
           "limitations" : {
             "type" : [ "string", "null" ],
@@ -9602,7 +9623,7 @@
           "needsChangesKind" : {
             "type" : [ "string", "null" ],
             "description" : "Required with NEEDS_CHANGES, refused otherwise",
-            "enum" : [ "DOCUMENTS_ONLY", "RESURVEY_REQUIRED" ]
+            "enum" : [ "DOCUMENTS_ONLY", "RESURVEY_REQUIRED", null ]
           },
           "notes" : {
             "type" : [ "string", "null" ],
@@ -9610,7 +9631,7 @@
           },
           "outcome" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "PASSED", "NEEDS_CHANGES", "FAILED" ]
+            "enum" : [ "PASSED", "NEEDS_CHANGES", "FAILED", null ]
           },
           "reason" : {
             "type" : [ "string", "null" ],
@@ -9636,14 +9657,14 @@
           },
           "failedKind" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "OUT_OF_SCOPE", "NOT_ACCEPTED", "TEMPORARY" ]
+            "enum" : [ "OUT_OF_SCOPE", "NOT_ACCEPTED", "TEMPORARY", null ]
           },
           "limitations" : {
             "type" : [ "string", "null" ]
           },
           "needsChangesKind" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "DOCUMENTS_ONLY", "RESURVEY_REQUIRED" ]
+            "enum" : [ "DOCUMENTS_ONLY", "RESURVEY_REQUIRED", null ]
           },
           "notes" : {
             "type" : [ "string", "null" ]
@@ -9716,7 +9737,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -9756,7 +9777,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -10005,7 +10026,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -10044,7 +10065,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -10160,7 +10181,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", null ]
           },
           "state" : {
             "type" : "string",
@@ -10169,7 +10190,7 @@
           "value" : {
             "type" : [ "string", "null" ],
             "description" : "Present exactly when state is VALUE",
-            "enum" : [ "FULLY_FURNISHED", "BASIC", "UNFURNISHED" ]
+            "enum" : [ "FULLY_FURNISHED", "BASIC", "UNFURNISHED", null ]
           }
         }
       },
@@ -10197,7 +10218,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", null ]
           },
           "state" : {
             "type" : "string",
@@ -10206,7 +10227,7 @@
           "value" : {
             "type" : [ "string", "null" ],
             "description" : "Present exactly when state is VALUE",
-            "enum" : [ "FULLY_FURNISHED", "BASIC", "UNFURNISHED" ]
+            "enum" : [ "FULLY_FURNISHED", "BASIC", "UNFURNISHED", null ]
           }
         },
         "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
@@ -10508,7 +10529,7 @@
           },
           "rentalScope" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "WHOLE", "PARTS" ]
+            "enum" : [ "WHOLE", "PARTS", null ]
           },
           "spaces" : {
             "type" : "array",
@@ -10606,7 +10627,7 @@
           },
           "rentalScope" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "WHOLE", "PARTS" ]
+            "enum" : [ "WHOLE", "PARTS", null ]
           },
           "spaces" : {
             "type" : "array",
@@ -10680,7 +10701,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -10720,7 +10741,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -10985,7 +11006,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -11022,7 +11043,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -11197,7 +11218,7 @@
           "value" : {
             "type" : [ "string", "null" ],
             "description" : "Present exactly when state is VALUE",
-            "enum" : [ "VACANT", "OCCUPIED", "UNDER_RENOVATION", "SUSPENDED" ]
+            "enum" : [ "VACANT", "OCCUPIED", "UNDER_RENOVATION", "SUSPENDED", null ]
           }
         }
       },
@@ -11216,7 +11237,7 @@
           "value" : {
             "type" : [ "string", "null" ],
             "description" : "Present exactly when state is VALUE",
-            "enum" : [ "VACANT", "OCCUPIED", "UNDER_RENOVATION", "SUSPENDED" ]
+            "enum" : [ "VACANT", "OCCUPIED", "UNDER_RENOVATION", "SUSPENDED", null ]
           }
         },
         "required" : [ "naReason", "state", "value" ]
@@ -11479,7 +11500,7 @@
         "properties" : {
           "reason" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "INTENT_CHANGED", "LEAD_CLOSED", "EVIDENCE_HELD", "EVIDENCE_GONE", "REQUALIFIED" ]
+            "enum" : [ "INTENT_CHANGED", "LEAD_CLOSED", "EVIDENCE_HELD", "EVIDENCE_GONE", "REQUALIFIED", null ]
           },
           "surveyedScope" : {
             "$ref" : "#/components/schemas/ChecklistSurveyedScope"
@@ -11536,7 +11557,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -11576,7 +11597,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -11616,7 +11637,7 @@
           "value" : {
             "type" : [ "string", "null" ],
             "description" : "Present exactly when state is VALUE",
-            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
           }
         }
       },
@@ -11635,14 +11656,14 @@
           "value" : {
             "type" : [ "string", "null" ],
             "description" : "Present exactly when state is VALUE",
-            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
           }
         },
         "required" : [ "naReason", "state", "value" ]
       },
       "ChecklistReadiness" : {
         "type" : "object",
-        "description" : "The gaps known so far, computed on every read; submission is not available in this slice",
+        "description" : "The gaps known so far, computed on every read",
         "properties" : {
           "missing" : {
             "type" : "array",
@@ -11654,9 +11675,9 @@
             "type" : "boolean"
           },
           "submissionUnavailableReason" : {
-            "type" : "string",
-            "description" : "EVIDENCE_NOT_AVAILABLE while the checklist's photos are not available, else SUBMISSION_NOT_AVAILABLE",
-            "enum" : [ "EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE" ]
+            "type" : [ "string", "null" ],
+            "description" : "Null when submission is available, else the first gate that fails: EVIDENCE_NOT_AVAILABLE (photos are not available or uploads are off), SUBMISSION_NOT_AVAILABLE (the submission switch is off), APPOINTMENT_SCHEDULED, MISSING_ITEMS, PHOTOS_NOT_FINISHED, PHOTO_LIMIT, PHOTO_UNAVAILABLE",
+            "enum" : [ "EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE", "APPOINTMENT_SCHEDULED", "MISSING_ITEMS", "PHOTOS_NOT_FINISHED", "PHOTO_LIMIT", "PHOTO_UNAVAILABLE", null ]
           },
           "unconfirmedTerms" : {
             "type" : "array",
@@ -11738,7 +11759,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -11778,7 +11799,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -11857,7 +11878,7 @@
           },
           "reasonKind" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "WRONG_ASSET", "WRONG_OWNER", "WRONG_PERSON", "WRONG_SCOPE", "NEED_CHANGED", "PHOTO_PROBLEM", "HAZARD", "OTHER" ]
+            "enum" : [ "WRONG_ASSET", "WRONG_OWNER", "WRONG_PERSON", "WRONG_SCOPE", "NEED_CHANGED", "PHOTO_PROBLEM", "HAZARD", "OTHER", null ]
           },
           "scope" : {
             "type" : [ "string", "null" ],
@@ -12034,7 +12055,7 @@
           },
           "readOnlyReason" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "INTENT_CHANGED", "SUBMITTED", "DECIDED", "NEWER_VISIT", "LEAD_STATUS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", "TAKEOVER_REQUIRED" ]
+            "enum" : [ "INTENT_CHANGED", "SUBMITTED", "DECIDED", "NEWER_VISIT", "LEAD_STATUS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", "TAKEOVER_REQUIRED", null ]
           },
           "readiness" : {
             "$ref" : "#/components/schemas/ChecklistReadiness"
@@ -12152,7 +12173,7 @@
           },
           "reason" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "NOT_REVIEWER_ROLE", "NOT_SUBMITTED", "LEAD_STATUS", "INTENT_CHANGED", "SERVING_DISABLED", "NOT_INDEPENDENT" ]
+            "enum" : [ "NOT_REVIEWER_ROLE", "NOT_SUBMITTED", "LEAD_STATUS", "INTENT_CHANGED", "SERVING_DISABLED", "NOT_INDEPENDENT", null ]
           },
           "submittedAt" : {
             "type" : "string",
@@ -12198,13 +12219,14 @@
             "type" : "array",
             "description" : "The errors[].field of every PASSED rule that fails now: hazards, evidence.unavailable, appointment, evidence.coverage. Empty unless the revision is SUBMITTED",
             "items" : {
-              "type" : "string"
+              "type" : "string",
+              "enum" : [ "hazards", "evidence.unavailable", "appointment", "evidence.coverage" ]
             }
           },
           "reason" : {
             "type" : [ "string", "null" ],
             "description" : "The first reason, in the order of the decision command",
-            "enum" : [ "NOT_REVIEWER_ROLE", "NOT_SUBMITTED", "LEAD_STATUS", "INTENT_CHANGED", "SERVING_DISABLED", "NOT_INDEPENDENT" ]
+            "enum" : [ "NOT_REVIEWER_ROLE", "NOT_SUBMITTED", "LEAD_STATUS", "INTENT_CHANGED", "SERVING_DISABLED", "NOT_INDEPENDENT", null ]
           }
         }
       },
@@ -12232,7 +12254,7 @@
           },
           "blockedBy" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "NO_CURRENT_VISIT", "LEAD_STATUS", "NOT_RETURNED_FOR_DOCUMENTS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE" ]
+            "enum" : [ "NO_CURRENT_VISIT", "LEAD_STATUS", "NOT_RETURNED_FOR_DOCUMENTS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", null ]
           },
           "checklistId" : {
             "type" : [ "string", "null" ],
@@ -12581,7 +12603,7 @@
           "blockedBy" : {
             "type" : [ "string", "null" ],
             "description" : "The first block that applies, null when allowed",
-            "enum" : [ "NO_CURRENT_VISIT", "INTENT", "LEAD_STATUS", "CHECKLIST_EXISTS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE" ]
+            "enum" : [ "NO_CURRENT_VISIT", "INTENT", "LEAD_STATUS", "CHECKLIST_EXISTS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", null ]
           },
           "intakeDeclarationRequired" : {
             "type" : "boolean"
@@ -12717,11 +12739,11 @@
           },
           "outcome" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "PASSED", "NEEDS_CHANGES", "FAILED" ]
+            "enum" : [ "PASSED", "NEEDS_CHANGES", "FAILED", null ]
           },
           "readOnlyReason" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "INTENT_CHANGED", "SUBMITTED", "DECIDED", "NEWER_VISIT", "LEAD_STATUS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", "TAKEOVER_REQUIRED" ]
+            "enum" : [ "INTENT_CHANGED", "SUBMITTED", "DECIDED", "NEWER_VISIT", "LEAD_STATUS", "NOT_ASSIGNEE", "ASSIGNEE_INELIGIBLE", "TAKEOVER_REQUIRED", null ]
           },
           "requalified" : {
             "type" : "boolean",
@@ -13118,7 +13140,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -13154,7 +13176,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "state" : {
             "type" : "string",
@@ -13208,7 +13230,7 @@
           "lastSource" : {
             "type" : [ "string", "null" ],
             "description" : "The source the unit last held, also after it was cleared",
-            "enum" : [ "OBSERVED_ON_SITE", "MEASURED", "ESTIMATED", "OWNER_STATED", "OWNER_FORM" ]
+            "enum" : [ "OBSERVED_ON_SITE", "MEASURED", "ESTIMATED", "OWNER_STATED", "OWNER_FORM", null ]
           },
           "observedByName" : {
             "type" : [ "string", "null" ]
@@ -13333,7 +13355,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", null ]
           },
           "state" : {
             "type" : "string",
@@ -13342,7 +13364,7 @@
           "value" : {
             "type" : [ "string", "null" ],
             "description" : "Present exactly when state is VALUE",
-            "enum" : [ "YES", "NO" ]
+            "enum" : [ "YES", "NO", null ]
           }
         }
       },
@@ -13370,7 +13392,7 @@
           "source" : {
             "type" : [ "string", "null" ],
             "description" : "Required with VALUE",
-            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED" ]
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", null ]
           },
           "state" : {
             "type" : "string",
@@ -13379,7 +13401,7 @@
           "value" : {
             "type" : [ "string", "null" ],
             "description" : "Present exactly when state is VALUE",
-            "enum" : [ "YES", "NO" ]
+            "enum" : [ "YES", "NO", null ]
           }
         },
         "required" : [ "confirmedOn", "naReason", "receivedByUserId", "relayBasis", "source", "state", "value" ]
@@ -13660,7 +13682,7 @@
         "properties" : {
           "assetType" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
           },
           "rentalScope" : {
             "type" : "string",
@@ -13824,7 +13846,7 @@
           "status" : {
             "type" : [ "string", "null" ],
             "description" : "Null with no current row",
-            "enum" : [ "DRAFT", "AWAITING_OWNER", "OWNER_CONFIRMED", "CASE_OPEN", "COMPLETED" ]
+            "enum" : [ "DRAFT", "AWAITING_OWNER", "OWNER_CONFIRMED", "CASE_OPEN", "COMPLETED", null ]
           },
           "suspensions" : {
             "type" : "array",
@@ -14401,7 +14423,7 @@
           },
           "outcome" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "DIFFERENT_ASSET", "SAME_ASSET" ]
+            "enum" : [ "DIFFERENT_ASSET", "SAME_ASSET", null ]
           },
           "signal" : {
             "type" : "string",
@@ -14486,26 +14508,26 @@
             "description" : "Full name of the staff member; null for the system or the owner, or when the id has no user row"
           },
           "actorUserId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "User id of the staff member; null for the system or the owner"
           },
           "fromAssigneeId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "fromAssigneeName" : {
             "type" : [ "string", "null" ],
             "description" : "Full name of the previous assignee; null when there was none or the id has no user row"
           },
           "fromStatus" : {
-            "type" : "string",
-            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+            "type" : [ "string", "null" ],
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN", null ]
           },
           "nextActionAt" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "note" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "occurredAt" : {
             "type" : "string",
@@ -14513,7 +14535,7 @@
           },
           "referenceDetail" : {
             "type" : [ "string", "null" ],
-            "description" : "The checklist group of a CHECKLIST_SAVED entry, or the evidence category of a CHECKLIST_MEDIA_ADDED or CHECKLIST_MEDIA_REMOVED entry; null otherwise"
+            "description" : "The checklist group of a CHECKLIST_SAVED entry, the evidence category of a CHECKLIST_MEDIA_ADDED or CHECKLIST_MEDIA_REMOVED entry, or the decision of a CHECKLIST_REVIEWED entry (PASSED, or NEEDS_CHANGES or FAILED with its kind after a colon); null otherwise"
           },
           "referenceId" : {
             "type" : [ "string", "null" ],
@@ -14525,15 +14547,15 @@
             "description" : "That appointment's or checklist's number within the lead; null when none"
           },
           "toAssigneeId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "toAssigneeName" : {
             "type" : [ "string", "null" ],
             "description" : "Full name of the new assignee; null when there is none or the id has no user row"
           },
           "toStatus" : {
-            "type" : "string",
-            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN" ]
+            "type" : [ "string", "null" ],
+            "enum" : [ "NEW", "VALIDATING", "ASSIGNED", "CONTACTED", "SURVEY_SCHEDULED", "QUALIFIED", "AGREEMENT_PENDING", "ONBOARDED", "ON_HOLD", "DUPLICATE", "REJECTED", "WITHDRAWN", null ]
           },
           "type" : {
             "type" : "string",
@@ -14738,7 +14760,7 @@
           "requiredAction" : {
             "type" : [ "string", "null" ],
             "description" : "What the account must do next; null when nothing",
-            "enum" : [ "BIND_EMAIL", "VERIFY_PHONE" ]
+            "enum" : [ "BIND_EMAIL", "VERIFY_PHONE", null ]
           },
           "username" : {
             "type" : [ "string", "null" ],
@@ -14758,7 +14780,7 @@
           "category" : {
             "type" : [ "string", "null" ],
             "description" : "The evidence category; allowed at the placement's level and, for SHARED_*, only while the rental scope is PARTS",
-            "enum" : [ "EXTERIOR_ACCESS", "MAIN_SPACE", "KITCHEN", "BATHROOM", "SHARED_KITCHEN", "SHARED_BATHROOM", "SHARED_AMENITY", "DETAIL" ]
+            "enum" : [ "EXTERIOR_ACCESS", "MAIN_SPACE", "KITCHEN", "BATHROOM", "SHARED_KITCHEN", "SHARED_BATHROOM", "SHARED_AMENITY", "DETAIL", null ]
           },
           "contentSha256" : {
             "type" : [ "string", "null" ],
@@ -14790,7 +14812,7 @@
           "reason" : {
             "type" : [ "string", "null" ],
             "description" : "SECURITY_INCIDENT: a malicious or exploit-suspected file, or one produced under a decoder CVE; CREDENTIAL_EXPOSURE: a Sunvibe system secret in the photo or caption",
-            "enum" : [ "SECURITY_INCIDENT", "CREDENTIAL_EXPOSURE" ]
+            "enum" : [ "SECURITY_INCIDENT", "CREDENTIAL_EXPOSURE", null ]
           }
         },
         "required" : [ "reason" ]
@@ -15025,7 +15047,7 @@
           },
           "assetType" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
           },
           "leadCode" : {
             "type" : "string"
@@ -15214,11 +15236,15 @@
             "type" : "string"
           },
           "askingPrice" : {
-            "$ref" : "#/components/schemas/AskingPriceResponse",
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/AskingPriceResponse"
+            }, {
+              "type" : "null"
+            } ],
             "description" : "Null when the owner gave no price"
           },
           "assignedUserId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "User id of the assignee; null when nobody holds the lead"
           },
           "assignedUserName" : {
@@ -15226,11 +15252,11 @@
             "description" : "Full name of the assignee; null when nobody holds the lead or the id has no user row"
           },
           "availableFrom" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date"
           },
           "closeReason" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "consent" : {
             "$ref" : "#/components/schemas/ConsentResponse"
@@ -15250,11 +15276,11 @@
             }
           },
           "duplicateOfLeadId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "Lead this one repeats; null unless the caller can see that lead"
           },
           "email" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "id" : {
             "type" : "string"
@@ -15271,36 +15297,36 @@
             }
           },
           "latitude" : {
-            "type" : "number",
+            "type" : [ "number", "null" ],
             "description" : "Null when the owner gave no position"
           },
           "longitude" : {
-            "type" : "number",
+            "type" : [ "number", "null" ],
             "description" : "Null when the owner gave no position"
           },
           "nextActionAt" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "notes" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "phone" : {
             "type" : "string",
             "description" : "Normalized phone number",
-            "example" : "0909123456"
+            "example" : "+84909123456"
           },
           "possibleDuplicate" : {
             "type" : "boolean",
             "description" : "True when the lead has at least one possible duplicate the caller can see"
           },
           "preferredCallbackTime" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "propertyType" : {
             "type" : [ "string", "null" ],
             "description" : "Kind of property the owner describes (not the unit layout of the property create API)",
-            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
           },
           "provinceCode" : {
             "type" : "string",
@@ -15337,7 +15363,7 @@
         "description" : "Owner lead in the staff queue (no phone, email, address or coordinates)",
         "properties" : {
           "assignedUserId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "User id of the assignee; null when nobody holds the lead"
           },
           "assignedUserName" : {
@@ -15364,7 +15390,7 @@
             "description" : "Time of the lead's latest activity (any history entry: submitted, auto-assigned, assigned, reassigned, status changed, note). Opening the lead does not count."
           },
           "nextActionAt" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "possibleDuplicate" : {
@@ -15374,7 +15400,7 @@
           "propertyType" : {
             "type" : [ "string", "null" ],
             "description" : "Kind of property the owner describes (not the unit layout of the property create API)",
-            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
           },
           "provinceCode" : {
             "type" : "string",
@@ -15452,7 +15478,7 @@
           },
           "assetType" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT" ]
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
           },
           "leadCode" : {
             "type" : "string"
@@ -15685,7 +15711,9 @@
           },
           "createdAt" : {
             "type" : "string",
-            "format" : "date-time"
+            "format" : "local-date-time",
+            "description" : "The server's local time, with no offset",
+            "example" : "2026-11-05T19:59:18.1712426"
           },
           "createdBy" : {
             "type" : "string"
@@ -15694,7 +15722,7 @@
             "type" : "number"
           },
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "district" : {
             "type" : "string"
@@ -15720,13 +15748,14 @@
             "type" : "string"
           },
           "postalCode" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "propertyCode" : {
             "type" : "string"
           },
           "propertyType" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX", "PENTHOUSE" ]
           },
           "ruleCount" : {
             "type" : "integer",
@@ -15737,7 +15766,8 @@
             "format" : "double"
           },
           "status" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "AVAILABLE", "UNAVAILABLE", "RENTED", "SOLD", "UNDER_MAINTENANCE", "PENDING_APPROVAL", "DRAFT" ]
           },
           "street" : {
             "type" : "string"
@@ -15925,12 +15955,12 @@
         "description" : "Ward and the staff member who looks after it",
         "properties" : {
           "assignedAt" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time",
             "description" : "Null when nobody looks after the ward"
           },
           "userId" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "User id of the person; null when nobody looks after the ward"
           },
           "userName" : {
@@ -16021,7 +16051,7 @@
           "requiredAction" : {
             "type" : [ "string", "null" ],
             "description" : "What the account must do next; null when nothing",
-            "enum" : [ "BIND_EMAIL", "VERIFY_PHONE" ]
+            "enum" : [ "BIND_EMAIL", "VERIFY_PHONE", null ]
           },
           "roles" : {
             "type" : "array",
@@ -16047,14 +16077,18 @@
         "description" : "A survey appointment of a lead",
         "properties" : {
           "accessNote" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "appointmentNo" : {
             "type" : "integer",
             "format" : "int32"
           },
           "cancellation" : {
-            "$ref" : "#/components/schemas/SurveyCancellationResponse"
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/SurveyCancellationResponse"
+            }, {
+              "type" : "null"
+            } ]
           },
           "cannotBePerformed" : {
             "type" : "boolean"
@@ -16074,7 +16108,7 @@
             "format" : "date-time"
           },
           "createdByName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "createdByUserId" : {
             "type" : "string"
@@ -16120,22 +16154,22 @@
             "$ref" : "#/components/schemas/SurveyLocationResponse"
           },
           "locationReason" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "meetingLocation" : {
             "$ref" : "#/components/schemas/SurveyLocationResponse"
           },
           "onSiteContactName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "onSiteContactRole" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "previousVisitId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "resurveyReason" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "revisions" : {
             "type" : "array",
@@ -16152,7 +16186,7 @@
             "enum" : [ "SCHEDULED", "VISITED", "CANCELLED" ]
           },
           "surveyorName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "surveyorUserId" : {
             "type" : "string"
@@ -16162,7 +16196,11 @@
             "format" : "int64"
           },
           "visit" : {
-            "$ref" : "#/components/schemas/SurveyVisitResponse"
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/SurveyVisitResponse"
+            }, {
+              "type" : "null"
+            } ]
           }
         }
       },
@@ -16197,7 +16235,7 @@
             "description" : "Whether the viewer can start a survey checklist on the current visit (survey-checklist spec 7.2)"
           },
           "currentVisitId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "intentCycle" : {
             "type" : "integer",
@@ -16235,15 +16273,15 @@
             "type" : "boolean"
           },
           "blockedBy" : {
-            "type" : "string",
-            "enum" : [ "ALREADY_SCHEDULED", "NO_ASSIGNEE", "CHECKLIST_SUBMITTED", "CHECKLIST_PASSED", "LEAD_STATUS", "INTENT", "SURVEYOR_INELIGIBLE" ]
+            "type" : [ "string", "null" ],
+            "enum" : [ "ALREADY_SCHEDULED", "NO_ASSIGNEE", "CHECKLIST_SUBMITTED", "CHECKLIST_PASSED", "LEAD_STATUS", "INTENT", "SURVEYOR_INELIGIBLE", null ]
           },
           "kind" : {
-            "type" : "string",
-            "enum" : [ "FIRST", "RESURVEY" ]
+            "type" : [ "string", "null" ],
+            "enum" : [ "FIRST", "RESURVEY", null ]
           },
           "previousVisitId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
         }
       },
@@ -16260,13 +16298,13 @@
             "format" : "date-time"
           },
           "cancelledByName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "cancelledByUserId" : {
             "type" : "string"
           },
           "description" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           }
         }
       },
@@ -16275,7 +16313,11 @@
         "description" : "The answer of a survey command",
         "properties" : {
           "historyEntry" : {
-            "$ref" : "#/components/schemas/SurveyHistoryEntryResponse"
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/SurveyHistoryEntryResponse"
+            }, {
+              "type" : "null"
+            } ]
           },
           "lead" : {
             "$ref" : "#/components/schemas/SurveyLeadStateResponse"
@@ -16296,15 +16338,15 @@
         "description" : "The owner's confirmation of the appointment",
         "properties" : {
           "cause" : {
-            "type" : "string",
-            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER" ]
+            "type" : [ "string", "null" ],
+            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER", null ]
           },
           "changedAt" : {
             "type" : "string",
             "format" : "date-time"
           },
           "changedByName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "changedByUserId" : {
             "type" : "string"
@@ -16313,7 +16355,7 @@
             "type" : "boolean"
           },
           "note" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "state" : {
             "type" : "string",
@@ -16326,37 +16368,37 @@
         "description" : "One event of the appointment",
         "properties" : {
           "actorName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "actorUserId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "confirmationCause" : {
-            "type" : "string",
-            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER" ]
+            "type" : [ "string", "null" ],
+            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER", null ]
           },
           "fromSurveyorName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "fromSurveyorUserId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "note" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "occurredAt" : {
             "type" : "string",
             "format" : "date-time"
           },
           "revisionNo" : {
-            "type" : "integer",
+            "type" : [ "integer", "null" ],
             "format" : "int32"
           },
           "toSurveyorName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "toSurveyorUserId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "type" : {
             "type" : "string",
@@ -16369,27 +16411,27 @@
         "description" : "The lead History entry written by a survey command",
         "properties" : {
           "actorName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "actorUserId" : {
             "type" : "string"
           },
           "fromAssigneeId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "fromAssigneeName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "fromStatus" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "Null when the lead kept its status"
           },
           "nextActionAt" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "note" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "occurredAt" : {
             "type" : "string",
@@ -16403,13 +16445,13 @@
             "format" : "int32"
           },
           "toAssigneeId" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "toAssigneeName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "toStatus" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "description" : "Null when the lead kept its status"
           },
           "type" : {
@@ -16427,10 +16469,10 @@
             "format" : "date-time"
           },
           "name" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "to" : {
-            "type" : "string",
+            "type" : [ "string", "null" ],
             "format" : "date-time"
           },
           "userId" : {
@@ -16464,8 +16506,8 @@
         "description" : "The owner's confirmation in the survey list",
         "properties" : {
           "cause" : {
-            "type" : "string",
-            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER" ]
+            "type" : [ "string", "null" ],
+            "enum" : [ "NEW", "TIME_CHANGED", "LOCATION_CHANGED", "REASSIGNED", "USER", null ]
           },
           "everConfirmed" : {
             "type" : "boolean"
@@ -16519,7 +16561,7 @@
             "enum" : [ "SCHEDULED", "VISITED", "CANCELLED" ]
           },
           "surveyorName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "surveyorUserId" : {
             "type" : "string"
@@ -16537,10 +16579,10 @@
             "type" : "string"
           },
           "latitude" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "longitude" : {
-            "type" : "number"
+            "type" : [ "number", "null" ]
           },
           "provinceCode" : {
             "type" : "string"
@@ -16631,7 +16673,7 @@
           },
           "reason" : {
             "type" : [ "string", "null" ],
-            "enum" : [ "SECURITY_INCIDENT", "CREDENTIAL_EXPOSURE" ]
+            "enum" : [ "SECURITY_INCIDENT", "CREDENTIAL_EXPOSURE", null ]
           }
         }
       },
@@ -16712,12 +16754,12 @@
           "statusReason" : {
             "type" : [ "string", "null" ],
             "description" : "The reason of a final status other than READY",
-            "enum" : [ "UNSUPPORTED_FORMAT", "UNREADABLE", "ANIMATED", "MOTION_PHOTO", "COMPOSITE_FILE", "TOO_MANY_PIXELS", "MALWARE_DETECTED", "SCAN_LIMIT_EXCEEDED", "PROCESSING_UNAVAILABLE", "REMOVED", "CONTENT_NOT_RECEIVED" ]
+            "enum" : [ "UNSUPPORTED_FORMAT", "UNREADABLE", "ANIMATED", "MOTION_PHOTO", "COMPOSITE_FILE", "TOO_MANY_PIXELS", "MALWARE_DETECTED", "SCAN_LIMIT_EXCEEDED", "PROCESSING_UNAVAILABLE", "REMOVED", "CONTENT_NOT_RECEIVED", null ]
           },
           "unavailableReason" : {
             "type" : [ "string", "null" ],
             "description" : "Why the content cannot be read now; null when contentAvailable",
-            "enum" : [ "REMOVED", "HELD", "NOT_READY", "CONTENT_DELETED", "CONTENT_MISSING" ]
+            "enum" : [ "REMOVED", "HELD", "NOT_READY", "CONTENT_DELETED", "CONTENT_MISSING", null ]
           },
           "uploadedByName" : {
             "type" : [ "string", "null" ]
@@ -16880,7 +16922,7 @@
           "target" : {
             "type" : [ "string", "null" ],
             "description" : "Null when the lead cannot be resumed",
-            "enum" : [ "SURVEY_SCHEDULED", "QUALIFIED" ]
+            "enum" : [ "SURVEY_SCHEDULED", "QUALIFIED", null ]
           }
         }
       },
@@ -16889,7 +16931,7 @@
         "description" : "A resumption of the lead's survey work",
         "properties" : {
           "actorName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "actorUserId" : {
             "type" : "string"
@@ -16918,10 +16960,10 @@
         "description" : "One revision of the appointment's values",
         "properties" : {
           "accessNote" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "actorName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "actorUserId" : {
             "type" : "string"
@@ -16934,13 +16976,13 @@
             "$ref" : "#/components/schemas/SurveyLocationResponse"
           },
           "onSiteContactName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "onSiteContactRole" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "reason" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "revisionNo" : {
             "type" : "integer",
@@ -16968,13 +17010,17 @@
             "type" : "string"
           },
           "performedByName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "performedByUserId" : {
             "type" : "string"
           },
           "proxy" : {
-            "$ref" : "#/components/schemas/SurveyProxyResponse"
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/SurveyProxyResponse"
+            }, {
+              "type" : "null"
+            } ]
           },
           "recordKind" : {
             "type" : "string",
@@ -16985,7 +17031,7 @@
             "format" : "date-time"
           },
           "recordedByName" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "recordedByUserId" : {
             "type" : "string"

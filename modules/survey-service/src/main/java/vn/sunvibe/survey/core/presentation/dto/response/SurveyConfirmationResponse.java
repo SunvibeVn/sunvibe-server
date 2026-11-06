@@ -11,7 +11,8 @@ import java.time.Instant;
  * {@code everConfirmed}; {@code cause} is null exactly when CONFIRMED.
  */
 @Schema(description = "The owner's confirmation of the appointment")
-public record SurveyConfirmationResponse(ConfirmationState state, ConfirmationCause cause, boolean everConfirmed,
-                                         String changedByUserId, String changedByName, Instant changedAt,
-                                         String note) {
+public record SurveyConfirmationResponse(ConfirmationState state, @Schema(nullable = true) ConfirmationCause cause,
+                                         boolean everConfirmed, String changedByUserId,
+                                         @Schema(nullable = true) String changedByName, Instant changedAt,
+                                         @Schema(nullable = true) String note) {
 }

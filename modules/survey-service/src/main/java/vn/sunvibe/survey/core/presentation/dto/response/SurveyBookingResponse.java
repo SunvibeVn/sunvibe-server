@@ -9,6 +9,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
  * first check that blocks it.
  */
 @Schema(description = "Whether and how the lead can get a survey booking now")
-public record SurveyBookingResponse(boolean allowed, AppointmentKind kind, String previousVisitId,
-                                    BookingBlock blockedBy) {
+public record SurveyBookingResponse(boolean allowed, @Schema(nullable = true) AppointmentKind kind,
+                                    @Schema(nullable = true) String previousVisitId,
+                                    @Schema(nullable = true) BookingBlock blockedBy) {
 }

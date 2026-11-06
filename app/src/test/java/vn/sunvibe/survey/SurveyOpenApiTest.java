@@ -199,8 +199,7 @@ class SurveyOpenApiTest {
 
 	/**
 	 * survey-media spec 7.1, 7.2 (plan Task A18): the checklist answer carries {@code media {available, uploadEnabled,
-	 * setVersion}}, a missing item's problem may be EVIDENCE_MISSING or EVIDENCE_PROCESSING and the reason submission
-	 * is unavailable may be SUBMISSION_NOT_AVAILABLE.
+	 * setVersion}} and a missing item's problem may be EVIDENCE_MISSING or EVIDENCE_PROCESSING.
 	 */
 	@Test
 	void openApi_checklistResponse_hasTheMediaBlockAndTheEvidenceProblems() {
@@ -217,10 +216,23 @@ class SurveyOpenApiTest {
 				.forEach(value -> problems.add(value.asString()));
 		assertTrue(problems.containsAll(List.of("EVIDENCE_PENDING", "EVIDENCE_MISSING", "EVIDENCE_PROCESSING")),
 				problems.toString());
-		List<String> reasons = new java.util.ArrayList<>();
-		schemas.path("ChecklistReadiness").path("properties").path("submissionUnavailableReason").path("enum")
-				.forEach(value -> reasons.add(value.asString()));
-		assertEquals(List.of("EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE"), reasons);
+	}
+
+	/** contract-wire S-4: the seven reasons of the gate, and null when submission is available (SV-085). */
+	@Test
+	void readinessReason_isTheSevenAndNull() {
+		JsonNode reason = schema("ChecklistReadiness").path("properties").path("submissionUnavailableReason");
+
+		assertEquals(List.of("EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE", "APPOINTMENT_SCHEDULED", "MISSING_ITEMS",
+				"PHOTOS_NOT_FINISHED", "PHOTO_LIMIT", "PHOTO_UNAVAILABLE"), values(reason));
+		assertTrue(acceptsNull(reason), reason.toString());
+	}
+
+	/** contract-wire S-4: {@code evidence.rejected} reaches only the errors of a refused decision, not this read. */
+	@Test
+	void decisionBlockedBy_itemsAreTheFour() {
+		assertEquals(List.of("hazards", "evidence.unavailable", "appointment", "evidence.coverage"),
+				values(schema("ChecklistReviewResponse").path("properties").path("decisionBlockedBy").path("items")));
 	}
 
 	@Test
@@ -365,14 +377,29 @@ class SurveyOpenApiTest {
 				.contains("REQUALIFICATION_MARKED"));
 	}
 
+	/** contract-wire S-13: a resume can also reach QUALIFIED, and is refused when the record allows neither target. */
+	@Test
+	void resume_namesQualifiedAndSurveyNotAllowed() {
+		JsonNode resume = contract.path("paths").path("/api/v1/staff/owner-leads/{leadId}/survey-resumptions").path("post");
+
+		assertTrue(resume.path("description").asString().contains("QUALIFIED"), resume.toString());
+		assertTrue(resume.path("responses").path("409").path("description").asString().contains("SURVEY_NOT_ALLOWED"),
+				resume.toString());
+	}
+
 	/** OpenAPI 3.1: a nullable property lists the null type (SV-020). */
 	private static boolean acceptsNull(JsonNode property) {
 		return property.toString().contains("\"null\"");
 	}
 
+	/** The enum's real values; that a nullable enum lists null is OpenApiNullableReferenceTest's. */
 	private static List<String> values(JsonNode property) {
 		List<String> values = new ArrayList<>();
-		property.path("enum").forEach(value -> values.add(value.asString()));
+		property.path("enum").forEach(value -> {
+			if (!value.isNull()) {
+				values.add(value.asString());
+			}
+		});
 		return values;
 	}
 

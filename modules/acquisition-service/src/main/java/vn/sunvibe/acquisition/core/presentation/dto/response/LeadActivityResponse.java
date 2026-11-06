@@ -15,22 +15,23 @@ import java.time.Instant;
 @Schema(description = "History entry of an owner lead")
 public record LeadActivityResponse(
         OwnerLeadActivityType type,
-        @Schema(description = "User id of the staff member; null for the system or the owner") String actorUserId,
+        @Schema(description = "User id of the staff member; null for the system or the owner", nullable = true)
+        String actorUserId,
         @Schema(description = "Full name of the staff member; null for the system or the owner, "
                 + "or when the id has no user row", nullable = true)
         String actorName,
-        OwnerLeadStatus fromStatus,
-        OwnerLeadStatus toStatus,
-        String fromAssigneeId,
+        @Schema(nullable = true) OwnerLeadStatus fromStatus,
+        @Schema(nullable = true) OwnerLeadStatus toStatus,
+        @Schema(nullable = true) String fromAssigneeId,
         @Schema(description = "Full name of the previous assignee; null when there was none "
                 + "or the id has no user row", nullable = true)
         String fromAssigneeName,
-        String toAssigneeId,
+        @Schema(nullable = true) String toAssigneeId,
         @Schema(description = "Full name of the new assignee; null when there is none "
                 + "or the id has no user row", nullable = true)
         String toAssigneeName,
-        String note,
-        Instant nextActionAt,
+        @Schema(nullable = true) String note,
+        @Schema(nullable = true) Instant nextActionAt,
         Instant occurredAt,
         @Schema(description = "The survey appointment (survey types) or survey checklist (checklist types) the entry "
                 + "concerns; null when none", nullable = true)
@@ -38,8 +39,10 @@ public record LeadActivityResponse(
         @Schema(description = "That appointment's or checklist's number within the lead; null when none",
                 nullable = true)
         Integer referenceNo,
-        @Schema(description = "The checklist group of a CHECKLIST_SAVED entry, or the evidence category of a "
-                + "CHECKLIST_MEDIA_ADDED or CHECKLIST_MEDIA_REMOVED entry; null otherwise", nullable = true)
+        @Schema(description = "The checklist group of a CHECKLIST_SAVED entry, the evidence category of a "
+                + "CHECKLIST_MEDIA_ADDED or CHECKLIST_MEDIA_REMOVED entry, or the decision of a CHECKLIST_REVIEWED "
+                + "entry (PASSED, or NEEDS_CHANGES or FAILED with its kind after a colon); null otherwise",
+                nullable = true)
         String referenceDetail) {
 
     /** The note is staff text: never print it. */
