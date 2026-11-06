@@ -22,13 +22,13 @@ import vn.sunvibe.survey.core.presentation.dto.request.ResumeSurveyRequest;
 import java.util.Optional;
 
 /**
- * Converter - SurveyRequestMapper
+ * Converter - SurveyRequestConverter
  * <p>
  * Turns the survey request bodies into commands; the commands check and clean the values (survey-schedule spec 5.5:
  * body first, before any lookup). A basis is named by its request path ({@code basis} or {@code proxy.basis}).
  */
 @Component
-public class SurveyRequestMapper {
+public class SurveyRequestConverter {
 
     public BookAppointmentCommand toCommand(String leadId, BookAppointmentRequest request) {
         return new BookAppointmentCommand(leadId, request.expectedLeadVersion(), request.startAt(),

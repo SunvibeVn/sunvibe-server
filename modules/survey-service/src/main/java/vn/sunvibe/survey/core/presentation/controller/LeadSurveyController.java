@@ -22,8 +22,8 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.survey.core.application.usecase.SurveyAppointmentCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyQueryUseCase;
-import vn.sunvibe.survey.core.presentation.converter.SurveyRequestMapper;
-import vn.sunvibe.survey.core.presentation.converter.SurveyResponseMapper;
+import vn.sunvibe.survey.core.presentation.converter.SurveyRequestConverter;
+import vn.sunvibe.survey.core.presentation.converter.SurveyResponseConverter;
 import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.BookAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ResumeSurveyRequest;
@@ -52,8 +52,8 @@ public class LeadSurveyController {
     private final SurveyQueryUseCase queryUseCase;
     private final SurveyAppointmentCommandUseCase commandUseCase;
     private final SurveyViewerResolver viewerResolver;
-    private final SurveyRequestMapper requestMapper;
-    private final SurveyResponseMapper responseMapper;
+    private final SurveyRequestConverter requestConverter;
+    private final SurveyResponseConverter responseConverter;
 
     /**
      * GET /api/v1/staff/owner-leads/{leadId}/survey
@@ -77,7 +77,7 @@ public class LeadSurveyController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<SurveyBlockResponse> block(@PathVariable("leadId") String leadId) {
-        return ResponseEntity.ok(responseMapper.toBlock(queryUseCase.block(viewerResolver.current(), leadId)));
+        return ResponseEntity.ok(responseConverter.toBlock(queryUseCase.block(viewerResolver.current(), leadId)));
     }
 
     /**
@@ -117,8 +117,8 @@ public class LeadSurveyController {
     })
     public ResponseEntity<SurveyCommandResponse> book(@PathVariable("leadId") String leadId,
                                                       @Valid @RequestBody BookAppointmentRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(responseMapper.toCommand(
-                commandUseCase.book(viewerResolver.current(), requestMapper.toCommand(leadId, request))));
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseConverter.toCommand(
+                commandUseCase.book(viewerResolver.current(), requestConverter.toCommand(leadId, request))));
     }
 
     /**
@@ -153,7 +153,7 @@ public class LeadSurveyController {
             @RequestParam(name = "durationMinutes") Integer durationMinutes,
             @Parameter(description = "On an edit: the appointment itself")
             @RequestParam(name = "excludeAppointmentId", required = false) String excludeAppointmentId) {
-        return ResponseEntity.ok(responseMapper.toOverlaps(queryUseCase.overlaps(viewerResolver.current(), leadId,
+        return ResponseEntity.ok(responseConverter.toOverlaps(queryUseCase.overlaps(viewerResolver.current(), leadId,
                 startAt, durationMinutes, Optional.ofNullable(excludeAppointmentId))));
     }
 
@@ -187,7 +187,7 @@ public class LeadSurveyController {
     })
     public ResponseEntity<SurveyCommandResponse> resume(@PathVariable("leadId") String leadId,
                                                         @Valid @RequestBody ResumeSurveyRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(responseMapper.toCommand(
-                commandUseCase.resume(viewerResolver.current(), requestMapper.toCommand(leadId, request))));
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseConverter.toCommand(
+                commandUseCase.resume(viewerResolver.current(), requestConverter.toCommand(leadId, request))));
     }
 }

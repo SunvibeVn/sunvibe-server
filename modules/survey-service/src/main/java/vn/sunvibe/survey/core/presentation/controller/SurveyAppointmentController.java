@@ -29,10 +29,10 @@ import vn.sunvibe.survey.core.application.query.SurveyListScope;
 import vn.sunvibe.survey.core.application.usecase.SurveyAppointmentCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyChecklistCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyQueryUseCase;
-import vn.sunvibe.survey.core.presentation.converter.ChecklistRequestMapper;
-import vn.sunvibe.survey.core.presentation.converter.ChecklistResponseMapper;
-import vn.sunvibe.survey.core.presentation.converter.SurveyRequestMapper;
-import vn.sunvibe.survey.core.presentation.converter.SurveyResponseMapper;
+import vn.sunvibe.survey.core.presentation.converter.ChecklistRequestConverter;
+import vn.sunvibe.survey.core.presentation.converter.ChecklistResponseConverter;
+import vn.sunvibe.survey.core.presentation.converter.SurveyRequestConverter;
+import vn.sunvibe.survey.core.presentation.converter.SurveyResponseConverter;
 import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.CancelAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ChangeAppointmentRequest;
@@ -65,11 +65,11 @@ public class SurveyAppointmentController {
     private final SurveyQueryUseCase queryUseCase;
     private final SurveyAppointmentCommandUseCase commandUseCase;
     private final SurveyViewerResolver viewerResolver;
-    private final SurveyRequestMapper requestMapper;
-    private final SurveyResponseMapper responseMapper;
+    private final SurveyRequestConverter requestConverter;
+    private final SurveyResponseConverter responseConverter;
     private final SurveyChecklistCommandUseCase checklistCommandUseCase;
-    private final ChecklistRequestMapper checklistRequestMapper;
-    private final ChecklistResponseMapper checklistResponseMapper;
+    private final ChecklistRequestConverter checklistRequestConverter;
+    private final ChecklistResponseConverter checklistResponseConverter;
 
     /**
      * GET /api/v1/staff/survey-appointments
@@ -114,7 +114,7 @@ public class SurveyAppointmentController {
             @Max(value = 100, message = "Size must be from 1 to 100.") int size) {
         SurveyListQuery query = new SurveyListQuery(SurveyListScope.valueOf(scope.toUpperCase(Locale.ROOT)),
                 Optional.ofNullable(surveyorUserId), page, size);
-        return ResponseEntity.ok(responseMapper.toPage(queryUseCase.list(viewerResolver.current(), query)));
+        return ResponseEntity.ok(responseConverter.toPage(queryUseCase.list(viewerResolver.current(), query)));
     }
 
     /**
@@ -150,8 +150,8 @@ public class SurveyAppointmentController {
     })
     public ResponseEntity<SurveyCommandResponse> change(@PathVariable("appointmentId") String appointmentId,
                                                         @Valid @RequestBody ChangeAppointmentRequest request) {
-        return ResponseEntity.ok(responseMapper.toCommand(commandUseCase.change(viewerResolver.current(),
-                requestMapper.toCommand(appointmentId, request))));
+        return ResponseEntity.ok(responseConverter.toCommand(commandUseCase.change(viewerResolver.current(),
+                requestConverter.toCommand(appointmentId, request))));
     }
 
     /**
@@ -184,8 +184,8 @@ public class SurveyAppointmentController {
     })
     public ResponseEntity<SurveyCommandResponse> confirmation(@PathVariable("appointmentId") String appointmentId,
                                                               @Valid @RequestBody ConfirmationRequest request) {
-        return ResponseEntity.ok(responseMapper.toCommand(commandUseCase.setConfirmation(viewerResolver.current(),
-                requestMapper.toCommand(appointmentId, request))));
+        return ResponseEntity.ok(responseConverter.toCommand(commandUseCase.setConfirmation(viewerResolver.current(),
+                requestConverter.toCommand(appointmentId, request))));
     }
 
     /**
@@ -218,8 +218,8 @@ public class SurveyAppointmentController {
     })
     public ResponseEntity<SurveyCommandResponse> cancel(@PathVariable("appointmentId") String appointmentId,
                                                         @Valid @RequestBody CancelAppointmentRequest request) {
-        return ResponseEntity.ok(responseMapper.toCommand(commandUseCase.cancel(viewerResolver.current(),
-                requestMapper.toCommand(appointmentId, request))));
+        return ResponseEntity.ok(responseConverter.toCommand(commandUseCase.cancel(viewerResolver.current(),
+                requestConverter.toCommand(appointmentId, request))));
     }
 
     /**
@@ -256,8 +256,8 @@ public class SurveyAppointmentController {
     })
     public ResponseEntity<SurveyCommandResponse> visit(@PathVariable("appointmentId") String appointmentId,
                                                        @Valid @RequestBody RecordVisitRequest request) {
-        return ResponseEntity.ok(responseMapper.toCommand(commandUseCase.recordVisit(viewerResolver.current(),
-                requestMapper.toCommand(appointmentId, request))));
+        return ResponseEntity.ok(responseConverter.toCommand(commandUseCase.recordVisit(viewerResolver.current(),
+                requestConverter.toCommand(appointmentId, request))));
     }
 
     /**
@@ -295,8 +295,8 @@ public class SurveyAppointmentController {
     })
     public ResponseEntity<ChecklistStartedResponse> startChecklist(
             @PathVariable("appointmentId") String appointmentId, @RequestBody ChecklistStartRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(checklistResponseMapper.toStarted(
+        return ResponseEntity.status(HttpStatus.CREATED).body(checklistResponseConverter.toStarted(
                 checklistCommandUseCase.start(viewerResolver.current(),
-                        checklistRequestMapper.toCommand(appointmentId, request))));
+                        checklistRequestConverter.toCommand(appointmentId, request))));
     }
 }

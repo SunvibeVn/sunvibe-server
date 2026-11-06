@@ -124,14 +124,14 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Converter - ChecklistRequestMapper
+ * Converter - ChecklistRequestConverter
  * <p>
  * Turns the checklist request bodies into commands as sent: every wrapper, value and list keeps the nulls the client
  * sent, so the template rules report each failure on its JSON path (survey-checklist spec 5.5, plan PD-2); nothing is
  * checked or dropped here. A family source enum becomes the one domain source of the same name.
  */
 @Component
-public class ChecklistRequestMapper {
+public class ChecklistRequestConverter {
 
     public StartChecklistCommand toCommand(String appointmentId, ChecklistStartRequest request) {
         ChecklistIntakeRequest intake = request.intake();
@@ -255,22 +255,22 @@ public class ChecklistRequestMapper {
                 g.differenceNote(),
                 type == null ? null : new Field<>(type.state(), type.value(), type.naReason()),
                 fit == null ? null : new Field<>(fit.state(), fit(fit.value()), fit.naReason()),
-                g.rentalScope(), list(g.spaces(), ChecklistRequestMapper::space), g.otherPartsNote(),
+                g.rentalScope(), list(g.spaces(), ChecklistRequestConverter::space), g.otherPartsNote(),
                 g.generalNote());
     }
 
     private static PartsContent parts(ChecklistPartsInput g) {
         return g == null ? null : new PartsContent(text(g.accessRoute()), text(g.sharedAreas()),
-                count(g.totalFloors()), list(g.spaces(), ChecklistRequestMapper::partsSpace));
+                count(g.totalFloors()), list(g.spaces(), ChecklistRequestConverter::partsSpace));
     }
 
     private static DimensionsContent dimensions(ChecklistDimensionsInput g) {
-        return g == null ? null : new DimensionsContent(list(g.spaces(), ChecklistRequestMapper::dimensionsSpace));
+        return g == null ? null : new DimensionsContent(list(g.spaces(), ChecklistRequestConverter::dimensionsSpace));
     }
 
     private static ConditionContent condition(ChecklistConditionInput g) {
         return g == null ? null : new ConditionContent(areaCheck(g.sharedKitchen()), areaCheck(g.sharedBathroom()),
-                list(g.spaces(), ChecklistRequestMapper::conditionSpace));
+                list(g.spaces(), ChecklistRequestConverter::conditionSpace));
     }
 
     private static SafetyContent safety(ChecklistSafetyInput g) {
@@ -283,13 +283,13 @@ public class ChecklistRequestMapper {
                 restrictions == null ? null : new Field<>(restrictions.state(), observation(restrictions.value()),
                         restrictions.naReason()),
                 hazards == null ? null : new Field<>(hazards.state(),
-                        list(hazards.value(), ChecklistRequestMapper::hazard), hazards.naReason()));
+                        list(hazards.value(), ChecklistRequestConverter::hazard), hazards.naReason()));
     }
 
     private static AmenitiesContent amenities(ChecklistAmenitiesInput g) {
-        return g == null ? null : new AmenitiesContent(list(g.sharedItems(), ChecklistRequestMapper::item),
-                list(g.spaces(), ChecklistRequestMapper::amenitiesSpace),
-                list(g.otherItems(), ChecklistRequestMapper::otherItem));
+        return g == null ? null : new AmenitiesContent(list(g.sharedItems(), ChecklistRequestConverter::item),
+                list(g.spaces(), ChecklistRequestConverter::amenitiesSpace),
+                list(g.otherItems(), ChecklistRequestConverter::otherItem));
     }
 
     private static TermsContent terms(ChecklistTermsInput g) {
@@ -300,7 +300,7 @@ public class ChecklistRequestMapper {
         TermsCommon common = c == null ? null : new TermsCommon(charge(c.electricity()), charge(c.water()),
                 charge(c.internet()), charge(c.parking()), charge(c.serviceFee()), fees(c.otherFees()),
                 textTerm(c.houseRules()), pets(c.pets()), textTerm(c.handoverMaintenance()));
-        return new TermsContent(common, list(g.spaces(), ChecklistRequestMapper::termsSpace));
+        return new TermsContent(common, list(g.spaces(), ChecklistRequestConverter::termsSpace));
     }
 
     // ==================== entries ====================
@@ -349,7 +349,7 @@ public class ChecklistRequestMapper {
                 furnishing == null ? null : sourced(furnishing.state(), furnishing.value(), furnishing.naReason(),
                         furnishing.source(), furnishing.confirmedOn(), furnishing.receivedByUserId(),
                         furnishing.relayBasis()),
-                list(space.items(), ChecklistRequestMapper::item));
+                list(space.items(), ChecklistRequestConverter::item));
     }
 
     private static AmenityItem item(ChecklistAmenityItemInput item) {
@@ -409,7 +409,7 @@ public class ChecklistRequestMapper {
     }
 
     private static SourcedField<List<Fee>> fees(ChecklistFeeListTermInput field) {
-        return field == null ? null : sourced(field.state(), list(field.value(), ChecklistRequestMapper::fee),
+        return field == null ? null : sourced(field.state(), list(field.value(), ChecklistRequestConverter::fee),
                 field.naReason(), field.source(), field.confirmedOn(), field.receivedByUserId(), field.relayBasis());
     }
 

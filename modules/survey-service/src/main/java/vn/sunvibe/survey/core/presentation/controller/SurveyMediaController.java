@@ -23,8 +23,8 @@ import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.survey.core.application.query.MediaCreateResult;
 import vn.sunvibe.survey.core.application.usecase.SurveyMediaCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyMediaQueryUseCase;
-import vn.sunvibe.survey.core.presentation.converter.MediaRequestMapper;
-import vn.sunvibe.survey.core.presentation.converter.MediaResponseMapper;
+import vn.sunvibe.survey.core.presentation.converter.MediaRequestConverter;
+import vn.sunvibe.survey.core.presentation.converter.MediaResponseConverter;
 import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.media.MediaCreateRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.media.MediaHoldReleaseRequest;
@@ -62,8 +62,8 @@ public class SurveyMediaController {
     private final SurveyMediaCommandUseCase commandUseCase;
     private final SurveyMediaQueryUseCase queryUseCase;
     private final SurveyViewerResolver viewerResolver;
-    private final MediaRequestMapper requestMapper;
-    private final MediaResponseMapper responseMapper;
+    private final MediaRequestConverter requestConverter;
+    private final MediaResponseConverter responseConverter;
 
     /**
      * GET /api/v1/staff/survey-checklists/{checklistId}/media
@@ -103,7 +103,7 @@ public class SurveyMediaController {
                     + "viewDigest of the last answer")
             @RequestParam(value = "knownVersion", required = false) String knownVersion) {
         return queryUseCase.list(viewerResolver.current(), viewerResolver.currentCanHold(), checklistId, knownVersion)
-                .map(view -> ResponseEntity.ok(responseMapper.toList(view)))
+                .map(view -> ResponseEntity.ok(responseConverter.toList(view)))
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
@@ -159,9 +159,9 @@ public class SurveyMediaController {
     public ResponseEntity<SurveyMediaCreateResponse> create(@PathVariable("checklistId") String checklistId,
                                                             @RequestBody MediaCreateRequest request) {
         MediaCreateResult result = commandUseCase.create(viewerResolver.current(), viewerResolver.currentCanHold(),
-                requestMapper.toCommand(checklistId, request));
+                requestConverter.toCommand(checklistId, request));
         return ResponseEntity.status(result.created() ? HttpStatus.CREATED : HttpStatus.OK)
-                .body(responseMapper.toCreated(result));
+                .body(responseConverter.toCreated(result));
     }
 
     /**
@@ -202,8 +202,8 @@ public class SurveyMediaController {
     })
     public ResponseEntity<SurveyMediaContentResponse> remove(@PathVariable("mediaId") String mediaId,
                                                              @RequestBody MediaRemovalRequest request) {
-        return ResponseEntity.ok(responseMapper.toContent(commandUseCase.remove(viewerResolver.current(),
-                viewerResolver.currentCanHold(), requestMapper.toCommand(mediaId, request))));
+        return ResponseEntity.ok(responseConverter.toContent(commandUseCase.remove(viewerResolver.current(),
+                viewerResolver.currentCanHold(), requestConverter.toCommand(mediaId, request))));
     }
 
     /**
@@ -250,8 +250,8 @@ public class SurveyMediaController {
                                                            @PathVariable("mediaId") String mediaId,
                                                            @RequestBody MediaRemovalRequest request) {
         boolean changed = commandUseCase.deselect(viewerResolver.current(),
-                requestMapper.toDeselection(checklistId, mediaId, request));
-        return ResponseEntity.ok(responseMapper.toList(queryUseCase.listAfterDeselection(viewerResolver.current(),
+                requestConverter.toDeselection(checklistId, mediaId, request));
+        return ResponseEntity.ok(responseConverter.toList(queryUseCase.listAfterDeselection(viewerResolver.current(),
                 viewerResolver.currentCanHold(), checklistId, changed)));
     }
 
@@ -289,7 +289,7 @@ public class SurveyMediaController {
     })
     public ResponseEntity<SurveyMediaStateResponse> hold(@PathVariable("mediaId") String mediaId,
                                                          @RequestBody MediaHoldRequest request) {
-        return ResponseEntity.ok(responseMapper.toState(commandUseCase.hold(viewerResolver.current(), mediaId,
+        return ResponseEntity.ok(responseConverter.toState(commandUseCase.hold(viewerResolver.current(), mediaId,
                 request.reason())));
     }
 
@@ -321,6 +321,6 @@ public class SurveyMediaController {
     })
     public ResponseEntity<SurveyMediaStateResponse> release(@PathVariable("mediaId") String mediaId,
                                                             @RequestBody MediaHoldReleaseRequest request) {
-        return ResponseEntity.ok(responseMapper.toState(commandUseCase.release(viewerResolver.current(), mediaId)));
+        return ResponseEntity.ok(responseConverter.toState(commandUseCase.release(viewerResolver.current(), mediaId)));
     }
 }

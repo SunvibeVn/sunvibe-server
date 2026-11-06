@@ -26,8 +26,8 @@ import vn.sunvibe.survey.core.application.usecase.SurveyChecklistCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyChecklistQueryUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyChecklistRequalificationCommandUseCase;
 import vn.sunvibe.survey.core.application.usecase.SurveyChecklistReviewCommandUseCase;
-import vn.sunvibe.survey.core.presentation.converter.ChecklistRequestMapper;
-import vn.sunvibe.survey.core.presentation.converter.ChecklistResponseMapper;
+import vn.sunvibe.survey.core.presentation.converter.ChecklistRequestConverter;
+import vn.sunvibe.survey.core.presentation.converter.ChecklistResponseConverter;
 import vn.sunvibe.survey.core.presentation.converter.SurveyViewerResolver;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistDecisionRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.checklist.ChecklistRequalificationRequest;
@@ -71,8 +71,8 @@ public class SurveyChecklistController {
     private final SurveyChecklistReviewCommandUseCase reviewUseCase;
     private final SurveyChecklistRequalificationCommandUseCase requalificationUseCase;
     private final SurveyViewerResolver viewerResolver;
-    private final ChecklistRequestMapper requestMapper;
-    private final ChecklistResponseMapper responseMapper;
+    private final ChecklistRequestConverter requestConverter;
+    private final ChecklistResponseConverter responseConverter;
 
     private static final String SAVE_400 = "VALIDATION_FAILED, every failing rule on its JSON path (content.*, "
             + "expectedVersion, correction or correction.*; a missing or unknown key too); MALFORMED_REQUEST";
@@ -109,7 +109,7 @@ public class SurveyChecklistController {
             @RequestParam(name = "size", defaultValue = "20")
             @Min(value = 1, message = "Size must be from 1 to 50.")
             @Max(value = 50, message = "Size must be from 1 to 50.") int size) {
-        return ResponseEntity.ok(responseMapper.toReviewQueue(queryUseCase.reviewQueue(viewerResolver.current(), page,
+        return ResponseEntity.ok(responseConverter.toReviewQueue(queryUseCase.reviewQueue(viewerResolver.current(), page,
                 size)));
     }
 
@@ -136,7 +136,7 @@ public class SurveyChecklistController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<ChecklistResponse> read(@PathVariable("checklistId") String checklistId) {
-        return ResponseEntity.ok(responseMapper.toResponse(queryUseCase.read(viewerResolver.current(), checklistId)));
+        return ResponseEntity.ok(responseConverter.toResponse(queryUseCase.read(viewerResolver.current(), checklistId)));
     }
 
     /**
@@ -173,8 +173,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistTakenOverResponse> takeOver(@PathVariable("checklistId") String checklistId,
                                                                @RequestBody ChecklistTakeoverRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(responseMapper.toTakenOver(commandUseCase.takeOver(
-                viewerResolver.current(), requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseConverter.toTakenOver(commandUseCase.takeOver(
+                viewerResolver.current(), requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -212,8 +212,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistSubmittedResponse> submit(@PathVariable("checklistId") String checklistId,
                                                              @RequestBody ChecklistSubmitRequest request) {
-        return ResponseEntity.ok(responseMapper.toSubmitted(reviewUseCase.submit(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toSubmitted(reviewUseCase.submit(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -255,8 +255,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistDecidedResponse> decide(@PathVariable("checklistId") String checklistId,
                                                            @RequestBody ChecklistDecisionRequest request) {
-        return ResponseEntity.ok(responseMapper.toDecided(reviewUseCase.decide(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toDecided(reviewUseCase.decide(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -293,8 +293,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistRequalifiedResponse> requalify(@PathVariable("checklistId") String checklistId,
                                                                   @RequestBody ChecklistRequalificationRequest request) {
-        return ResponseEntity.ok(responseMapper.toRequalified(requalificationUseCase.mark(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toRequalified(requalificationUseCase.mark(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -331,8 +331,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistRevisionStartedResponse> startRevision(
             @PathVariable("checklistId") String checklistId, @RequestBody ChecklistRevisionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(responseMapper.toRevisionStarted(
-                reviewUseCase.startRevision(viewerResolver.current(), requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.status(HttpStatus.CREATED).body(responseConverter.toRevisionStarted(
+                reviewUseCase.startRevision(viewerResolver.current(), requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -361,7 +361,7 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistCheckpointResponse> checkpoint(@PathVariable("checklistId") String checklistId,
                                                                   @PathVariable("takeoverNo") int takeoverNo) {
-        return ResponseEntity.ok(responseMapper.toCheckpoint(queryUseCase.readCheckpoint(viewerResolver.current(),
+        return ResponseEntity.ok(responseConverter.toCheckpoint(queryUseCase.readCheckpoint(viewerResolver.current(),
                 checklistId, takeoverNo)));
     }
 
@@ -401,8 +401,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistResponse> saveIdentification(@PathVariable("checklistId") String checklistId,
             @RequestBody ChecklistSaveIdentificationRequest request) {
-        return ResponseEntity.ok(responseMapper.toResponse(commandUseCase.save(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toResponse(commandUseCase.save(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -438,8 +438,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistResponse> saveParts(@PathVariable("checklistId") String checklistId,
             @RequestBody ChecklistSavePartsRequest request) {
-        return ResponseEntity.ok(responseMapper.toResponse(commandUseCase.save(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toResponse(commandUseCase.save(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -475,8 +475,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistResponse> saveDimensions(@PathVariable("checklistId") String checklistId,
             @RequestBody ChecklistSaveDimensionsRequest request) {
-        return ResponseEntity.ok(responseMapper.toResponse(commandUseCase.save(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toResponse(commandUseCase.save(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -513,8 +513,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistResponse> saveCondition(@PathVariable("checklistId") String checklistId,
             @RequestBody ChecklistSaveConditionRequest request) {
-        return ResponseEntity.ok(responseMapper.toResponse(commandUseCase.save(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toResponse(commandUseCase.save(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -551,8 +551,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistResponse> saveSafety(@PathVariable("checklistId") String checklistId,
             @RequestBody ChecklistSaveSafetyRequest request) {
-        return ResponseEntity.ok(responseMapper.toResponse(commandUseCase.save(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toResponse(commandUseCase.save(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -589,8 +589,8 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistResponse> saveAmenities(@PathVariable("checklistId") String checklistId,
             @RequestBody ChecklistSaveAmenitiesRequest request) {
-        return ResponseEntity.ok(responseMapper.toResponse(commandUseCase.save(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toResponse(commandUseCase.save(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 
     /**
@@ -627,7 +627,7 @@ public class SurveyChecklistController {
     })
     public ResponseEntity<ChecklistResponse> saveTerms(@PathVariable("checklistId") String checklistId,
             @RequestBody ChecklistSaveTermsRequest request) {
-        return ResponseEntity.ok(responseMapper.toResponse(commandUseCase.save(viewerResolver.current(),
-                requestMapper.toCommand(checklistId, request))));
+        return ResponseEntity.ok(responseConverter.toResponse(commandUseCase.save(viewerResolver.current(),
+                requestConverter.toCommand(checklistId, request))));
     }
 }

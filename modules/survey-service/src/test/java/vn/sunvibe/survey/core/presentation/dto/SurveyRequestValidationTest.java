@@ -11,7 +11,7 @@ import tools.jackson.databind.json.JsonMapper;
 import vn.sunvibe.survey.core.application.command.BookAppointmentCommand;
 import vn.sunvibe.survey.core.application.command.ChangeAppointmentCommand;
 import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
-import vn.sunvibe.survey.core.presentation.converter.SurveyRequestMapper;
+import vn.sunvibe.survey.core.presentation.converter.SurveyRequestConverter;
 import vn.sunvibe.survey.core.presentation.dto.request.BasisRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.BookAppointmentRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.ChangeAppointmentRequest;
@@ -42,7 +42,7 @@ class SurveyRequestValidationTest {
     private static final Instant START = Instant.parse("2026-11-20T03:00:00Z");
     private static final String LEAD = "01JLEADAAAAAAAAAAAAAAAAAAA";
 
-    private final SurveyRequestMapper mapper = new SurveyRequestMapper();
+    private final SurveyRequestConverter converter = new SurveyRequestConverter();
 
     @AfterAll
     static void closeFactory() {
@@ -54,7 +54,7 @@ class SurveyRequestValidationTest {
         BookAppointmentRequest request = booking(0L, START, null, null);
 
         assertEquals(Set.of(), fields(request));
-        BookAppointmentCommand command = mapper.toCommand(LEAD, request);
+        BookAppointmentCommand command = converter.toCommand(LEAD, request);
         assertEquals(60, command.durationMinutes());
         assertFalse(command.ownerConfirmed());
         assertEquals(null, command.meetingLocation());
@@ -88,20 +88,20 @@ class SurveyRequestValidationTest {
     @Test
     void mapper_cleanedValues_areCheckedByTheCommand() {
         assertEquals("startAt", assertThrows(InvalidSurveyValueException.class,
-                () -> mapper.toCommand(LEAD, booking(0L, START.plusSeconds(1), null, null))).getField());
+                () -> converter.toCommand(LEAD, booking(0L, START.plusSeconds(1), null, null))).getField());
         assertEquals("durationMinutes", assertThrows(InvalidSurveyValueException.class,
-                () -> mapper.toCommand(LEAD, booking(0L, START, null, 50))).getField());
-        assertEquals("accessNote", assertThrows(InvalidSurveyValueException.class, () -> mapper.toCommand(LEAD,
+                () -> converter.toCommand(LEAD, booking(0L, START, null, 50))).getField());
+        assertEquals("accessNote", assertThrows(InvalidSurveyValueException.class, () -> converter.toCommand(LEAD,
                 new BookAppointmentRequest(0L, START, null, null, null, "0905 123 456", null, null, null, null,
                         null))).getField());
         assertEquals("meetingLocation.addressText", assertThrows(InvalidSurveyValueException.class,
-                () -> mapper.toCommand(LEAD, booking(0L, START, new MeetingLocationRequest("  ", "48", "20194",
+                () -> converter.toCommand(LEAD, booking(0L, START, new MeetingLocationRequest("  ", "48", "20194",
                         null, null), null))).getField());
     }
 
     @Test
     void mapper_meetingPlace_isPassedOn() {
-        BookAppointmentCommand command = mapper.toCommand(LEAD, booking(3L, START,
+        BookAppointmentCommand command = converter.toCommand(LEAD, booking(3L, START,
                 new MeetingLocationRequest(" Cafe 3B ", "48", "20194", new BigDecimal("16.05"),
                         new BigDecimal("108.2")), 90));
 
@@ -129,7 +129,7 @@ class SurveyRequestValidationTest {
                 + "\"onSiteContactName\":\"Anh Tuan\",\"onSiteContactRole\":null}", ChangeAppointmentRequest.class);
 
         assertEquals("accessNote", missing.getPath().get(missing.getPath().size() - 1).getPropertyName());
-        ChangeAppointmentCommand command = mapper.toCommand("01JAPPTAAAAAAAAAAAAAAAAAAA", cleared);
+        ChangeAppointmentCommand command = converter.toCommand("01JAPPTAAAAAAAAAAAAAAAAAAA", cleared);
         assertEquals(null, command.accessNote());
         assertEquals("Anh Tuan", command.onSiteContactName());
     }
@@ -153,9 +153,9 @@ class SurveyRequestValidationTest {
                 new BasisRequest(LocalDate.parse("2026-11-20"), " "));
 
         assertEquals("proxy.basis.text", assertThrows(InvalidSurveyValueException.class,
-                () -> mapper.toCommand("01JAPPTAAAAAAAAAAAAAAAAAAA", visit)).getField());
+                () -> converter.toCommand("01JAPPTAAAAAAAAAAAAAAAAAAA", visit)).getField());
         assertEquals("basis.text", assertThrows(InvalidSurveyValueException.class,
-                () -> mapper.toCommand(LEAD, resume)).getField());
+                () -> converter.toCommand(LEAD, resume)).getField());
     }
 
     private static <T> Set<String> names(Set<ConstraintViolation<T>> violations) {

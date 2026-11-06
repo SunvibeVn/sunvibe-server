@@ -46,20 +46,20 @@ import vn.sunvibe.survey.core.presentation.dto.response.SurveyVisitResponse;
 import java.util.List;
 
 /**
- * Converter - SurveyResponseMapper
+ * Converter - SurveyResponseConverter
  * <p>
  * Turns the survey read models into the response bodies of survey-schedule spec 7.2, with the checklist state and
  * summaries of survey-checklist spec 7.2. Staff names come from the block's one name lookup; an unknown name is
  * null.
  */
 @Component
-public class SurveyResponseMapper {
+public class SurveyResponseConverter {
 
     public SurveyCommandResponse toCommand(SurveyCommandResult result) {
         LeadState lead = result.lead();
         return new SurveyCommandResponse(toBlock(result.survey()),
                 new SurveyLeadStateResponse(lead.id(), lead.status(), lead.version(), lead.lastActivityAt()),
-                toEntry(result.historyEntry()), result.overlaps().stream().map(SurveyResponseMapper::toOverlap)
+                toEntry(result.historyEntry()), result.overlaps().stream().map(SurveyResponseConverter::toOverlap)
                 .toList());
     }
 
@@ -70,20 +70,20 @@ public class SurveyResponseMapper {
                 block.currentVisitId(), block.resumeAllowed(),
                 block.appointments().stream().map(view -> toAppointment(view, block)).toList(),
                 block.resumptions().stream().map(resumption -> toResumption(resumption, block)).toList(),
-                ChecklistResponseMapper.toStartState(block.checklistStart()),
-                ChecklistResponseMapper.toRevisionStart(block.revisionStart()),
+                ChecklistResponseConverter.toStartState(block.checklistStart()),
+                ChecklistResponseConverter.toRevisionStart(block.revisionStart()),
                 new SurveyResumeResponse(block.resumeTargetOrNull()),
                 new SurveyRecordResponse(block.survey().hasPassed(), block.survey().hasSubmitted(),
-                        ChecklistResponseMapper.toPassed(block.survey().passedOrNull()),
-                        ChecklistResponseMapper.toRequalificationState(block.survey().requalification())));
+                        ChecklistResponseConverter.toPassed(block.survey().passedOrNull()),
+                        ChecklistResponseConverter.toRequalificationState(block.survey().requalification())));
     }
 
     public SurveyOverlapsResponse toOverlaps(List<OverlapView> overlaps) {
-        return new SurveyOverlapsResponse(overlaps.stream().map(SurveyResponseMapper::toOverlap).toList());
+        return new SurveyOverlapsResponse(overlaps.stream().map(SurveyResponseConverter::toOverlap).toList());
     }
 
     public SurveyPageResponse toPage(PageResult<SurveyListItem> page) {
-        return new SurveyPageResponse(page.items().stream().map(SurveyResponseMapper::toItem).toList(), page.page(),
+        return new SurveyPageResponse(page.items().stream().map(SurveyResponseConverter::toItem).toList(), page.page(),
                 page.size(), page.totalElements());
     }
 
@@ -102,7 +102,7 @@ public class SurveyResponseMapper {
                 view.revisions().stream().map(revision -> toRevision(revision, block)).toList(),
                 view.events().stream().map(event -> toEvent(event, block)).toList(), view.createdByUserId(),
                 block.nameOf(view.createdByUserId()), view.createdAt(), view.version(),
-                view.checklists().stream().map(summary -> ChecklistResponseMapper.toSummary(summary, block::nameOf))
+                view.checklists().stream().map(summary -> ChecklistResponseConverter.toSummary(summary, block::nameOf))
                         .toList());
     }
 

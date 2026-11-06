@@ -20,7 +20,7 @@ import vn.sunvibe.survey.core.presentation.dto.response.media.SurveyMediaRemoval
 
 /** Converter - survey-media views to response DTOs (survey-media spec 7.2). */
 @Component
-public class MediaResponseMapper {
+public class MediaResponseConverter {
 
     public SurveyMediaCreateResponse toCreated(MediaCreateResult result) {
         return new SurveyMediaCreateResponse(toItem(result.media()), result.setVersion());
@@ -33,7 +33,7 @@ public class MediaResponseMapper {
     public SurveyMediaContentResponse toContent(MediaContentResult result) {
         return new SurveyMediaContentResponse(toItem(result.media()), result.setVersion(),
                 result.historyEntryOrNull() == null ? null
-                        : ChecklistResponseMapper.toEntry(result.historyEntryOrNull()));
+                        : ChecklistResponseConverter.toEntry(result.historyEntryOrNull()));
     }
 
     public ChecklistMediaResponse toList(MediaListView view) {
