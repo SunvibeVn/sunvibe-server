@@ -1,5 +1,6 @@
-package vn.sunvibe.auth.core.application.usecase.staff;
+package vn.sunvibe.auth.core.application.service.staff;
 
+import vn.sunvibe.auth.core.application.usecase.staff.LeadAssigneeAccount;
 import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -9,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.slf4j.LoggerFactory;
-import vn.sunvibe.auth.core.application.service.staff.LeadAssigneeAccountService;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;

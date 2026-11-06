@@ -1,7 +1,9 @@
-package vn.sunvibe.property.core.application.usecase.area;
+package vn.sunvibe.property.core.application.service.area;
 
 import org.junit.jupiter.api.Test;
-import vn.sunvibe.property.core.application.service.area.AdministrativeAreaQueryService;
+import vn.sunvibe.property.core.application.usecase.area.AdministrativeAreaQueryUseCase;
+import vn.sunvibe.property.core.application.usecase.area.ProvinceView;
+import vn.sunvibe.property.core.application.usecase.area.WardView;
 import vn.sunvibe.property.core.domain.model.area.Province;
 import vn.sunvibe.property.core.domain.model.area.Ward;
 import vn.sunvibe.property.core.domain.model.area.WardType;

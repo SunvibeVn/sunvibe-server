@@ -152,11 +152,12 @@ public record PropertyCreateCommand(
 ```
 
 #### Use Cases (`application/usecase/`)
-- **Location**: `application/usecase/{Operation}UseCase.java`
+- **Location**: `application/usecase/[{area}/]{Aggregate}CommandUseCase.java`
 - **Purpose**: Interfaces representing business operations
 - **Rules**:
   - Interface only
-  - Single method `execute()` or similar
+  - New modules group operations per aggregate with named methods (`.claude/rules/application-layer.md`); one interface
+    per operation with `execute()`, as in the example below, stays valid where it exists
   - Takes Command as parameter, returns domain type or VO
 
 **Example:**

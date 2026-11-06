@@ -20,8 +20,9 @@ import jakarta.persistence.AttributeConverter;
 
 /**
  * The names and packages of {@code .claude/rules/naming-layout.md}, on the compiled main classes of every feature core
- * (clean-up spec section 5). Top-level classes only, and never the {@code *Impl} that MapStruct generates. A rule on a
- * package that holds no class fails, so an empty package is a finding too.
+ * (clean-up spec section 5). The name rules N-1 to N-8 read top-level classes only, never the {@code *Impl} that
+ * MapStruct generates, and fail on a package that holds no class, so an empty package is a finding too. The layout rules
+ * N-9 to N-11 read nested classes too, and N-10 and N-11 stay green once a package is gone.
  */
 class NamingConventionArchTest {
 

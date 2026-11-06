@@ -75,6 +75,7 @@ modules/{module-name}/src/main/java/vn/sunvibe/{module}/core/
 │   ├── config/           # Infrastructure configuration
 │   ├── security/         # Security components
 │   ├── media/            # Media adapters and registration
+│   ├── json/             # JSON helpers outside persistence
 │   ├── email/            # Email services
 │   ├── sms/              # SMS services
 │   └── audit/            # Audit logging
