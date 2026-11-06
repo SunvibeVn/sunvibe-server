@@ -23,7 +23,7 @@ import com.github.f4b6a3.ulid.UlidCreator;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore;
-import vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 /**
  * Calls and stored rows of the survey-media API tests (survey-media spec 7.1): the create call, request bodies, real

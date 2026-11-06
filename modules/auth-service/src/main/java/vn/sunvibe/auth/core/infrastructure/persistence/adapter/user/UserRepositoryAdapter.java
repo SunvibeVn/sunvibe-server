@@ -16,7 +16,7 @@ import vn.sunvibe.auth.core.domain.repository.user.EmailOccupancy;
 import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
 import vn.sunvibe.auth.core.domain.repository.user.StaffAccountRow;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
-import vn.sunvibe.auth.core.infrastructure.persistence.adapter.AuthConstraintViolations;
+import vn.sunvibe.auth.core.infrastructure.persistence.support.AuthConstraintViolations;
 import vn.sunvibe.auth.core.infrastructure.persistence.mapper.auto.UserMapper;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserEntity;
 import vn.sunvibe.auth.core.infrastructure.persistence.entity.user.UserRoleEntity;

@@ -77,7 +77,7 @@ class MediaPersistencePostgresTest extends MediaApiTestBase {
 	private static boolean tryEventKey(java.sql.Connection other, String key) {
 		try (java.sql.PreparedStatement lock = other.prepareStatement(
 				"select pg_try_advisory_xact_lock(?, hashtext(?))")) {
-			lock.setInt(1, vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql.EVENT_LOCK_NAMESPACE);
+			lock.setInt(1, vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql.EVENT_LOCK_NAMESPACE);
 			lock.setString(2, key);
 			try (java.sql.ResultSet row = lock.executeQuery()) {
 				row.next();
@@ -697,7 +697,7 @@ class MediaPersistencePostgresTest extends MediaApiTestBase {
 	private static boolean tryAdvisory(Connection connection, String userId) {
 		try (PreparedStatement statement = connection.prepareStatement(
 				"SELECT pg_try_advisory_xact_lock(?, hashtext(?))")) {
-			statement.setInt(1, vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql.USER_LOCK_NAMESPACE);
+			statement.setInt(1, vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql.USER_LOCK_NAMESPACE);
 			statement.setString(2, userId);
 			try (var result = statement.executeQuery()) {
 				result.next();

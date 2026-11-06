@@ -13,7 +13,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 /**
  * The worker's claim reads the pending PROCESS jobs through the partial index on kind and due time and never scans the

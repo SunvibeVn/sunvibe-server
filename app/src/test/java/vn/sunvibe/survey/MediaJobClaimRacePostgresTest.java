@@ -48,7 +48,7 @@ import vn.sunvibe.survey.core.domain.model.media.MediaJob;
 import vn.sunvibe.survey.core.domain.model.media.MediaJobClaim;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
-import vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 /**
  * Two workers racing for the due PROCESS jobs on PostgreSQL (survey-media spec 4.4 step 3, ADR-011: one run per job;

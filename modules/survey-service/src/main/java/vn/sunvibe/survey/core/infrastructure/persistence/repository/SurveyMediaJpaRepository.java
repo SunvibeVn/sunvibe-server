@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
-import vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaEntity;
 
 import java.time.Instant;

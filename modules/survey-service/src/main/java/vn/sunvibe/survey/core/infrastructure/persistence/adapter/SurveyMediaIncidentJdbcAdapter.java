@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import vn.sunvibe.survey.core.domain.model.media.MediaIncidentKind;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaIncidentDomainRepository;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 /** Adapter - the incident rows of overdue deletions (survey-media spec A-18, 5.2), times from the application clock. */
 @Repository

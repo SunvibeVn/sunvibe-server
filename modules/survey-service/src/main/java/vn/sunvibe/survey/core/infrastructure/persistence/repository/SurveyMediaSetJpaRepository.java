@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaSetEntity;
 
 import java.time.Instant;

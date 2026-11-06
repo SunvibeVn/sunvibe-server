@@ -18,7 +18,7 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import vn.sunvibe.survey.core.infrastructure.persistence.adapter.MediaSql;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 /**
  * The sweep, clean-up, job and grouping queries use their partial indexes (survey-media spec 5.2; plan Task A4, SM-35

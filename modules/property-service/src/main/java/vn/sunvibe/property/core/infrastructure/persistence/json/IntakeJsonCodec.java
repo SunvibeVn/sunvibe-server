@@ -1,4 +1,4 @@
-package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
+package vn.sunvibe.property.core.infrastructure.persistence.json;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.application.shared.external.snapshot.OwnerSnapshotCodec;

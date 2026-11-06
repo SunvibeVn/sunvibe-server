@@ -9,6 +9,7 @@ import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
 import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
+import vn.sunvibe.survey.core.infrastructure.persistence.support.MediaSql;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
