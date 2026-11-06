@@ -3,7 +3,7 @@ package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.domain.model.ownership.PropertyOwnership;
 import vn.sunvibe.property.core.domain.model.ownership.PropertyOwnershipId;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.PropertyOwnershipEntity;
 
 /**

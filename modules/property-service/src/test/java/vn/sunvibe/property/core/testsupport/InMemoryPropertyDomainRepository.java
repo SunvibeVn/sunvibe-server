@@ -2,9 +2,9 @@ package vn.sunvibe.property.core.testsupport;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import vn.sunvibe.property.core.domain.exception.PropertyAlreadyExistsException;
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
-import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.Property;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyCode;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.domain.repository.PropertyDomainRepository;
 
 import java.util.ArrayList;

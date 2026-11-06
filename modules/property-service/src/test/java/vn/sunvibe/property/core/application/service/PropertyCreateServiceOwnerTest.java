@@ -11,9 +11,9 @@ import vn.sunvibe.property.core.application.shared.external.user.OwnerStandingFa
 import vn.sunvibe.property.core.application.shared.external.user.PasswordCheck;
 import vn.sunvibe.property.core.application.shared.external.user.UserDirectoryPort;
 import vn.sunvibe.property.core.domain.exception.PropertyOwnerNotFoundException;
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
+import vn.sunvibe.property.core.domain.model.property.Property;
 import vn.sunvibe.property.core.domain.model.amenity.AmenityType;
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
 import vn.sunvibe.property.core.domain.model.ownership.OwnershipRelationType;
 import vn.sunvibe.property.core.domain.model.ownership.OwnershipVerificationState;
 import vn.sunvibe.property.core.domain.model.ownership.PropertyOwnership;

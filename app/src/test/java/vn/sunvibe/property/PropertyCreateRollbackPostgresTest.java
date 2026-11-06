@@ -23,7 +23,7 @@ import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.shared.external.user.UserDirectoryPort;
 import vn.sunvibe.property.core.application.usecase.PropertyCreateUseCase;
 import vn.sunvibe.property.core.domain.exception.PropertyOwnerNotFoundException;
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
 
 /**
  * Rollback of property create on a real PostgreSQL (property-units BR-12, E-1; W8-11): the property,

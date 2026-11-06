@@ -3,7 +3,7 @@ package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.domain.model.unit.Unit;
 import vn.sunvibe.property.core.domain.model.unit.UnitId;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.UnitEntity;
 
 /**

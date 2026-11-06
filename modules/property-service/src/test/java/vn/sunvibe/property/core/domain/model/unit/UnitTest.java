@@ -3,12 +3,12 @@ package vn.sunvibe.property.core.domain.model.unit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
-import vn.sunvibe.property.core.domain.model.vo.Location;
-import vn.sunvibe.property.core.domain.model.vo.Money;
-import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.Property;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.vo.Location;
+import vn.sunvibe.property.core.domain.model.property.vo.Money;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyCode;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 
 import java.time.Instant;
 import java.util.Arrays;

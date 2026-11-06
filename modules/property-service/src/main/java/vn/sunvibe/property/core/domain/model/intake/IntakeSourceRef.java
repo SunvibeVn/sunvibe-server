@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.domain.model.intake;
 
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 
 /**
  * What an intake keeps of its source revision (property-create intake spec 5.2 file 5): enough to bind a proof to it and to

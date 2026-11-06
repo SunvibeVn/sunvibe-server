@@ -2,8 +2,8 @@ package vn.sunvibe.property.core.domain.model.amenity;
 
 
 import vn.sunvibe.shared.time.AppClock;
-import vn.sunvibe.property.core.domain.model.vo.AmenityTypeRef;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.AmenityTypeRef;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 
 import java.time.LocalDateTime;
 import java.util.Objects;

@@ -1,8 +1,8 @@
 package vn.sunvibe.property.core.domain.policy.intake;
 
 import org.junit.jupiter.api.Test;
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 import vn.sunvibe.property.core.domain.model.intake.IntakeSourceRef;
 import vn.sunvibe.property.core.domain.model.intake.IntakeStatus;
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;

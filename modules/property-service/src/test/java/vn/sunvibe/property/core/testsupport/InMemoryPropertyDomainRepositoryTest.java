@@ -3,12 +3,12 @@ package vn.sunvibe.property.core.testsupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import vn.sunvibe.property.core.domain.exception.PropertyAlreadyExistsException;
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
-import vn.sunvibe.property.core.domain.model.enums.PropertyStatus;
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
-import vn.sunvibe.property.core.domain.model.vo.Location;
-import vn.sunvibe.property.core.domain.model.vo.Money;
-import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
+import vn.sunvibe.property.core.domain.model.property.Property;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyStatus;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.vo.Location;
+import vn.sunvibe.property.core.domain.model.property.vo.Money;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyCode;
 
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -1,6 +1,7 @@
-package vn.sunvibe.property.core.domain.model.vo;
+package vn.sunvibe.property.core.domain.model.property.vo;
 
 import java.util.Objects;
+import vn.sunvibe.property.core.domain.model.shared.ValueObject;
 
 /**
  * The document type a property's document points to, with the type name the document row keeps. It is a reference,

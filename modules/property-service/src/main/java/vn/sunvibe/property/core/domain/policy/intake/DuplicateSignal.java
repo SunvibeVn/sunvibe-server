@@ -1,6 +1,6 @@
 package vn.sunvibe.property.core.domain.policy.intake;
 
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
 import vn.sunvibe.property.core.domain.model.intake.CaseSignal;
 
 import java.util.Collections;

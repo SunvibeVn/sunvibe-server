@@ -14,7 +14,7 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
+import vn.sunvibe.property.core.domain.model.property.Property;
 import vn.sunvibe.property.core.domain.model.unit.Unit;
 
 /**
@@ -41,7 +41,7 @@ class PropertyLayerArchTest {
 
 	@Test
 	void importedClasses_everyLayer_isPresent() {
-		assertThat(classes.contain(ROOT + ".domain.model.aggregate.Property")).isTrue();
+		assertThat(classes.contain(ROOT + ".domain.model.property.Property")).isTrue();
 		assertThat(classes.contain(ROOT + ".application.service.PropertyCreateService")).isTrue();
 		assertThat(classes.contain(ROOT + ".infrastructure.persistence.adapter.PropertyRepositoryAdapter")).isTrue();
 		assertThat(classes.contain(ROOT + ".presentation.controller.property.PropertyController")).isTrue();

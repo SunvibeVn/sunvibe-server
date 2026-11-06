@@ -1,4 +1,4 @@
-package vn.sunvibe.property.core.domain.model.vo;
+package vn.sunvibe.property.core.domain.model.shared;
 
 public abstract class ValueObject<T> {
 

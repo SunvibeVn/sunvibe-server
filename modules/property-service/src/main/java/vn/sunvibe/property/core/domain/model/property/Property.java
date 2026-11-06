@@ -1,21 +1,21 @@
-package vn.sunvibe.property.core.domain.model.aggregate;
+package vn.sunvibe.property.core.domain.model.property;
 
 
 import vn.sunvibe.shared.time.AppClock;
 import vn.sunvibe.property.core.domain.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
 import vn.sunvibe.property.core.domain.model.document.PropertyDocument;
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
-import vn.sunvibe.property.core.domain.model.enums.PropertyStatus;
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyStatus;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 import vn.sunvibe.property.core.domain.model.image.PropertyImage;
 import vn.sunvibe.property.core.domain.model.price.PropertyPrice;
 import vn.sunvibe.property.core.domain.model.rule.PropertyRuleApply;
-import vn.sunvibe.property.core.domain.model.vo.Location;
-import vn.sunvibe.property.core.domain.model.vo.Money;
-import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.Location;
+import vn.sunvibe.property.core.domain.model.property.vo.Money;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyCode;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;

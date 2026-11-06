@@ -1,4 +1,4 @@
-package vn.sunvibe.property.core.domain.model.enums;
+package vn.sunvibe.property.core.domain.model.property.enums;
 
 
 /**

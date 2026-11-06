@@ -1,6 +1,6 @@
-package vn.sunvibe.property.core.domain.model.vo;
+package vn.sunvibe.property.core.domain.model.property.vo;
 
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
 
 import java.util.Locale;
 import java.util.regex.Pattern;

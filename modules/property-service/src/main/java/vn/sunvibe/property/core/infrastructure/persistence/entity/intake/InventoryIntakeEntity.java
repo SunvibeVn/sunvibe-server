@@ -10,8 +10,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 import vn.sunvibe.property.core.domain.model.intake.IntakeStatus;
 import vn.sunvibe.property.core.domain.model.intake.TargetMode;
 

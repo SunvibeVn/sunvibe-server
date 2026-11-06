@@ -1,9 +1,10 @@
-package vn.sunvibe.property.core.domain.model.vo;
+package vn.sunvibe.property.core.domain.model.property.vo;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Objects;
+import vn.sunvibe.property.core.domain.model.shared.ValueObject;
 
 /**
  * Value Object representing Money (monetary value).

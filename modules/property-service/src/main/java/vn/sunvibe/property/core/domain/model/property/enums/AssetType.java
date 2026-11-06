@@ -1,4 +1,4 @@
-package vn.sunvibe.property.core.domain.model.enums;
+package vn.sunvibe.property.core.domain.model.property.enums;
 
 /**
  * The six asset types of the rental scope (G2 D-46, D-47), as a surveyed lead declares them. Stored as text in

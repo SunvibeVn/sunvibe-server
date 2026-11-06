@@ -1,8 +1,9 @@
-package vn.sunvibe.property.core.domain.model.vo;
+package vn.sunvibe.property.core.domain.model.property.vo;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
+import vn.sunvibe.property.core.domain.model.shared.ValueObject;
 
 /**
  * Value Object representing Location (property location).

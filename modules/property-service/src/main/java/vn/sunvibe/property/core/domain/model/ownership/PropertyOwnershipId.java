@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.domain.model.ownership;
 
 import com.github.f4b6a3.ulid.UlidCreator;
-import vn.sunvibe.property.core.domain.model.vo.ValueObject;
+import vn.sunvibe.property.core.domain.model.shared.ValueObject;
 
 /**
  * Value Object representing PropertyOwnershipId: a ULID of 26 characters (ADR-006),

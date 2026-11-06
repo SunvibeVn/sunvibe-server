@@ -1,8 +1,8 @@
 package vn.sunvibe.property.core.domain.model.rule;
 
 import vn.sunvibe.shared.time.AppClock;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
-import vn.sunvibe.property.core.domain.model.vo.RuleCategoryRef;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.RuleCategoryRef;
 
 import java.time.LocalDateTime;
 import java.util.Objects;

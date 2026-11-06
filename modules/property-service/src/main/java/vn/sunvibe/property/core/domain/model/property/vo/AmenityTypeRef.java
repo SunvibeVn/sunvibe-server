@@ -1,6 +1,7 @@
-package vn.sunvibe.property.core.domain.model.vo;
+package vn.sunvibe.property.core.domain.model.property.vo;
 
 import java.util.Objects;
+import vn.sunvibe.property.core.domain.model.shared.ValueObject;
 
 /**
  * The amenity type a property's amenity points to, with the names the amenity row keeps (amenity name, parent

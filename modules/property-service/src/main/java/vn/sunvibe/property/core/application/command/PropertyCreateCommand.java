@@ -1,6 +1,6 @@
 package vn.sunvibe.property.core.application.command;
 
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
 
 import java.math.BigDecimal;
 import java.util.List;

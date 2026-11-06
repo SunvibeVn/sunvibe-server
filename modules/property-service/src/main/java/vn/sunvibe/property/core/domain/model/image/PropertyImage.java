@@ -2,7 +2,7 @@ package vn.sunvibe.property.core.domain.model.image;
 
 
 import vn.sunvibe.shared.time.AppClock;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 
 import java.time.LocalDateTime;
 import java.util.Objects;

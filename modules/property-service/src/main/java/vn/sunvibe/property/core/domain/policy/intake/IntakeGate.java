@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.domain.policy.intake;
 
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 
 import java.util.ArrayList;
 import java.util.List;
