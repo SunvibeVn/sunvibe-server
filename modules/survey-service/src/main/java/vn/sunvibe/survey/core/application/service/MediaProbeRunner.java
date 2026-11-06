@@ -51,6 +51,8 @@ public class MediaProbeRunner implements MediaProbeRequests {
     private final AtomicBoolean scannerRequested = new AtomicBoolean();
     private final Map<ProbeKind, Instant> lastRun = new EnumMap<>(ProbeKind.class);
     private final Map<ProbeKind, Integer> incompleteInARow = new EnumMap<>(ProbeKind.class);
+    /** When a processor probe of this instance last passed; the worker registration reads it from its own thread. */
+    private volatile Instant lastProcessorPass;
 
     public MediaProbeRunner(MediaObjectStore store, MalwareScanner scanner, ImageNormalizer normalizer,
                             IntakeHealthRepository health, MediaClock clock) {
@@ -74,6 +76,12 @@ public class MediaProbeRunner implements MediaProbeRequests {
     /** Whether a store probe was asked for and has not run yet (operations and tests read it). */
     public boolean isStoreProbeRequested() {
         return storeRequested.get();
+    }
+
+    /** Whether a processor probe of this instance passed at or after {@code since}. */
+    public boolean processorPassedSince(Instant since) {
+        Instant pass = lastProcessorPass;
+        return pass != null && !pass.isBefore(since);
     }
 
     /** The probes of a sweep: all three, one at a time; true when every probe passed. */
@@ -134,6 +142,10 @@ public class MediaProbeRunner implements MediaProbeRequests {
         switch (result) {
             case PASSED -> {
                 incompleteInARow.put(kind, 0);
+                if (kind == ProbeKind.PROCESSOR) {
+                    // the time it answered, and before the write below, which can fail: it passed all the same
+                    lastProcessorPass = clock.now();
+                }
                 // survey-media spec 5.2: operators read the last passing probe in an incident; only a scanner pass
                 // ends a scan block
                 health.recordProbePassed(kind == ProbeKind.SCANNER, now);

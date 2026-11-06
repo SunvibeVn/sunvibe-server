@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.InputStream;
@@ -13,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -217,6 +219,70 @@ class MediaProbeRunnerTest {
         assertNotNull(health.row.intakePausedSince());
     }
 
+    /** survey-media spec amendment 2026-11-05: only a passing processor probe of this instance starts a late worker. */
+    @Test
+    void processorPassedSince_onlyAfterAPassingProcessorProbe() {
+        normalizer.result = ProbeResult.INCOMPLETE;
+        runner.runAll();
+        assertFalse(runner.processorPassedSince(T0), "an incomplete processor probe beside passing store and scanner");
+
+        normalizer.result = ProbeResult.WRONG_ANSWER;
+        now.set(T0.plusSeconds(60));
+        runner.runAll();
+        assertFalse(runner.processorPassedSince(T0), "a wrong answer");
+
+        normalizer.result = ProbeResult.PASSED;
+        now.set(T0.plusSeconds(120));
+        runner.runAll();
+        assertTrue(runner.processorPassedSince(T0.plusSeconds(120)), "a pass in the probes of a sweep");
+        assertFalse(runner.processorPassedSince(T0.plusSeconds(120).plusNanos(1)), "a pass before since");
+
+        normalizer.result = ProbeResult.INCOMPLETE;
+        now.set(T0.plusSeconds(180));
+        runner.runAll();
+        assertFalse(runner.processorPassedSince(T0.plusSeconds(180)), "a failure at since is no pass");
+
+        normalizer.result = ProbeResult.PASSED;
+        now.set(T0.plusSeconds(225));
+        runner.poll();
+        assertTrue(runner.processorPassedSince(T0.plusSeconds(180)), "a pass in the re-run of an incomplete probe");
+    }
+
+    /** A probe that started before the start-up retries gave up and answered after it still counts. */
+    @Test
+    void processorPassedSince_timeOfThePassIsWhenTheProbeAnswered() {
+        normalizer.whileProbing = () -> now.set(T0.plusSeconds(10));
+
+        runner.runAll();
+
+        assertTrue(runner.processorPassedSince(T0.plusSeconds(5)));
+    }
+
+    /** The processor did pass, whatever the database does with the record of it. */
+    @Test
+    void processorPassedSince_healthWriteFails_thePassStands() {
+        AtomicBoolean databaseDown = new AtomicBoolean();
+        InMemoryIntakeHealth failing = new InMemoryIntakeHealth() {
+            @Override
+            public void recordProbePassed(boolean clearScanBlock, Instant appNow) {
+                if (databaseDown.get()) {
+                    throw new IllegalStateException("database down");
+                }
+                super.recordProbePassed(clearScanBlock, appNow);
+            }
+        };
+        MediaProbeRunner onFailingHealth = new MediaProbeRunner(store, scanner, normalizer, failing, now::get);
+        normalizer.result = ProbeResult.INCOMPLETE;
+        onFailingHealth.runAll();
+
+        normalizer.result = ProbeResult.PASSED;
+        databaseDown.set(true);
+        now.set(T0.plusSeconds(45));
+        assertThrows(IllegalStateException.class, onFailingHealth::poll);
+
+        assertTrue(onFailingHealth.processorPassedSince(T0.plusSeconds(45)));
+    }
+
     @Test
     void allPassing_runAllTrue_noFailure() {
         assertTrue(runner.runAll());
@@ -248,6 +314,9 @@ class MediaProbeRunnerTest {
         final AtomicInteger inFlight = new AtomicInteger();
         final AtomicInteger maxInFlight = new AtomicInteger();
         volatile CountDownLatch slow;
+        volatile ProbeResult result = ProbeResult.PASSED;
+        /** Runs while the probe is in flight, before it answers. */
+        volatile Runnable whileProbing = () -> { };
 
         @Override
         public Optional<SourceFormat> detect(InputStream source, long length) {
@@ -267,12 +336,13 @@ class MediaProbeRunnerTest {
                 if (slow != null) {
                     slow.await(Duration.ofSeconds(5).toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
                 }
+                whileProbing.run();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } finally {
                 inFlight.decrementAndGet();
             }
-            return ProbeResult.PASSED;
+            return result;
         }
 
         @Override
