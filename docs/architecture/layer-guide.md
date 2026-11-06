@@ -4,7 +4,7 @@ How to write each layer of a sunvibe-server module. Overview, package tree and d
 [backend-architecture.md](backend-architecture.md).
 
 > The examples follow `property-service`. Packages and class names for every module:
-> `.claude/rules/naming-layout.md`; what still sits elsewhere: "Variants in use" in backend-architecture.md.
+> `.claude/rules/naming-layout.md`.
 
 ---
 
@@ -16,8 +16,8 @@ How to write each layer of a sunvibe-server module. Overview, package tree and d
 
 **Components:**
 
-#### Aggregates (`domain/model/aggregate/`)
-- **Location**: `domain/model/aggregate/{AggregateName}.java`
+#### Aggregates (`domain/model/{concept}/`)
+- **Location**: `domain/model/{concept}/{AggregateName}.java`
 - **Purpose**: Aggregate root that controls access to related entities
 - **Rules**:
   - Contains business logic (methods like `applyRule()`, `changeStatus()`)
@@ -54,8 +54,8 @@ public class Property {
 }
 ```
 
-#### Value Objects (`domain/model/vo/`)
-- **Location**: `domain/model/vo/{ValueObjectName}.java`
+#### Value Objects (`domain/model/{concept}/`)
+- **Location**: `domain/model/{concept}/{ValueObjectName}.java`, or `domain/model/{concept}/vo/` in a large concept
 - **Purpose**: Immutable objects identified by their attributes
 - **Rules**:
   - Extend `ValueObject<T>` base class

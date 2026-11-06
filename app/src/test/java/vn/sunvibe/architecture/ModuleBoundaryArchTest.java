@@ -112,9 +112,7 @@ class ModuleBoundaryArchTest {
 				.should().dependOnClassesThat(resideInAPackage(FEATURE_CORE)
 						.and(not(resideInAnyPackage(
 								"vn.sunvibe.*.core.application.usecase..",
-								"vn.sunvibe.*.core.application.shared.external..")))
-						// auth-service keeps its use case implementations in usecase/<area>/impl (not published)
-						.or(resideInAPackage("vn.sunvibe.*.core.application.usecase..impl..")))
+								"vn.sunvibe.*.core.application.shared.external.."))))
 				.because("ADR-009: an adapter uses only the provider's published use case and the consumer's port")
 				.check(classes);
 	}
