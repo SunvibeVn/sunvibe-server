@@ -9,8 +9,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
-import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserMapperImpl;
-import vn.sunvibe.auth.core.infrastructure.persistence.converter.auto.UserVOMapperImpl;
+import vn.sunvibe.auth.core.infrastructure.persistence.mapper.auto.UserMapperImpl;
+import vn.sunvibe.auth.core.infrastructure.persistence.mapper.auto.UserVOMapperImpl;
 import vn.sunvibe.shared.crypto.AesGcmCryptoService;
 import vn.sunvibe.shared.crypto.CryptoService;
 
