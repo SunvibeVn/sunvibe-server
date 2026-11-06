@@ -47,6 +47,8 @@ public class StaffInventoryCaseController {
             @ApiResponse(responseCode = "401", description = "Authentication required",
                     content = @Content(schema = @Schema(type = "object"))),
             @ApiResponse(responseCode = "403", description = "The caller holds no manager role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the intake switch is off",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public InventoryCaseUseCase.CasePage list(@RequestParam(name = "status", required = false) String status,

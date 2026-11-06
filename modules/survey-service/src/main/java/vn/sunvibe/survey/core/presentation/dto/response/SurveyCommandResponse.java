@@ -10,5 +10,6 @@ import java.util.List;
  */
 @Schema(description = "The answer of a survey command")
 public record SurveyCommandResponse(SurveyBlockResponse survey, SurveyLeadStateResponse lead,
-                                    SurveyHistoryEntryResponse historyEntry, List<SurveyOverlapResponse> overlaps) {
+                                    @Schema(nullable = true) SurveyHistoryEntryResponse historyEntry,
+                                    List<SurveyOverlapResponse> overlaps) {
 }

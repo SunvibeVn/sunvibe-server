@@ -25,6 +25,13 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v6   # Gradle cache
       - run: ./gradlew build --no-daemon
+      # The wire check's report: what the API tests reached, with null and value counts. Also when the build fails.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: wire-contract
+          path: app/build/reports/wire-contract/
+          retention-days: 14
       # The checked-in contract must equal what the code exports (H2 test profile, no database needed).
       - name: API contract is fresh (exportOpenApi output equals api/openapi.json)
         run: |

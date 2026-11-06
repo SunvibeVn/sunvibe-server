@@ -215,7 +215,7 @@ public final class OwnerLeadActivity {
         return referenceNo;
     }
 
-    /** The checklist group a CHECKLIST_SAVED entry concerns, or null. */
+    /** The group of a CHECKLIST_SAVED entry, the category of a photo entry, the decision of a review, or null. */
     public String getReferenceDetail() {
         return referenceDetail;
     }

@@ -25,11 +25,12 @@ public record OwnerLeadSummaryResponse(
         String wardName,
         @Schema(description = "Kind of property the owner describes (not the unit layout of the property create "
                 + "API)", nullable = true) OwnerLeadPropertyType propertyType,
-        @Schema(description = "User id of the assignee; null when nobody holds the lead") String assignedUserId,
+        @Schema(description = "User id of the assignee; null when nobody holds the lead", nullable = true)
+        String assignedUserId,
         @Schema(description = "Full name of the assignee; null when nobody holds the lead "
                 + "or the id has no user row", nullable = true)
         String assignedUserName,
-        Instant nextActionAt,
+        @Schema(nullable = true) Instant nextActionAt,
         @Schema(description = "True when the lead has at least one possible duplicate the caller can see")
         boolean possibleDuplicate,
         Instant createdAt,

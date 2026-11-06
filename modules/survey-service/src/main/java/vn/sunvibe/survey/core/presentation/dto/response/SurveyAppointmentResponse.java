@@ -15,17 +15,22 @@ import java.util.List;
  */
 @Schema(description = "A survey appointment of a lead")
 public record SurveyAppointmentResponse(String id, String leadId, int appointmentNo, AppointmentKind kind,
-                                        String previousVisitId, String resurveyReason, SurveyIntent intent,
+                                        @Schema(nullable = true) String previousVisitId,
+                                        @Schema(nullable = true) String resurveyReason, SurveyIntent intent,
                                         int intentCycle, boolean inCurrentCycle, AppointmentStatus status,
                                         Instant startAt, int durationMinutes, SurveyLocationResponse meetingLocation,
-                                        SurveyLocationResponse leadLocation, String locationReason, String accessNote,
-                                        String onSiteContactName, String onSiteContactRole, String surveyorUserId,
-                                        String surveyorName, boolean cannotBePerformed,
+                                        SurveyLocationResponse leadLocation,
+                                        @Schema(nullable = true) String locationReason,
+                                        @Schema(nullable = true) String accessNote,
+                                        @Schema(nullable = true) String onSiteContactName,
+                                        @Schema(nullable = true) String onSiteContactRole, String surveyorUserId,
+                                        @Schema(nullable = true) String surveyorName, boolean cannotBePerformed,
                                         List<SurveyHolderResponse> holders, SurveyConfirmationResponse confirmation,
-                                        SurveyVisitResponse visit, SurveyCancellationResponse cancellation,
+                                        @Schema(nullable = true) SurveyVisitResponse visit,
+                                        @Schema(nullable = true) SurveyCancellationResponse cancellation,
                                         List<SurveyRevisionResponse> revisions, List<SurveyEventResponse> events,
-                                        String createdByUserId, String createdByName, Instant createdAt,
-                                        long version,
+                                        String createdByUserId, @Schema(nullable = true) String createdByName,
+                                        Instant createdAt, long version,
                                         @Schema(description = "The survey checklists of a VISITED appointment, "
                                                 + "newest first; empty otherwise (survey-checklist spec 7.2)")
                                         List<ChecklistSummaryResponse> checklists) {

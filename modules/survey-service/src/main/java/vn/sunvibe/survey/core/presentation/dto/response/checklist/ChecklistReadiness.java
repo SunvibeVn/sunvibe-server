@@ -5,14 +5,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /**
- * The gaps known so far, computed on every read; submission is not available in this slice (survey-checklist spec 4.7).
+ * The gaps known so far, computed on every read (survey-checklist spec 4.7, submission spec 4.4).
  */
-@Schema(description = "The gaps known so far, computed on every read; submission is not available in this slice")
+@Schema(description = "The gaps known so far, computed on every read")
 public record ChecklistReadiness(
         boolean submissionAvailable,
-        @Schema(allowableValues = {"EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE"},
-                description = "EVIDENCE_NOT_AVAILABLE while the checklist's photos are not available, else"
-                        + " SUBMISSION_NOT_AVAILABLE")
+        @Schema(nullable = true, allowableValues = {"EVIDENCE_NOT_AVAILABLE", "SUBMISSION_NOT_AVAILABLE",
+                "APPOINTMENT_SCHEDULED", "MISSING_ITEMS", "PHOTOS_NOT_FINISHED", "PHOTO_LIMIT", "PHOTO_UNAVAILABLE"},
+                description = "Null when submission is available, else the first gate that fails: "
+                        + "EVIDENCE_NOT_AVAILABLE (photos are not available or uploads are off), "
+                        + "SUBMISSION_NOT_AVAILABLE (the submission switch is off), APPOINTMENT_SCHEDULED, "
+                        + "MISSING_ITEMS, PHOTOS_NOT_FINISHED, PHOTO_LIMIT, PHOTO_UNAVAILABLE")
         String submissionUnavailableReason,
         List<ChecklistMissingItem> missing,
         List<ChecklistUnconfirmedTerm> unconfirmedTerms,

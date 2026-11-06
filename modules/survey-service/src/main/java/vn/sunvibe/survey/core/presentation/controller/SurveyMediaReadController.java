@@ -10,6 +10,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.headers.Header;
@@ -132,7 +133,8 @@ public class SurveyMediaReadController {
         }
     }
 
-    /** spec 7.1: GET only; Spring would otherwise answer HEAD through the GET mapping. */
+    /** spec 7.1: GET only; Spring would otherwise answer HEAD through the GET mapping. It exists only to refuse. */
+    @Hidden
     @RequestMapping(value = READ, method = RequestMethod.HEAD)
     public void head() {
         throw new MediaMethodNotAllowedException();

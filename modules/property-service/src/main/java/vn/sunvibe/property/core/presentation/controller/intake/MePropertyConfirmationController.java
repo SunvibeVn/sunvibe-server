@@ -54,6 +54,8 @@ public class MePropertyConfirmationController {
             @ApiResponse(responseCode = "401", description = "No valid access token (security chain)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "403", description = "Access denied (security chain)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the intake switch is off",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public Items list() {

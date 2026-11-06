@@ -6,6 +6,7 @@ import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -16,10 +17,11 @@ import java.util.Set;
  * "null"} next to the {@code $ref}; in OpenAPI 3.1 the two combine, so the property would allow neither the object
  * nor null. This customizer writes such a property as {@code anyOf} of the reference and {@code {"type": "null"}},
  * keeping its description, so the contract and the generated clients say "that schema or null" (for example
- * {@code askingPrice} of a requirement change, survey-schedule spec 7.1). Scalar nullable properties are already right
- * ({@code "type": ["string", "null"]}) and are left alone. It rewrites the top-level properties of the component
- * schemas, the only place such properties occur; {@code OpenApiNullableReferenceTest} fails if one appears anywhere
- * else. Assumes the OpenAPI 3.1 output springdoc writes by default ({@code {"type": "null"}} is 3.1 only).
+ * {@code askingPrice} of a requirement change, survey-schedule spec 7.1). A nullable enum gets {@code null} in its
+ * {@code enum}: {@code "type": ["string", "null"]} alone still refuses null, because the value must also be listed. Other
+ * scalar nullable properties are left alone. It rewrites the top-level properties of the component schemas, the only
+ * place such properties occur; {@code OpenApiNullableReferenceTest} fails if one appears anywhere else. Assumes the
+ * OpenAPI 3.1 output springdoc writes by default ({@code {"type": "null"}} is 3.1 only).
  */
 @Configuration
 public class OpenApiNullableReferenceConfig {
@@ -38,9 +40,23 @@ public class OpenApiNullableReferenceConfig {
                 if (properties != null) {
                     properties.replaceAll((name, property) -> isNullableReference(property)
                             ? referenceOrNull(property) : property);
+                    properties.values().forEach(OpenApiNullableReferenceConfig::listNullInEnum);
                 }
             }
         };
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void listNullInEnum(Schema<?> property) {
+        Set<String> types = property.getTypes();
+        if (property.getEnum() == null || types == null || !types.contains(NULL_TYPE)) {
+            return;
+        }
+        List<Object> values = new ArrayList<>(property.getEnum());
+        if (!values.contains(null)) {
+            values.add(null);
+            ((Schema<Object>) property).setEnum(values);
+        }
     }
 
     private static boolean isNullableReference(Schema<?> property) {

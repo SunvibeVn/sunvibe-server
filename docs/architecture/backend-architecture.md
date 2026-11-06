@@ -142,6 +142,9 @@ Full rule: `sunvibe-hub/docs/decisions/ADR-009-cross-module-ports.md`.
   `..core.application.shared.external..`; every class lives in one of these packages; other app classes
   use no feature class except the named allowlist `SecurityConfig` -> `RoleName`, `JWTRequestFilter` (a new
   exception needs an ADR-009 change).
+- The contract is checked the same way, in `test`: a filter in `app/src/test/java/vn/sunvibe/contract/` validates every
+  `/api/**` answer of the API tests against `api/openapi.json`, and a fault fails the test class. Its exceptions are the
+  four in `WireContract`; `app/build/reports/wire-contract/report.txt` shows what the tests reached (a CI artifact).
 - A module that needs another module's data or action declares an outbound port in its own
   `core/application/shared/external/<topic>/`, typed in its own terms (no class of the other module).
 - The provider exposes a published use case in `core/application/usecase/...` and keeps entities, repositories and

@@ -14,17 +14,17 @@ public record SurveyHistoryEntryResponse(
                 "SURVEY_CANCELLED", "SURVEY_VISITED", "SURVEY_RESUMED"})
         String type,
         String actorUserId,
-        String actorName,
-        @Schema(description = "Null when the lead kept its status")
+        @Schema(nullable = true) String actorName,
+        @Schema(description = "Null when the lead kept its status", nullable = true)
         String fromStatus,
-        @Schema(description = "Null when the lead kept its status")
+        @Schema(description = "Null when the lead kept its status", nullable = true)
         String toStatus,
-        String fromAssigneeId,
-        String toAssigneeId,
-        String fromAssigneeName,
-        String toAssigneeName,
-        String note,
-        Instant nextActionAt,
+        @Schema(nullable = true) String fromAssigneeId,
+        @Schema(nullable = true) String toAssigneeId,
+        @Schema(nullable = true) String fromAssigneeName,
+        @Schema(nullable = true) String toAssigneeName,
+        @Schema(nullable = true) String note,
+        @Schema(nullable = true) Instant nextActionAt,
         Instant occurredAt,
         String referenceId,
         Integer referenceNo) {

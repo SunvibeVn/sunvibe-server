@@ -12,7 +12,7 @@ import java.util.List;
  */
 @Schema(description = "The survey block of an owner lead")
 public record SurveyBlockResponse(String leadId, int intentCycle, SurveyBookingResponse booking,
-                                  String currentVisitId, boolean resumeAllowed,
+                                  @Schema(nullable = true) String currentVisitId, boolean resumeAllowed,
                                   List<SurveyAppointmentResponse> appointments,
                                   List<SurveyResumptionResponse> resumptions,
                                   @Schema(description = "Whether the viewer can start a survey checklist on the "

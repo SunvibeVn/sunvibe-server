@@ -117,7 +117,7 @@ public record OwnerIntakeRequest(
             @DecimalMin(value = "1", message = "Asking price amount must be a whole number from 1 to 15 digits.")
             @Digits(integer = 15, fraction = 0,
                     message = "Asking price amount must be a whole number from 1 to 15 digits.")
-            @Schema(type = "integer", format = "int64", example = "15000000", minimum = "1",
+            @Schema(types = {"integer"}, format = "int64", example = "15000000", minimum = "1",
                     maximum = "999999999999999")
             BigDecimal amount,
 

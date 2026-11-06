@@ -40,6 +40,8 @@ dependencies {
     testImplementation("software.amazon.awssdk:apache-client")
     // Source-level module boundary test (ModuleBoundaryArchTest, ADR-009); core library only, not managed by the Boot BOM
     testImplementation("com.tngtech.archunit:archunit:1.5.1")
+    // The wire check: every answer of the API tests against the committed contract (vn.sunvibe.contract)
+    testImplementation("com.networknt:json-schema-validator:2.0.0")
 }
 
 tasks.withType<Test> {
@@ -51,6 +53,8 @@ tasks.withType<Test> {
     // The API tests keep more than twenty Spring contexts, each with its own PostgreSQL container, plus the check limits
     // test's 50-space answers. Past 1 GB the JVM stalled in GC while loading a context (property-create intake, 2026-11-06)
     maxHeapSize = "2g"
+    // The contract the wire check reads; exportOpenApi writes this file and never reads it
+    systemProperty("contract.file", rootProject.file("api/openapi.json").absolutePath)
 }
 
 // The contract export runs only through exportOpenApi, so a normal build never rewrites api/openapi.json. The tagged
@@ -60,6 +64,8 @@ tasks.named<Test>("test") {
     useJUnitPlatform {
         excludeTags("openapi-export", "migration-timing", "r2-contract", "real-clamd", "phone-corpus")
     }
+    // A contract-only edit re-runs the wire check. Not on exportOpenApi, which writes this file
+    inputs.file(rootProject.file("api/openapi.json"))
 }
 
 // ./gradlew :app:r2ContractTest: the object store contract against a Cloudflare R2 test bucket (survey-media spec

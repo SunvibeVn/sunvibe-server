@@ -1,6 +1,8 @@
 package vn.sunvibe.property.core.presentation.dto.response;
 
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -13,16 +15,18 @@ public record PropertyCreateResponse(
         String id,                  // PropertyId
         String propertyCode,
         String title,
-        String description,
+        @Schema(nullable = true) String description,
 
         // Location
         String street,
         String ward,
         String district,
         String city,
-        String postalCode,
+        @Schema(nullable = true) String postalCode,
 
         // Details
+        @Schema(allowableValues = {"STUDIO", "ONE_BEDROOM", "TWO_BEDROOM", "THREE_BEDROOM", "FOUR_BEDROOM", "DUPLEX",
+                "PENTHOUSE"})
         String propertyType,
         Integer bedrooms,
         Integer bathrooms,
@@ -34,10 +38,14 @@ public record PropertyCreateResponse(
         Integer minRentMonths,
 
         // Status
+        @Schema(allowableValues = {"AVAILABLE", "UNAVAILABLE", "RENTED", "SOLD", "UNDER_MAINTENANCE",
+                "PENDING_APPROVAL", "DRAFT"})
         String status,
         String ownerId,
 
         // Audit
+        @Schema(types = {"string"}, format = "local-date-time",
+                description = "The server's local time, with no offset", example = "2026-11-05T19:59:18.1712426")
         LocalDateTime createdAt,
         String createdBy,
 

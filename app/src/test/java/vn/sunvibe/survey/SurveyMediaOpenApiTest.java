@@ -213,7 +213,11 @@ class SurveyMediaOpenApiTest {
 				"responses"))));
 		JsonNode request = schema("MediaHoldRequest");
 		List<String> reasons = new java.util.ArrayList<>();
-		request.path("properties").path("reason").path("enum").forEach(value -> reasons.add(value.asString()));
+		request.path("properties").path("reason").path("enum").forEach(value -> {
+			if (!value.isNull()) {
+				reasons.add(value.asString());
+			}
+		});
 		assertEquals(List.of("SECURITY_INCIDENT", "CREDENTIAL_EXPOSURE"), reasons);
 		assertFalse(schema("MediaHoldReleaseRequest").isMissingNode());
 		assertTrue(hold.path("responses").toString().contains("MEDIA_NOT_AVAILABLE"));
