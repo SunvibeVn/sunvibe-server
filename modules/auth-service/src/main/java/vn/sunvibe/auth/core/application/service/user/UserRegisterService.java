@@ -1,0 +1,120 @@
+package vn.sunvibe.auth.core.application.service.user;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
+import vn.sunvibe.auth.core.application.command.user.UserRegisterCommand;
+import vn.sunvibe.auth.core.application.query.auth.AuthResult;
+import vn.sunvibe.auth.core.application.shared.PhoneChannelPolicy;
+import vn.sunvibe.auth.core.application.shared.RegistrationPolicy;
+import vn.sunvibe.auth.core.application.usecase.auth.ContactVerificationUseCase;
+import vn.sunvibe.auth.core.application.usecase.auth.RegistrationPhoneVerificationUseCase;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
+import vn.sunvibe.auth.core.application.usecase.user.LoginUseCase;
+import vn.sunvibe.auth.core.application.usecase.user.UserRegisterUseCase;
+import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
+import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
+import vn.sunvibe.auth.core.domain.model.user.vo.*;
+import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
+import vn.sunvibe.auth.core.shared.enums.AuthFieldName;
+import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.time.AppClock;
+
+import java.util.HashSet;
+
+/**
+ * Self-registration, all in one transaction.
+ * <p>
+ * "Verify first, register later": the request carries a registration token that
+ * proves the phone number, so the account is created ACTIVE with a verified
+ * phone. Without a token (only allowed while
+ * {@code app.security.registration.require-phone-verification} is off) the older
+ * flow applies: a PENDING account gets its first SMS code right away. Either way
+ * the new user is signed in on the registering device.
+ */
+@Log4j2
+@Service
+@RequiredArgsConstructor
+public class UserRegisterService implements UserRegisterUseCase {
+
+    private final UserDomainRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final IdGenerator<String> ulidGenerator;
+    private final AuditLogPort auditLog;
+    private final ContactVerificationUseCase contactVerification;
+    private final LoginUseCase loginUseCase;
+    private final RegistrationPhoneVerificationUseCase phoneVerification;
+    private final RegistrationPolicy registrationPolicy;
+    private final PhoneChannelPolicy phoneChannel;
+
+    @Transactional
+    @Override
+    public AuthResult execute(UserRegisterCommand userRegisterCommand) {
+
+        phoneChannel.require(PhoneChannelPolicy.Operation.SIGN_UP);
+        PhoneNumber phone = PhoneNumber.create(userRegisterCommand.username());
+
+        // The key answers for every written form; the raw check covers a row that has no key
+        if (userRepository.existsByPhoneKey(phone.key()) || userRepository.existsByUsername(phone.national())) {
+            throw new AuthValidationException(AuthFieldName.USER_NAME, "Phone number is already in use.");
+        }
+
+        // Optional field: validated (format) and checked for duplicates only when provided
+        IdCardNumber idCardNumberVO = isProvided(userRegisterCommand.idCardNumber()) ? IdCardNumber.create(userRegisterCommand.idCardNumber().trim()) : null;
+        if (idCardNumberVO != null && userRepository.existsByIdCardNumber(idCardNumberVO)) {
+            throw new AuthValidationException(AuthFieldName.ID_CARD_NUMBER, "ID card number is already in use.");
+        }
+
+        // The phone number was proven before this request: the token is used up here and handed
+        // back if anything below fails (same transaction)
+        boolean phoneVerifiedFirst = isProvided(userRegisterCommand.registrationToken());
+        if (phoneVerifiedFirst || registrationPolicy.isRequirePhoneVerification()) {
+            phoneVerification.consumeRegistrationToken(userRegisterCommand.registrationToken(), userRegisterCommand.username());
+            phoneVerifiedFirst = true;
+        }
+
+        // Build Value-Object
+        UserId userId = UserId.create(ulidGenerator.generateId());
+        Password passwordVO = Password.create(passwordEncoder.encode(userRegisterCommand.password()));
+        ProfileImage profileImageVO = ProfileImage.create(null);
+
+        AppUser appUser = AppUser.createWithPhone(userId, userRegisterCommand.fullName(), phone, passwordVO,
+                profileImageVO, idCardNumberVO, new HashSet<>(), AppClock.currentUTC());
+
+        // Self-registered accounts get exactly TENANT and CUSTOMER (auth-roles BR-3); other roles are granted by staff
+        for (RoleName role : RoleName.SELF_REGISTRATION) {
+            appUser.assignRole(role.name());
+        }
+
+        // Phone proven up front: the PENDING account becomes ACTIVE straight away
+        if (phoneVerifiedFirst) {
+            appUser.verifyPhone(AppClock.currentUTC());
+        }
+
+        // Save in database
+        appUser = userRepository.create(appUser);
+
+        log.info("Register user successful: {}", appUser.getId().getValue());
+        auditLog.record(AuthAuditEvent.of(AuditEventType.USER_REGISTERED, appUser.getId().getValue(),
+                appUser.getUsername().getValue()));
+
+        // Old flow: the account stays PENDING until the phone is verified; send the first code right away
+        if (!phoneVerifiedFirst) {
+            contactVerification.sendCodeAfterRegistration(appUser);
+        }
+
+        // The password was just set: no need to check it again to start the first session
+        ClientInfo clientInfo = userRegisterCommand.clientInfo() != null ? userRegisterCommand.clientInfo() : ClientInfo.unknown();
+        return loginUseCase.loginInternal(appUser, clientInfo);
+    }
+
+    private static boolean isProvided(String value) {
+        return value != null && !value.isBlank();
+    }
+}

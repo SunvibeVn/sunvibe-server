@@ -4,7 +4,7 @@ import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import vn.sunvibe.auth.core.application.usecase.user.LoginAccountFinder;
+import vn.sunvibe.auth.core.application.service.user.LoginAccountFinder;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
