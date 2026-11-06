@@ -4,9 +4,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.auth.core.application.exception.auth.AuthChannelDisabledException;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuthAuditEvent;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;

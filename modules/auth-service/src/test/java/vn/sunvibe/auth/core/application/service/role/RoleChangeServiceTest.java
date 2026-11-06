@@ -10,7 +10,7 @@ import vn.sunvibe.auth.core.application.exception.role.InactiveAccountException;
 import vn.sunvibe.auth.core.application.exception.role.RoleChangeForbiddenException;
 import vn.sunvibe.auth.core.application.exception.role.RoleNotGrantableException;
 import vn.sunvibe.auth.core.application.query.role.UserRolesResult;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.exception.user.UserNotFoundException;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;

@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.application.usecase.external.email;
+package vn.sunvibe.auth.core.application.shared.external.email;
 
 import java.time.Instant;
 

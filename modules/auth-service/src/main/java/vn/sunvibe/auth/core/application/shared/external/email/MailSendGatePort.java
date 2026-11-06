@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.application.usecase.external.email;
+package vn.sunvibe.auth.core.application.shared.external.email;
 
 /**
  * The limit on auth mail (auth-email-access spec 5.6, PD-13). A send use case enters before its transaction, so at most

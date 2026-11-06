@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.application.usecase.external.sms;
+package vn.sunvibe.auth.core.application.shared.external.sms;
 
 /**
  * Sends text messages. The provider (eSMS, SpeedSMS, Twilio, ...) is chosen

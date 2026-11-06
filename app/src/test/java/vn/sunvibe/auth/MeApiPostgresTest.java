@@ -35,7 +35,7 @@ import tools.jackson.databind.JsonNode;
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Created;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Session;
-import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
+import vn.sunvibe.auth.core.application.shared.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;

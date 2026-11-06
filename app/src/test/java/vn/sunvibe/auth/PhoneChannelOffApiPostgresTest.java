@@ -31,7 +31,7 @@ import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Created;
 import vn.sunvibe.auth.core.application.command.auth.ClientInfo;
 import vn.sunvibe.auth.core.application.usecase.auth.RefreshTokenGenerateUseCase;
-import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
+import vn.sunvibe.auth.core.application.shared.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.domain.model.auth.RegistrationPhoneChallenge;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;

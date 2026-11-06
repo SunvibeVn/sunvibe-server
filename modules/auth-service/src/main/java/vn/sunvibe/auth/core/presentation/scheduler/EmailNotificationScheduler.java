@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.auth.core.application.usecase.auth.EmailNotificationDeliveryUseCase;
-import vn.sunvibe.auth.core.application.usecase.external.email.AfterCommitMailPort;
+import vn.sunvibe.auth.core.application.shared.external.email.AfterCommitMailPort;
 
 /**
  * Hands the due notices to the mail pool every minute, so a slow SMTP server never holds the default scheduler thread,

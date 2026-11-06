@@ -12,7 +12,7 @@ import vn.sunvibe.auth.core.application.command.auth.LoginCommand;
 import vn.sunvibe.auth.core.application.command.auth.PasswordChangeCommand;
 import vn.sunvibe.auth.core.application.exception.auth.AccountTemporarilyLockedException;
 import vn.sunvibe.auth.core.application.query.auth.AuthResult;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.user.LoginUseCase;
 import vn.sunvibe.auth.core.application.usecase.user.PasswordReauthenticationUseCase;
 import vn.sunvibe.auth.core.application.usecase.user.ReauthenticationResult;

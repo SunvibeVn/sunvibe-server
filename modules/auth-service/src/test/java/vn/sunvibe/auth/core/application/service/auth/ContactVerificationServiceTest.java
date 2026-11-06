@@ -9,7 +9,7 @@ import vn.sunvibe.auth.core.application.exception.auth.VerificationException;
 import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledException;
 import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
 import vn.sunvibe.auth.core.application.shared.VerificationPolicy;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;

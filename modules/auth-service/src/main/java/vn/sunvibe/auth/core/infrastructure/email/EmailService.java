@@ -10,7 +10,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException;
-import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
+import vn.sunvibe.auth.core.application.shared.external.email.EmailServicePort;
 
 import java.time.Instant;
 

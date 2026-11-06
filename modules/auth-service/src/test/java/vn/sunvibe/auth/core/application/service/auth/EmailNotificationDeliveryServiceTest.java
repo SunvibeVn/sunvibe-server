@@ -3,7 +3,7 @@ package vn.sunvibe.auth.core.application.service.auth;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.model.auth.EmailNotification;
 import vn.sunvibe.auth.core.testsupport.FakeMailGate;
 import vn.sunvibe.auth.core.testsupport.InMemoryEmailNotificationRepository;

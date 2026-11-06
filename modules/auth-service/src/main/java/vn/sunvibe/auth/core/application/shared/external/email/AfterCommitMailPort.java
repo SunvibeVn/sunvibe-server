@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.application.usecase.external.email;
+package vn.sunvibe.auth.core.application.shared.external.email;
 
 /**
  * Sends mail once the caller's transaction committed, off the request thread (auth-email-access PD-7), so the answer

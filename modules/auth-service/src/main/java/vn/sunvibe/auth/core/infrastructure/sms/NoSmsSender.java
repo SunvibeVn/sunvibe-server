@@ -2,7 +2,7 @@ package vn.sunvibe.auth.core.infrastructure.sms;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
-import vn.sunvibe.auth.core.application.usecase.external.sms.SmsSenderPort;
+import vn.sunvibe.auth.core.application.shared.external.sms.SmsSenderPort;
 
 /**
  * No SMS provider: the phone channel is closed, so nothing may reach this sender (auth-email-access spec 5.7). A call

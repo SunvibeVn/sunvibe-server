@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.application.usecase.external.audit;
+package vn.sunvibe.auth.core.application.shared.external.audit;
 
 import java.time.Instant;
 

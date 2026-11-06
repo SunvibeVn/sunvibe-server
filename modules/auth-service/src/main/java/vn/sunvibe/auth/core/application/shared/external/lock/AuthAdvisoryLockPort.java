@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.application.usecase.external.lock;
+package vn.sunvibe.auth.core.application.shared.external.lock;
 
 /**
  * Advisory locks of the send paths (auth-email-access PD-12): they hold cooldowns and caps under parallel requests, and

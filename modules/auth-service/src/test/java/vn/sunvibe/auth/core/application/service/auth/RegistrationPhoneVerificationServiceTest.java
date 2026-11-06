@@ -8,7 +8,7 @@ import vn.sunvibe.auth.core.application.exception.auth.VerificationThrottledExce
 import vn.sunvibe.auth.core.application.query.auth.RegistrationTokenResult;
 import vn.sunvibe.auth.core.application.query.auth.VerificationSendResult;
 import vn.sunvibe.auth.core.application.shared.VerificationPolicy;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.domain.model.auth.RegistrationPhoneChallenge;
 import vn.sunvibe.auth.core.domain.model.auth.enums.VerificationChannel;

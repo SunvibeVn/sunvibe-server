@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.application.usecase.external.audit;
+package vn.sunvibe.auth.core.application.shared.external.audit;
 
 /**
  * Security-relevant events of the auth module, kept in the audit log.

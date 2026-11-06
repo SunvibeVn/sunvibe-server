@@ -4,7 +4,7 @@ import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.application.usecase.role.OwnerAccountContext;
 import vn.sunvibe.auth.core.application.usecase.role.OwnerLookup;
 import vn.sunvibe.auth.core.application.usecase.role.OwnerNoticeKind;

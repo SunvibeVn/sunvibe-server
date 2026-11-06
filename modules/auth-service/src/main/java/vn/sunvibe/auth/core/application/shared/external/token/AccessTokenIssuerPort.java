@@ -1,4 +1,4 @@
-package vn.sunvibe.auth.core.application.usecase.external.token;
+package vn.sunvibe.auth.core.application.shared.external.token;
 
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 

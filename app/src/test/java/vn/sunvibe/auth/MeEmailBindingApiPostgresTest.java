@@ -35,7 +35,7 @@ import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Created;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Session;
 import vn.sunvibe.auth.core.application.usecase.auth.EmailNotificationDeliveryUseCase;
-import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
+import vn.sunvibe.auth.core.application.shared.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.domain.model.auth.EmailNotification;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
