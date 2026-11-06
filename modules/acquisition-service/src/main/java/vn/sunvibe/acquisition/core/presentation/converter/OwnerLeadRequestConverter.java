@@ -16,12 +16,12 @@ import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadStatusRequ
 import java.util.Optional;
 
 /**
- * Converter - OwnerLeadRequestMapper
+ * Converter - OwnerLeadRequestConverter
  * <p>
  * Staff lead request DTOs -> commands. The version was validated as present, so it is unboxed here.
  */
 @Component
-public class OwnerLeadRequestMapper {
+public class OwnerLeadRequestConverter {
 
     public AssignLeadCommand toCommand(String leadId, AssignLeadRequest request) {
         return new AssignLeadCommand(leadId, request.assigneeUserId(), request.expectedVersion(), request.note());

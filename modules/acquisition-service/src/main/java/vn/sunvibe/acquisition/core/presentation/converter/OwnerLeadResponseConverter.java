@@ -19,14 +19,14 @@ import vn.sunvibe.acquisition.core.presentation.dto.response.OwnerLeadSummaryRes
 import vn.sunvibe.acquisition.core.presentation.dto.response.SaleTerritoryResponse;
 
 /**
- * Converter - OwnerLeadResponseMapper
+ * Converter - OwnerLeadResponseConverter
  * <p>
  * Lead and territory views -> response DTOs, field by field. The views already leave out what staff may not see
  * (hashes, the submission snapshot, leads the caller cannot see); nothing is added here. The staff names are
  * already in the views (acquisition-owner-lead-queue-ui C-18): the mapper only copies them.
  */
 @Component
-public class OwnerLeadResponseMapper {
+public class OwnerLeadResponseConverter {
 
     public LeadPageResponse toPage(PageResult<OwnerLeadSummary> page) {
         return new LeadPageResponse(page.items().stream().map(this::toSummary).toList(), page.page(), page.size(),
@@ -57,7 +57,7 @@ public class OwnerLeadResponseMapper {
                                 candidate.status(), candidate.createdAt()))
                         .toList(),
                 lead.activities().stream().map(this::toActivity).toList(),
-                lead.intentChanges().stream().map(OwnerLeadResponseMapper::toIntentChange).toList());
+                lead.intentChanges().stream().map(OwnerLeadResponseConverter::toIntentChange).toList());
     }
 
     public LeadActivityResponse toActivity(LeadActivityView activity) {

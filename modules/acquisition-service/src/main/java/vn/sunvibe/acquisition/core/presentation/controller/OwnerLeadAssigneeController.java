@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.acquisition.core.application.usecase.LeadAssigneeQueryUseCase;
-import vn.sunvibe.acquisition.core.presentation.converter.LeadAssigneeResponseMapper;
+import vn.sunvibe.acquisition.core.presentation.converter.LeadAssigneeResponseConverter;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadAssigneeResponse;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
@@ -36,7 +36,7 @@ public class OwnerLeadAssigneeController {
     public static final String PATH = "/api/v1/staff/owner-lead-assignees";
 
     private final LeadAssigneeQueryUseCase assigneeUseCase;
-    private final LeadAssigneeResponseMapper responseMapper;
+    private final LeadAssigneeResponseConverter responseConverter;
 
     /**
      * GET /api/v1/staff/owner-lead-assignees
@@ -59,6 +59,6 @@ public class OwnerLeadAssigneeController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<List<LeadAssigneeResponse>> list() {
-        return ResponseEntity.ok(responseMapper.toResponses(assigneeUseCase.listEligible()));
+        return ResponseEntity.ok(responseConverter.toResponses(assigneeUseCase.listEligible()));
     }
 }

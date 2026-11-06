@@ -24,7 +24,7 @@ import vn.sunvibe.acquisition.core.application.command.OwnerIntakeCommand;
 import vn.sunvibe.acquisition.core.application.exception.IntakeValidationException;
 import vn.sunvibe.acquisition.core.application.query.OwnerIntakeResult;
 import vn.sunvibe.acquisition.core.application.usecase.OwnerIntakeSubmitUseCase;
-import vn.sunvibe.acquisition.core.presentation.converter.OwnerIntakeRequestMapper;
+import vn.sunvibe.acquisition.core.presentation.converter.OwnerIntakeRequestConverter;
 import vn.sunvibe.acquisition.core.presentation.dto.request.OwnerIntakeRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.response.OwnerIntakeResponse;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -48,7 +48,7 @@ public class OwnerIntakeController {
     private static final Pattern IDEMPOTENCY_KEY = Pattern.compile("^[A-Za-z0-9_-]{8,64}$");
 
     private final OwnerIntakeSubmitUseCase submitUseCase;
-    private final OwnerIntakeRequestMapper requestMapper;
+    private final OwnerIntakeRequestConverter requestConverter;
     private final ObjectMapper objectMapper;
 
     /**
@@ -99,7 +99,7 @@ public class OwnerIntakeController {
         // fields were already dropped by parsing, and the IP and user agent are not part of it
         String snapshot = objectMapper.writeValueAsString(request);
         // Same client IP as the rate limiter: the direct peer address
-        OwnerIntakeCommand command = requestMapper.toCommand(request, idempotencyKey, httpRequest.getRemoteAddr(),
+        OwnerIntakeCommand command = requestConverter.toCommand(request, idempotencyKey, httpRequest.getRemoteAddr(),
                 httpRequest.getHeader(HttpHeaders.USER_AGENT), snapshot);
 
         OwnerIntakeResult result = submitUseCase.execute(command);
