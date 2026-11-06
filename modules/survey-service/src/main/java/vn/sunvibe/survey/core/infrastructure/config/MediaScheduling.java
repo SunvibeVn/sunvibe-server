@@ -72,7 +72,7 @@ public class MediaScheduling implements DisposableBean {
         registered.add(name);
     }
 
-    /** One later run on the media scheduler (a retry of the processor self-probe). */
+    /** One later run on the media scheduler (a retry of the processor self-probe, a check for a late processor). */
     public void runOnceAfter(Runnable task, Duration delay) {
         scheduler.schedule(task, java.time.Instant.now().plus(delay));
     }

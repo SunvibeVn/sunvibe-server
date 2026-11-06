@@ -191,8 +191,11 @@ Before uploads are turned on in production (spec 9.4), and at each deploy where 
      survey_checklists WHERE requalified_at IS NOT NULL) AS marks, (SELECT count(*) FROM owner_lead_activities WHERE
      type = 'REQUALIFICATION_MARKED') AS history;`
 - **The processor at start-up:** each API instance retries the processor self-probe every 5 s for about a minute
-  before it records a PROCESSOR pause and runs without a worker until restarted. No compose file here starts the API;
-  a deployment that does starts the processor first (`depends_on`) so the probe passes within that minute.
+  before it records a PROCESSOR pause and runs without a worker. The worker then starts by itself, with no restart,
+  within a minute of the first processor probe of that instance that passes; the log says `this instance now
+  processes`. That probe is the re-run of an incomplete one, within a minute, or else the next sweep, about 5 minutes
+  plus the sweep's own run. No compose file here starts the API; a deployment that does starts the processor first
+  (`depends_on`) so the probe passes within that minute.
 - **The spool** (`app.survey.media.spool-dir`, on tmpfs or a volume outside backups): each instance keeps its bodies
   in a subdirectory named by its instance id and locks it while it runs, so instances may share the directory; set
   `app.survey.media.instance-id` per instance when its logs should name it across restarts.
