@@ -21,10 +21,10 @@ import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.shared.external.user.UserDirectoryPort;
 import vn.sunvibe.property.core.application.usecase.PropertyCreateUseCase;
 import vn.sunvibe.property.core.domain.exception.PropertyAlreadyExistsException;
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
-import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.Property;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyCode;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.domain.repository.PropertyDomainRepository;
 import vn.sunvibe.property.core.infrastructure.persistence.adapter.PropertyRepositoryAdapter;
 

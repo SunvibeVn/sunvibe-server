@@ -2,8 +2,8 @@ package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
-import vn.sunvibe.property.core.domain.model.vo.AmenityTypeRef;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.AmenityTypeRef;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.PropertyAmenityEntity;
 
 @Component

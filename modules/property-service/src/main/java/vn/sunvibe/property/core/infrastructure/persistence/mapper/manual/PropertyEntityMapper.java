@@ -2,17 +2,17 @@ package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
+import vn.sunvibe.property.core.domain.model.property.Property;
 import vn.sunvibe.property.core.domain.model.amenity.PropertyAmenityApply;
 import vn.sunvibe.property.core.domain.model.document.PropertyDocument;
-import vn.sunvibe.property.core.domain.model.enums.PropertyStatus;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyStatus;
 import vn.sunvibe.property.core.domain.model.image.PropertyImage;
 import vn.sunvibe.property.core.domain.model.price.PropertyPrice;
 import vn.sunvibe.property.core.domain.model.rule.PropertyRuleApply;
-import vn.sunvibe.property.core.domain.model.vo.Location;
-import vn.sunvibe.property.core.domain.model.vo.Money;
-import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.Location;
+import vn.sunvibe.property.core.domain.model.property.vo.Money;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyCode;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.*;
 
 import java.util.List;

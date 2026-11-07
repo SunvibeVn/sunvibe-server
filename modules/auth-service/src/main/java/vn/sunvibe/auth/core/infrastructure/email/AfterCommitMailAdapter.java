@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import vn.sunvibe.auth.core.application.usecase.external.email.AfterCommitMailPort;
+import vn.sunvibe.auth.core.application.shared.external.email.AfterCommitMailPort;
 
 /** {@link AfterCommitMailPort} over a transaction synchronization and {@link AuthMailExecutor}. */
 @Component

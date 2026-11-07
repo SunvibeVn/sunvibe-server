@@ -6,8 +6,8 @@ paths:
 - Pure Java. No Spring, JPA or Jackson annotations; no imports from application, infrastructure
   or presentation. Lombok remains only in auth-service's domain; do not add it elsewhere. @Setter and
   @NoArgsConstructor bypass the invariants (AppUser is legacy: do not copy it).
-- Aggregates (domain/model/aggregate for Property, domain/model/user/aggregate for AppUser, otherwise a concept folder
-  such as domain/model/unit or domain/model/lead): private constructor that checks invariants, create(...) for new
+- Aggregates (a concept folder such as domain/model/property, domain/model/unit or domain/model/lead; AppUser in
+  domain/model/user/aggregate): private constructor that checks invariants, create(...) for new
   objects, load(...) for rebuilding from the database, business methods such as changeStatus(...). No public setters.
 - Value objects: immutable and self-validating, in one of two forms. auth-service, property-service and
   acquisition-service extend their module's ValueObject<T>: private constructor, of()/generate() factories,

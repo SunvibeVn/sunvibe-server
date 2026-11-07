@@ -4,7 +4,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.auth.core.application.shared.ContactMasker;
-import vn.sunvibe.auth.core.application.usecase.external.sms.SmsSenderPort;
+import vn.sunvibe.auth.core.application.shared.external.sms.SmsSenderPort;
 
 /**
  * Development stand-in for an SMS provider: writes the message, including any

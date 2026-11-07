@@ -2,7 +2,7 @@ package vn.sunvibe.auth.core.application.shared;
 
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.testsupport.FakeMailGate;
 import vn.sunvibe.auth.core.testsupport.FakeMailPool;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;

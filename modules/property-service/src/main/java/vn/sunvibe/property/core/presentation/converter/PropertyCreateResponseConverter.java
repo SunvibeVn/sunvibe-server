@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
+import vn.sunvibe.property.core.domain.model.property.Property;
 import vn.sunvibe.property.core.presentation.dto.response.PropertyCreateResponse;
 
 /**

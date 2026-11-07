@@ -2,8 +2,8 @@ package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.domain.model.document.PropertyDocument;
-import vn.sunvibe.property.core.domain.model.vo.DocumentTypeRef;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.DocumentTypeRef;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.PropertyDocumentEntity;
 
 @Component

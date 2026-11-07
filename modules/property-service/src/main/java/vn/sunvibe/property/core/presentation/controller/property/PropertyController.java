@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.application.usecase.PropertyCreateUseCase;
 import vn.sunvibe.property.core.application.usecase.PropertyFindByIdUseCase;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.presentation.converter.PropertyCreateRequestConverter;
 import vn.sunvibe.property.core.presentation.converter.PropertyCreateResponseConverter;
 import vn.sunvibe.property.core.presentation.dto.request.PropertyCreateRequest;

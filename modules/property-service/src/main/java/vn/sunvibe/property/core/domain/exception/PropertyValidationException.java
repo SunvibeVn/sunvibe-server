@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.domain.exception;
 
 import vn.sunvibe.shared.exception.BusinessRuleViolationException;
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
+import vn.sunvibe.property.core.domain.model.property.Property;
 
 import java.io.Serial;
 

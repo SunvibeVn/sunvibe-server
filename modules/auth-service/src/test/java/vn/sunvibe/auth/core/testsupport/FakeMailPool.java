@@ -1,6 +1,6 @@
 package vn.sunvibe.auth.core.testsupport;
 
-import vn.sunvibe.auth.core.application.usecase.external.email.AfterCommitMailPort;
+import vn.sunvibe.auth.core.application.shared.external.email.AfterCommitMailPort;
 
 import java.util.ArrayList;
 import java.util.List;

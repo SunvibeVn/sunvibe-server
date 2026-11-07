@@ -1,8 +1,8 @@
 package vn.sunvibe.property.core.domain.repository;
 
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
-import vn.sunvibe.property.core.domain.model.vo.PropertyCode;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.Property;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyCode;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 
 import java.util.Optional;
 

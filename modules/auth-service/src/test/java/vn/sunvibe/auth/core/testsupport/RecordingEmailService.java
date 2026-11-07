@@ -1,6 +1,6 @@
 package vn.sunvibe.auth.core.testsupport;
 
-import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
+import vn.sunvibe.auth.core.application.shared.external.email.EmailServicePort;
 
 import java.time.Instant;
 import java.util.ArrayList;

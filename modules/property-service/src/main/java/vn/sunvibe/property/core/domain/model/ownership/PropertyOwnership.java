@@ -1,6 +1,6 @@
 package vn.sunvibe.property.core.domain.model.ownership;
 
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;

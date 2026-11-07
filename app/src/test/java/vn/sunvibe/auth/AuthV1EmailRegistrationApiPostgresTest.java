@@ -30,7 +30,7 @@ import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Created;
-import vn.sunvibe.auth.core.application.usecase.external.email.MailSendGatePort;
+import vn.sunvibe.auth.core.application.shared.external.email.MailSendGatePort;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.time.AppClock;

@@ -1,8 +1,8 @@
 package vn.sunvibe.property.core.domain.model.intake;
 
 import vn.sunvibe.property.core.domain.exception.IntakeStateException;
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 
 import java.time.Instant;
 import java.util.EnumSet;

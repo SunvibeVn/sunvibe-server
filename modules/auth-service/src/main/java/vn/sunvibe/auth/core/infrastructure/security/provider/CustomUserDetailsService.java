@@ -6,7 +6,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import vn.sunvibe.auth.core.application.usecase.user.LoginAccountFinder;
+import vn.sunvibe.auth.core.application.service.user.LoginAccountFinder;
 import vn.sunvibe.auth.core.application.usecase.user.LoginIdentifier;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;

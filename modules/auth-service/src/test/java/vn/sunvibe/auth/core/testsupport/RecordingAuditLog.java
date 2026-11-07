@@ -1,8 +1,8 @@
 package vn.sunvibe.auth.core.testsupport;
 
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditLogPort;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuthAuditEvent;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditLogPort;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuthAuditEvent;
 
 import java.time.Instant;
 import java.util.ArrayList;

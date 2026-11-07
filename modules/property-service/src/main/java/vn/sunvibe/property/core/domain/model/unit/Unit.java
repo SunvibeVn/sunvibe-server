@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.domain.model.unit;
 
-import vn.sunvibe.property.core.domain.model.aggregate.Property;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.Property;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;

@@ -2,7 +2,7 @@ package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.property.core.domain.model.image.PropertyImage;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.PropertyImageEntity;
 
 import java.time.LocalDateTime;

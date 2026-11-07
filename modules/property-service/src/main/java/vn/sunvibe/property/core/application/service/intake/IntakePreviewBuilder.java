@@ -10,7 +10,7 @@ import vn.sunvibe.property.core.application.shared.external.user.UserDirectoryPo
 import vn.sunvibe.property.core.application.usecase.intake.IntakeActor;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeBlockView;
 import vn.sunvibe.property.core.application.usecase.intake.IntakePreviewView;
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
 import vn.sunvibe.property.core.domain.model.intake.AvailabilityItem;
 import vn.sunvibe.property.core.domain.model.intake.IntakeTarget;
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;

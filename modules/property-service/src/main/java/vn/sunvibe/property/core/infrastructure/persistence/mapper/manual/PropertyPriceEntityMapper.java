@@ -2,8 +2,8 @@ package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.domain.model.price.PropertyPrice;
-import vn.sunvibe.property.core.domain.model.vo.Money;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.Money;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.PropertyPriceEntity;
 
 /**

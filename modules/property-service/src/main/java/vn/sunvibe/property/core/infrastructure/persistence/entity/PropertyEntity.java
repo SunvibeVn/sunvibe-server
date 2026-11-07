@@ -2,9 +2,9 @@ package vn.sunvibe.property.core.infrastructure.persistence.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.math.BigDecimal;

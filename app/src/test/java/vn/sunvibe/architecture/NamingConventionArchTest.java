@@ -1,9 +1,14 @@
 package vn.sunvibe.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -15,8 +20,9 @@ import jakarta.persistence.AttributeConverter;
 
 /**
  * The names and packages of {@code .claude/rules/naming-layout.md}, on the compiled main classes of every feature core
- * (clean-up spec section 5). Top-level classes only, and never the {@code *Impl} that MapStruct generates. A rule on a
- * package that holds no class fails, so an empty package is a finding too.
+ * (clean-up spec section 5). The name rules N-1 to N-8 read top-level classes only, never the {@code *Impl} that
+ * MapStruct generates, and fail on a package that holds no class, so an empty package is a finding too. The layout rules
+ * N-9 to N-11 read nested classes too, and N-10 and N-11 stay green once a package is gone.
  */
 class NamingConventionArchTest {
 
@@ -93,6 +99,49 @@ class NamingConventionArchTest {
 				.and(topLevelClassesIn(CORE + "..").and().haveSimpleNameEndingWith("Resolver")
 						.should().resideInAPackage(PRESENTATION_RESOLVER))
 				.check(classes);
+	}
+
+	/** Clean-up spec N-9: a use case package holds interfaces and the records they publish, never an implementation. */
+	@Test
+	void useCases_holdNoServiceOrComponent() {
+		noClasses().that().resideInAPackage(CORE + ".application.usecase..")
+				.should().beAnnotatedWith(Service.class)
+				.orShould().beAnnotatedWith(Component.class)
+				.check(classes);
+	}
+
+	/** Clean-up spec N-9. */
+	@Test
+	void noImplPackage() {
+		noClasses().should().resideInAPackage(CORE + "..impl..").check(classes);
+	}
+
+	/** Clean-up spec N-10: ports live in {@code application/shared/external/}. */
+	@Test
+	void noPortsUnderUseCase() {
+		noClasses().should().resideInAPackage(CORE + ".application.usecase.external..").check(classes);
+	}
+
+	/** Clean-up spec N-10: a scheduled trigger is not HTTP presentation. */
+	@Test
+	void noScheduledMethodInPresentation() {
+		noMethods().that().areDeclaredInClassesThat().resideInAPackage(CORE + ".presentation..")
+				.should().beAnnotatedWith(Scheduled.class)
+				.check(classes);
+	}
+
+	/** Clean-up spec N-11: written without {@code that()}, so it stays green once the folders are gone. */
+	@Test
+	void domainModel_hasNoKindFolder() {
+		noClasses().should().resideInAnyPackage(CORE + ".domain.model.aggregate", CORE + ".domain.model.vo",
+				CORE + ".domain.model.enums").check(classes);
+	}
+
+	/** Clean-up spec N-12: package-private helpers such as the auth API docs may stay beside their controller. */
+	@Test
+	void publicControllers_endWithController() {
+		topLevelClassesIn(CORE + ".presentation.controller..").and().arePublic()
+				.should().haveSimpleNameEndingWith("Controller").check(classes);
 	}
 
 	private static GivenClassesConjunction topLevelClassesIn(String packageIdentifier) {

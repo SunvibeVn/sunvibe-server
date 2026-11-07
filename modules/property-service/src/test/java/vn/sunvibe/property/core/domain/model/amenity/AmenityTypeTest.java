@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.domain.model.amenity;
 
 import org.junit.jupiter.api.Test;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 
 import static org.junit.jupiter.api.Assertions.*;
 

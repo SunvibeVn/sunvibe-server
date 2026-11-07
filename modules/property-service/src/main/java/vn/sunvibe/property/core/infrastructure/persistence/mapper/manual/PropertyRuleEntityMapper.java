@@ -3,8 +3,8 @@ package vn.sunvibe.property.core.infrastructure.persistence.mapper.manual;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.domain.model.rule.PropertyRuleApply;
 import vn.sunvibe.property.core.domain.model.rule.RuleCategory;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
-import vn.sunvibe.property.core.domain.model.vo.RuleCategoryRef;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.RuleCategoryRef;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.PropertyRuleEntity;
 
 @Component

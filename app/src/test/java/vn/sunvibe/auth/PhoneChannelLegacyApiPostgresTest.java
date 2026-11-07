@@ -26,7 +26,7 @@ import org.springframework.test.context.DynamicPropertySource;
 
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.auth.AuthV1ApiTestSupport.Created;
-import vn.sunvibe.auth.core.application.usecase.external.token.AccessTokenIssuerPort;
+import vn.sunvibe.auth.core.application.shared.external.token.AccessTokenIssuerPort;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;

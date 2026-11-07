@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.application.exception.IntakeError;
 import vn.sunvibe.property.core.application.exception.IntakeRefusedException;
 import vn.sunvibe.property.core.application.shared.external.survey.IntakeSource;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 import vn.sunvibe.property.core.domain.model.intake.CaseOutcome;
 import vn.sunvibe.property.core.domain.model.intake.CaseStatus;
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;

@@ -7,17 +7,15 @@ paths:
 - Commands (application/command): Java records, no business logic; shape checks the request DTO does not already
   guarantee go in the compact constructor.
 - Queries (application/query) for read models; keep reads and writes in separate use cases.
-- Use cases (application/usecase): a new module has one interface per operation with a single execute(...) method
-  (PropertyCreateUseCase). property-service's area catalog groups named reads (AdministrativeAreaQueryUseCase), as the
-  acquisition-owner-intake spec approved. acquisition-service and survey-service group operations per aggregate with
-  named methods (OwnerLeadCommandUseCase, SurveyAppointmentCommandUseCase), as the acquisition-owner-lead-queue spec
-  and the survey-schedule plan approved: extend them in that shape; the grouping is not a defect.
+- Use cases (application/usecase): new modules group operations per aggregate with named methods, as acquisition-service
+  and survey-service do (OwnerLeadCommandUseCase, SurveyAppointmentCommandUseCase). One interface per operation with a
+  single execute(...) method stays valid where it exists (PropertyCreateUseCase); property-service's area catalog groups
+  named reads (AdministrativeAreaQueryUseCase).
 - Implementations: @Service + @Transactional, implement the use case, orchestrate domain objects
-  through domain repository interfaces. Location follows the module: new modules, property-service and survey-service
-  -> application/service/ (property-service's area catalog: application/usecase/area/impl/); acquisition-service
-  -> application/usecase/impl/; auth-service -> application/usecase/<area>/impl/.
-- External systems (email, SMS, audit, token) are ports (interfaces) here; adapters live in infrastructure. A call to
-  another module is a port in application/shared/external/<topic>/ with its adapter in app (ADR-009).
+  through domain repository interfaces. They live in application/service/ in every module (`naming-layout.md`).
+- External systems (email, SMS, audit, token) are ports (interfaces) in application/shared/external/<system>/; adapters
+  live in infrastructure. A call to another module is a port in application/shared/external/<topic>/ with its adapter
+  in app (ADR-009).
 - Never import infrastructure.* or presentation.*.
 
 ## Transaction review additions

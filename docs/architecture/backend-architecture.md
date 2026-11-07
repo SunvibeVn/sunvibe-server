@@ -39,37 +39,45 @@ Layers (from inner to outer):
 - **Use Cases**: Interfaces representing business operations
 - **Services**: Implementations of use cases
 
-## Module structure (reference layout)
+## Module structure
+
+Every module follows this layout: `.claude/rules/naming-layout.md` holds the packages and class names, and
+`NamingConventionArchTest` checks them. A module holds only the folders it needs; `<area>` folders are optional.
 
 ```
 modules/{module-name}/src/main/java/vn/sunvibe/{module}/core/
 ├── application/          # Application Layer
 │   ├── command/          # CQRS Commands (immutable records)
-│   ├── query/            # CQRS Queries (if needed)
-│   ├── usecase/          # Use Case interfaces
-│   ├── service/          # Service implementations
+│   ├── query/            # CQRS read models
+│   ├── usecase/          # Use case interfaces and the records they publish
+│   ├── service/          # Use case implementations and their collaborators
 │   ├── exception/        # Application-specific exceptions
-│   └── shared/           # Shared application components
+│   └── shared/           # Helpers shared inside the application layer
+│       └── external/     # Ports to other modules and systems
 ├── domain/               # Domain Layer (Core)
 │   ├── model/
-│   │   ├── aggregate/    # Aggregate Roots
-│   │   ├── vo/           # Value Objects
-│   │   ├── enums/        # Domain enums
-│   │   └── {entity}/     # Other domain entities
+│   │   └── {concept}/    # Aggregate, entities, value objects, enums
+│   ├── policy/
+│   │   └── {concept}/    # Pure rules
 │   ├── repository/       # Domain Repository Interfaces
-│   ├── service/          # Domain Services (if needed)
-│   ├── event/            # Domain Events (if needed)
 │   └── exception/        # Domain exceptions
 ├── infrastructure/       # Infrastructure Layer
 │   ├── persistence/
 │   │   ├── adapter/      # Repository adapters (implement domain interfaces)
 │   │   ├── repository/   # JPA repositories (low-level)
 │   │   ├── entity/       # JPA entities
-│   │   └── mapper/       # Domain ↔ Entity mappers
+│   │   ├── mapper/       # Domain ↔ Entity mappers: auto/ (MapStruct), manual/
+│   │   ├── converter/    # JPA AttributeConverter classes only
+│   │   ├── json/         # Stored document (de)serialisation
+│   │   ├── support/      # Small persistence helpers
+│   │   └── migration/    # Code that Java Flyway migrations call
+│   ├── scheduling/       # Scheduled triggers (*Job)
 │   ├── config/           # Infrastructure configuration
-│   ├── api/              # External API clients
-│   ├── cache/            # Cache implementations
+│   ├── security/         # Security components
+│   ├── media/            # Media adapters and registration
+│   ├── json/             # JSON helpers outside persistence
 │   ├── email/            # Email services
+│   ├── sms/              # SMS services
 │   └── audit/            # Audit logging
 ├── presentation/         # Presentation Layer
 │   ├── controller/       # REST controllers
@@ -79,31 +87,12 @@ modules/{module-name}/src/main/java/vn/sunvibe/{module}/core/
 │   ├── converter/        # DTO ↔ Command/Domain converters
 │   ├── resolver/         # The signed-in user as a viewer or actor
 │   ├── exception/        # Presentation exception handlers
+│   ├── config/           # Presentation configuration
+│   ├── filter/           # Request filters
 │   ├── validation/       # Custom validators
-│   ├── openapi/          # OpenAPI documentation
-│   └── scheduler/        # Scheduled tasks
+│   └── openapi/          # OpenAPI documentation
 └── shared/               # Shared cross-cutting concerns
-    ├── config/           # Shared configuration
-    ├── constant/         # Constants
-    ├── runner/           # Application runners
-    ├── service/          # Shared services
-    └── utils/            # Utility classes
 ```
-
-### Variants in use (observed 2026-11-05)
-
-| Concern | property-service (matches the reference) | auth-service | acquisition-service | survey-service |
-|---|---|---|---|---|
-| Use case interfaces | one per operation, `execute(...)`; the area catalog groups named reads (`AdministrativeAreaQueryUseCase`) | per operation or area, mixed method names | per aggregate (`OwnerLeadCommandUseCase`), named methods | per aggregate (`SurveyMediaCommandUseCase`), named methods |
-| Use case implementations | `application/service/<Op>Service`; area catalog in `application/usecase/area/impl/` | `application/usecase/<area>/impl/<Op>Service` | `application/usecase/impl/` | `application/service/` |
-| Ports to external systems | `application/shared/external/<system>/` | `application/usecase/external/<system>/` | `application/shared/external/` | `application/shared/external/` |
-| Queries | — | `application/query/<area>/` | `application/query/` | `application/query/` |
-| Aggregates | `Property` in `domain/model/aggregate/`; `Unit`, `PropertyOwnership` in `domain/model/<concept>/` | `AppUser` in `domain/model/user/aggregate/`; others in `domain/model/auth/` | `domain/model/<concept>/` | `domain/model/<concept>/` |
-| Value objects | extend `ValueObject<T>`, in `domain/model/vo/` | extend `ValueObject<T>`, in `domain/model/user/vo/` | extend `ValueObject<T>`, or records, in `domain/model/<concept>/` | records in `domain/model/<concept>/` |
-| Domain ↔ entity mappers | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/mapper/{auto,manual}/` (auto = MapStruct) | `infrastructure/persistence/mapper/manual/` | `infrastructure/persistence/mapper/manual/` |
-| Security | — | `infrastructure/security/{config,filter,provider,ratelimit,userdetails}` | `infrastructure/security/` (consent hashing only) | — |
-
-Standard: `.claude/rules/naming-layout.md` (owner, 2026-11-06). The table shows what W28 still moves.
 
 ## Dependency rules
 
@@ -135,7 +124,7 @@ Full rule: `sunvibe-hub/docs/decisions/ADR-009-cross-module-ports.md`.
   the compiled main classes of every module: feature cores `vn.sunvibe.<module>.core..` do not use each other;
   `vn.sunvibe.shared..` uses no other `vn.sunvibe` class; no feature or shared class uses an app class
   (`vn.sunvibe.config..`, `vn.sunvibe.integration..`, `SunvibeServerApplication`); `vn.sunvibe.integration..` uses
-  only feature classes in `..core.application.usecase..` (not `usecase..impl..`) and
+  only feature classes in `..core.application.usecase..` and
   `..core.application.shared.external..`; every class lives in one of these packages; other app classes
   use no feature class except the named allowlist `SecurityConfig` -> `RoleName`, `JWTRequestFilter` (a new
   exception needs an ADR-009 change).

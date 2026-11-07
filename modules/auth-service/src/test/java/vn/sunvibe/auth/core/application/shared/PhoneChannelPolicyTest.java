@@ -7,7 +7,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import vn.sunvibe.auth.core.application.exception.auth.AuthChannelDisabledException;
 import vn.sunvibe.auth.core.application.shared.PhoneChannelPolicy.Mode;
 import vn.sunvibe.auth.core.application.shared.PhoneChannelPolicy.Operation;
-import vn.sunvibe.auth.core.application.usecase.external.audit.AuditEventType;
+import vn.sunvibe.auth.core.application.shared.external.audit.AuditEventType;
 import vn.sunvibe.auth.core.testsupport.RecordingAuditLog;
 
 import java.time.Duration;

@@ -3,7 +3,7 @@ package vn.sunvibe.property.core.domain.model.ownership;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 
 import java.time.Instant;
 import java.time.LocalDate;

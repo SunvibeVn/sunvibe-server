@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.application.exception.IntakeError;
 import vn.sunvibe.property.core.application.exception.IntakeRefusedException;
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
 import vn.sunvibe.property.core.domain.model.intake.CaseSignal;
 import vn.sunvibe.property.core.domain.model.intake.DuplicateCase;
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;

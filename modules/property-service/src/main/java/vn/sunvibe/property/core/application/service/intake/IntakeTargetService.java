@@ -10,7 +10,7 @@ import vn.sunvibe.property.core.application.shared.external.survey.IntakeSource;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeActor;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeBlockView;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeTargetUseCase;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 import vn.sunvibe.property.core.domain.model.intake.IntakeTarget;
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;
 import vn.sunvibe.property.core.domain.model.intake.SelectedSpace;

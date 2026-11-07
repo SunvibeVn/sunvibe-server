@@ -30,7 +30,7 @@ import vn.sunvibe.acquisition.core.application.exception.ConcurrentLeadModificat
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
 import vn.sunvibe.acquisition.core.application.exception.OwnerLeadNotFoundException;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
-import vn.sunvibe.acquisition.core.application.usecase.impl.OwnerLeadQueryService;
+import vn.sunvibe.acquisition.core.application.service.OwnerLeadQueryService;
 import vn.sunvibe.acquisition.core.domain.exception.IntentChangeNotAllowedException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadCommandException;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidLeadTransitionException;

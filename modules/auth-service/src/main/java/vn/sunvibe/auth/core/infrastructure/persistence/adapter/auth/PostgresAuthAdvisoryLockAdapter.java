@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import vn.sunvibe.auth.core.application.usecase.external.lock.AuthAdvisoryLockPort;
+import vn.sunvibe.auth.core.application.shared.external.lock.AuthAdvisoryLockPort;
 
 /** {@link AuthAdvisoryLockPort} over PostgreSQL transaction-level advisory locks. */
 @Component

@@ -25,8 +25,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.property.core.domain.exception.IntakeConflictException;
-import vn.sunvibe.property.core.domain.model.enums.AssetType;
-import vn.sunvibe.property.core.domain.model.enums.RentalLayout;
+import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
+import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 import vn.sunvibe.property.core.domain.model.intake.AvailabilityChoice;
 import vn.sunvibe.property.core.domain.model.intake.AvailabilityItem;
 import vn.sunvibe.property.core.domain.model.intake.CaseOutcome;

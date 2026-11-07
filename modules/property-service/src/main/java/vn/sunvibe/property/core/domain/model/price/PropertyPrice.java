@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.domain.model.price;
 
-import vn.sunvibe.property.core.domain.model.vo.Money;
-import vn.sunvibe.property.core.domain.model.vo.PropertyId;
+import vn.sunvibe.property.core.domain.model.property.vo.Money;
+import vn.sunvibe.property.core.domain.model.property.vo.PropertyId;
 
 import java.time.LocalDate;
 import java.util.Objects;

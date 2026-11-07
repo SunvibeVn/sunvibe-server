@@ -1,6 +1,6 @@
 package vn.sunvibe.property.core.domain.model.unit;
 
-import vn.sunvibe.property.core.domain.model.enums.PropertyType;
+import vn.sunvibe.property.core.domain.model.property.enums.PropertyType;
 
 /**
  * Kind of unit (property-units BR-5). Same values as {@link PropertyType}, mapped by name, so the later unit type list

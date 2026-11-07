@@ -13,8 +13,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
 import vn.sunvibe.auth.core.application.exception.auth.SendingMailFailedException;
-import vn.sunvibe.auth.core.application.usecase.external.email.EmailServicePort;
-import vn.sunvibe.auth.core.application.usecase.external.sms.SmsSenderPort;
+import vn.sunvibe.auth.core.application.shared.external.email.EmailServicePort;
+import vn.sunvibe.auth.core.application.shared.external.sms.SmsSenderPort;
 import vn.sunvibe.auth.core.domain.model.user.vo.PhoneNumber;
 
 /**

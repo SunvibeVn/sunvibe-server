@@ -1,6 +1,6 @@
 package vn.sunvibe.auth.core.testsupport;
 
-import vn.sunvibe.auth.core.application.usecase.external.sms.SmsSenderPort;
+import vn.sunvibe.auth.core.application.shared.external.sms.SmsSenderPort;
 
 import java.util.ArrayList;
 import java.util.List;

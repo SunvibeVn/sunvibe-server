@@ -46,7 +46,7 @@ ADRs, approved specs and briefs outrank a rule, and a rule never decides busines
 |---|---|
 | Java or Spring Boot baseline | the baseline in `review-policy.md`; version notes and links: Java 21 in `java-core.md` and `performance-concurrency.md`, Hibernate guide in `persistence.md`, JUnit line in `testing.md` |
 | PostgreSQL server or test image | the version 17 notes and links in `flyway.md`, `persistence.md` and `java-core.md` |
-| New module or moved folder | `application-layer.md`, `domain-layer.md`, `persistence.md`, `flyway.md`, the `paths` lists, and "Variants in use" in `docs/architecture/backend-architecture.md` |
+| New module or moved folder | `naming-layout.md`, `application-layer.md`, `domain-layer.md`, `persistence.md`, `flyway.md`, the `paths` lists, and the tree in `docs/architecture/backend-architecture.md` |
 | A stated fact changes (open-in-view, actuator, JDBC batching, ShedLock, the rate limiter, forward headers, Hikari or Tomcat sizes, logServerErrorDetail) | the sentence that states it, in the same PR |
 | A bug worth a check lands in `../docs/known-issues.md` or `../docs/product/issues.md` | add the check to the owning file and cite it; the citation stays after the issue closes, while the check guards it |
 
