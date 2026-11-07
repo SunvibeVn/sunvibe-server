@@ -79,7 +79,7 @@ import vn.sunvibe.survey.core.domain.policy.checklist.ReviewAccess;
 import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.SpaceTerms;
 import vn.sunvibe.survey.core.domain.repository.PageResult;
-import vn.sunvibe.survey.core.presentation.dto.response.SurveyLeadStateResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.common.SurveyLeadStateResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistDecidedResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistDecisionResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistMedia;

@@ -12,13 +12,13 @@ import vn.sunvibe.survey.core.application.command.appointment.BookAppointmentCom
 import vn.sunvibe.survey.core.application.command.appointment.ChangeAppointmentCommand;
 import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.presentation.converter.SurveyRequestConverter;
-import vn.sunvibe.survey.core.presentation.dto.request.BasisRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.BookAppointmentRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.ChangeAppointmentRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.MeetingLocationRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.ProxyRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.RecordVisitRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.ResumeSurveyRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.BasisRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.BookAppointmentRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.ChangeAppointmentRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.MeetingLocationRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.ProxyRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.RecordVisitRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.ResumeSurveyRequest;
 
 import java.math.BigDecimal;
 import java.time.Instant;

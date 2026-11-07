@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.appointment.VisitRecordKind;
-import vn.sunvibe.survey.core.presentation.dto.response.SurveyLocationResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.common.SurveyLocationResponse;
 
 import java.time.Instant;
 
