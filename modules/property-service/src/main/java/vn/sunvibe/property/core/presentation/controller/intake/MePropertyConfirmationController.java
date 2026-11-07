@@ -75,7 +75,7 @@ public class MePropertyConfirmationController {
             @ApiResponse(responseCode = "404", description = "No such request for this account",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "429", description = "Too many requests",
-                    content = @Content(schema = @Schema(type = "object")))
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public OwnerConfirmationDetails details(@PathVariable("id") String id,
                                             @Valid @RequestBody OwnerConfirmationRequests.Code request) {
@@ -101,7 +101,7 @@ public class MePropertyConfirmationController {
             @ApiResponse(responseCode = "423", description = "ACCOUNT_LOCKED",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "429", description = "Too many requests",
-                    content = @Content(schema = @Schema(type = "object")))
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public void confirm(@PathVariable("id") String id, @Valid @RequestBody OwnerConfirmationRequests.Confirm request) {
         confirmations.confirm(actors.userId(), id, request.code(), request.currentPassword(), request.statementVersion());
@@ -123,7 +123,7 @@ public class MePropertyConfirmationController {
             @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "429", description = "Too many requests",
-                    content = @Content(schema = @Schema(type = "object")))
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public void decline(@PathVariable("id") String id, @Valid @RequestBody OwnerConfirmationRequests.Code request) {
         confirmations.decline(actors.userId(), id, request.code());
@@ -145,7 +145,7 @@ public class MePropertyConfirmationController {
             @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "429", description = "Too many requests",
-                    content = @Content(schema = @Schema(type = "object")))
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public void check(@PathVariable("id") String id, @Valid @RequestBody OwnerConfirmationRequests.Phrase request) {
         confirmations.enterPhrase(actors.userId(), id, request.phrase());
@@ -169,7 +169,7 @@ public class MePropertyConfirmationController {
             @ApiResponse(responseCode = "423", description = "ACCOUNT_LOCKED",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "429", description = "Too many requests",
-                    content = @Content(schema = @Schema(type = "object")))
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public void withdraw(@PathVariable("id") String id, @Valid @RequestBody OwnerConfirmationRequests.Withdrawal request) {
         confirmations.withdraw(actors.userId(), id, request.currentPassword());
