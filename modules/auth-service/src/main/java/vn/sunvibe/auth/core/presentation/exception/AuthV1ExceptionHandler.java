@@ -3,7 +3,6 @@ package vn.sunvibe.auth.core.presentation.exception;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.core.MethodParameter;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -21,9 +20,6 @@ import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import tools.jackson.core.JacksonException;
@@ -52,16 +48,12 @@ import vn.sunvibe.shared.logging.CorrelationId;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.Duration;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
+import static vn.sunvibe.shared.exception.ApiErrorSupport.anyInChain;
+import static vn.sunvibe.shared.exception.ApiErrorSupport.parameterName;
+import static vn.sunvibe.shared.exception.ApiErrorSupport.sortedByField;
 
 /**
  * ADR-010 error bodies of the v1 auth endpoints (auth-browser-session spec §3.4): every body has a stable code, a fixed
@@ -102,7 +94,6 @@ public class AuthV1ExceptionHandler {
     static final String INTERNAL_ERROR_MESSAGE = "Unexpected server error.";
     private static final String INVALID_VALUE_MESSAGE = "Value is not valid for this field.";
     private static final int MAX_CAUSE_DEPTH = 20;
-    private static final int MAX_EXCEPTIONS_CHECKED = 50;
 
     private final SessionCookieService sessionCookieService;
 
@@ -309,7 +300,7 @@ public class AuthV1ExceptionHandler {
      * an e-mail address or a SQL key value), only the class names and the correlation id are logged.
      */
     private static ResponseEntity<ErrorResponse<ValidationError>> internalError(Exception e) {
-        if (carriesRequestData(e)) {
+        if (anyInChain(e, AuthV1ExceptionHandler::quotesRequestData)) {
             log.error("Unexpected error in auth: {} (causes={}, correlationId={})",
                     e.getClass().getName(), causeClasses(e), CorrelationId.current());
         } else {
@@ -320,32 +311,11 @@ public class AuthV1ExceptionHandler {
     }
 
     /**
-     * True when the exception, one of its causes or one of the exceptions suppressed along the way may quote request
-     * data in its message: an integrity or data error of the database (key values), a mail hand-off (the address;
-     * only mail exceptions are detected), a JSON or validation error. A stack trace prints all of them, so all of them are checked. A
-     * connection failure of the database carries no request data and keeps its stack trace.
+     * True when this exception may quote request data in its message: an integrity or data error of the database (key
+     * values), a mail hand-off (the address; only mail exceptions are detected), a JSON or validation error.
+     * {@code anyInChain} applies it to the causes and suppressed exceptions too, since a stack trace prints all of
+     * them. A connection failure of the database carries no request data and keeps its stack trace.
      */
-    private static boolean carriesRequestData(Throwable e) {
-        Deque<Throwable> pending = new ArrayDeque<>();
-        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
-        pending.add(e);
-        while (!pending.isEmpty() && seen.size() < MAX_EXCEPTIONS_CHECKED) {
-            Throwable current = pending.poll();
-            if (!seen.add(current)) {
-                continue;
-            }
-            if (quotesRequestData(current)) {
-                return true;
-            }
-            if (current.getCause() != null) {
-                pending.add(current.getCause());
-            }
-            pending.addAll(List.of(current.getSuppressed()));
-        }
-        // Too many to check: assume the worst and keep the stack trace out
-        return !pending.isEmpty();
-    }
-
     private static boolean quotesRequestData(Throwable e) {
         if (e instanceof SQLException sql) {
             // SQLState class 22 (data exception) and 23 (integrity constraint) messages quote the values
@@ -385,13 +355,8 @@ public class AuthV1ExceptionHandler {
 
     /** One entry per field (the first message), sorted by field so the body does not depend on check order. */
     private static ResponseEntity<ErrorResponse<ValidationError>> validationFailed(List<ValidationError> errors) {
-        Map<String, ValidationError> byField = new LinkedHashMap<>();
-        errors.forEach(error -> byField.putIfAbsent(error.field(), error));
-        List<ValidationError> sorted = byField.values().stream()
-                .sorted(Comparator.comparing(ValidationError::field))
-                .toList();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED, VALIDATION_FAILED_MESSAGE, sorted));
+                .body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED, VALIDATION_FAILED_MESSAGE, sortedByField(errors)));
     }
 
     private static List<ValidationError> fieldErrors(List<FieldError> fieldErrors) {
@@ -399,32 +364,5 @@ public class AuthV1ExceptionHandler {
                 .map(error -> ValidationError.of(error.getField(),
                         error.getDefaultMessage() == null ? INVALID_VALUE_MESSAGE : error.getDefaultMessage()))
                 .toList();
-    }
-
-    /** The name the client used: the header, query or path name when the parameter has one. */
-    private static String parameterName(MethodParameter parameter) {
-        RequestHeader header = parameter.getParameterAnnotation(RequestHeader.class);
-        if (header != null) {
-            return firstNonEmpty(header.name(), header.value(), parameter.getParameterName());
-        }
-        RequestParam param = parameter.getParameterAnnotation(RequestParam.class);
-        if (param != null) {
-            return firstNonEmpty(param.name(), param.value(), parameter.getParameterName());
-        }
-        PathVariable path = parameter.getParameterAnnotation(PathVariable.class);
-        if (path != null) {
-            return firstNonEmpty(path.name(), path.value(), parameter.getParameterName());
-        }
-        return firstNonEmpty(parameter.getParameterName(), "request", null);
-    }
-
-    private static String firstNonEmpty(String first, String second, String third) {
-        if (first != null && !first.isEmpty()) {
-            return first;
-        }
-        if (second != null && !second.isEmpty()) {
-            return second;
-        }
-        return third;
     }
 }

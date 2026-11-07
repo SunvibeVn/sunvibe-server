@@ -19,6 +19,12 @@ import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
+import org.springframework.context.support.DefaultMessageSourceResolvable;
+import org.springframework.validation.method.MethodValidationResult;
+import org.springframework.validation.method.ParameterValidationResult;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -252,6 +258,31 @@ class SurveyExceptionHandlerTest {
                 new MethodArgumentNotValidException(parameter, result));
 
         assertCode(response, 400, "VALIDATION_FAILED", "spaces.1.code");
+    }
+
+    /** A refused query or path parameter answers with the name the client used. */
+    @Test
+    void parameterValidation_namesTheQueryOrPathParameter() throws Exception {
+        Method endpoint = SurveyExceptionHandlerTest.class.getDeclaredMethod("endpoint", int.class, String.class);
+        MethodValidationResult result = MethodValidationResult.create(new Object(), endpoint, List.of(
+                refused(new MethodParameter(endpoint, 0)), refused(new MethodParameter(endpoint, 1))));
+
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new HandlerMethodValidationException(result));
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(List.of("leadId", "page"),
+                response.getBody().errors().stream().map(ValidationError::field).toList());
+    }
+
+    /** Stand-in for a controller method, so the Spring exceptions get real parameters. */
+    @SuppressWarnings("unused")
+    static void endpoint(@RequestParam(name = "page") int page, @PathVariable(name = "leadId") String leadId) {
+    }
+
+    private static ParameterValidationResult refused(MethodParameter parameter) {
+        return new ParameterValidationResult(parameter, "x",
+                List.of(new DefaultMessageSourceResolvable(new String[]{"Pattern"}, "must match")),
+                null, null, null, (error, type) -> null);
     }
 
     private static final HttpInputMessage INPUT = new HttpInputMessage() {

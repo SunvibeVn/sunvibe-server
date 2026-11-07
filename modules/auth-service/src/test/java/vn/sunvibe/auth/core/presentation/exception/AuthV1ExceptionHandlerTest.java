@@ -158,6 +158,16 @@ class AuthV1ExceptionHandlerTest {
         assertEquals("Password is required.", response.getBody().errors().get(0).message());
     }
 
+    /** auth keeps the index as Bean Validation writes it, as acquisition does (clean-up spec S-8). */
+    @Test
+    void handle_indexedField_keepsTheBrackets() throws Exception {
+        BeanPropertyBindingResult binding = new BeanPropertyBindingResult(new Object(), "request");
+        binding.addError(new FieldError("request", "devices[1].name", "Name is required."));
+
+        assertBody(handle(new MethodArgumentNotValidException(parameter(), binding)), 400,
+                ErrorCode.VALIDATION_FAILED, List.of("devices[1].name"));
+    }
+
     @Test
     void handle_handlerMethodValidation_answers400ValidationFailed() throws Exception {
         MethodValidationResult result = MethodValidationResult.create(new Object(),
