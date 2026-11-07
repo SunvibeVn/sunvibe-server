@@ -479,7 +479,7 @@ class SurveyMediaContentServiceTest {
         h.spool.afterRead = () -> h.g1(checklist, ChecklistFixture.identificationParts(
                 ChecklistFixture.observedSpace(ChecklistFixture.SPACE_2, "B2")));
 
-        assertThrows(vn.sunvibe.survey.core.domain.exception.ChecklistValidationException.class,
+        assertThrows(vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException.class,
                 () -> upload(command(id), body(BYTES)));
         assertTrue(h.store.objects.isEmpty());
     }

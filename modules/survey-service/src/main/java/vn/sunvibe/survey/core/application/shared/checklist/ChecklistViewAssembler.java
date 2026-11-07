@@ -44,12 +44,12 @@ import vn.sunvibe.survey.core.domain.policy.checklist.ReadinessCalculator;
 import vn.sunvibe.survey.core.domain.model.media.MediaSet;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.policy.checklist.SubmissionContext;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistTakeoverDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistGroupDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSaveDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistTakeoverDomainRepository;
 
 import java.time.Instant;
 import java.util.ArrayList;

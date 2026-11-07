@@ -14,7 +14,7 @@ import vn.sunvibe.survey.core.application.exception.common.SurveyConcurrentModif
 import vn.sunvibe.survey.core.application.exception.common.SurveyorIneligibleException;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivity;
 import vn.sunvibe.survey.core.application.shared.external.lead.ChecklistActivityType;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.checklist.AmenitiesContent;

@@ -43,8 +43,8 @@ import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewerExclusion;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewerExclusionFacts;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
 
 /**
  * Who cannot review a revision, each source made through the real commands (survey-checklist submission spec 4.2, plan

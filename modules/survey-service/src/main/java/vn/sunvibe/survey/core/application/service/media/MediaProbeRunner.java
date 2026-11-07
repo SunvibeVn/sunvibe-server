@@ -20,7 +20,7 @@ import vn.sunvibe.survey.core.application.shared.external.media.MediaProbeReques
 import vn.sunvibe.survey.core.application.shared.external.media.StoreUnavailableException;
 import vn.sunvibe.survey.core.domain.model.media.ProbeKind;
 import vn.sunvibe.survey.core.domain.model.media.ProbeResult;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
 
 /**
  * The health probes of this instance (survey-media spec A-18): the store probe (both buckets), the scanner probe and

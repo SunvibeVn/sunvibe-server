@@ -24,8 +24,8 @@ import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistEditability;
 import vn.sunvibe.survey.core.domain.policy.checklist.Editability;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReadOnlyReason;
 import vn.sunvibe.survey.core.domain.policy.checklist.VisitFacts;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
 
 import java.util.EnumSet;
 import java.util.List;

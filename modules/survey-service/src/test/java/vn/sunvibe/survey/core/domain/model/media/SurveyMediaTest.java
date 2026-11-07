@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.model.media;
 
 import org.junit.jupiter.api.Test;
-import vn.sunvibe.survey.core.domain.exception.IllegalMediaTransitionException;
+import vn.sunvibe.survey.core.domain.exception.media.IllegalMediaTransitionException;
 
 import java.time.Instant;
 import java.util.List;

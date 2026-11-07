@@ -15,10 +15,10 @@ import vn.sunvibe.survey.core.domain.policy.checklist.ResumeTarget;
 import vn.sunvibe.survey.core.domain.policy.checklist.RevisionMark;
 import vn.sunvibe.survey.core.domain.policy.checklist.SurveyState;
 import vn.sunvibe.survey.core.domain.policy.checklist.Usability;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDecisionDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistEvidenceDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDecisionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistEvidenceDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
 
 import java.util.Comparator;
 import java.util.List;

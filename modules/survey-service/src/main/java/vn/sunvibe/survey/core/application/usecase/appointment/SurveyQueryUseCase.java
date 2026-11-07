@@ -5,7 +5,7 @@ import vn.sunvibe.survey.core.application.query.appointment.SurveyBlock;
 import vn.sunvibe.survey.core.application.query.appointment.SurveyListItem;
 import vn.sunvibe.survey.core.application.query.appointment.SurveyListQuery;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
-import vn.sunvibe.survey.core.domain.repository.PageResult;
+import vn.sunvibe.survey.core.domain.repository.common.PageResult;
 
 import java.time.Instant;
 import java.util.List;

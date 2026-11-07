@@ -9,11 +9,11 @@ import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.media.MediaSelection;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewerExclusionFacts;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistTakeoverDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSaveDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistTakeoverDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSelectionDomainRepository;
 
 import java.util.Collection;
 import java.util.HashMap;

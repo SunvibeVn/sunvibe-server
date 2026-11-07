@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.exception.media.MediaIntakePausedException;
 import vn.sunvibe.survey.core.domain.model.media.IntakeHealth;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
 
 /**
  * The intake gate of create, the content upload and the commit (survey-media spec A-18, plan PD-4). It reads the health

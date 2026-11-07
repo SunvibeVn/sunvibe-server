@@ -15,7 +15,7 @@ import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.policy.media.ReadBudgetArithmetic;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
 
 /**
  * The per-user hourly read budgets (survey-media spec A-26, {@link MediaReadBudgetLimits}; by default FULL 600, PREVIEW

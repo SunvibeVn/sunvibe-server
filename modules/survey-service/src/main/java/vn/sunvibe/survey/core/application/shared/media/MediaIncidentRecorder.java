@@ -11,7 +11,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.survey.core.domain.model.media.MediaIncidentKind;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaIncidentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaIncidentDomainRepository;
 
 /**
  * Records overdue deletions as incidents (survey-media spec A-18, BR-18 "có bản ghi sự cố tối thiểu"): each write in

@@ -29,8 +29,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import vn.sunvibe.survey.core.domain.exception.MediaDuplicateContentException;
-import vn.sunvibe.survey.core.domain.exception.MediaUploadKeyTakenException;
+import vn.sunvibe.survey.core.domain.exception.media.MediaDuplicateContentException;
+import vn.sunvibe.survey.core.domain.exception.media.MediaUploadKeyTakenException;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
@@ -56,15 +56,15 @@ import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.model.security.SurveySecurityEvent;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaBodySlotDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveySecurityEventDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaBodySlotDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.common.SurveySecurityEventDomainRepository;
 
 /**
  * survey-media persistence on PostgreSQL (spec 5.2 JPA notes, 5.4; plan Task A4): every status with its marks

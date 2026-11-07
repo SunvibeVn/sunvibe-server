@@ -14,7 +14,7 @@ import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.policy.media.MediaLimits;
 import vn.sunvibe.survey.core.domain.policy.media.ReadBudgetArithmetic;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
 
 /**
  * The limits of survey photo intake, counted in the database (spec A-3, A-27, BR-6): under the user's advisory

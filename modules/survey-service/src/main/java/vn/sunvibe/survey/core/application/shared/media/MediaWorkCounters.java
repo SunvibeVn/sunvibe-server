@@ -9,7 +9,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
 import vn.sunvibe.survey.core.domain.policy.media.ReadBudgetArithmetic;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
 
 /**
  * The worker's per-uploader counters of the hour (survey-media spec A-27): the processing milliseconds that order the

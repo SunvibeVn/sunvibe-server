@@ -40,7 +40,7 @@ import vn.sunvibe.survey.core.application.shared.common.SecurityEventRecorder;
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.policy.media.ReadBudgetArithmetic;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
 
 /**
  * The hourly read budgets on PostgreSQL (survey-media spec A-26; SM-31 list part; plan Task A16): the list budget of

@@ -23,7 +23,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import vn.sunvibe.PostgresContainerConfig;
-import vn.sunvibe.survey.core.domain.exception.AppointmentAlreadyScheduledException;
+import vn.sunvibe.survey.core.domain.exception.appointment.AppointmentAlreadyScheduledException;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentDetails;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentEventType;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
@@ -40,11 +40,11 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.appointment.VisitRecordKind;
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
 import vn.sunvibe.survey.core.domain.model.resumption.SurveyResumption;
-import vn.sunvibe.survey.core.domain.repository.PageResult;
-import vn.sunvibe.survey.core.domain.repository.ScheduledSearch;
-import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyResumptionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.common.PageResult;
+import vn.sunvibe.survey.core.domain.repository.appointment.ScheduledSearch;
+import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyResumptionDomainRepository;
 
 /**
  * The survey tables built by Flyway and the survey adapters on a real PostgreSQL (survey-schedule spec 5.2): the

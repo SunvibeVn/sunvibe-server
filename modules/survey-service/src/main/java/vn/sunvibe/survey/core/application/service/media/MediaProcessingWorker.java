@@ -53,12 +53,12 @@ import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.policy.media.ReadBudgetArithmetic;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRepository;
 
 /**
  * The processing worker of survey photos (survey-media spec 4.4 step 3, 4.5, A-7, A-27, A-28). One run claims one due

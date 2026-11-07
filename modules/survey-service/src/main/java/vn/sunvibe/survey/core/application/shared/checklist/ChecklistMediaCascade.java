@@ -23,10 +23,10 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.policy.media.MediaRemovalPolicy;
 import vn.sunvibe.survey.core.domain.policy.media.PlacementRules;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSelectionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
 
 /**
  * What the checklist commands do to photos (survey-media spec A-9, 4.8, A-22, 5.4): a G1 save that ends placements

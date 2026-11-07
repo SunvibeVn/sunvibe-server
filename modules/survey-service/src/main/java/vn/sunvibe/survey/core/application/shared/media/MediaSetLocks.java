@@ -3,8 +3,8 @@ package vn.sunvibe.survey.core.application.shared.media;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.domain.model.media.MediaSet;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSelectionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
 
 import java.time.Instant;
 import java.util.HashSet;

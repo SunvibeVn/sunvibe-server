@@ -4,8 +4,8 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.domain.model.media.MediaSelection;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.policy.media.RevisionSelection;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSelectionDomainRepository;
 
 import java.util.List;
 import java.util.Map;

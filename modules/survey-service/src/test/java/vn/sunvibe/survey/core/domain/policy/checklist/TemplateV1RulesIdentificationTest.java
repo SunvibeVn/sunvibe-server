@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.policy.checklist;
 
 import org.junit.jupiter.api.Test;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSource;
 import vn.sunvibe.survey.core.domain.model.checklist.Field;
 import vn.sunvibe.survey.core.domain.model.checklist.FieldState;

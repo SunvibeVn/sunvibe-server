@@ -1,8 +1,8 @@
 package vn.sunvibe.survey.core.testsupport;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import vn.sunvibe.survey.core.domain.exception.MediaDuplicateContentException;
-import vn.sunvibe.survey.core.domain.exception.MediaUploadKeyTakenException;
+import vn.sunvibe.survey.core.domain.exception.media.MediaDuplicateContentException;
+import vn.sunvibe.survey.core.domain.exception.media.MediaUploadKeyTakenException;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.media.PlacedMedia;
 import vn.sunvibe.survey.core.domain.model.media.HourlyUsage;
@@ -22,12 +22,12 @@ import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SurveySecurityEvent;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaBodySlotDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaBodySlotDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRepository;
 
 import java.time.Instant;
 import java.util.ArrayList;

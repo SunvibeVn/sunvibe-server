@@ -26,8 +26,8 @@ import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
 import vn.sunvibe.survey.core.domain.model.media.MediaVariant;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRepository;
 
 /**
  * The reconciliation after a database restore (survey-media spec 5.1; the restore runbook, scripts/ops/README.md): for

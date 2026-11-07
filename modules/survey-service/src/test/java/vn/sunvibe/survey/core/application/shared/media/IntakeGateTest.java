@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import vn.sunvibe.survey.core.application.exception.media.MediaIntakePausedException;
 import vn.sunvibe.survey.core.domain.model.media.IntakeHealth;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
 
 import java.time.Duration;
 import java.time.Instant;

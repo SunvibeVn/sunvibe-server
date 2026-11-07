@@ -55,9 +55,9 @@ import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.shared.external.media.EvidenceReferencePort;
 import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaCommandUseCase;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
-import vn.sunvibe.survey.core.domain.exception.MediaDuplicateContentException;
-import vn.sunvibe.survey.core.domain.exception.MediaUploadKeyTakenException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.media.MediaDuplicateContentException;
+import vn.sunvibe.survey.core.domain.exception.media.MediaUploadKeyTakenException;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.IdentificationContent;
 import vn.sunvibe.survey.core.domain.model.checklist.ObservedSpace;
@@ -81,11 +81,11 @@ import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
 import vn.sunvibe.survey.core.domain.policy.media.MediaContentIdentity;
 import vn.sunvibe.survey.core.domain.policy.media.MediaRemovalPolicy;
 import vn.sunvibe.survey.core.domain.policy.media.PlacementRules;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistGroupDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSelectionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
 
 /**
  * Survey photo commands (survey-media spec 4.4, 5.4). Each command runs in one READ COMMITTED transaction with the

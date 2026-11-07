@@ -29,7 +29,7 @@ import vn.sunvibe.survey.core.application.exception.media.MediaUploadKeyReusedEx
 import vn.sunvibe.survey.core.application.exception.common.SurveyorIneligibleException;
 import vn.sunvibe.survey.core.application.query.media.MediaCreateResult;
 import vn.sunvibe.survey.core.application.query.media.MediaItemView;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
 import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;

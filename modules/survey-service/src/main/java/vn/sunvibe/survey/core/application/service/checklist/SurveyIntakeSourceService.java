@@ -38,11 +38,11 @@ import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.Usability;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistRequalificationDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSubmissionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistGroupDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistRequalificationDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSubmissionDomainRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

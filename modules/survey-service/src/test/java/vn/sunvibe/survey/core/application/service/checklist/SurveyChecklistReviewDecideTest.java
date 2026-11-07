@@ -10,7 +10,7 @@ import vn.sunvibe.survey.core.application.exception.checklist.ChecklistReviewNot
 import vn.sunvibe.survey.core.application.exception.common.SurveyConcurrentModificationException;
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistDecideResult;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMove;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;

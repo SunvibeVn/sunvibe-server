@@ -2,8 +2,8 @@ package vn.sunvibe.survey.core.testsupport;
 
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
 import vn.sunvibe.survey.core.domain.model.resumption.SurveyResumption;
-import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyResumptionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyResumptionDomainRepository;
 
 import java.util.ArrayList;
 import java.util.Comparator;

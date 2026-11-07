@@ -4,7 +4,7 @@ import vn.sunvibe.survey.core.application.query.checklist.ChecklistView;
 import vn.sunvibe.survey.core.application.query.checklist.CheckpointView;
 import vn.sunvibe.survey.core.application.query.checklist.ReviewQueueItem;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
-import vn.sunvibe.survey.core.domain.repository.PageResult;
+import vn.sunvibe.survey.core.domain.repository.common.PageResult;
 
 /** Use Case - checklist reads for the readers of the lead (survey-checklist spec 4.4, A-10). Access-logged. */
 public interface SurveyChecklistQueryUseCase {

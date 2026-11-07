@@ -42,7 +42,7 @@ import vn.sunvibe.survey.core.application.service.media.MediaRestoreReconciliati
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.shared.external.lead.ViewerAccess;
 import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaCommandUseCase;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 
 /**
  * Photos of a later revision of one visit (survey-checklist submission spec 4.6, 5.4, S-13, A-12): a carried photo keeps

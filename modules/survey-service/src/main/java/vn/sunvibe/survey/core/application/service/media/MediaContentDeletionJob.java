@@ -28,9 +28,9 @@ import vn.sunvibe.survey.core.domain.model.media.MediaJobState;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.policy.media.MediaRemovalPolicy;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaJobDomainRepository;
 
 /**
  * The content deletion of a removed READY photo (survey-media spec 4.7, A-17, A-23): the job is claimed in its own

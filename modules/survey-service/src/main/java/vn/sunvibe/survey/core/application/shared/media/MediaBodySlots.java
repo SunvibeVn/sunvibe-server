@@ -14,8 +14,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.sunvibe.survey.core.application.exception.media.MediaRateLimitedException;
 import vn.sunvibe.survey.core.application.exception.media.MediaServerBusyException;
 import vn.sunvibe.survey.core.domain.policy.media.MediaLimits;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaBodySlotDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaBodySlotDomainRepository;
 
 /**
  * The body slots of content uploads (survey-media spec A-3, 4.4 step 2; SV-017): at most 3 bodies per user, exact

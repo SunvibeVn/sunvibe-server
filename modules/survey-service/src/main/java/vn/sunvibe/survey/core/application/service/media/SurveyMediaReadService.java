@@ -31,7 +31,7 @@ import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore
 import vn.sunvibe.survey.core.application.shared.external.media.StoreObjectNotFoundException;
 import vn.sunvibe.survey.core.application.shared.external.media.StoreUnavailableException;
 import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaReadUseCase;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
@@ -41,7 +41,7 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.model.media.VariantKind;
 import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
 
 /**
  * The content reads of survey photos (survey-media spec 5.4 content GET order, ADR-011 decision 2, A-6, A-23 to A-26,

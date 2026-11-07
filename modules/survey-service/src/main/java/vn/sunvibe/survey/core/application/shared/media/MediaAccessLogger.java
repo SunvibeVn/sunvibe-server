@@ -13,8 +13,8 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.logging.RequestId;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
 
 /**
  * The access log of survey photos (survey-media spec A-6, 4.9): rows hold user, lead, resource type and id, time and

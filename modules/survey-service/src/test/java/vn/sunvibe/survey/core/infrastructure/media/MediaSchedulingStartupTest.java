@@ -37,7 +37,7 @@ import vn.sunvibe.survey.core.application.shared.external.media.MalwareScanner;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
 import vn.sunvibe.survey.core.domain.model.media.ProbeResult;
 import vn.sunvibe.survey.core.domain.model.media.SourceFormat;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
 import vn.sunvibe.survey.core.infrastructure.config.MediaProperties;
 import vn.sunvibe.survey.core.infrastructure.config.MediaRuntimeMode;
 import vn.sunvibe.survey.core.infrastructure.config.MediaScheduling;

@@ -10,7 +10,7 @@ import com.github.f4b6a3.ulid.Ulid;
 
 import vn.sunvibe.survey.core.application.command.media.CreateMediaCommand;
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistInputs;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
@@ -54,7 +54,7 @@ public final class MediaInputs {
      * spec 5.4 create (1): ULIDs, the category, the caption (1..200 without a phone number), {@code sizeBytes}
      * 1..20,971,520 and {@code contentSha256} of 64 hexadecimal characters.
      *
-     * @throws vn.sunvibe.survey.core.domain.exception.ChecklistValidationException with every violation
+     * @throws vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException with every violation
      */
     public static CreateInput create(CreateMediaCommand command) {
         List<Violation> violations = new ArrayList<>();

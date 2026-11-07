@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.model.appointment;
 
 import org.junit.jupiter.api.Test;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 
 import java.math.BigDecimal;
 import java.time.Instant;

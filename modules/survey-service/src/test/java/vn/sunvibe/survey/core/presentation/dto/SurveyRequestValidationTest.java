@@ -10,7 +10,7 @@ import tools.jackson.databind.exc.MismatchedInputException;
 import tools.jackson.databind.json.JsonMapper;
 import vn.sunvibe.survey.core.application.command.appointment.BookAppointmentCommand;
 import vn.sunvibe.survey.core.application.command.appointment.ChangeAppointmentCommand;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.presentation.converter.SurveyRequestConverter;
 import vn.sunvibe.survey.core.presentation.dto.request.appointment.BasisRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.appointment.BookAppointmentRequest;

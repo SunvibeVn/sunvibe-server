@@ -19,7 +19,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.Coordinates;
 import vn.sunvibe.survey.core.domain.model.appointment.LeadLocationSnapshot;
 import vn.sunvibe.survey.core.domain.model.appointment.MeetingLocation;
 import vn.sunvibe.survey.core.domain.model.appointment.VisitRecord;
-import vn.sunvibe.survey.core.domain.repository.PageResult;
+import vn.sunvibe.survey.core.domain.repository.common.PageResult;
 import vn.sunvibe.survey.core.presentation.dto.response.appointment.SurveyAppointmentResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.appointment.SurveyBasisResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.appointment.SurveyBlockResponse;

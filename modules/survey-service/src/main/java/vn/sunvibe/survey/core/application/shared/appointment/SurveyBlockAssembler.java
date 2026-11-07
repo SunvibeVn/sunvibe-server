@@ -31,8 +31,8 @@ import vn.sunvibe.survey.core.domain.policy.checklist.RequalificationPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.ResumeTarget;
 import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStartPolicy;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyResumptionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyResumptionDomainRepository;
 
 import java.util.ArrayList;
 import java.util.Collections;

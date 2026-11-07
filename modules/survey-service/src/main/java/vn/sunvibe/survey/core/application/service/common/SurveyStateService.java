@@ -7,7 +7,7 @@ import vn.sunvibe.survey.core.application.shared.common.SurveyRecordReader;
 import vn.sunvibe.survey.core.application.usecase.common.LeadSurveyState;
 import vn.sunvibe.survey.core.application.usecase.common.SurveyStateUseCase;
 import vn.sunvibe.survey.core.domain.policy.checklist.SurveyState;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
 
 /** Use Case Implementation - the survey record for the lead rules (survey-checklist submission spec 4.8, plan PD-3). */
 @Service

@@ -27,7 +27,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.shared.external.staff.SurveyorDirectoryPort;
 import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaQueryUseCase;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ConditionContent;
@@ -50,11 +50,11 @@ import vn.sunvibe.survey.core.domain.policy.media.EvidenceCoverageCalculator;
 import vn.sunvibe.survey.core.domain.policy.media.KnownVersion;
 import vn.sunvibe.survey.core.domain.policy.media.MediaFileRules;
 import vn.sunvibe.survey.core.domain.policy.media.MediaLimits;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistGroupDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
 
 /**
  * The media list (survey-media spec 4.3, the list order of 5.4, 7.2, A-6, A-26, A-30; plan PD-9): (1) a malformed

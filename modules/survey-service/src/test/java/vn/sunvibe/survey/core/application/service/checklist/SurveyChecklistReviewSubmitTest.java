@@ -11,7 +11,7 @@ import vn.sunvibe.survey.core.application.exception.checklist.ChecklistTakeoverR
 import vn.sunvibe.survey.core.application.exception.common.SurveyConcurrentModificationException;
 import vn.sunvibe.survey.core.application.exception.common.SurveyorIneligibleException;
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistSubmitResult;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;

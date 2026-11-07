@@ -7,7 +7,7 @@ import vn.sunvibe.survey.core.application.usecase.appointment.LeadStopReason;
 import vn.sunvibe.survey.core.application.usecase.appointment.LeadSurveyEventsUseCase;
 import vn.sunvibe.survey.core.domain.model.appointment.CancelReason;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
 
 import java.time.Instant;
 import java.util.Optional;

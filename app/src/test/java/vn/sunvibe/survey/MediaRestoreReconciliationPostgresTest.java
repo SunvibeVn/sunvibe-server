@@ -59,13 +59,13 @@ class MediaRestoreReconciliationPostgresTest extends MediaApiTestBase {
 	private MediaRestoreReconciliation reconciliation;
 
 	@Autowired
-	private vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository mediaRepository;
+	private vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository mediaRepository;
 
 	@Autowired
 	private vn.sunvibe.survey.core.application.shared.media.MediaSetLocks setLocks;
 
 	@Autowired
-	private vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository variants;
+	private vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRepository variants;
 
 	@Autowired
 	private vn.sunvibe.survey.core.application.shared.media.MediaClock clock;

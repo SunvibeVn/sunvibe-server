@@ -30,7 +30,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.LeadVersionConfli
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.usecase.checklist.SurveyChecklistRequalificationCommandUseCase;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistRequalification;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
@@ -41,9 +41,9 @@ import vn.sunvibe.survey.core.domain.policy.SurveyText;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistDateRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.RequalificationPolicy;
-import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistRequalificationDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistRequalificationDomainRepository;
 
 import java.time.Instant;
 import java.util.ArrayList;

@@ -27,7 +27,7 @@ public record AppointmentDetails(Instant startAt, int durationMinutes, MeetingLo
      * steps of 15, optional access note (1..1000) and on-site name and role (1..100 each) without phone numbers.
      * Whether the start lies in the booking window is checked by the appointment, which knows when it changes.
      *
-     * @throws vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException on the field
+     * @throws vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException on the field
      */
     public static AppointmentDetails of(Instant startAt, int durationMinutes, MeetingLocation meetingLocation,
                                         String accessNote, String onSiteContactName, String onSiteContactRole) {

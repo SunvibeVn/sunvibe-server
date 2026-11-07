@@ -16,7 +16,7 @@ import vn.sunvibe.survey.core.application.exception.checklist.ChecklistNotFoundE
 import vn.sunvibe.survey.core.application.exception.media.MediaRateLimitedException;
 import vn.sunvibe.survey.core.application.query.media.MediaItemView;
 import vn.sunvibe.survey.core.application.query.media.MediaListView;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 import vn.sunvibe.survey.core.domain.model.media.HoldReason;

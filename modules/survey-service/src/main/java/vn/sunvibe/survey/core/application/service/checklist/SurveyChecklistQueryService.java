@@ -31,11 +31,11 @@ import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewReason;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewerExclusionFacts;
-import vn.sunvibe.survey.core.domain.repository.PageResult;
-import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistTakeoverDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.common.PageResult;
+import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistTakeoverDomainRepository;
 
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;

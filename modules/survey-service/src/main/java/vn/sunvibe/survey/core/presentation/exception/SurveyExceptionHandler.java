@@ -68,13 +68,13 @@ import vn.sunvibe.survey.core.application.exception.common.SurveyConcurrentModif
 import vn.sunvibe.survey.core.application.exception.common.SurveyLeadNotFoundException;
 import vn.sunvibe.survey.core.application.exception.common.SurveyNotAllowedException;
 import vn.sunvibe.survey.core.application.exception.common.SurveyorIneligibleException;
-import vn.sunvibe.survey.core.domain.exception.AppointmentAlreadyScheduledException;
-import vn.sunvibe.survey.core.domain.exception.AppointmentStateException;
-import vn.sunvibe.survey.core.domain.exception.ChecklistAlreadyStartedException;
-import vn.sunvibe.survey.core.domain.exception.ChecklistSubmittedConflictException;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
-import vn.sunvibe.survey.core.domain.exception.PerformerMismatchException;
+import vn.sunvibe.survey.core.domain.exception.appointment.AppointmentAlreadyScheduledException;
+import vn.sunvibe.survey.core.domain.exception.appointment.AppointmentStateException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistAlreadyStartedException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistSubmittedConflictException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.appointment.PerformerMismatchException;
 import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
 import vn.sunvibe.survey.core.presentation.filter.MediaBodyTooLargeException;
 

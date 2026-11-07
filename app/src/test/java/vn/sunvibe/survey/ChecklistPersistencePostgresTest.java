@@ -35,7 +35,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import jakarta.persistence.EntityManagerFactory;
 import vn.sunvibe.PostgresContainerConfig;
-import vn.sunvibe.survey.core.domain.exception.ChecklistAlreadyStartedException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistAlreadyStartedException;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentDetails;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
@@ -72,13 +72,13 @@ import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.model.security.SurveySecurityEvent;
 import vn.sunvibe.survey.core.domain.policy.checklist.CorrectedUnit;
-import vn.sunvibe.survey.core.domain.repository.SurveyAccessLogDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSaveDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistTakeoverDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveySecurityEventDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistGroupDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSaveDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistTakeoverDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.common.SurveySecurityEventDomainRepository;
 
 /**
  * The checklist tables built by Flyway and the checklist adapters on a real PostgreSQL (survey-checklist spec 5.2,

@@ -12,7 +12,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveEvent;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveRefusedException;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadMoveTarget;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadVersionConflictException;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistRequalification;
 import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.model.checklist.RequalificationKind;

@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.policy;
 
 import vn.sunvibe.shared.text.PhoneNumberDetector;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 
 import java.text.Normalizer;
 

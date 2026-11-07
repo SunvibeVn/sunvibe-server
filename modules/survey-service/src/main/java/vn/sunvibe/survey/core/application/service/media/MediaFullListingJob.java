@@ -25,9 +25,9 @@ import vn.sunvibe.survey.core.application.shared.external.media.StoreUnavailable
 import vn.sunvibe.survey.core.domain.model.media.ListingRun;
 import vn.sunvibe.survey.core.domain.model.media.MediaIncidentKind;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaListingRunDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaListingRunDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRepository;
 
 /**
  * The daily full listing of {@code media/} (survey-media spec 4.4 step 4, A-18): one run at a time with a lease; pages

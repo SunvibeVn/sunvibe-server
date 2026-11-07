@@ -1,8 +1,8 @@
 package vn.sunvibe.survey.core.application.shared.checklist;
 
 import vn.sunvibe.survey.core.application.command.common.BasisInput;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.policy.SurveyText;
