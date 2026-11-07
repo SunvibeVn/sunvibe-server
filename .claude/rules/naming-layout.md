@@ -15,7 +15,8 @@ Source: sections 4 and 5 of `../docs/rebuild/implementation/2026-11-06-cleanup-s
 
 ## Packages, under `vn.sunvibe.<module>.core`
 
-`<area>` is a sub-package used when a module has more than one area (auth: `auth`, `role`, `staff`, `user`, `v1`). It is
+`<area>` is a sub-package used when a module has more than one area (auth: `auth`, `role`, `staff`, `user`, `v1`; survey:
+`appointment`, `checklist`, `media`, `common`, where a class serving more than one area goes to `common`). It is
 optional: a small folder stays flat. `<concept>` is a domain concept such as `lead` or `unit`. Packages this table does
 not list stay as they are: `infrastructure/{config,security,email,sms,audit,media,json}`, `persistence/migration`,
 `presentation/config`, `<module>.core.shared`.
@@ -45,8 +46,9 @@ not list stay as they are: `infrastructure/{config,security,email,sms,audit,medi
 | `presentation/exception/`, `filter/`, `validation/`, `openapi/` | as named | `*ExceptionHandler`, `*Filter` |
 
 `presentation/scheduler/` and `application/usecase/external/` are not homes for new code. survey-service keeps its media
-job classes in `application/service/` and its programmatic registration in `infrastructure/media/`, a documented design
-(`performance-concurrency.md`).
+job classes in `application/service/media/` and its programmatic registration in `infrastructure/media/`, a documented
+design (`performance-concurrency.md`). Its `presentation/converter/` stays flat: the six classes call each other
+package-private across areas.
 
 Package names that code compares do not move (spec R-5): the `basePackages` of the exception handlers, the `*JpaConfig`
 scans, and `dto/request/checklist` and `dto/request/media` of survey-service, which `StrictChecklistJsonConfig` compares

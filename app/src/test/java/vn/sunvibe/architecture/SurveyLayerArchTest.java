@@ -43,10 +43,11 @@ class SurveyLayerArchTest {
 	@Test
 	void importedClasses_everyLayer_isPresent() {
 		assertThat(classes.contain(ROOT + ".domain.model.appointment.SurveyAppointment")).isTrue();
-		assertThat(classes.contain(ROOT + ".application.service.SurveyAppointmentCommandService")).isTrue();
-		assertThat(classes.contain(ROOT + ".infrastructure.persistence.adapter.SurveyAppointmentRepositoryAdapter"))
+		assertThat(classes.contain(ROOT + ".application.service.appointment.SurveyAppointmentCommandService"))
 				.isTrue();
-		assertThat(classes.contain(ROOT + ".presentation.controller.LeadSurveyController")).isTrue();
+		assertThat(classes.contain(ROOT + ".infrastructure.persistence.adapter.appointment.SurveyAppointmentRepositoryAdapter"))
+				.isTrue();
+		assertThat(classes.contain(ROOT + ".presentation.controller.appointment.LeadSurveyController")).isTrue();
 	}
 
 	@Test
