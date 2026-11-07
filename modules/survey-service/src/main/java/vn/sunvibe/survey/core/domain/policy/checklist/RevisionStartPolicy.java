@@ -2,6 +2,7 @@ package vn.sunvibe.survey.core.domain.policy.checklist;
 
 import vn.sunvibe.survey.core.domain.model.checklist.NeedsChangesKind;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.util.Optional;
 
@@ -12,18 +13,16 @@ import java.util.Optional;
  */
 public final class RevisionStartPolicy {
 
-    private static final String SURVEY_SCHEDULED = "SURVEY_SCHEDULED";
-
     private RevisionStartPolicy() {
     }
 
     public static RevisionStart of(boolean hasCurrentVisit, Optional<SurveyChecklist> latestOfCurrentVisit,
-                                   Optional<RevisionMark> latestMark, String leadStatus, String assigneeUserId,
+                                   Optional<RevisionMark> latestMark, LeadStatus leadStatus, String assigneeUserId,
                                    boolean assigneeEligible, String viewerUserId) {
         if (!hasCurrentVisit) {
             return RevisionStart.blocked(RevisionStartBlock.NO_CURRENT_VISIT);
         }
-        if (!SURVEY_SCHEDULED.equals(leadStatus)) {
+        if (leadStatus != LeadStatus.SURVEY_SCHEDULED) {
             return RevisionStart.blocked(RevisionStartBlock.LEAD_STATUS);
         }
         if (latestMark.map(RevisionMark::needsChangesKindOrNull).orElse(null) != NeedsChangesKind.DOCUMENTS_ONLY) {

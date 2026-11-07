@@ -170,8 +170,8 @@ public class ChecklistViewAssembler {
         }
         ids.remove(null);
         Map<String, String> names = ids.isEmpty() ? Map.of() : directory.displayNames(ids);
-        return new ChecklistView(checklist, lead.requestCode(), lead.status(), leadStaff, visit, editability, states,
-                difference, readiness, mediaView, EffectiveTerms.of(terms, g1.spaces()), earlier,
+        return new ChecklistView(checklist, lead.requestCode(), lead.statusName(), leadStaff, visit, editability,
+                states, difference, readiness, mediaView, EffectiveTerms.of(terms, g1.spaces()), earlier,
                 leads.ownerForm(lead.leadId()).orElse(null), takeoverRows, corrections, editors, updatedAt, names,
                 review);
     }

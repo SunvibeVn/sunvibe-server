@@ -171,7 +171,7 @@ class AcquisitionSurveyLeadAdapterTest {
 		assertEquals(new SurveyLeadViewer(SALE, SurveyLeadAccess.OWN), calls.get(0));
 		assertEquals(LEAD, facts.leadId());
 		assertEquals("SV-AAAA-BBBB", facts.requestCode());
-		assertEquals("ON_HOLD", facts.status());
+		assertEquals("ON_HOLD", facts.statusName());
 		assertEquals("LONG_TERM_RENT", facts.intent());
 		assertEquals(2, facts.intentCycle());
 		assertEquals(SALE, facts.assignedUserId());
@@ -191,7 +191,7 @@ class AcquisitionSurveyLeadAdapterTest {
 
 		assertEquals(new SurveyLeadMove(SurveyLeadEvent.SURVEY_BOOKED, SurveyLeadTarget.SURVEY_SCHEDULED, SALE,
 				"01JAPPOINTMENTAAAAAAAAAAAA", 1, AT), calls.get(0));
-		assertEquals("SURVEY_SCHEDULED", result.status());
+		assertEquals("SURVEY_SCHEDULED", result.statusName());
 		assertEquals(4L, result.version());
 		assertEquals("Sale A", result.entry().actorName());
 		assertEquals("CONTACTED", result.entry().fromStatus());

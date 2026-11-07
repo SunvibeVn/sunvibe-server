@@ -8,6 +8,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.ObservedLocation;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistSnapshot;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -17,6 +18,9 @@ import static vn.sunvibe.survey.core.testsupport.AppointmentFixture.SALE_A;
 import static vn.sunvibe.survey.core.testsupport.AppointmentFixture.SALE_B;
 import static vn.sunvibe.survey.core.testsupport.AppointmentFixture.leadPlace;
 import static vn.sunvibe.survey.core.testsupport.AppointmentFixture.visited;
+import static vn.sunvibe.survey.core.domain.model.lead.LeadStatus.CONTACTED;
+import static vn.sunvibe.survey.core.domain.model.lead.LeadStatus.ON_HOLD;
+import static vn.sunvibe.survey.core.domain.model.lead.LeadStatus.SURVEY_SCHEDULED;
 
 /**
  * Who may edit a draft and why not (survey-checklist spec 4.4; W16-14), whether a checklist can be started on the
@@ -32,27 +36,27 @@ class ChecklistAccessPoliciesTest {
 
     @Test
     void editability_assigneeHolderOnTheCurrentVisit_isEditable() {
-        assertEquals(new Editability(true, null), edit(SALE_A, 1, "SURVEY_SCHEDULED", SALE_A, true, VISIT, SALE_A));
+        assertEquals(new Editability(true, null), edit(SALE_A, 1, SURVEY_SCHEDULED, SALE_A, true, VISIT, SALE_A));
     }
 
     @Test
     void editability_reasonsInTheOrderOfSpec44() {
         // a requirement change wins over every other reason, also after changing back (a new cycle)
-        assertEquals(ReadOnlyReason.INTENT_CHANGED, edit(SALE_A, 3, "ON_HOLD", SALE_B, false, NEWER, SALE_B).reason());
-        assertEquals(ReadOnlyReason.NEWER_VISIT, edit(SALE_A, 1, "ON_HOLD", SALE_B, false, NEWER, SALE_B).reason());
-        assertEquals(ReadOnlyReason.LEAD_STATUS, edit(SALE_A, 1, "CONTACTED", SALE_B, false, VISIT, SALE_B).reason());
-        assertEquals(ReadOnlyReason.NOT_ASSIGNEE, edit(SALE_A, 1, "SURVEY_SCHEDULED", SALE_B, false, VISIT, SALE_A)
+        assertEquals(ReadOnlyReason.INTENT_CHANGED, edit(SALE_A, 3, ON_HOLD, SALE_B, false, NEWER, SALE_B).reason());
+        assertEquals(ReadOnlyReason.NEWER_VISIT, edit(SALE_A, 1, ON_HOLD, SALE_B, false, NEWER, SALE_B).reason());
+        assertEquals(ReadOnlyReason.LEAD_STATUS, edit(SALE_A, 1, CONTACTED, SALE_B, false, VISIT, SALE_B).reason());
+        assertEquals(ReadOnlyReason.NOT_ASSIGNEE, edit(SALE_A, 1, SURVEY_SCHEDULED, SALE_B, false, VISIT, SALE_A)
                 .reason());
-        assertEquals(ReadOnlyReason.ASSIGNEE_INELIGIBLE, edit(SALE_A, 1, "SURVEY_SCHEDULED", SALE_B, false, VISIT,
+        assertEquals(ReadOnlyReason.ASSIGNEE_INELIGIBLE, edit(SALE_A, 1, SURVEY_SCHEDULED, SALE_B, false, VISIT,
                 SALE_B).reason());
-        assertEquals(ReadOnlyReason.TAKEOVER_REQUIRED, edit(SALE_A, 1, "SURVEY_SCHEDULED", SALE_B, true, VISIT,
+        assertEquals(ReadOnlyReason.TAKEOVER_REQUIRED, edit(SALE_A, 1, SURVEY_SCHEDULED, SALE_B, true, VISIT,
                 SALE_B).reason());
     }
 
     /** W16-14: a SCHEDULED re-survey keeps the VISITED appointment the current visit, so editing goes on. */
     @Test
     void editability_scheduledResurvey_keepsEditing() {
-        assertEquals(new Editability(true, null), edit(SALE_A, 1, "SURVEY_SCHEDULED", SALE_A, true, VISIT, SALE_A));
+        assertEquals(new Editability(true, null), edit(SALE_A, 1, SURVEY_SCHEDULED, SALE_A, true, VISIT, SALE_A));
     }
 
     @Test
@@ -60,7 +64,7 @@ class ChecklistAccessPoliciesTest {
         SurveyChecklistSnapshot checklist = new SurveyChecklistSnapshot(CHECKLIST, VISIT, 1, SALE_A,
                 ChecklistStatus.DRAFT);
 
-        assertEquals(ReadOnlyReason.NEWER_VISIT, ChecklistEditability.of(checklist, "SURVEY_SCHEDULED", 1, SALE_A,
+        assertEquals(ReadOnlyReason.NEWER_VISIT, ChecklistEditability.of(checklist, SURVEY_SCHEDULED, 1, SALE_A,
                 true, Optional.empty(), SALE_A).reason());
     }
 
@@ -84,7 +88,7 @@ class ChecklistAccessPoliciesTest {
 
     private static Editability ofStatus(ChecklistStatus status, int leadCycle) {
         return ChecklistEditability.of(new SurveyChecklistSnapshot(CHECKLIST, VISIT, 1, SALE_A, status),
-                "SURVEY_SCHEDULED", leadCycle, SALE_A, true, Optional.of(VISIT), SALE_A);
+                SURVEY_SCHEDULED, leadCycle, SALE_A, true, Optional.of(VISIT), SALE_A);
     }
 
     // ==================== start (spec 7.2 checklistStart) ====================
@@ -94,7 +98,7 @@ class ChecklistAccessPoliciesTest {
         SurveyAppointment visit = visited(SurveyIntent.LONG_TERM_RENT);
 
         assertEquals(new ChecklistStart(true, visit.getId().getValue(), false, null), ChecklistStartPolicy.of(
-                Optional.of(visit), false, "SURVEY_SCHEDULED", SALE_A, true, SALE_A));
+                Optional.of(visit), false, SURVEY_SCHEDULED, SALE_A, true, SALE_A));
     }
 
     @Test
@@ -102,7 +106,7 @@ class ChecklistAccessPoliciesTest {
         SurveyAppointment visit = visited(SurveyIntent.LONG_TERM_RENT);
 
         assertEquals(new ChecklistStart(true, visit.getId().getValue(), true, null), ChecklistStartPolicy.of(
-                Optional.of(visit), false, "SURVEY_SCHEDULED", SALE_B, true, SALE_B));
+                Optional.of(visit), false, SURVEY_SCHEDULED, SALE_B, true, SALE_B));
     }
 
     @Test
@@ -110,16 +114,16 @@ class ChecklistAccessPoliciesTest {
         SurveyAppointment longTerm = visited(SurveyIntent.LONG_TERM_RENT);
         SurveyAppointment shortTerm = visited(SurveyIntent.SHORT_TERM_RENT);
 
-        assertEquals(StartBlock.NO_CURRENT_VISIT, block(Optional.empty(), true, "ON_HOLD", SALE_B, false, SALE_A));
-        assertEquals(StartBlock.INTENT, block(Optional.of(shortTerm), true, "ON_HOLD", SALE_B, false, SALE_A));
-        assertEquals(StartBlock.LEAD_STATUS, block(Optional.of(longTerm), true, "ON_HOLD", SALE_B, false, SALE_A));
-        assertEquals(StartBlock.CHECKLIST_EXISTS, block(Optional.of(longTerm), true, "SURVEY_SCHEDULED", SALE_B, false,
+        assertEquals(StartBlock.NO_CURRENT_VISIT, block(Optional.empty(), true, ON_HOLD, SALE_B, false, SALE_A));
+        assertEquals(StartBlock.INTENT, block(Optional.of(shortTerm), true, ON_HOLD, SALE_B, false, SALE_A));
+        assertEquals(StartBlock.LEAD_STATUS, block(Optional.of(longTerm), true, ON_HOLD, SALE_B, false, SALE_A));
+        assertEquals(StartBlock.CHECKLIST_EXISTS, block(Optional.of(longTerm), true, SURVEY_SCHEDULED, SALE_B, false,
                 SALE_A));
-        assertEquals(StartBlock.NOT_ASSIGNEE, block(Optional.of(longTerm), false, "SURVEY_SCHEDULED", SALE_B, false,
+        assertEquals(StartBlock.NOT_ASSIGNEE, block(Optional.of(longTerm), false, SURVEY_SCHEDULED, SALE_B, false,
                 SALE_A));
-        assertEquals(StartBlock.ASSIGNEE_INELIGIBLE, block(Optional.of(longTerm), false, "SURVEY_SCHEDULED", SALE_A,
+        assertEquals(StartBlock.ASSIGNEE_INELIGIBLE, block(Optional.of(longTerm), false, SURVEY_SCHEDULED, SALE_A,
                 false, SALE_A));
-        ChecklistStart blocked = ChecklistStartPolicy.of(Optional.of(longTerm), true, "SURVEY_SCHEDULED", SALE_A,
+        ChecklistStart blocked = ChecklistStartPolicy.of(Optional.of(longTerm), true, SURVEY_SCHEDULED, SALE_A,
                 true, SALE_A);
         assertEquals(new ChecklistStart(false, null, false, StartBlock.CHECKLIST_EXISTS), blocked);
     }
@@ -151,13 +155,13 @@ class ChecklistAccessPoliciesTest {
 
     // ==================== helpers ====================
 
-    private static Editability edit(String holder, int leadCycle, String leadStatus, String assignee,
+    private static Editability edit(String holder, int leadCycle, LeadStatus leadStatus, String assignee,
                                     boolean eligible, String currentVisit, String viewer) {
         return ChecklistEditability.of(new SurveyChecklistSnapshot(CHECKLIST, VISIT, 1, holder, ChecklistStatus.DRAFT),
                 leadStatus, leadCycle, assignee, eligible, Optional.of(currentVisit), viewer);
     }
 
-    private static StartBlock block(Optional<SurveyAppointment> visit, boolean hasDraft, String leadStatus,
+    private static StartBlock block(Optional<SurveyAppointment> visit, boolean hasDraft, LeadStatus leadStatus,
                                     String assignee, boolean eligible, String viewer) {
         return ChecklistStartPolicy.of(visit, hasDraft, leadStatus, assignee, eligible, viewer).blockedByOrNull();
     }

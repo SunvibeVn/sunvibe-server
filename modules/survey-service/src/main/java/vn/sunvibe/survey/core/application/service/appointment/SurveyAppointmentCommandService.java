@@ -60,6 +60,7 @@ import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.appointment.SurveyResumptionDomainRepository;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -133,9 +134,9 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
             throw new SurveyNotAllowedException(CHECKLIST, List.of());
         }
         CurrentVisitPolicy.BookingKind kind = CurrentVisitPolicy.bookingKind(ofLead, lead.intentCycle());
-        List<String> allowedStatuses = SurveyBlockAssembler.allowedStatusesFor(kind.kind());
+        List<LeadStatus> allowedStatuses = SurveyBlockAssembler.allowedStatusesFor(kind.kind());
         if (!allowedStatuses.contains(lead.status())) {
-            throw new SurveyNotAllowedException("status", allowedStatuses);
+            throw new SurveyNotAllowedException("status", allowedStatuses.stream().map(LeadStatus::name).toList());
         }
         if (!SurveyBlockAssembler.RENTAL_INTENTS.contains(lead.intent())) {
             throw new SurveyNotAllowedException("intent", SurveyBlockAssembler.RENTAL_INTENTS);
@@ -154,7 +155,7 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
             throw new SurveyorIneligibleException(null);
         }
         // survey-schedule spec 4.3: a first survey, or a re-survey of a CONTACTED lead, moves it to SURVEY_SCHEDULED
-        LeadMoveTarget target = kind.kind() == AppointmentKind.FIRST || "CONTACTED".equals(lead.status())
+        LeadMoveTarget target = kind.kind() == AppointmentKind.FIRST || lead.status() == LeadStatus.CONTACTED
                 ? LeadMoveTarget.SURVEY_SCHEDULED : LeadMoveTarget.KEEP;
         LeadMoveResult moved = move(lead, command.expectedLeadVersion(), LeadMoveEvent.SURVEY_BOOKED, target,
                 viewer, appointment, now);
@@ -243,7 +244,7 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
         LeadFacts lead = requireVisibleLead(appointment.getLeadId(), viewer);
         requireVersions(lead, command.expectedLeadVersion(), appointment, command.expectedAppointmentVersion());
         requireScheduled(appointment);
-        if (!"SURVEY_SCHEDULED".equals(lead.status())) {
+        if (lead.status() != LeadStatus.SURVEY_SCHEDULED) {
             throw new InvalidSurveyStateException(List.of());
         }
         VisitRecordKind kind;
@@ -277,8 +278,8 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
         Instant now = now();
         LeadFacts lead = lockVisibleLead(command.leadId(), viewer);
         requireLeadVersion(lead, command.expectedLeadVersion());
-        if (!"ON_HOLD".equals(lead.status())) {
-            throw new InvalidSurveyStateException(List.of("ON_HOLD"));
+        if (lead.status() != LeadStatus.ON_HOLD) {
+            throw new InvalidSurveyStateException(List.of(LeadStatus.ON_HOLD.name()));
         }
         CycleRecord record = records.read(lead.leadId(), lead.intentCycle(), appointments.findByLeadId(lead.leadId()));
         SurveyAppointment visit = record.currentVisit().orElseThrow(NoCurrentVisitException::new);
@@ -401,10 +402,10 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
     private SurveyCommandResult answer(SurveyViewer viewer, LeadFacts lead, LeadMoveResult movedOrNull,
                                        List<OverlapView> overlaps, Instant now) {
         LeadFacts after = movedOrNull == null ? lead
-                : lead.moved(movedOrNull.status(), movedOrNull.version(), movedOrNull.lastActivityAt());
+                : lead.moved(movedOrNull.statusName(), movedOrNull.version(), movedOrNull.lastActivityAt());
         accessLogs.save(SurveyAccessLog.create(snowflakes.generateId(), lead.leadId(), viewer.userId(), now));
         return new SurveyCommandResult(assembler.assemble(after, viewer),
-                new LeadState(after.leadId(), after.status(), after.version(), after.lastActivityAt()),
+                new LeadState(after.leadId(), after.statusName(), after.version(), after.lastActivityAt()),
                 movedOrNull == null ? null : movedOrNull.entry(), overlaps);
     }
 

@@ -93,6 +93,7 @@ import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainR
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistGroupDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSaveDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistTakeoverDomainRepository;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -118,7 +119,6 @@ import java.util.Set;
 @Transactional
 public class SurveyChecklistCommandService implements SurveyChecklistCommandUseCase {
 
-    private static final String SURVEY_SCHEDULED = "SURVEY_SCHEDULED";
 
     private final SurveyChecklistDomainRepository checklists;
     private final SurveyChecklistGroupDomainRepository groups;
@@ -183,8 +183,8 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         if (appointment.getIntent() != SurveyIntent.LONG_TERM_RENT) {
             throw new ChecklistNotAllowedException("intent", List.of(SurveyIntent.LONG_TERM_RENT.name()));
         }
-        if (!SURVEY_SCHEDULED.equals(lead.status())) {
-            throw new ChecklistNotAllowedException("status", List.of(SURVEY_SCHEDULED));
+        if (lead.status() != LeadStatus.SURVEY_SCHEDULED) {
+            throw new ChecklistNotAllowedException("status", List.of(LeadStatus.SURVEY_SCHEDULED.name()));
         }
         // submission spec 4.6: a visit gets its first revision here; every later one comes from "start revision"
         List<SurveyChecklist> ofLead = checklists.findByLeadId(lead.leadId());
@@ -229,7 +229,7 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         ChecklistActivityResult activity = finish(viewer, lead, checklist, ChecklistActivityType.CHECKLIST_STARTED,
                 null, now);
         ChecklistView view = views.assemble(viewer, lead, appointments.findByLeadId(lead.leadId()), checklist);
-        return new ChecklistStartResult(view, new LeadState(lead.leadId(), lead.status(), lead.version(),
+        return new ChecklistStartResult(view, new LeadState(lead.leadId(), lead.statusName(), lead.version(),
                 activity.lastActivityAt()), activity.entry());
     }
 

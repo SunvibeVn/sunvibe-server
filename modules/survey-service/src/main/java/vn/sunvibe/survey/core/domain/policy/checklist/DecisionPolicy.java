@@ -9,6 +9,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.NeedsChangesKind;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.policy.media.EvidenceCoverageCalculator;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -23,7 +24,6 @@ import java.util.Set;
  */
 public final class DecisionPolicy {
 
-    private static final String SURVEY_SCHEDULED = "SURVEY_SCHEDULED";
     private static final Set<WarningType> HAZARD_WARNINGS = Set.of(WarningType.OPEN_IMPORTANT_HAZARD,
             WarningType.EARLIER_HAZARD_OPEN);
 
@@ -35,13 +35,13 @@ public final class DecisionPolicy {
      * spec 5.5: the revision SUBMITTED, the lead SURVEY_SCHEDULED, the lead's current cycle, the current visit, serving
      * on (a reviewer must see the photos, A-3).
      */
-    public static List<String> stateBlockers(ChecklistStatus status, String leadStatus, int revisionIntentCycle,
+    public static List<String> stateBlockers(ChecklistStatus status, LeadStatus leadStatus, int revisionIntentCycle,
                                              int leadIntentCycle, boolean onCurrentVisit, boolean servingOn) {
         List<String> blockers = new ArrayList<>();
         if (status != ChecklistStatus.SUBMITTED) {
             blockers.add("status");
         }
-        if (!SURVEY_SCHEDULED.equals(leadStatus)) {
+        if (leadStatus != LeadStatus.SURVEY_SCHEDULED) {
             blockers.add("lead.status");
         }
         if (revisionIntentCycle != leadIntentCycle) {

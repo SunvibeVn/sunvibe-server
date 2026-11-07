@@ -38,6 +38,7 @@ import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistEvidenc
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistRequalificationDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSubmissionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.util.Collection;
 import java.util.List;
@@ -108,7 +109,7 @@ public class ChecklistReviewReader {
     }
 
     /** The first reason the viewer cannot decide the revision; one path for the read and the queue. */
-    public Optional<ReviewReason> refusal(boolean reviewerRole, SurveyChecklist checklist, String leadStatus,
+    public Optional<ReviewReason> refusal(boolean reviewerRole, SurveyChecklist checklist, LeadStatus leadStatus,
                                           int leadIntentCycle, List<SurveyAppointment> ofLead,
                                           Supplier<ReviewerExclusionFacts> facts, String assigneeUserId,
                                           String viewerUserId) {

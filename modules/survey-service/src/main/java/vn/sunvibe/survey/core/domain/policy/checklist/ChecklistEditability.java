@@ -2,6 +2,7 @@ package vn.sunvibe.survey.core.domain.policy.checklist;
 
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistSnapshot;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.util.Optional;
 
@@ -13,15 +14,13 @@ import java.util.Optional;
  */
 public final class ChecklistEditability {
 
-    private static final String SURVEY_SCHEDULED = "SURVEY_SCHEDULED";
-
     private ChecklistEditability() {
     }
 
     /**
      * @param currentVisitId the lead's current visit (latest VISITED of the lead's current cycle), empty when none
      */
-    public static Editability of(SurveyChecklistSnapshot checklist, String leadStatus, int leadIntentCycle,
+    public static Editability of(SurveyChecklistSnapshot checklist, LeadStatus leadStatus, int leadIntentCycle,
                                  String assigneeUserId, boolean assigneeEligible, Optional<String> currentVisitId,
                                  String viewerUserId) {
         if (checklist.intentCycle() != leadIntentCycle) {
@@ -36,7 +35,7 @@ public final class ChecklistEditability {
         if (!currentVisitId.equals(Optional.of(checklist.visitAppointmentId()))) {
             return Editability.readOnly(ReadOnlyReason.NEWER_VISIT);
         }
-        if (!SURVEY_SCHEDULED.equals(leadStatus)) {
+        if (leadStatus != LeadStatus.SURVEY_SCHEDULED) {
             return Editability.readOnly(ReadOnlyReason.LEAD_STATUS);
         }
         if (!viewerUserId.equals(assigneeUserId)) {
