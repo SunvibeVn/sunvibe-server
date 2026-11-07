@@ -118,8 +118,9 @@ public class PropertyCreateService implements PropertyCreateUseCase {
             log.warn("Validation error: {}", e.getClass().getSimpleName());
             throw e;
         } catch (Exception e) {
+            // The use case boundary: anything unexpected becomes one error, the cause kept for the log only
             log.error("Unexpected error creating property", e);
-            throw new PropertyServiceException("Failed to create property: " + e.getMessage(), e);
+            throw new PropertyServiceException("Failed to create property", e);
         }
     }
 
