@@ -1,5 +1,7 @@
 package vn.sunvibe.property.core.domain.policy.intake;
 
+import vn.sunvibe.property.core.domain.model.lead.LeadStatus;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,7 +27,7 @@ public final class ReadinessPolicy {
      * @param ownerEligible the account may own now
      * @param restricted    an unreleased whole-lead suspension holds
      */
-    public record Facts(String leadStatus, boolean requalified, boolean intentChanged, boolean evidenceGone,
+    public record Facts(LeadStatus leadStatus, boolean requalified, boolean intentChanged, boolean evidenceGone,
                         boolean evidenceHeld, boolean proofInForce, boolean ownerEligible, boolean restricted) {
     }
 
@@ -36,9 +38,9 @@ public final class ReadinessPolicy {
     public static Result of(Facts facts) {
         List<ReadinessReason> ended = new ArrayList<>();
         switch (facts.leadStatus()) {
-            case "DUPLICATE" -> ended.add(ReadinessReason.DUPLICATE);
-            case "REJECTED" -> ended.add(ReadinessReason.REJECTED);
-            case "WITHDRAWN" -> ended.add(ReadinessReason.WITHDRAWN);
+            case DUPLICATE -> ended.add(ReadinessReason.DUPLICATE);
+            case REJECTED -> ended.add(ReadinessReason.REJECTED);
+            case WITHDRAWN -> ended.add(ReadinessReason.WITHDRAWN);
             default -> {
             }
         }
@@ -55,7 +57,7 @@ public final class ReadinessPolicy {
             return new Result(ReadinessState.ENDED, List.copyOf(ended));
         }
         List<ReadinessReason> suspended = new ArrayList<>();
-        if ("ON_HOLD".equals(facts.leadStatus())) {
+        if (facts.leadStatus() == LeadStatus.ON_HOLD) {
             suspended.add(ReadinessReason.LEAD_ON_HOLD);
         }
         if (facts.evidenceHeld()) {
