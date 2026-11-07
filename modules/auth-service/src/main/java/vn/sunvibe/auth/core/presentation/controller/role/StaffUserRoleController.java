@@ -21,6 +21,7 @@ import vn.sunvibe.auth.core.application.usecase.role.RoleRevokeUseCase;
 import vn.sunvibe.auth.core.application.usecase.role.UserRoleQueryUseCase;
 import vn.sunvibe.auth.core.presentation.converter.role.RoleConverter;
 import vn.sunvibe.auth.core.presentation.dto.response.role.UserRolesResponse;
+import vn.sunvibe.auth.core.presentation.resolver.RoleActorResolver;
 import vn.sunvibe.shared.dto.response.error.BaseErrorModel;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
@@ -43,6 +44,7 @@ public class StaffUserRoleController {
     private final RoleGrantUseCase roleGrantUseCase;
     private final RoleRevokeUseCase roleRevokeUseCase;
     private final RoleConverter roleConverter;
+    private final RoleActorResolver roleActorResolver;
 
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Read an account's roles (ADMIN, SUPER_ADMIN)")
@@ -80,7 +82,7 @@ public class StaffUserRoleController {
     })
     public ResponseEntity<Void> grantRole(@PathVariable("userId") String userId,
             @Parameter(description = GRANTABLE) @PathVariable("role") String role) {
-        roleGrantUseCase.execute(roleConverter.toCommand(userId, role));
+        roleGrantUseCase.execute(roleConverter.toCommand(roleActorResolver.current(), userId, role));
         return ResponseEntity.noContent().build();
     }
 
@@ -102,7 +104,7 @@ public class StaffUserRoleController {
     })
     public ResponseEntity<Void> revokeRole(@PathVariable("userId") String userId,
             @Parameter(description = GRANTABLE) @PathVariable("role") String role) {
-        roleRevokeUseCase.execute(roleConverter.toCommand(userId, role));
+        roleRevokeUseCase.execute(roleConverter.toCommand(roleActorResolver.current(), userId, role));
         return ResponseEntity.noContent().build();
     }
 }

@@ -7,6 +7,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
@@ -142,6 +143,17 @@ class NamingConventionArchTest {
 	void publicControllers_endWithController() {
 		topLevelClassesIn(CORE + ".presentation.controller..").and().arePublic()
 				.should().haveSimpleNameEndingWith("Controller").check(classes);
+	}
+
+	/**
+	 * Clean-up spec N-13: a converter maps what it is given. The caller comes from a resolver or
+	 * {@code CurrentPrincipal}, so no converter fails a request on its own reading of the security context.
+	 */
+	@Test
+	void presentationConverters_doNotReadTheSecurityContext() {
+		noClasses().that().resideInAPackage(PRESENTATION_CONVERTER)
+				.should().dependOnClassesThat().belongToAnyOf(SecurityContextHolder.class)
+				.check(classes);
 	}
 
 	private static GivenClassesConjunction topLevelClassesIn(String packageIdentifier) {
