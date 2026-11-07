@@ -64,7 +64,7 @@ public final class TemplateV1Rules {
     /**
      * The content cleaned and checked: text NFC and trimmed with blank optional text as null, areas at scale 1.
      *
-     * @throws vn.sunvibe.survey.core.domain.exception.ChecklistValidationException with every violation of the body
+     * @throws vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException with every violation of the body
      */
     public static GroupContent checkAndNormalise(GroupContent content, LocalDate today) {
         BodyChecker check = new BodyChecker(today);

@@ -33,14 +33,14 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
-import vn.sunvibe.survey.core.application.exception.MediaRateLimitedException;
-import vn.sunvibe.survey.core.application.shared.MediaReadBudgetLimits;
-import vn.sunvibe.survey.core.application.shared.MediaReadBudgets;
-import vn.sunvibe.survey.core.application.shared.SecurityEventRecorder;
+import vn.sunvibe.survey.core.application.exception.media.MediaRateLimitedException;
+import vn.sunvibe.survey.core.application.shared.media.MediaReadBudgetLimits;
+import vn.sunvibe.survey.core.application.shared.media.MediaReadBudgets;
+import vn.sunvibe.survey.core.application.shared.common.SecurityEventRecorder;
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
 import vn.sunvibe.survey.core.domain.policy.media.ReadBudgetArithmetic;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
 
 /**
  * The hourly read budgets on PostgreSQL (survey-media spec A-26; SM-31 list part; plan Task A16): the list budget of

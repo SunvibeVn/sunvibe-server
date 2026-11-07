@@ -1,6 +1,6 @@
 package vn.sunvibe.survey.core.domain.policy;
 
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 
 import java.time.Duration;
 import java.time.Instant;

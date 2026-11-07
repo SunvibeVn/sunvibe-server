@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.policy;
 
 import org.junit.jupiter.api.Test;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

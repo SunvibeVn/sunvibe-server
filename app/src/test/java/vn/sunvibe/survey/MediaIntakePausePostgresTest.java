@@ -36,22 +36,22 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.MediaApiTestSupport.RawUpload;
 import vn.sunvibe.survey.MediaApiTestSupport.Row;
-import vn.sunvibe.survey.core.application.exception.MediaIntakePausedException;
-import vn.sunvibe.survey.core.application.service.MediaProbeRunner;
-import vn.sunvibe.survey.core.application.service.MediaSweeper;
-import vn.sunvibe.survey.core.application.shared.IntakeGate;
-import vn.sunvibe.survey.core.application.shared.MediaClock;
-import vn.sunvibe.survey.core.application.shared.MediaIncidentRecorder;
-import vn.sunvibe.survey.core.application.shared.MediaSwitches;
+import vn.sunvibe.survey.core.application.exception.media.MediaIntakePausedException;
+import vn.sunvibe.survey.core.application.service.media.MediaProbeRunner;
+import vn.sunvibe.survey.core.application.service.media.MediaSweeper;
+import vn.sunvibe.survey.core.application.shared.media.IntakeGate;
+import vn.sunvibe.survey.core.application.shared.media.MediaClock;
+import vn.sunvibe.survey.core.application.shared.media.MediaIncidentRecorder;
+import vn.sunvibe.survey.core.application.shared.media.MediaSwitches;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.Bucket;
 import vn.sunvibe.survey.core.domain.model.media.ProbeResult;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
-import vn.sunvibe.survey.core.domain.repository.MediaCountersRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaBodySlotDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaJobDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
+import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaBodySlotDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaJobDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRepository;
 
 /**
  * Intake pauses and resumes (survey-media spec A-18, 4.4 step 4; SM-14; plan Task A21): every cause pauses create and
@@ -125,7 +125,7 @@ class MediaIntakePausePostgresTest extends MediaApiTestBase {
 	private PlatformTransactionManager transactionManager;
 
 	@Autowired
-	private vn.sunvibe.survey.core.domain.repository.SurveyMediaListingRunDomainRepository listingRuns;
+	private vn.sunvibe.survey.core.domain.repository.media.SurveyMediaListingRunDomainRepository listingRuns;
 
 	private SurveyApiTestSupport survey;
 	private ChecklistApiTestSupport checklists;

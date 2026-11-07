@@ -1,14 +1,14 @@
 package vn.sunvibe.survey.core.testsupport;
 
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
-import vn.sunvibe.survey.core.domain.exception.AppointmentAlreadyScheduledException;
+import vn.sunvibe.survey.core.domain.exception.appointment.AppointmentAlreadyScheduledException;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.policy.ListGroup;
-import vn.sunvibe.survey.core.domain.repository.PageResult;
-import vn.sunvibe.survey.core.domain.repository.ScheduledSearch;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.common.PageResult;
+import vn.sunvibe.survey.core.domain.repository.appointment.ScheduledSearch;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
 
 import java.time.Duration;
 import java.time.Instant;

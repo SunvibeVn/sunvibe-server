@@ -6,8 +6,8 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentEvent;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentRevision;
 import vn.sunvibe.survey.core.domain.model.appointment.Coordinates;
 import vn.sunvibe.survey.core.domain.model.appointment.MeetingLocation;
-import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmentEventEntity;
-import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmentRevisionEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.appointment.SurveyAppointmentEventEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.appointment.SurveyAppointmentRevisionEntity;
 
 /**
  * Mapper between the revisions and events of an appointment and their entities. The Snowflake id of a new row is

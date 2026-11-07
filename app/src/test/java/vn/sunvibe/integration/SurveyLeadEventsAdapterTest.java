@@ -12,10 +12,10 @@ import org.junit.jupiter.api.Test;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyStop;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyAppointmentRef;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyState;
-import vn.sunvibe.survey.core.application.usecase.AppointmentRef;
-import vn.sunvibe.survey.core.application.usecase.LeadStopReason;
-import vn.sunvibe.survey.core.application.usecase.LeadSurveyEventsUseCase;
-import vn.sunvibe.survey.core.application.usecase.LeadSurveyState;
+import vn.sunvibe.survey.core.application.usecase.appointment.AppointmentRef;
+import vn.sunvibe.survey.core.application.usecase.appointment.LeadStopReason;
+import vn.sunvibe.survey.core.application.usecase.appointment.LeadSurveyEventsUseCase;
+import vn.sunvibe.survey.core.application.usecase.common.LeadSurveyState;
 
 /**
  * The adapter forwards acquisition's lead hooks to survey's published use case (survey-schedule spec 5.4) and

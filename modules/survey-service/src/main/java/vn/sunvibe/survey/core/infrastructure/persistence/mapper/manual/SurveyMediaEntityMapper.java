@@ -8,9 +8,9 @@ import vn.sunvibe.survey.core.domain.model.media.MediaRemovalCorrection;
 import vn.sunvibe.survey.core.domain.model.media.MediaVariant;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
-import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaEntity;
-import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaVariantEntity;
-import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyMediaVariantKey;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.media.SurveyMediaEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.media.SurveyMediaVariantEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.media.SurveyMediaVariantKey;
 
 import java.util.Comparator;
 import java.util.List;

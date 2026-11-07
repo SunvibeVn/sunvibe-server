@@ -13,7 +13,7 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 import vn.sunvibe.survey.core.domain.model.checklist.AmenitiesContent;
-import vn.sunvibe.survey.core.application.shared.SubmissionCanonicalForm;
+import vn.sunvibe.survey.core.application.shared.checklist.SubmissionCanonicalForm;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
 import vn.sunvibe.survey.core.domain.model.checklist.SubmittedSpace;

@@ -1,23 +1,23 @@
 package vn.sunvibe.survey.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
-import vn.sunvibe.survey.core.application.command.BookAppointmentCommand;
-import vn.sunvibe.survey.core.application.command.CancelAppointmentCommand;
-import vn.sunvibe.survey.core.application.command.ChangeAppointmentCommand;
-import vn.sunvibe.survey.core.application.command.ConfirmationCommand;
-import vn.sunvibe.survey.core.application.command.MeetingPlaceInput;
-import vn.sunvibe.survey.core.application.command.ProxyRecord;
-import vn.sunvibe.survey.core.application.command.RecordVisitCommand;
-import vn.sunvibe.survey.core.application.command.ResumeSurveyCommand;
+import vn.sunvibe.survey.core.application.command.appointment.BookAppointmentCommand;
+import vn.sunvibe.survey.core.application.command.appointment.CancelAppointmentCommand;
+import vn.sunvibe.survey.core.application.command.appointment.ChangeAppointmentCommand;
+import vn.sunvibe.survey.core.application.command.appointment.ConfirmationCommand;
+import vn.sunvibe.survey.core.application.command.appointment.MeetingPlaceInput;
+import vn.sunvibe.survey.core.application.command.appointment.ProxyRecord;
+import vn.sunvibe.survey.core.application.command.appointment.RecordVisitCommand;
+import vn.sunvibe.survey.core.application.command.appointment.ResumeSurveyCommand;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
-import vn.sunvibe.survey.core.presentation.dto.request.BasisRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.BookAppointmentRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.CancelAppointmentRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.ChangeAppointmentRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.ConfirmationRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.MeetingLocationRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.RecordVisitRequest;
-import vn.sunvibe.survey.core.presentation.dto.request.ResumeSurveyRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.BasisRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.BookAppointmentRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.CancelAppointmentRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.ChangeAppointmentRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.ConfirmationRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.MeetingLocationRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.RecordVisitRequest;
+import vn.sunvibe.survey.core.presentation.dto.request.appointment.ResumeSurveyRequest;
 
 import java.util.Optional;
 

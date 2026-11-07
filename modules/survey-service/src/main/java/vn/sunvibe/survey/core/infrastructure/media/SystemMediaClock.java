@@ -2,7 +2,7 @@ package vn.sunvibe.survey.core.infrastructure.media;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.shared.time.AppClock;
-import vn.sunvibe.survey.core.application.shared.MediaClock;
+import vn.sunvibe.survey.core.application.shared.media.MediaClock;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

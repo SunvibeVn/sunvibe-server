@@ -30,16 +30,16 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistReviewApiSupport.Ready;
 import vn.sunvibe.survey.MediaApiTestSupport.Row;
-import vn.sunvibe.survey.core.application.shared.SubmissionCanonicalForm;
+import vn.sunvibe.survey.core.application.shared.checklist.SubmissionCanonicalForm;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSubmission;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
 import vn.sunvibe.survey.core.domain.model.checklist.GroupContent;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.policy.checklist.SubmissionHash;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistEvidenceDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistGroupDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSubmissionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistEvidenceDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistGroupDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSubmissionDomainRepository;
 
 /**
  * POST /survey-checklists/{id}/submission (survey-checklist submission spec 4.3, 4.4, 5.5, S-1..S-4, S-17): what a submit

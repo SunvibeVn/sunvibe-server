@@ -25,7 +25,7 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
-import vn.sunvibe.survey.core.application.service.MediaContentDeletionJob;
+import vn.sunvibe.survey.core.application.service.media.MediaContentDeletionJob;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore;
 
 /**

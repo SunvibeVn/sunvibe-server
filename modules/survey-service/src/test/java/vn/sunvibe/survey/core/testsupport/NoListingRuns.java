@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import vn.sunvibe.survey.core.domain.model.media.ListingRun;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaListingRunDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaListingRunDomainRepository;
 
 /** No full-listing run (survey-media spec 4.4 step 4): nothing blocks a resume unless a test says so. */
 public final class NoListingRuns implements SurveyMediaListingRunDomainRepository {

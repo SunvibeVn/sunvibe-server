@@ -5,7 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import vn.sunvibe.survey.core.domain.model.media.MediaIncidentKind;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaIncidentDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaIncidentDomainRepository;
 
 /** Incident rows in memory (survey-media spec A-18): one open row per kind. */
 public final class InMemoryMediaIncidents implements SurveyMediaIncidentDomainRepository {

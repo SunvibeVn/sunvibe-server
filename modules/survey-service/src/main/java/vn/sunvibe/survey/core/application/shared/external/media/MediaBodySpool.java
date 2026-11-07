@@ -14,7 +14,7 @@ public interface MediaBodySpool {
     /**
      * Reads exactly {@code length} bytes.
      *
-     * @throws vn.sunvibe.survey.core.application.exception.MediaBodyIncompleteException when the body ends early, a read
+     * @throws vn.sunvibe.survey.core.application.exception.media.MediaBodyIncompleteException when the body ends early, a read
      *         fails or the deadline passes; nothing is left behind
      */
     SpooledBody receive(InputStream body, long length, Instant deadline);

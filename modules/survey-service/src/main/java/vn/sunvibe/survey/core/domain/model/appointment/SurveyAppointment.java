@@ -1,8 +1,8 @@
 package vn.sunvibe.survey.core.domain.model.appointment;
 
-import vn.sunvibe.survey.core.domain.exception.AppointmentStateException;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
-import vn.sunvibe.survey.core.domain.exception.PerformerMismatchException;
+import vn.sunvibe.survey.core.domain.exception.appointment.AppointmentStateException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.appointment.PerformerMismatchException;
 import vn.sunvibe.survey.core.domain.policy.SurveyText;
 import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
 

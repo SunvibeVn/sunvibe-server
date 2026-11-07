@@ -32,8 +32,8 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.integration.SurveyLeadEventsAdapter;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
-import vn.sunvibe.survey.core.domain.repository.SurveyAppointmentDomainRepository;
-import vn.sunvibe.survey.core.infrastructure.persistence.adapter.SurveyAppointmentRepositoryAdapter;
+import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
+import vn.sunvibe.survey.core.infrastructure.persistence.adapter.appointment.SurveyAppointmentRepositoryAdapter;
 
 /**
  * A failure in the second module rolls back the first, in both directions (survey-schedule BR-2, spec 5.5; W15-28):

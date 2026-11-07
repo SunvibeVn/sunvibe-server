@@ -33,16 +33,16 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.MediaApiTestSupport.Row;
-import vn.sunvibe.survey.core.application.command.BasisInput;
-import vn.sunvibe.survey.core.application.command.CorrectionInput;
-import vn.sunvibe.survey.core.application.command.DeselectMediaCommand;
-import vn.sunvibe.survey.core.application.exception.MediaNotFoundException;
-import vn.sunvibe.survey.core.application.service.MediaContentDeletionJob;
-import vn.sunvibe.survey.core.application.service.MediaRestoreReconciliation;
+import vn.sunvibe.survey.core.application.command.common.BasisInput;
+import vn.sunvibe.survey.core.application.command.common.CorrectionInput;
+import vn.sunvibe.survey.core.application.command.media.DeselectMediaCommand;
+import vn.sunvibe.survey.core.application.exception.media.MediaNotFoundException;
+import vn.sunvibe.survey.core.application.service.media.MediaContentDeletionJob;
+import vn.sunvibe.survey.core.application.service.media.MediaRestoreReconciliation;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 import vn.sunvibe.survey.core.application.shared.external.lead.ViewerAccess;
-import vn.sunvibe.survey.core.application.usecase.SurveyMediaCommandUseCase;
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaCommandUseCase;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 
 /**
  * Photos of a later revision of one visit (survey-checklist submission spec 4.6, 5.4, S-13, A-12): a carried photo keeps

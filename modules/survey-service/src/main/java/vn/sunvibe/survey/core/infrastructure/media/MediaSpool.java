@@ -38,8 +38,8 @@ import com.github.f4b6a3.ulid.UlidCreator;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import vn.sunvibe.survey.core.application.exception.MediaBodyIncompleteException;
-import vn.sunvibe.survey.core.application.shared.MediaClock;
+import vn.sunvibe.survey.core.application.exception.media.MediaBodyIncompleteException;
+import vn.sunvibe.survey.core.application.shared.media.MediaClock;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaBodySpool;
 import vn.sunvibe.survey.core.infrastructure.config.MediaProperties;
 

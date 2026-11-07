@@ -2,7 +2,7 @@ package vn.sunvibe.survey.core.infrastructure.media.scan;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import vn.sunvibe.survey.core.application.shared.MediaClock;
+import vn.sunvibe.survey.core.application.shared.media.MediaClock;
 import vn.sunvibe.survey.core.application.shared.external.media.MalwareScanner;
 import vn.sunvibe.survey.core.application.shared.external.media.ScannerSilentException;
 import vn.sunvibe.survey.core.domain.model.media.ProbeResult;

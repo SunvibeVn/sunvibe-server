@@ -2,12 +2,12 @@ package vn.sunvibe.survey.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 
-import vn.sunvibe.survey.core.application.query.MediaContentResult;
-import vn.sunvibe.survey.core.application.query.MediaStateResult;
+import vn.sunvibe.survey.core.application.query.media.MediaContentResult;
+import vn.sunvibe.survey.core.application.query.media.MediaStateResult;
 import vn.sunvibe.survey.core.presentation.dto.response.media.SurveyMediaStateResponse;
-import vn.sunvibe.survey.core.application.query.MediaCreateResult;
-import vn.sunvibe.survey.core.application.query.MediaItemView;
-import vn.sunvibe.survey.core.application.query.MediaListView;
+import vn.sunvibe.survey.core.application.query.media.MediaCreateResult;
+import vn.sunvibe.survey.core.application.query.media.MediaItemView;
+import vn.sunvibe.survey.core.application.query.media.MediaListView;
 import vn.sunvibe.survey.core.domain.policy.media.KnownVersion;
 import vn.sunvibe.survey.core.presentation.dto.response.media.ChecklistMediaResponse;
 import vn.sunvibe.survey.core.domain.model.media.MediaRemovalCorrection;

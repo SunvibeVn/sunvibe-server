@@ -13,7 +13,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.MeetingLocation;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.appointment.VisitRecord;
-import vn.sunvibe.survey.core.infrastructure.persistence.entity.SurveyAppointmentEntity;
+import vn.sunvibe.survey.core.infrastructure.persistence.entity.appointment.SurveyAppointmentEntity;
 
 import java.util.List;
 

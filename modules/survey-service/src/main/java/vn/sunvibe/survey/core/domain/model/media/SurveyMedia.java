@@ -1,6 +1,6 @@
 package vn.sunvibe.survey.core.domain.model.media;
 
-import vn.sunvibe.survey.core.domain.exception.IllegalMediaTransitionException;
+import vn.sunvibe.survey.core.domain.exception.media.IllegalMediaTransitionException;
 
 import java.time.Duration;
 import java.time.Instant;

@@ -3,10 +3,10 @@ package vn.sunvibe.survey.core.infrastructure.media;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 
-import vn.sunvibe.survey.core.application.service.MediaFullListingJob;
-import vn.sunvibe.survey.core.application.service.MediaProbeRunner;
-import vn.sunvibe.survey.core.application.service.MediaRestoreReconciliation;
-import vn.sunvibe.survey.core.application.service.MediaSweeper;
+import vn.sunvibe.survey.core.application.service.media.MediaFullListingJob;
+import vn.sunvibe.survey.core.application.service.media.MediaProbeRunner;
+import vn.sunvibe.survey.core.application.service.media.MediaRestoreReconciliation;
+import vn.sunvibe.survey.core.application.service.media.MediaSweeper;
 import vn.sunvibe.survey.core.infrastructure.config.MediaProperties;
 import vn.sunvibe.survey.core.infrastructure.config.MediaScheduling;
 

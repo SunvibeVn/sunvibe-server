@@ -23,7 +23,7 @@ public record MeetingLocation(String addressText, String provinceCode, String pr
     /**
      * A place staff typed: the address is 1..255 characters without a phone number (survey-schedule BR-4, A-14).
      *
-     * @throws vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException field
+     * @throws vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException field
      *                                                                             {@code meetingLocation.addressText}
      */
     public static MeetingLocation of(String addressText, String provinceCode, String provinceName, String wardCode,

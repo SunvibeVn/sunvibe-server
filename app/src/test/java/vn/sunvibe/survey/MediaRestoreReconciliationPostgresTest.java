@@ -27,7 +27,7 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
-import vn.sunvibe.survey.core.application.service.MediaRestoreReconciliation;
+import vn.sunvibe.survey.core.application.service.media.MediaRestoreReconciliation;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.Bucket;
 
 /**
@@ -59,16 +59,16 @@ class MediaRestoreReconciliationPostgresTest extends MediaApiTestBase {
 	private MediaRestoreReconciliation reconciliation;
 
 	@Autowired
-	private vn.sunvibe.survey.core.domain.repository.SurveyMediaDomainRepository mediaRepository;
+	private vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository mediaRepository;
 
 	@Autowired
-	private vn.sunvibe.survey.core.application.shared.MediaSetLocks setLocks;
+	private vn.sunvibe.survey.core.application.shared.media.MediaSetLocks setLocks;
 
 	@Autowired
-	private vn.sunvibe.survey.core.domain.repository.SurveyMediaVariantDomainRepository variants;
+	private vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRepository variants;
 
 	@Autowired
-	private vn.sunvibe.survey.core.application.shared.MediaClock clock;
+	private vn.sunvibe.survey.core.application.shared.media.MediaClock clock;
 
 	@Autowired
 	private org.springframework.transaction.PlatformTransactionManager transactionManager;

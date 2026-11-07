@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import vn.sunvibe.survey.core.domain.model.media.MediaSet;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
 
 /**
  * The media tests' set repository: the real adapter behind a test-only hook that runs once, on the reading thread,

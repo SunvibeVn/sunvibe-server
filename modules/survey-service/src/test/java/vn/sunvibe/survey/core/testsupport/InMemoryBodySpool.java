@@ -8,7 +8,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HexFormat;
 
-import vn.sunvibe.survey.core.application.exception.MediaBodyIncompleteException;
+import vn.sunvibe.survey.core.application.exception.media.MediaBodyIncompleteException;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaBodySpool;
 
 /**

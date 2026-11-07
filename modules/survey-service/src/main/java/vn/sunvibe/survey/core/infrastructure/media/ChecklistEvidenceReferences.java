@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.shared.external.media.EvidenceReferencePort;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistEvidenceDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistEvidenceDomainRepository;
 
 import java.util.List;
 

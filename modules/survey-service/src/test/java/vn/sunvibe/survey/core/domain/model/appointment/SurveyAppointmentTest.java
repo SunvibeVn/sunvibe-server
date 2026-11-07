@@ -1,9 +1,9 @@
 package vn.sunvibe.survey.core.domain.model.appointment;
 
 import org.junit.jupiter.api.Test;
-import vn.sunvibe.survey.core.domain.exception.AppointmentStateException;
-import vn.sunvibe.survey.core.domain.exception.InvalidSurveyValueException;
-import vn.sunvibe.survey.core.domain.exception.PerformerMismatchException;
+import vn.sunvibe.survey.core.domain.exception.appointment.AppointmentStateException;
+import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
+import vn.sunvibe.survey.core.domain.exception.appointment.PerformerMismatchException;
 
 import java.time.Duration;
 import java.time.Instant;

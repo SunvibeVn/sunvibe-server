@@ -1,6 +1,6 @@
 package vn.sunvibe.survey.core.domain.policy.checklist;
 
-import vn.sunvibe.survey.core.domain.exception.ChecklistValidationException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceRejection;

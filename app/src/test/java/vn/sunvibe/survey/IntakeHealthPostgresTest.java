@@ -27,12 +27,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.zaxxer.hikari.HikariDataSource;
 
-import vn.sunvibe.survey.core.application.exception.MediaIntakePausedException;
-import vn.sunvibe.survey.core.application.shared.IntakeGate;
+import vn.sunvibe.survey.core.application.exception.media.MediaIntakePausedException;
+import vn.sunvibe.survey.core.application.shared.media.IntakeGate;
 import vn.sunvibe.survey.core.domain.model.media.IntakeHealth;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
-import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
-import vn.sunvibe.survey.core.infrastructure.persistence.adapter.IntakeHealthJdbcAdapter;
+import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
+import vn.sunvibe.survey.core.infrastructure.persistence.adapter.media.IntakeHealthJdbcAdapter;
 
 /**
  * The intake health row on PostgreSQL (survey-media spec A-18, plan Task A5; SM-14 health rules): writes in their own

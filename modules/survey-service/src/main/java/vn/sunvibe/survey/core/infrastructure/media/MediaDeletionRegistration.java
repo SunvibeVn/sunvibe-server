@@ -5,7 +5,7 @@ import java.time.Duration;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 
-import vn.sunvibe.survey.core.application.service.MediaContentDeletionJob;
+import vn.sunvibe.survey.core.application.service.media.MediaContentDeletionJob;
 import vn.sunvibe.survey.core.infrastructure.config.MediaProperties;
 import vn.sunvibe.survey.core.infrastructure.config.MediaScheduling;
 

@@ -23,7 +23,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import vn.sunvibe.survey.core.application.exception.MediaBodyIncompleteException;
+import vn.sunvibe.survey.core.application.exception.media.MediaBodyIncompleteException;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaBodySpool.SpooledBody;
 import vn.sunvibe.survey.core.testsupport.InMemoryBodySpool;
 

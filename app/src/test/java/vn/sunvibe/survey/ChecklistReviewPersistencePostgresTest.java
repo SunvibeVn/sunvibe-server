@@ -29,7 +29,7 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.MediaApiTestSupport.Row;
-import vn.sunvibe.survey.core.domain.exception.ChecklistSubmittedConflictException;
+import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistSubmittedConflictException;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
@@ -50,11 +50,11 @@ import vn.sunvibe.survey.core.domain.model.media.MediaRemovalCorrection;
 import vn.sunvibe.survey.core.domain.model.media.MediaSelection;
 import vn.sunvibe.survey.core.domain.model.media.RemovalKind;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDecisionDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistEvidenceDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyChecklistSubmissionDomainRepository;
-import vn.sunvibe.survey.core.domain.repository.SurveyMediaSelectionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDecisionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistEvidenceDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSubmissionDomainRepository;
+import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSelectionDomainRepository;
 
 /**
  * The rows of a submission and its review through the adapters (survey-checklist submission spec 5.3, plan PD-8):
