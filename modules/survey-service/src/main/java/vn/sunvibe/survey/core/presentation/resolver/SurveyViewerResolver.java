@@ -1,16 +1,10 @@
 package vn.sunvibe.survey.core.presentation.resolver;
 
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import vn.sunvibe.shared.security.AuthenticatedUser;
+import vn.sunvibe.shared.security.CurrentPrincipal;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
-
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * SurveyViewerResolver
@@ -33,27 +27,13 @@ public class SurveyViewerResolver {
     }
 
     public SurveyViewer current() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof AuthenticatedUser user)
-                || user.getUserId() == null || user.getUserId().isBlank()) {
-            // Unreachable after the JWT filter and @PreAuthorize
-            throw new IllegalStateException("Principal does not expose a user id.");
-        }
-        Set<String> roles = roleHierarchy.getReachableGrantedAuthorities(authentication.getAuthorities()).stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toSet());
-        return leads.viewer(user.getUserId(), roles);
+        // Unreachable after the JWT filter and @PreAuthorize when it fails
+        String userId = CurrentPrincipal.requireUserId();
+        return leads.viewer(userId, CurrentPrincipal.expandedAuthorities(roleHierarchy));
     }
 
     /** survey-media spec A-23, 7.2 {@code canHold}: the viewer is ADMIN (SUPER_ADMIN through the role hierarchy). */
     public boolean currentCanHold() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null) {
-            return false;
-        }
-        return roleHierarchy.getReachableGrantedAuthorities(authentication.getAuthorities()).stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(ADMIN_AUTHORITY::equals);
+        return CurrentPrincipal.expandedAuthorities(roleHierarchy).contains(ADMIN_AUTHORITY);
     }
 }
