@@ -2,6 +2,7 @@ package vn.sunvibe.contract;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import com.networknt.schema.Schema;
 
 import vn.sunvibe.contract.WireContract.Fault;
 
@@ -242,6 +245,20 @@ class WireContractTest {
 				contract.check("GET", "/api/v1/broken", 200, JSON, bytes("{}")));
 	}
 
+	/**
+	 * The schema of every answer is a node of one parse of the contract. A run checks hundreds of answers in one JVM, and
+	 * a parse per answer filled the 2 GB test heap with hundreds of copies of the contract.
+	 */
+	@Test
+	void schemasOfDifferentAnswers_shareOneParseOfTheContract() {
+		Schema thing = contract.schema("GET", TEMPLATE, 200, JSON);
+		Schema refused = contract.schema("GET", TEMPLATE, 403, "*/*");
+		Schema latest = contract.schema("GET", "/api/v1/things/latest", 200, "*/*");
+
+		assertSame(document(thing), document(refused));
+		assertSame(document(thing), document(latest));
+	}
+
 	@Test
 	void fault_holdsNoBodyValue() {
 		String phoneInBody = "0909123456-private";
@@ -333,6 +350,11 @@ class WireContractTest {
 
 	private static Fault fault(String location, String keyword) {
 		return new Fault("GET", TEMPLATE, 200, location, keyword);
+	}
+
+	/** The parsed contract a schema is a node of. */
+	private static Object document(Schema schema) {
+		return schema.findSchemaResourceRoot().getSchemaNode();
 	}
 
 	private static byte[] bytes(String text) {
