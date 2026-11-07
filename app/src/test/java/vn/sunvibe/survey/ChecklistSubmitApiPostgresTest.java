@@ -30,7 +30,7 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistReviewApiSupport.Ready;
 import vn.sunvibe.survey.MediaApiTestSupport.Row;
-import vn.sunvibe.survey.core.application.shared.SubmissionCanonicalForm;
+import vn.sunvibe.survey.core.application.shared.checklist.SubmissionCanonicalForm;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSubmission;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;

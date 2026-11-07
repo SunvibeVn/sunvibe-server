@@ -5,8 +5,8 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
-import vn.sunvibe.survey.core.application.shared.ChecklistSwitches;
-import vn.sunvibe.survey.core.application.shared.MediaSwitches;
+import vn.sunvibe.survey.core.application.shared.checklist.ChecklistSwitches;
+import vn.sunvibe.survey.core.application.shared.media.MediaSwitches;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore;
 import vn.sunvibe.survey.core.domain.repository.SurveyMediaSetDomainRepository;
 

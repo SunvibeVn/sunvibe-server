@@ -28,8 +28,8 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
-import vn.sunvibe.survey.core.application.usecase.IntakeSourceView;
-import vn.sunvibe.survey.core.application.usecase.SurveyIntakeSourceUseCase;
+import vn.sunvibe.survey.core.application.usecase.checklist.IntakeSourceView;
+import vn.sunvibe.survey.core.application.usecase.checklist.SurveyIntakeSourceUseCase;
 
 /**
  * What survey-service publishes for the inventory intake (property-create intake spec 5.1), on real PASSED revisions: the

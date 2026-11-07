@@ -1,14 +1,14 @@
 package vn.sunvibe.survey.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
-import vn.sunvibe.survey.core.application.command.BookAppointmentCommand;
-import vn.sunvibe.survey.core.application.command.CancelAppointmentCommand;
-import vn.sunvibe.survey.core.application.command.ChangeAppointmentCommand;
-import vn.sunvibe.survey.core.application.command.ConfirmationCommand;
-import vn.sunvibe.survey.core.application.command.MeetingPlaceInput;
-import vn.sunvibe.survey.core.application.command.ProxyRecord;
-import vn.sunvibe.survey.core.application.command.RecordVisitCommand;
-import vn.sunvibe.survey.core.application.command.ResumeSurveyCommand;
+import vn.sunvibe.survey.core.application.command.appointment.BookAppointmentCommand;
+import vn.sunvibe.survey.core.application.command.appointment.CancelAppointmentCommand;
+import vn.sunvibe.survey.core.application.command.appointment.ChangeAppointmentCommand;
+import vn.sunvibe.survey.core.application.command.appointment.ConfirmationCommand;
+import vn.sunvibe.survey.core.application.command.appointment.MeetingPlaceInput;
+import vn.sunvibe.survey.core.application.command.appointment.ProxyRecord;
+import vn.sunvibe.survey.core.application.command.appointment.RecordVisitCommand;
+import vn.sunvibe.survey.core.application.command.appointment.ResumeSurveyCommand;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.presentation.dto.request.BasisRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.BookAppointmentRequest;

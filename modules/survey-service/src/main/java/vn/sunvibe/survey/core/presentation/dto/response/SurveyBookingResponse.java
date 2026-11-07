@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.presentation.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import vn.sunvibe.survey.core.application.query.BookingBlock;
+import vn.sunvibe.survey.core.application.query.appointment.BookingBlock;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
 
 /**

@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
-import vn.sunvibe.survey.core.application.shared.MediaInstanceSettings;
-import vn.sunvibe.survey.core.application.shared.MediaReadBudgetLimits;
+import vn.sunvibe.survey.core.application.shared.media.MediaInstanceSettings;
+import vn.sunvibe.survey.core.application.shared.media.MediaReadBudgetLimits;
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
 import vn.sunvibe.survey.core.infrastructure.config.MediaInstanceConfig;
 import vn.sunvibe.survey.core.infrastructure.config.MediaProperties;

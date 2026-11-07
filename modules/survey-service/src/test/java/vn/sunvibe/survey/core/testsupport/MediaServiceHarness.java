@@ -10,22 +10,22 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.github.f4b6a3.ulid.UlidCreator;
 
 import vn.sunvibe.shared.generator.id.IdGenerator;
-import vn.sunvibe.survey.core.application.command.CreateMediaCommand;
-import vn.sunvibe.survey.core.application.query.ChecklistStartResult;
-import vn.sunvibe.survey.core.application.service.SurveyMediaCommandService;
-import vn.sunvibe.survey.core.application.service.SurveyMediaContentService;
-import vn.sunvibe.survey.core.application.service.SurveyMediaQueryService;
-import vn.sunvibe.survey.core.application.shared.MediaAccessLogger;
-import vn.sunvibe.survey.core.application.shared.MediaReadBudgetLimits;
-import vn.sunvibe.survey.core.application.shared.MediaReadBudgets;
-import vn.sunvibe.survey.core.application.shared.ChecklistContextLoader;
-import vn.sunvibe.survey.core.application.shared.IntakeGate;
-import vn.sunvibe.survey.core.application.shared.MediaBodySlots;
-import vn.sunvibe.survey.core.application.shared.MediaClock;
-import vn.sunvibe.survey.core.application.shared.MediaInstanceSettings;
-import vn.sunvibe.survey.core.application.shared.MediaItemAssembler;
-import vn.sunvibe.survey.core.application.shared.MediaLimitCounter;
-import vn.sunvibe.survey.core.application.shared.SecurityEventRecorder;
+import vn.sunvibe.survey.core.application.command.media.CreateMediaCommand;
+import vn.sunvibe.survey.core.application.query.checklist.ChecklistStartResult;
+import vn.sunvibe.survey.core.application.service.media.SurveyMediaCommandService;
+import vn.sunvibe.survey.core.application.service.media.SurveyMediaContentService;
+import vn.sunvibe.survey.core.application.service.media.SurveyMediaQueryService;
+import vn.sunvibe.survey.core.application.shared.media.MediaAccessLogger;
+import vn.sunvibe.survey.core.application.shared.media.MediaReadBudgetLimits;
+import vn.sunvibe.survey.core.application.shared.media.MediaReadBudgets;
+import vn.sunvibe.survey.core.application.shared.checklist.ChecklistContextLoader;
+import vn.sunvibe.survey.core.application.shared.media.IntakeGate;
+import vn.sunvibe.survey.core.application.shared.media.MediaBodySlots;
+import vn.sunvibe.survey.core.application.shared.media.MediaClock;
+import vn.sunvibe.survey.core.application.shared.media.MediaInstanceSettings;
+import vn.sunvibe.survey.core.application.shared.media.MediaItemAssembler;
+import vn.sunvibe.survey.core.application.shared.media.MediaLimitCounter;
+import vn.sunvibe.survey.core.application.shared.common.SecurityEventRecorder;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.checklist.IdentificationContent;
@@ -69,8 +69,8 @@ public final class MediaServiceHarness {
     /** Photos a submission references (spec 4.7, BR-8, checklist submission spec I-5). */
     public final java.util.Set<String> referenced = new java.util.HashSet<>();
     public final InMemoryReviewRepositories.Selections selections;
-    public final vn.sunvibe.survey.core.application.shared.RevisionPhotos revisionPhotos;
-    public final vn.sunvibe.survey.core.application.shared.MediaSetLocks setLocks;
+    public final vn.sunvibe.survey.core.application.shared.checklist.RevisionPhotos revisionPhotos;
+    public final vn.sunvibe.survey.core.application.shared.media.MediaSetLocks setLocks;
     public final vn.sunvibe.survey.core.application.shared.external.media.EvidenceReferencePort references =
             id -> referenced.contains(id.getValue());
     public final MediaBodySlots bodySlots;
@@ -87,8 +87,8 @@ public final class MediaServiceHarness {
                 base.directory, recorder);
         IntakeGate gate = new IntakeGate(health, clock);
         selections = new InMemoryReviewRepositories.Selections(journal);
-        revisionPhotos = new vn.sunvibe.survey.core.application.shared.RevisionPhotos(media, selections);
-        setLocks = new vn.sunvibe.survey.core.application.shared.MediaSetLocks(sets, selections);
+        revisionPhotos = new vn.sunvibe.survey.core.application.shared.checklist.RevisionPhotos(media, selections);
+        setLocks = new vn.sunvibe.survey.core.application.shared.media.MediaSetLocks(sets, selections);
         commands = new SurveyMediaCommandService(loader, base.groups, media, sets, jobs, selections, revisionPhotos,
                 setLocks, base.leads, references, recorder,
                 new MediaLimitCounter(counters), gate, switches, new MediaItemAssembler(base.directory), clock,

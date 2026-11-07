@@ -32,7 +32,7 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.MediaApiTestSupport.RawUpload;
 import vn.sunvibe.survey.MediaApiTestSupport.Row;
-import vn.sunvibe.survey.core.application.service.MediaProbeRunner;
+import vn.sunvibe.survey.core.application.service.media.MediaProbeRunner;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
 import vn.sunvibe.survey.core.infrastructure.config.MediaProperties;
 

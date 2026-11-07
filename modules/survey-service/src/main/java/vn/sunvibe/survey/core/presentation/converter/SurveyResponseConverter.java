@@ -1,13 +1,13 @@
 package vn.sunvibe.survey.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
-import vn.sunvibe.survey.core.application.query.AppointmentView;
-import vn.sunvibe.survey.core.application.query.LeadState;
-import vn.sunvibe.survey.core.application.query.OverlapView;
-import vn.sunvibe.survey.core.application.query.ResumptionView;
-import vn.sunvibe.survey.core.application.query.SurveyBlock;
-import vn.sunvibe.survey.core.application.query.SurveyCommandResult;
-import vn.sunvibe.survey.core.application.query.SurveyListItem;
+import vn.sunvibe.survey.core.application.query.appointment.AppointmentView;
+import vn.sunvibe.survey.core.application.query.common.LeadState;
+import vn.sunvibe.survey.core.application.query.appointment.OverlapView;
+import vn.sunvibe.survey.core.application.query.appointment.ResumptionView;
+import vn.sunvibe.survey.core.application.query.appointment.SurveyBlock;
+import vn.sunvibe.survey.core.application.query.appointment.SurveyCommandResult;
+import vn.sunvibe.survey.core.application.query.appointment.SurveyListItem;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadHistoryEntry;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentDetails;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentEvent;

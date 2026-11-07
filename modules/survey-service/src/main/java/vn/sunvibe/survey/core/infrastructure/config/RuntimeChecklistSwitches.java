@@ -2,7 +2,7 @@ package vn.sunvibe.survey.core.infrastructure.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import vn.sunvibe.survey.core.application.shared.ChecklistSwitches;
+import vn.sunvibe.survey.core.application.shared.checklist.ChecklistSwitches;
 
 /** The checklist switch as configured (survey-checklist submission spec A-3); off unless the owner opens review. */
 @Component

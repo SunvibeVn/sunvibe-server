@@ -10,13 +10,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
-import vn.sunvibe.survey.core.application.shared.MediaClock;
+import vn.sunvibe.survey.core.application.shared.media.MediaClock;
 import vn.sunvibe.survey.core.application.shared.external.media.ImageNormalizer;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
 import vn.sunvibe.survey.core.domain.model.media.ProbeResult;
 import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;
-import vn.sunvibe.survey.core.application.service.MediaProbeRunner;
-import vn.sunvibe.survey.core.application.service.MediaProcessingWorker;
+import vn.sunvibe.survey.core.application.service.media.MediaProbeRunner;
+import vn.sunvibe.survey.core.application.service.media.MediaProcessingWorker;
 import vn.sunvibe.survey.core.infrastructure.config.MediaScheduling;
 
 /**

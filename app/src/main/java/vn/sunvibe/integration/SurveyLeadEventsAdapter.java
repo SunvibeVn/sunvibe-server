@@ -6,11 +6,11 @@ import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurvey
 import vn.sunvibe.acquisition.core.application.shared.external.survey.LeadSurveyStop;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyAppointmentRef;
 import vn.sunvibe.acquisition.core.application.shared.external.survey.SurveyState;
-import vn.sunvibe.survey.core.application.usecase.AppointmentRef;
-import vn.sunvibe.survey.core.application.usecase.LeadStopReason;
-import vn.sunvibe.survey.core.application.usecase.LeadSurveyEventsUseCase;
-import vn.sunvibe.survey.core.application.usecase.LeadSurveyState;
-import vn.sunvibe.survey.core.application.usecase.SurveyStateUseCase;
+import vn.sunvibe.survey.core.application.usecase.appointment.AppointmentRef;
+import vn.sunvibe.survey.core.application.usecase.appointment.LeadStopReason;
+import vn.sunvibe.survey.core.application.usecase.appointment.LeadSurveyEventsUseCase;
+import vn.sunvibe.survey.core.application.usecase.common.LeadSurveyState;
+import vn.sunvibe.survey.core.application.usecase.common.SurveyStateUseCase;
 
 import java.time.Instant;
 import java.util.Optional;

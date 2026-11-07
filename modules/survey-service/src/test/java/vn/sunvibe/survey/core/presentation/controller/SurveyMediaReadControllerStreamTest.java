@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
-import vn.sunvibe.survey.core.application.query.MediaRead;
+import vn.sunvibe.survey.core.application.query.media.MediaRead;
 
 /**
  * survey-media spec A-25: the read watchdog ends a content read's store stream at its deadline wherever the request

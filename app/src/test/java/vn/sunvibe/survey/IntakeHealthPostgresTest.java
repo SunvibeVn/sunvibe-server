@@ -27,8 +27,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.zaxxer.hikari.HikariDataSource;
 
-import vn.sunvibe.survey.core.application.exception.MediaIntakePausedException;
-import vn.sunvibe.survey.core.application.shared.IntakeGate;
+import vn.sunvibe.survey.core.application.exception.media.MediaIntakePausedException;
+import vn.sunvibe.survey.core.application.shared.media.IntakeGate;
 import vn.sunvibe.survey.core.domain.model.media.IntakeHealth;
 import vn.sunvibe.survey.core.domain.model.media.PauseReason;
 import vn.sunvibe.survey.core.domain.repository.IntakeHealthRepository;

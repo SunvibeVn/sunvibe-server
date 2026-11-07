@@ -2,11 +2,11 @@ package vn.sunvibe.survey.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 
-import vn.sunvibe.survey.core.application.command.BasisInput;
-import vn.sunvibe.survey.core.application.command.CorrectionInput;
-import vn.sunvibe.survey.core.application.command.CreateMediaCommand;
-import vn.sunvibe.survey.core.application.command.DeselectMediaCommand;
-import vn.sunvibe.survey.core.application.command.RemoveMediaCommand;
+import vn.sunvibe.survey.core.application.command.common.BasisInput;
+import vn.sunvibe.survey.core.application.command.common.CorrectionInput;
+import vn.sunvibe.survey.core.application.command.media.CreateMediaCommand;
+import vn.sunvibe.survey.core.application.command.media.DeselectMediaCommand;
+import vn.sunvibe.survey.core.application.command.media.RemoveMediaCommand;
 import vn.sunvibe.survey.core.presentation.dto.request.media.MediaCreateRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.media.MediaRemovalCorrectionRequest;
 import vn.sunvibe.survey.core.presentation.dto.request.media.MediaRemovalRequest;

@@ -1,6 +1,6 @@
 package vn.sunvibe.survey.core.testsupport;
 
-import vn.sunvibe.survey.core.application.shared.MediaSwitches;
+import vn.sunvibe.survey.core.application.shared.media.MediaSwitches;
 
 /** The survey-media switches of a unit test (spec A-1): uploads on unless a test turns them off. */
 public final class MutableMediaSwitches implements MediaSwitches {

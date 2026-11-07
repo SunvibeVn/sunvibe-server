@@ -43,7 +43,7 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.MediaApiTestSupport.Row;
-import vn.sunvibe.survey.core.application.shared.MediaClock;
+import vn.sunvibe.survey.core.application.shared.media.MediaClock;
 import vn.sunvibe.survey.core.domain.model.media.MediaJob;
 import vn.sunvibe.survey.core.domain.model.media.MediaJobClaim;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;

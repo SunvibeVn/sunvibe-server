@@ -29,9 +29,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
-import vn.sunvibe.survey.core.application.exception.MediaMethodNotAllowedException;
-import vn.sunvibe.survey.core.application.query.MediaRead;
-import vn.sunvibe.survey.core.application.usecase.SurveyMediaReadUseCase;
+import vn.sunvibe.survey.core.application.exception.media.MediaMethodNotAllowedException;
+import vn.sunvibe.survey.core.application.query.media.MediaRead;
+import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaReadUseCase;
 import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
 
 /**

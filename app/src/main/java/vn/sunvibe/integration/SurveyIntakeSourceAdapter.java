@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.property.core.application.shared.external.survey.IntakeSource;
 import vn.sunvibe.property.core.application.shared.external.survey.IntakeSourcePort;
-import vn.sunvibe.survey.core.application.usecase.IntakeSourceView;
-import vn.sunvibe.survey.core.application.usecase.SurveyIntakeSourceUseCase;
+import vn.sunvibe.survey.core.application.usecase.checklist.IntakeSourceView;
+import vn.sunvibe.survey.core.application.usecase.checklist.SurveyIntakeSourceUseCase;
 
 import java.util.List;
 import java.util.Optional;

@@ -1,16 +1,16 @@
 package vn.sunvibe.survey.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
-import vn.sunvibe.survey.core.application.command.BasisInput;
-import vn.sunvibe.survey.core.application.command.CorrectionInput;
-import vn.sunvibe.survey.core.application.command.DecideChecklistCommand;
-import vn.sunvibe.survey.core.application.command.RequalifyCommand;
-import vn.sunvibe.survey.core.application.command.IntakeInput;
-import vn.sunvibe.survey.core.application.command.SaveChecklistGroupCommand;
-import vn.sunvibe.survey.core.application.command.StartChecklistCommand;
-import vn.sunvibe.survey.core.application.command.StartRevisionCommand;
-import vn.sunvibe.survey.core.application.command.SubmitChecklistCommand;
-import vn.sunvibe.survey.core.application.command.TakeOverChecklistCommand;
+import vn.sunvibe.survey.core.application.command.common.BasisInput;
+import vn.sunvibe.survey.core.application.command.common.CorrectionInput;
+import vn.sunvibe.survey.core.application.command.checklist.DecideChecklistCommand;
+import vn.sunvibe.survey.core.application.command.checklist.RequalifyCommand;
+import vn.sunvibe.survey.core.application.command.checklist.IntakeInput;
+import vn.sunvibe.survey.core.application.command.checklist.SaveChecklistGroupCommand;
+import vn.sunvibe.survey.core.application.command.checklist.StartChecklistCommand;
+import vn.sunvibe.survey.core.application.command.checklist.StartRevisionCommand;
+import vn.sunvibe.survey.core.application.command.checklist.SubmitChecklistCommand;
+import vn.sunvibe.survey.core.application.command.checklist.TakeOverChecklistCommand;
 import vn.sunvibe.survey.core.domain.model.checklist.ActualAccess;
 import vn.sunvibe.survey.core.domain.model.checklist.AmenitiesContent;
 import vn.sunvibe.survey.core.domain.model.checklist.AmenitiesSpace;

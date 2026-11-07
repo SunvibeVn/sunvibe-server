@@ -11,8 +11,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import vn.sunvibe.property.core.application.shared.external.survey.IntakeSource;
-import vn.sunvibe.survey.core.application.usecase.IntakeSourceView;
-import vn.sunvibe.survey.core.application.usecase.SurveyIntakeSourceUseCase;
+import vn.sunvibe.survey.core.application.usecase.checklist.IntakeSourceView;
+import vn.sunvibe.survey.core.application.usecase.checklist.SurveyIntakeSourceUseCase;
 
 /** The adapter only translates the survey's source into property-service's terms (property-create intake spec 5.1). */
 class SurveyIntakeSourceAdapterTest {

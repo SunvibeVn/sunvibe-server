@@ -2,7 +2,7 @@ package vn.sunvibe.survey.core.infrastructure.config;
 
 import org.springframework.stereotype.Component;
 
-import vn.sunvibe.survey.core.application.shared.MediaSwitches;
+import vn.sunvibe.survey.core.application.shared.media.MediaSwitches;
 
 /**
  * The survey-media switches as the start-up guard left them (spec A-1): uploads on only when switched on and every
