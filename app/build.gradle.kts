@@ -42,6 +42,8 @@ dependencies {
     testImplementation("com.tngtech.archunit:archunit:1.5.1")
     // The wire check: every answer of the API tests against the committed contract (vn.sunvibe.contract)
     testImplementation("com.networknt:json-schema-validator:2.0.0")
+    // MediaTestStoreReset, a launcher session listener that empties the media test store before a test run (SV-264)
+    testImplementation("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
@@ -66,6 +68,9 @@ tasks.named<Test>("test") {
     }
     // A contract-only edit re-runs the wire check. Not on exportOpenApi, which writes this file
     inputs.file(rootProject.file("api/openapi.json"))
+    // MediaTestStoreReset empties the media test store before the run (SV-264). This task only: exportOpenApi and the
+    // tagged tasks share the classpath and must not wipe the store under a running build
+    systemProperty("media.test.reset", "true")
 }
 
 // ./gradlew :app:r2ContractTest: the object store contract against a Cloudflare R2 test bucket (survey-media spec
