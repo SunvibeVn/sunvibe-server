@@ -122,7 +122,7 @@ class StaffLeadRequestValidationTest {
 
     @Test
     void validateParameters_listWardCodeOver10Chars_reportsWardCode() throws Exception {
-        OwnerLeadController controller = new OwnerLeadController(null, null, null, null, null, null);
+        OwnerLeadController controller = new OwnerLeadController(null, null, null, null, null);
         Method list = method(OwnerLeadController.class, "list");
 
         assertEquals(Set.of(), violatedParameters(controller, list,
@@ -134,7 +134,7 @@ class StaffLeadRequestValidationTest {
     /** acquisition-owner-lead-queue-ui C-27: the assignee of a list call is 1 to 26 characters. */
     @Test
     void validateParameters_listAssigneeUserIdLength_reportsAssigneeUserId() throws Exception {
-        OwnerLeadController controller = new OwnerLeadController(null, null, null, null, null, null);
+        OwnerLeadController controller = new OwnerLeadController(null, null, null, null, null);
         Method list = method(OwnerLeadController.class, "list");
 
         assertEquals(Set.of(), violatedParameters(controller, list,

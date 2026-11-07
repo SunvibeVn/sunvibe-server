@@ -1,16 +1,11 @@
 package vn.sunvibe.acquisition.core.presentation.resolver;
 
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.acquisition.core.application.shared.LeadAccessPolicy;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
-import vn.sunvibe.shared.security.AuthenticatedUser;
-
-import java.util.Set;
-import java.util.stream.Collectors;
+import vn.sunvibe.shared.security.CurrentPrincipal;
 
 /**
  * LeadViewerResolver
@@ -23,30 +18,26 @@ import java.util.stream.Collectors;
 public class LeadViewerResolver {
 
     private final LeadAccessPolicy accessPolicy = new LeadAccessPolicy();
+    private final RoleHierarchy roleHierarchy;
+
+    public LeadViewerResolver(RoleHierarchy roleHierarchy) {
+        this.roleHierarchy = roleHierarchy;
+    }
 
     /**
      * acquisition-owner-lead-queue BR-1: SALE_LEADER, SALES_MANAGER and ADMIN see every lead, a SALE only the leads
      * assigned to them. A person with both SALE and a leader role sees every lead ({@link LeadAccessPolicy}).
      */
-    public LeadViewer toViewer(Authentication authentication, RoleHierarchy roleHierarchy) {
-        String userId = actorId(authentication);
-        Set<String> roles = roleHierarchy.getReachableGrantedAuthorities(authentication.getAuthorities()).stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toSet());
-        LeadAccess access = accessPolicy.accessFor(roles)
+    public LeadViewer current() {
+        String userId = CurrentPrincipal.requireUserId();
+        LeadAccess access = accessPolicy.accessFor(CurrentPrincipal.expandedAuthorities(roleHierarchy))
                 // Unreachable behind @PreAuthorize; fails closed rather than guess what the caller may see
                 .orElseThrow(() -> new IllegalStateException("Caller has no role that may read owner leads."));
         return new LeadViewer(userId, access);
     }
 
     /** The user id of the authenticated staff member, for the history of a territory change. */
-    public String actorId(Authentication authentication) {
-        if (authentication != null && authentication.isAuthenticated()
-                && authentication.getPrincipal() instanceof AuthenticatedUser user
-                && user.getUserId() != null && !user.getUserId().isBlank()) {
-            return user.getUserId();
-        }
-        // Unreachable after the JWT filter and @PreAuthorize; fails closed (500) rather than guess the caller
-        throw new IllegalStateException("Principal does not expose a user id.");
+    public String actorId() {
+        return CurrentPrincipal.requireUserId();
     }
 }
