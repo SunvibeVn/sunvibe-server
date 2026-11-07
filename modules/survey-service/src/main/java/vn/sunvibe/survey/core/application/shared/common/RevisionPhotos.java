@@ -1,4 +1,4 @@
-package vn.sunvibe.survey.core.application.shared.checklist;
+package vn.sunvibe.survey.core.application.shared.common;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.domain.model.media.MediaSelection;

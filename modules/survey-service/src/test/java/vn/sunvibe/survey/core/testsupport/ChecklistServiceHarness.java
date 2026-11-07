@@ -15,12 +15,12 @@ import vn.sunvibe.survey.core.application.service.appointment.SurveyQueryService
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistReviewReader;
 import vn.sunvibe.survey.core.application.shared.appointment.SurveyBlockAssembler;
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistMediaCascade;
-import vn.sunvibe.survey.core.application.shared.checklist.ChecklistContextLoader;
+import vn.sunvibe.survey.core.application.shared.common.ChecklistContextLoader;
 import vn.sunvibe.survey.core.application.service.checklist.SurveyChecklistReviewCommandService;
 import vn.sunvibe.survey.core.application.service.common.SurveyStateService;
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistViewAssembler;
 import vn.sunvibe.survey.core.application.shared.checklist.ReviewerExclusionLoader;
-import vn.sunvibe.survey.core.application.shared.checklist.RevisionPhotos;
+import vn.sunvibe.survey.core.application.shared.common.RevisionPhotos;
 import vn.sunvibe.survey.core.application.shared.common.SurveyRecordReader;
 import vn.sunvibe.survey.core.application.shared.common.SecurityEventRecorder;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;

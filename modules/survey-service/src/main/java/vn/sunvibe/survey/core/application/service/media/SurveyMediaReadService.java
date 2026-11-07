@@ -17,7 +17,7 @@ import vn.sunvibe.survey.core.application.exception.media.MediaNotFoundException
 import vn.sunvibe.survey.core.application.exception.media.MediaServingDisabledException;
 import vn.sunvibe.survey.core.application.exception.media.MediaStoreUnavailableException;
 import vn.sunvibe.survey.core.application.query.media.MediaRead;
-import vn.sunvibe.survey.core.application.shared.checklist.ChecklistContextLoader;
+import vn.sunvibe.survey.core.application.shared.common.ChecklistContextLoader;
 import vn.sunvibe.survey.core.application.shared.media.MediaAccessLogger;
 import vn.sunvibe.survey.core.application.shared.media.MediaClock;
 import vn.sunvibe.survey.core.application.shared.media.MediaReadBudgets;

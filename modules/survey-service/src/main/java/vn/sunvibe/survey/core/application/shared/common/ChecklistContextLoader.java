@@ -1,4 +1,4 @@
-package vn.sunvibe.survey.core.application.shared.checklist;
+package vn.sunvibe.survey.core.application.shared.common;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
@@ -6,7 +6,6 @@ import vn.sunvibe.survey.core.application.exception.checklist.ChecklistNotFoundE
 import vn.sunvibe.survey.core.application.exception.checklist.ChecklistReadOnlyException;
 import vn.sunvibe.survey.core.application.exception.common.SurveyLeadNotFoundException;
 import vn.sunvibe.survey.core.application.exception.common.SurveyorIneligibleException;
-import vn.sunvibe.survey.core.application.shared.common.SecurityEventRecorder;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;

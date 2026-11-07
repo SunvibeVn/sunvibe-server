@@ -7,6 +7,8 @@ import vn.sunvibe.survey.core.application.query.checklist.ChecklistSummaryView;
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistView;
 import vn.sunvibe.survey.core.application.query.checklist.CorrectionView;
 import vn.sunvibe.survey.core.application.query.checklist.EditorView;
+import vn.sunvibe.survey.core.application.shared.common.ChecklistContextLoader;
+import vn.sunvibe.survey.core.application.shared.common.RevisionPhotos;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;

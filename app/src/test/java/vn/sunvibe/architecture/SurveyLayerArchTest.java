@@ -45,8 +45,8 @@ class SurveyLayerArchTest {
 		assertThat(classes.contain(ROOT + ".domain.model.appointment.SurveyAppointment")).isTrue();
 		assertThat(classes.contain(ROOT + ".application.service.appointment.SurveyAppointmentCommandService"))
 				.isTrue();
-		assertThat(classes.contain(ROOT + ".infrastructure.persistence.adapter.appointment.SurveyAppointmentRepositoryAdapter"))
-				.isTrue();
+		assertThat(classes.contain(
+				ROOT + ".infrastructure.persistence.adapter.appointment.SurveyAppointmentRepositoryAdapter")).isTrue();
 		assertThat(classes.contain(ROOT + ".presentation.controller.appointment.LeadSurveyController")).isTrue();
 	}
 

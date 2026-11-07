@@ -10,8 +10,8 @@ import vn.sunvibe.survey.core.application.exception.checklist.ChecklistNotFoundE
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistView;
 import vn.sunvibe.survey.core.application.query.checklist.CheckpointView;
 import vn.sunvibe.survey.core.application.query.checklist.ReviewQueueItem;
-import vn.sunvibe.survey.core.application.shared.checklist.ChecklistContextLoader;
-import vn.sunvibe.survey.core.application.shared.checklist.ChecklistContextLoader.ReadContext;
+import vn.sunvibe.survey.core.application.shared.common.ChecklistContextLoader;
+import vn.sunvibe.survey.core.application.shared.common.ChecklistContextLoader.ReadContext;
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistReviewReader;
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistViewAssembler;
 import vn.sunvibe.survey.core.application.shared.checklist.ReviewerExclusionLoader;

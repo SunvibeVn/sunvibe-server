@@ -14,8 +14,8 @@ import vn.sunvibe.survey.core.application.exception.common.SurveyConcurrentModif
 import vn.sunvibe.survey.core.application.exception.common.SurveyNotAllowedException;
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistRequalifyResult;
 import vn.sunvibe.survey.core.application.query.common.LeadState;
-import vn.sunvibe.survey.core.application.shared.checklist.ChecklistContextLoader;
-import vn.sunvibe.survey.core.application.shared.checklist.ChecklistContextLoader.ReadContext;
+import vn.sunvibe.survey.core.application.shared.common.ChecklistContextLoader;
+import vn.sunvibe.survey.core.application.shared.common.ChecklistContextLoader.ReadContext;
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistInputs;
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistViewAssembler;
 import vn.sunvibe.survey.core.application.shared.common.SurveyRecordReader;

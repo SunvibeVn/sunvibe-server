@@ -15,13 +15,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.survey.core.application.exception.checklist.ChecklistNotFoundException;
 import vn.sunvibe.survey.core.application.query.media.MediaListView;
-import vn.sunvibe.survey.core.application.shared.checklist.ChecklistContextLoader;
+import vn.sunvibe.survey.core.application.shared.common.ChecklistContextLoader;
 import vn.sunvibe.survey.core.application.shared.media.MediaAccessLogger;
 import vn.sunvibe.survey.core.application.shared.media.MediaItemAssembler;
 import vn.sunvibe.survey.core.application.shared.media.MediaReadBudgets;
 import vn.sunvibe.survey.core.application.shared.media.MediaSwitches;
 import vn.sunvibe.survey.core.application.shared.media.MediaViewerRights;
-import vn.sunvibe.survey.core.application.shared.checklist.RevisionPhotos;
+import vn.sunvibe.survey.core.application.shared.common.RevisionPhotos;
 import vn.sunvibe.survey.core.application.shared.common.SecurityEventRecorder;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
