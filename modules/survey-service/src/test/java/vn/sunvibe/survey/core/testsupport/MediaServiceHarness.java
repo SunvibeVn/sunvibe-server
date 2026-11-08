@@ -12,6 +12,9 @@ import com.github.f4b6a3.ulid.UlidCreator;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.core.application.command.media.CreateMediaCommand;
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistStartResult;
+import vn.sunvibe.survey.core.application.service.media.MediaHoldSteps;
+import vn.sunvibe.survey.core.application.service.media.MediaRemovalSteps;
+import vn.sunvibe.survey.core.application.service.media.MediaUploadSteps;
 import vn.sunvibe.survey.core.application.service.media.SurveyMediaCommandService;
 import vn.sunvibe.survey.core.application.service.media.SurveyMediaContentService;
 import vn.sunvibe.survey.core.application.service.media.SurveyMediaQueryService;
@@ -89,10 +92,14 @@ public final class MediaServiceHarness {
         selections = new InMemoryReviewRepositories.Selections(journal);
         revisionPhotos = new vn.sunvibe.survey.core.application.shared.common.RevisionPhotos(media, selections);
         setLocks = new vn.sunvibe.survey.core.application.shared.media.MediaSetLocks(sets, selections);
-        commands = new SurveyMediaCommandService(loader, base.groups, media, sets, jobs, selections, revisionPhotos,
-                setLocks, base.leads, references, recorder,
-                new MediaLimitCounter(counters), gate, switches, new MediaItemAssembler(base.directory), clock,
-                () -> UlidCreator.getMonotonicUlid().toString(), transactions);
+        MediaItemAssembler items = new MediaItemAssembler(base.directory);
+        commands = new SurveyMediaCommandService(
+                new MediaUploadSteps(loader, base.groups, media, sets, jobs, revisionPhotos, base.leads,
+                        new MediaLimitCounter(counters), gate, switches, items, clock,
+                        () -> UlidCreator.getMonotonicUlid().toString()),
+                new MediaRemovalSteps(loader, media, sets, jobs, selections, setLocks, base.leads, references, items,
+                        clock),
+                new MediaHoldSteps(loader, media, jobs, setLocks, recorder, items, clock), recorder, gate, transactions);
         bodySlots = new MediaBodySlots(slots, counters, clock, transactions,
                 new MediaInstanceSettings(INSTANCE, 3, 2));
         contents = new SurveyMediaContentService(commands, bodySlots, store, spool, probes, clock);
