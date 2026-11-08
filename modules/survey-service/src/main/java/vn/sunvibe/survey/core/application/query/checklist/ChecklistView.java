@@ -3,7 +3,7 @@ package vn.sunvibe.survey.core.application.query.checklist;
 import vn.sunvibe.survey.core.application.shared.external.lead.OwnerFormFacts;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
 import vn.sunvibe.survey.core.domain.policy.checklist.EarlierHazard;
@@ -28,7 +28,7 @@ public record ChecklistView(SurveyChecklist checklist, String requestCode, Strin
                             LocationDifference difference, Readiness readiness, ChecklistMediaView media,
                             List<SpaceTerms> effectiveTerms,
                             List<EarlierHazard> earlierHazards, OwnerFormFacts ownerFormOrNull,
-                            List<ChecklistTakeover> takeovers, List<CorrectionView> corrections,
+                            List<ChecklistTakeoverRow> takeovers, List<CorrectionView> corrections,
                             List<EditorView> editors, Instant updatedAt, Map<String, String> staffNames,
                             ChecklistReviewView review) {
 

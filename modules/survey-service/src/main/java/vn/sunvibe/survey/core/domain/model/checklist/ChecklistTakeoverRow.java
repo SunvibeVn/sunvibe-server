@@ -9,11 +9,11 @@ import java.time.Instant;
  * previous holder, no checkpoint), or TAKEOVER from the previous holder with the checkpoint of the draft just before.
  * The reason, basis and checkpoint are private: never printed.
  */
-public record ChecklistTakeover(long id, SurveyChecklistId checklistId, int takeoverNo, TakeoverKind kind,
-                                String fromUserId, String toUserId, String reason, Basis basis,
-                                ChecklistSnapshot snapshotOrNull, Instant occurredAt) {
+public record ChecklistTakeoverRow(long id, SurveyChecklistId checklistId, int takeoverNo, TakeoverKind kind,
+                                   String fromUserId, String toUserId, String reason, Basis basis,
+                                   TakeoverCheckpoint snapshotOrNull, Instant occurredAt) {
 
-    public ChecklistTakeover {
+    public ChecklistTakeoverRow {
         if (checklistId == null || kind == null || toUserId == null || reason == null || basis == null
                 || occurredAt == null || takeoverNo < 1) {
             throw new IllegalArgumentException("A takeover needs its checklist, number, kind, holder, reason, "
@@ -28,9 +28,9 @@ public record ChecklistTakeover(long id, SurveyChecklistId checklistId, int take
     }
 
     /** Takeover #1 of a draft started by someone who did not perform the visit (spec 4.5). */
-    public static ChecklistTakeover startByOther(long id, SurveyChecklistId checklistId, String starterUserId,
-                                                 String reason, Basis basis, Instant now) {
-        return new ChecklistTakeover(id, checklistId, 1, TakeoverKind.START_BY_OTHER, null, starterUserId, reason,
+    public static ChecklistTakeoverRow startByOther(long id, SurveyChecklistId checklistId, String starterUserId,
+                                                    String reason, Basis basis, Instant now) {
+        return new ChecklistTakeoverRow(id, checklistId, 1, TakeoverKind.START_BY_OTHER, null, starterUserId, reason,
                 basis, null, now);
     }
 
@@ -38,14 +38,15 @@ public record ChecklistTakeover(long id, SurveyChecklistId checklistId, int take
      * Takeover #1 of a new revision started by someone other than the previous revision's holder (submission spec A-7,
      * plan PD-9): it names that holder and has no checkpoint, because the previous revision is frozen.
      */
-    public static ChecklistTakeover revisionByOther(long id, SurveyChecklistId checklistId, String previousHolderUserId,
-                                                    String starterUserId, String reason, Basis basis, Instant now) {
-        return new ChecklistTakeover(id, checklistId, 1, TakeoverKind.REVISION_BY_OTHER, previousHolderUserId,
+    public static ChecklistTakeoverRow revisionByOther(long id, SurveyChecklistId checklistId,
+                                                       String previousHolderUserId, String starterUserId, String reason,
+                                                       Basis basis, Instant now) {
+        return new ChecklistTakeoverRow(id, checklistId, 1, TakeoverKind.REVISION_BY_OTHER, previousHolderUserId,
                 starterUserId, reason, basis, null, now);
     }
 
     @Override
     public String toString() {
-        return "ChecklistTakeover[" + checklistId + " #" + takeoverNo + " " + kind + "]";
+        return "ChecklistTakeoverRow[" + checklistId + " #" + takeoverNo + " " + kind + "]";
     }
 }

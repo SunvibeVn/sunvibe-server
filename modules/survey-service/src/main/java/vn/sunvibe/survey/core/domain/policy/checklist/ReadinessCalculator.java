@@ -204,25 +204,25 @@ public final class ReadinessCalculator {
     }
 
     /** spec 4.7: open important hazards, earlier hazards nothing addresses (spec A-20), partly entered spaces. */
-    private static List<ChecklistWarning> warnings(PartsContent parts, SafetyContent safety,
+    private static List<PreviewWarning> warnings(PartsContent parts, SafetyContent safety,
                                                    List<EarlierHazard> earlier) {
-        List<ChecklistWarning> warnings = new ArrayList<>();
+        List<PreviewWarning> warnings = new ArrayList<>();
         if (safety.hazards().isValue()) {
             for (Hazard hazard : safety.hazards().value()) {
                 if (EarlierHazardChain.warns(hazard)) {
-                    warnings.add(ChecklistWarning.openHazard(hazard.hazardId()));
+                    warnings.add(PreviewWarning.openHazard(hazard.hazardId()));
                 }
             }
         }
         for (EarlierHazard hazard : earlier) {
             if (hazard.addressedBy().isEmpty()) {
-                warnings.add(ChecklistWarning.earlierHazard(hazard.checklistId(), hazard.checklistNo(),
+                warnings.add(PreviewWarning.earlierHazard(hazard.checklistId(), hazard.checklistNo(),
                         hazard.hazard().hazardId()));
             }
         }
         for (PartsSpace space : parts.spaces()) {
             if (space.actualAccess().isValue() && space.actualAccess().value().extent() == AccessExtent.ENTERED_PART) {
-                warnings.add(ChecklistWarning.partialAccess(space.spaceId()));
+                warnings.add(PreviewWarning.partialAccess(space.spaceId()));
             }
         }
         return List.copyOf(warnings);

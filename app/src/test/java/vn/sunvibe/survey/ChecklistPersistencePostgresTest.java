@@ -49,9 +49,9 @@ import vn.sunvibe.survey.core.domain.model.appointment.VisitRecordKind;
 import vn.sunvibe.survey.core.domain.model.checklist.AmenityCode;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSnapshot;
+import vn.sunvibe.survey.core.domain.model.checklist.TakeoverCheckpoint;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSource;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.Correction;
 import vn.sunvibe.survey.core.domain.model.checklist.DimensionsContent;
 import vn.sunvibe.survey.core.domain.model.checklist.DimensionsSpace;
@@ -196,10 +196,10 @@ class ChecklistPersistencePostgresTest {
 		SurveyChecklist checklist = started(visited(LEAD, 1), 1);
 		Map<ChecklistGroup, GroupState> before = groups.findAll(checklist.getId());
 		Basis basis = new Basis(LocalDate.parse("2026-10-24"), "Bàn giao từ Sale A");
-		ChecklistTakeover intake = ChecklistTakeover.startByOther(9001L, checklist.getId(), SALE_A, "Nhận lại",
+		ChecklistTakeoverRow intake = ChecklistTakeoverRow.startByOther(9001L, checklist.getId(), SALE_A, "Nhận lại",
 				basis, NOW);
-		ChecklistTakeover takeover = new ChecklistTakeover(9002L, checklist.getId(), 2, TakeoverKind.TAKEOVER,
-				SALE_A, SALE_B, "Được giao lại", basis, new ChecklistSnapshot(before), NOW.plusSeconds(60));
+		ChecklistTakeoverRow takeover = new ChecklistTakeoverRow(9002L, checklist.getId(), 2, TakeoverKind.TAKEOVER,
+				SALE_A, SALE_B, "Được giao lại", basis, new TakeoverCheckpoint(before), NOW.plusSeconds(60));
 		takeovers.save(intake);
 		takeovers.save(takeover);
 		Correction correction = new Correction("Đo lại", basis, List.of(new CorrectedUnit(

@@ -51,7 +51,7 @@ class DecisionPolicyTest {
                 MediaFixture.sha(++hash)));
     }
 
-    private static DecisionFacts facts(List<ChecklistWarning> warnings, List<SurveyMedia> frozen, Set<String> rejected,
+    private static DecisionFacts facts(List<PreviewWarning> warnings, List<SurveyMedia> frozen, Set<String> rejected,
                                        boolean scheduled) {
         return new DecisionFacts(warnings, frozen, rejected, scheduled, G1, null);
     }
@@ -69,7 +69,7 @@ class DecisionPolicyTest {
 
     @Test
     void decision_openImportantHazard_blocksPassedOnly() {
-        List<String> blockers = blockers(facts(List.of(ChecklistWarning.openHazard("01JHAZARD00000000000000001")),
+        List<String> blockers = blockers(facts(List.of(PreviewWarning.openHazard("01JHAZARD00000000000000001")),
                 covering(), Set.of(), false));
 
         assertEquals(List.of("hazards"), blockers);
@@ -77,14 +77,14 @@ class DecisionPolicyTest {
 
     @Test
     void decision_earlierHazardOpen_blocksPassed() {
-        assertEquals(List.of("hazards"), blockers(facts(List.of(ChecklistWarning.earlierHazard(
+        assertEquals(List.of("hazards"), blockers(facts(List.of(PreviewWarning.earlierHazard(
                 "01JCHECK000000000000000001", 1, "01JHAZARD00000000000000001")), covering(), Set.of(), false)));
     }
 
     /** spec 4.5 R2 names hazard warnings: a partly entered space warns but does not block. */
     @Test
     void decision_partialAccessWarning_blocksNothing() {
-        assertEquals(List.of(), blockers(facts(List.of(ChecklistWarning.partialAccess(SPACE)), covering(), Set.of(),
+        assertEquals(List.of(), blockers(facts(List.of(PreviewWarning.partialAccess(SPACE)), covering(), Set.of(),
                 false)));
     }
 
@@ -149,7 +149,7 @@ class DecisionPolicyTest {
         MediaFixture.held(frozen.get(1), HoldReason.SECURITY_INCIDENT);
 
         assertEquals(List.of("hazards", "evidence.rejected", "evidence.unavailable", "appointment",
-                "evidence.coverage"), blockers(facts(List.of(ChecklistWarning.openHazard("01JHAZARD00000000000000001")),
+                "evidence.coverage"), blockers(facts(List.of(PreviewWarning.openHazard("01JHAZARD00000000000000001")),
                 frozen, Set.of(frozen.get(0).getId().getValue()), true)));
     }
 

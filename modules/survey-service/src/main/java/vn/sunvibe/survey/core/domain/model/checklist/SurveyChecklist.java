@@ -165,8 +165,8 @@ public final class SurveyChecklist {
     }
 
     /** What the editability rule reads (spec 4.4). */
-    public SurveyChecklistSnapshot snapshot() {
-        return new SurveyChecklistSnapshot(id.getValue(), visitAppointmentId.getValue(), intentCycle, holderUserId,
+    public ChecklistEditState snapshot() {
+        return new ChecklistEditState(id.getValue(), visitAppointmentId.getValue(), intentCycle, holderUserId,
                 status);
     }
 

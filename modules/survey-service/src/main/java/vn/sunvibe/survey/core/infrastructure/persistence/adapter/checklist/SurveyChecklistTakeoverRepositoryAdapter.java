@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSnapshot;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.TakeoverCheckpoint;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistTakeoverDomainRepository;
 import vn.sunvibe.survey.core.infrastructure.persistence.entity.checklist.SurveyChecklistTakeoverEntity;
@@ -25,7 +25,7 @@ public class SurveyChecklistTakeoverRepositoryAdapter implements SurveyChecklist
     private final ChecklistDocumentCodec codec;
 
     @Override
-    public void save(ChecklistTakeover takeover) {
+    public void save(ChecklistTakeoverRow takeover) {
         jpaRepository.saveAndFlush(SurveyChecklistTakeoverEntity.builder()
                 .id(takeover.id())
                 .checklistId(takeover.checklistId().getValue())
@@ -49,13 +49,13 @@ public class SurveyChecklistTakeoverRepositoryAdapter implements SurveyChecklist
     }
 
     @Override
-    public List<ChecklistTakeover> findByChecklistId(SurveyChecklistId checklistId) {
+    public List<ChecklistTakeoverRow> findByChecklistId(SurveyChecklistId checklistId) {
         return jpaRepository.findByChecklistIdOrderByTakeoverNoAsc(checklistId.getValue()).stream()
                 .map(this::toDomain).toList();
     }
 
     @Override
-    public Optional<ChecklistTakeover> find(SurveyChecklistId checklistId, int takeoverNo) {
+    public Optional<ChecklistTakeoverRow> find(SurveyChecklistId checklistId, int takeoverNo) {
         return jpaRepository.findByChecklistIdAndTakeoverNo(checklistId.getValue(), takeoverNo).map(this::toDomain);
     }
 
@@ -64,11 +64,11 @@ public class SurveyChecklistTakeoverRepositoryAdapter implements SurveyChecklist
         return jpaRepository.nextTakeoverNo(checklistId.getValue());
     }
 
-    private ChecklistTakeover toDomain(SurveyChecklistTakeoverEntity row) {
-        return new ChecklistTakeover(row.getId(), SurveyChecklistId.of(row.getChecklistId()), row.getTakeoverNo(),
+    private ChecklistTakeoverRow toDomain(SurveyChecklistTakeoverEntity row) {
+        return new ChecklistTakeoverRow(row.getId(), SurveyChecklistId.of(row.getChecklistId()), row.getTakeoverNo(),
                 row.getKind(), row.getFromUserId(), row.getToUserId(), row.getReason(),
                 new Basis(row.getBasisConfirmedOn(), row.getBasisText()),
-                row.getSnapshot() == null ? null : new ChecklistSnapshot(codec.readSnapshot(row.getSnapshot())),
+                row.getSnapshot() == null ? null : new TakeoverCheckpoint(codec.readSnapshot(row.getSnapshot())),
                 row.getOccurredAt());
     }
 }

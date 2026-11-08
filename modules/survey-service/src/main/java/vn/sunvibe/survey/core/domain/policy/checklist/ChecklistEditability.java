@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.policy.checklist;
 
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
-import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistSnapshot;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistEditState;
 import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.util.Optional;
@@ -20,7 +20,7 @@ public final class ChecklistEditability {
     /**
      * @param currentVisitId the lead's current visit (latest VISITED of the lead's current cycle), empty when none
      */
-    public static Editability of(SurveyChecklistSnapshot checklist, LeadStatus leadStatus, int leadIntentCycle,
+    public static Editability of(ChecklistEditState checklist, LeadStatus leadStatus, int leadIntentCycle,
                                  String assigneeUserId, boolean assigneeEligible, Optional<String> currentVisitId,
                                  String viewerUserId) {
         if (checklist.intentCycle() != leadIntentCycle) {

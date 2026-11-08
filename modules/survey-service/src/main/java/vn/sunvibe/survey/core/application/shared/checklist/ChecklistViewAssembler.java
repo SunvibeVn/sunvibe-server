@@ -19,7 +19,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.model.checklist.Hazard;
 import vn.sunvibe.survey.core.domain.model.checklist.IdentificationContent;
@@ -129,7 +129,7 @@ public class ChecklistViewAssembler {
                 MediaViewerRights.uploadEnabled(switches.uploadsOn(), health.read(), editability),
                 evidence.setVersion());
         TermsContent terms = (TermsContent) InputForm.ofStored(states.get(ChecklistGroup.TERMS).document(), g1);
-        List<ChecklistTakeover> takeoverRows = takeovers.findByChecklistId(checklist.getId());
+        List<ChecklistTakeoverRow> takeoverRows = takeovers.findByChecklistId(checklist.getId());
         List<ChecklistSave> saveRows = saves.findByChecklistId(checklist.getId());
         List<String> leadStaff = editability.editable() ? List.copyOf(leadStaff(lead, ofLead)) : List.of();
         List<ChecklistSave> uptoIt = savesOfTheVisit(checklist, saveRows);
@@ -143,7 +143,7 @@ public class ChecklistViewAssembler {
         for (ChecklistSave save : saveRows) {
             updatedAt = later(updatedAt, save.savedAt());
         }
-        for (ChecklistTakeover takeover : takeoverRows) {
+        for (ChecklistTakeoverRow takeover : takeoverRows) {
             updatedAt = later(updatedAt, takeover.occurredAt());
         }
 
