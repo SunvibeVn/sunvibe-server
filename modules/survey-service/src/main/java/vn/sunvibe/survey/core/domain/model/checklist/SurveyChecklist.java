@@ -8,7 +8,7 @@ import java.time.Instant;
  * Aggregate - SurveyChecklist (survey-checklist spec 4.1, 4.2): one checklist revision of a lead, bound to one VISITED
  * long-term appointment and its intent cycle, numbered within the lead, of template LONG_TERM_RENT v1, kind
  * FULL_ASSESSMENT. The holder is the starter, then each person who took the draft over. A revision goes from DRAFT to
- * SUBMITTED to one decided status and never back (submission spec 4.1); submit and decide write the row too (A-1). Group
+ * SUBMITTED to one decided status and never back (survey-checklist submission spec 4.1); submit and decide write the row too (A-1). Group
  * contents live in their own rows. A PASSED revision can be marked as requalified, once and for good: the mark says its
  * result stopped being used and changes nothing of its content (property-create requalification spec I-2, A-3).
  */
@@ -78,7 +78,7 @@ public final class SurveyChecklist {
     }
 
     /**
-     * A new DRAFT linked to the last submitted revision of the cycle (submission spec 4.6, A-2): the next revision of the
+     * A new DRAFT linked to the last submitted revision of the cycle (survey-checklist submission spec 4.6, A-2): the next revision of the
      * same visit after a return for documents, or the first of a later visit after a return for a re-survey.
      */
     public static SurveyChecklist startAfter(SurveyChecklistId id, String leadId, int checklistNo,

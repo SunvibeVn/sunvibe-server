@@ -104,7 +104,7 @@ public record IntakeBlockView(
                                 List<String> reasons) {
     }
 
-    /** {@code reason} is left out for an assignee, also one who holds a manager role (spec 7.1). */
+    /** {@code reason} is left out for an assignee, also one who holds a manager role (property-create intake spec 7.1). */
     @Schema(name = "IntakeBlockSuspension")
     public record Suspension(String id, @Schema(nullable = true, description = "Null for the whole lead") String unitCode,
                              @Schema(description = "Left out for an assignee who holds a manager role")

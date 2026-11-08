@@ -72,7 +72,7 @@ import java.util.Optional;
  * Use Case Implementation - SurveyAppointmentCommandService
  * <p>
  * The survey commands of staff (survey-schedule spec 4.6). Each runs in one transaction and checks, in the order of
- * spec 5.5: the request values (400, done by the command and the meeting-place check), that the caller sees the lead
+ * survey-schedule spec 5.5: the request values (400, done by the command and the meeting-place check), that the caller sees the lead
  * (404, also for an appointment of a lead they cannot see), the versions (409), the state (409), the values that need
  * stored data (400), the performer and the surveyor's eligibility (422), the no-op (survey-schedule spec A-6). Then
  * the lead row is moved and flushed first and the survey rows written after (lock order), and the answer carries the
@@ -83,7 +83,7 @@ import java.util.Optional;
 @Transactional
 public class SurveyAppointmentCommandService implements SurveyAppointmentCommandUseCase {
 
-    /** checklist submission spec 7.3: the field of a refusal by the survey record. */
+    /** survey-checklist submission spec 7.3: the field of a refusal by the survey record. */
     private static final String CHECKLIST = "checklist";
 
     private final SurveyAppointmentDomainRepository appointments;
@@ -128,7 +128,7 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
         if (ofLead.stream().anyMatch(appointment -> appointment.getStatus() == AppointmentStatus.SCHEDULED)) {
             throw new AppointmentAlreadyScheduledException();
         }
-        // checklist submission spec 4.8, D3-7: read under the lead's lock, so a submit and a booking never both pass
+        // survey-checklist submission spec 4.8, D3-7: read under the lead's lock, so a submit and a booking never both pass
         CycleRecord record = records.read(lead.leadId(), lead.intentCycle(), ofLead);
         if (record.latestSubmitted() || record.hasPassed()) {
             throw new SurveyNotAllowedException(CHECKLIST, List.of());
@@ -210,7 +210,7 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
 
     /**
      * survey-schedule US-2 AC-2, E-5: the lead stays SURVEY_SCHEDULED when its record can still be completed
-     * (checklist submission spec 4.8), else it goes back to CONTACTED, so a return for a re-survey never comes back to
+     * (survey-checklist submission spec 4.8), else it goes back to CONTACTED, so a return for a re-survey never comes back to
      * the old visit. An overdue appointment can be cancelled (survey-schedule BR-4); no eligibility is needed (survey-schedule BR-6).
      */
     @Override
@@ -271,7 +271,7 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
     /**
      * survey-schedule BR-11, B-6: a held lead with a current visit goes back with a reason and a basis dated from the
      * day it went on hold (spec A-25): to QUALIFIED with a usable PASSED of its cycle, to SURVEY_SCHEDULED with a record
-     * that can still be completed; anything else stays held (checklist submission spec 4.8, plan PD-7).
+     * that can still be completed; anything else stays held (survey-checklist submission spec 4.8, plan PD-7).
      */
     @Override
     public SurveyCommandResult resume(SurveyViewer viewer, ResumeSurveyCommand command) {
@@ -310,7 +310,7 @@ public class SurveyAppointmentCommandService implements SurveyAppointmentCommand
     }
 
     /**
-     * checklist submission spec 5.2, 5.4: the lead's first load under {@code FOR NO KEY UPDATE}, so the record read after
+     * survey-checklist submission spec 5.2, 5.4: the lead's first load under {@code FOR NO KEY UPDATE}, so the record read after
      * it is the one a submit or a decision left.
      */
     private LeadFacts lockVisibleLead(String leadId, SurveyViewer viewer) {

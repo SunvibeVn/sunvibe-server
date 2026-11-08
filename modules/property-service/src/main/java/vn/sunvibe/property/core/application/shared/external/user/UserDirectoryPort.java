@@ -26,7 +26,7 @@ public interface UserDirectoryPort {
      */
     OwnerRoute lookupConfirmable(String email);
 
-    /** A masked address and the account's age, for the manager's check (intake spec 4.6 step 6). */
+    /** A masked address and the account's age, for the manager's check (property-create intake spec 4.6 step 6). */
     OwnerAccountFacts accountContext(String userId);
 
     /** Whether the account may own now and its count of lost sign-ins, read from the row (intake D5-10). */
@@ -36,7 +36,7 @@ public interface UserDirectoryPort {
     void notifyOwner(String userId, OwnerNotice notice);
 
     /**
-     * Asks a signed-in owner for the password again (intake spec 4.6 step 4). It commits its own counter, so it runs before
+     * Asks a signed-in owner for the password again (property-create intake spec 4.6 step 4). It commits its own counter, so it runs before
      * any transaction of the caller and holds no row lock through bcrypt.
      */
     PasswordCheck checkPassword(String userId, String password);

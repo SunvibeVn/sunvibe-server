@@ -34,9 +34,9 @@ import vn.sunvibe.survey.core.domain.repository.media.IntakeHealthRepository;
 @Service
 public class MediaProbeRunner implements MediaProbeRequests {
 
-    /** spec A-18: a requested probe runs at most once a minute per kind and instance. */
+    /** survey-media spec A-18: a requested probe runs at most once a minute per kind and instance. */
     static final Duration MIN_INTERVAL = Duration.ofMinutes(1);
-    /** spec A-18: an incomplete probe is re-run within a minute (the poll runs every 10 seconds). */
+    /** survey-media spec A-18: an incomplete probe is re-run within a minute (the poll runs every 10 seconds). */
     static final Duration RERUN_AFTER = Duration.ofSeconds(40);
 
     private static final Logger log = LoggerFactory.getLogger(MediaProbeRunner.class);

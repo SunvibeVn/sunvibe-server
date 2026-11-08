@@ -90,7 +90,7 @@ public final class OwnerProof {
         phraseHash = null;
     }
 
-    /** A new start replaces any open phrase and zeroes its counter (spec 4.6 step 6). */
+    /** A new start replaces any open phrase and zeroes its counter (property-create intake spec 4.6 step 6). */
     public void startCheck(String newPhraseHash, Instant expiresAt, String managerUserId, String basis, Instant now) {
         phraseHash = newPhraseHash;
         phraseExpiresAt = expiresAt;
@@ -116,7 +116,7 @@ public final class OwnerProof {
         phraseHash = null;
     }
 
-    /** spec 4.6 step 6: the proof is void, and the refusal overwrites who, why and when. */
+    /** property-create intake spec 4.6 step 6: the proof is void, and the refusal overwrites who, why and when. */
     public void refuse(String managerUserId, String basis, Instant now) {
         ownerCheck = OwnerCheckState.REFUSED;
         ownerCheckByUserId = managerUserId;
@@ -126,7 +126,7 @@ public final class OwnerProof {
     }
 
     /**
-     * spec 4.6 step 6: for the signals a proof counts as refused if it is REFUSED, or if it is no longer live after a start
+     * property-create intake spec 4.6 step 6: for the signals a proof counts as refused if it is REFUSED, or if it is no longer live after a start
      * without DONE, however it died, so nothing dodges one.
      *
      * @param live whether the proof is live now

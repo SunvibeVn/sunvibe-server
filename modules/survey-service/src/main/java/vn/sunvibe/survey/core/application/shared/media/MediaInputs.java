@@ -18,13 +18,13 @@ import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 import vn.sunvibe.survey.core.domain.policy.media.MediaFileRules;
 
 /**
- * The body rules of survey-media commands, checked before any lookup (spec 5.4 create (1), A-5, A-11; W16 A-4): every
+ * The body rules of survey-media commands, checked before any lookup (survey-media spec 5.4 create (1), A-5, A-11; W16 A-4): every
  * rule a body breaks on its JSON path, so one 400 lists them all. Messages name the field, never the value. Client ids
  * are ULIDs by the same check as the checklist's space ids, so every G1 space id is accepted.
  */
 public final class MediaInputs {
 
-    /** spec A-11: a caption of 1..200 characters. */
+    /** survey-media spec A-11: a caption of 1..200 characters. */
     public static final int CAPTION_MAX = 200;
 
     private static final Pattern SHA256 = Pattern.compile("[0-9a-fA-F]{64}");
@@ -36,7 +36,7 @@ public final class MediaInputs {
     public record CreateInput(String checklistId, String uploadKey, String spaceIdOrNull, EvidenceCategory category,
                               String captionOrNull, long sizeBytes, String sha256) {
 
-        /** spec 4.4 step 1: the stored photo of this key was created with this same body. */
+        /** survey-media spec 4.4 step 1: the stored photo of this key was created with this same body. */
         public boolean sameBodyAs(SurveyMedia media) {
             return Objects.equals(spaceIdOrNull, media.getPlacement().spaceIdOrNull())
                     && category == media.getCategory() && Objects.equals(captionOrNull, media.getCaption())
@@ -51,7 +51,7 @@ public final class MediaInputs {
     }
 
     /**
-     * spec 5.4 create (1): ULIDs, the category, the caption (1..200 without a phone number), {@code sizeBytes}
+     * survey-media spec 5.4 create (1): ULIDs, the category, the caption (1..200 without a phone number), {@code sizeBytes}
      * 1..20,971,520 and {@code contentSha256} of 64 hexadecimal characters.
      *
      * @throws vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException with every violation

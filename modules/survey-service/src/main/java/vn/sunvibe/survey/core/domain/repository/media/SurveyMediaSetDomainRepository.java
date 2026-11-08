@@ -8,10 +8,10 @@ import java.util.Optional;
 /** The media-set row of a checklist (survey-media spec 5.2, 5.4): plain version columns, changed under its lock. */
 public interface SurveyMediaSetDomainRepository {
 
-    /** spec 4.4 step 1: inserts the empty set, or nothing when the checklist has one. */
+    /** survey-media spec 4.4 step 1: inserts the empty set, or nothing when the checklist has one. */
     void insertIgnoringExisting(String checklistId, Instant now);
 
-    /** {@code FOR UPDATE} on the set row as its first load in the persistence context (spec 5.4). */
+    /** {@code FOR UPDATE} on the set row as its first load in the persistence context (survey-media spec 5.4). */
     Optional<MediaSet> lockForUpdate(String checklistId);
 
     /** A plain read of the set row (the list snapshot and the checklist read). */

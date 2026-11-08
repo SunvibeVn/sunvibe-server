@@ -4,7 +4,7 @@ import java.io.Serial;
 
 /**
  * The person named as having reached the property did not hold the appointment at the arrival time
- * (survey-schedule US-3 AC-1a, spec A-8).
+ * (survey-schedule US-3 AC-1a, survey-schedule spec A-8).
  */
 public class PerformerMismatchException extends RuntimeException {
 

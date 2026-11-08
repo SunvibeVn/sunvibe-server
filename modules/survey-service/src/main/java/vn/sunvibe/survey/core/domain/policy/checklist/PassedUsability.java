@@ -5,7 +5,7 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import java.util.Collection;
 
 /**
- * Whether a PASSED revision can still be used (survey-checklist D3-2, submission spec 4.7): it is not requalified, its
+ * Whether a PASSED revision can still be used (survey-checklist D3-2, survey-checklist submission spec 4.7): it is not requalified, its
  * cycle is the lead's current one, the lead is not closed, and every frozen photo has its content and is not held.
  * Computed on every read, never stored (I-6).
  */

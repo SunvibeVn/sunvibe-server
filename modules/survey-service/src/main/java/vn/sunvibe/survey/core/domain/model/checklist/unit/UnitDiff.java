@@ -18,7 +18,7 @@ import java.util.Set;
  * ({@link InputForm#ofStored}) with the G1 content that was stored; the next side is canonical with the new G1, so a
  * null unit only separate parts have and an UNKNOWN one are the same, the entries of a removed space are REMOVED, and
  * a reorder lists no unit. A key coming back from its tombstone (a shared wet area, or a G6 item, other item or hazard
- * sent again under its identity, spec A-29) is REPLACED with the tombstone as its stored metadata. Unchanged units are
+ * sent again under its identity, survey-checklist spec A-29) is REPLACED with the tombstone as its stored metadata. Unchanged units are
  * not listed.
  */
 public final class UnitDiff {

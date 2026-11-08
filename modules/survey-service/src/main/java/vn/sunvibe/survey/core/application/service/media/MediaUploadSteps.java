@@ -129,7 +129,7 @@ public class MediaUploadSteps {
             return replay.get();
         }
         limits.requireHourlyRoom(viewer.userId(), input.sizeBytes(), now);
-        // checklist submission spec 4.6: the caps and the identity check count own plus carried photos
+        // survey-checklist submission spec 4.6: the caps and the identity check count own plus carried photos
         List<SurveyMedia> ofChecklist = revisionPhotos.of(checklistId);
         IdentityVerdict verdict = MediaContentIdentity.check(input.sha256(), null, ofChecklist,
                 media.findCommittedHashOnOtherVisits(context.lead().leadId(), checklistId, input.sha256()));

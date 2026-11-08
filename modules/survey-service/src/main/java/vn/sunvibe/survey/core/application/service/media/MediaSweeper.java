@@ -151,7 +151,7 @@ public class MediaSweeper {
             return false;
         }
         health.recordSweepCompleted(clock.now());
-        // spec A-18: and neither the open listing run nor the latest complete one kept orphans it could not delete
+        // survey-media spec A-18: and neither the open listing run nor the latest complete one kept orphans it could not delete
         if (clean && probed) {
             if (!listingRuns.blocksResume()) {
                 health.resumeIf(seqAtStart, clock.now());
@@ -249,7 +249,7 @@ public class MediaSweeper {
         return ok;
     }
 
-    /** UPLOAD_EXPIRED records 24 hours after they finished, at most 500 per transaction (spec A-17). */
+    /** UPLOAD_EXPIRED records 24 hours after they finished, at most 500 per transaction (survey-media spec A-17). */
     private boolean deleteExpiredRecords() {
         Instant cutoff = clock.now().minus(EXPIRED_KEPT);
         for (String checklistId : checklists(media.findExpiredFinishedBefore(cutoff, BATCH))) {
@@ -360,7 +360,7 @@ public class MediaSweeper {
 
     // ==================== health ====================
 
-    /** spec A-18: raw sources over 60 minutes and removed content not deleted 24 hours after its request. */
+    /** survey-media spec A-18: raw sources over 60 minutes and removed content not deleted 24 hours after its request. */
     private boolean findOverdue(Overdue overdue) {
         Instant now = clock.now();
         media.findSourcesNotDeletedBefore(now.minus(SOURCE_OVERDUE), BATCH)
@@ -370,7 +370,7 @@ public class MediaSweeper {
         return true;
     }
 
-    /** spec A-18: the worker or the deletion executor silent for 10 minutes while work is due pauses intake. */
+    /** survey-media spec A-18: the worker or the deletion executor silent for 10 minutes while work is due pauses intake. */
     private boolean heartbeats(Instant now) {
         IntakeHealth row = health.read();
         boolean clean = true;
@@ -412,7 +412,7 @@ public class MediaSweeper {
         }
     }
 
-    /** spec 5.4 for a path without a lead lock: the set, then the photo; null when the photo is gone. */
+    /** survey-media spec 5.4 for a path without a lead lock: the set, then the photo; null when the photo is gone. */
     private Locked lock(MediaRef ref) {
         MediaSet set = sets.lockForUpdate(ref.checklistId()).orElse(null);
         if (set == null) {

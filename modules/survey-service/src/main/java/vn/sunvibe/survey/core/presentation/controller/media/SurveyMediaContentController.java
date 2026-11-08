@@ -54,7 +54,7 @@ public class SurveyMediaContentController {
     /**
      * PUT /api/v1/staff/survey-media/{mediaId}/content
      * <p>
-     * The photo's creator sends its bytes once (spec 4.4 step 2); the same bytes again answers the photo as it is.
+     * The photo's creator sends its bytes once (survey-media spec 4.4 step 2); the same bytes again answers the photo as it is.
      */
     @PutMapping(CONTENT)
     @Operation(operationId = "uploadSurveyMediaContent",
@@ -124,7 +124,7 @@ public class SurveyMediaContentController {
             return ResponseEntity.status(HttpStatus.ACCEPTED).body(responseConverter.toContent(result));
         } catch (RuntimeException refused) {
             if (!body.touched()) {
-                // spec A-13: decided before any byte was read: the connection closes after the answer
+                // survey-media spec A-13: decided before any byte was read: the connection closes after the answer
                 response.setHeader(HttpHeaders.CONNECTION, "close");
             }
             throw refused;

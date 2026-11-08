@@ -14,7 +14,7 @@ import java.util.Map;
 
 /**
  * Earlier risks through the visits of one lead and intent cycle (survey-checklist BR-18, BR-24, spec A-20, D3-12,
- * submission spec 4.6). Hazards of one visit keep one identity across its revisions, so only revisions of earlier
+ * survey-checklist submission spec 4.6). Hazards of one visit keep one identity across its revisions, so only revisions of earlier
  * visits count, and through each earlier visit only its latest revision, DRAFT included. An earlier hazard H (IMPORTANT
  * or UNCLASSIFIED, not OBSERVED_RESOLVED) of a visit is addressed as of the read checklist by a later hazard L that
  * links it and is OBSERVED_RESOLVED (RESOLVED, any severity) or IMPORTANT or UNCLASSIFIED and not OBSERVED_RESOLVED

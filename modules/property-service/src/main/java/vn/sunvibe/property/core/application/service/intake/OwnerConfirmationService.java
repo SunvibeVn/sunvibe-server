@@ -82,7 +82,7 @@ public class OwnerConfirmationService implements OwnerConfirmationUseCase {
         return items;
     }
 
-    /** spec 4.6 step 3: no lock, because it changes nothing and confirm checks again under the lock. */
+    /** property-create intake spec 4.6 step 3: no lock, because it changes nothing and confirm checks again under the lock. */
     @Override
     public OwnerConfirmationDetails details(String userId, String requestId, String code) {
         OwnerRequest request = bound(userId, requestId);
@@ -134,7 +134,7 @@ public class OwnerConfirmationService implements OwnerConfirmationUseCase {
         trail.recordEvent(row.getId(), null, OWNER_CONFIRMED_EVENT, now);
     }
 
-    /** spec 4.6 step 3: it only voids, so it needs no check of the source or the creator, and it raises no version (A-13). */
+    /** property-create intake spec 4.6 step 3: it only voids, so it needs no check of the source or the creator, and it raises no version (A-13). */
     @Override
     public void decline(String userId, String requestId, String code) {
         OwnerRequest bound = bound(userId, requestId);
@@ -180,7 +180,7 @@ public class OwnerConfirmationService implements OwnerConfirmationUseCase {
         } else {
             row.recordChange(now);
             if (proof.getId().equals(row.getProofId())) {
-                // spec 4.12: a null actor, so no owner name appears, and only for the proof in force of the result
+                // property-create intake spec 4.12: a null actor, so no owner name appears, and only for the proof in force of the result
                 leads.recordActivity(row.getLeadId(), new IntakeHistoryEntry(IntakeHistoryEntry.Type.INVENTORY_INTAKE_SUSPENDED,
                         null, row.getId(), row.getIntakeNo(), now));
             }
@@ -191,7 +191,7 @@ public class OwnerConfirmationService implements OwnerConfirmationUseCase {
     }
 
     /**
-     * spec 5.4: the phrase counter commits by itself; the right phrase then runs under the locks, where the proof must still be
+     * property-create intake spec 5.4: the phrase counter commits by itself; the right phrase then runs under the locks, where the proof must still be
      * live on the current row. The creator need not be the assignee: a proof survives a reassignment (property-create BR-15).
      */
     @Override
@@ -220,7 +220,7 @@ public class OwnerConfirmationService implements OwnerConfirmationUseCase {
         intakes.update(locked.row());
     }
 
-    /** spec 5.4: bound to this account, else 404 before any counter moves; an account in a staff role reads the same. */
+    /** property-create intake spec 5.4: bound to this account, else 404 before any counter moves; an account in a staff role reads the same. */
     private OwnerRequest bound(String userId, String requestId) {
         OwnerRequest request = requests.findById(requestId).filter(item -> userId.equals(item.getTargetUserId()))
                 .orElseThrow(OwnerConfirmationService::notFound);
@@ -252,7 +252,7 @@ public class OwnerConfirmationService implements OwnerConfirmationUseCase {
         }
     }
 
-    /** spec 4.6 steps 3, 4: the source of the request's row is still live and its creator still the assignee. */
+    /** property-create intake spec 4.6 steps 3, 4: the source of the request's row is still live and its creator still the assignee. */
     private static void requireUsable(OwnerRequest request, IntakeState state) {
         boolean live = isCurrent(state, request) && CurrentRowPolicy.sourceLive(state.currentOrNull(), state.sourceFacts());
         if (!live || !request.getCreatedByUserId().equals(state.lead().assigneeOrNull())) {
@@ -281,7 +281,7 @@ public class OwnerConfirmationService implements OwnerConfirmationUseCase {
                 .orElseThrow(OwnerConfirmationService::notFound);
     }
 
-    /** spec 5.3: lead, intake, request, each read again after its lock. */
+    /** property-create intake spec 5.3: lead, intake, request, each read again after its lock. */
     private Locked lock(OwnerRequest bound) {
         IntakeLead lead = leads.lockForShare(leadIdOf(bound)).orElseThrow(OwnerConfirmationService::notFound);
         InventoryIntake row = intakes.lockById(bound.getIntakeId()).orElseThrow(OwnerConfirmationService::notFound);

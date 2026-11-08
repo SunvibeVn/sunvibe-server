@@ -12,14 +12,14 @@ import java.util.Set;
  * Aggregate - SurveyMedia (survey-media spec 4.1, 4.2): one uploaded file of one visit, uploaded into one checklist,
  * with its processed variants. Placement, category, caption, uploader and declared hash never change (I-1, A-8). The
  * status is system-driven: AWAITING_CONTENT, RECEIVING (a content upload holds the claim), PROCESSING (bytes
- * committed, BR-17), then one final status. Removal and the ADMIN hold only add marks (spec 4.7, A-23); content
+ * committed, BR-17), then one final status. Removal and the ADMIN hold only add marks (survey-media spec 4.7, A-23); content
  * deletion is requested exactly for a removed READY photo that is not held. Every refused move throws
  * {@link IllegalMediaTransitionException}; the use cases check their answers before calling. Each move is one row
  * write, as the table's CHECKs are evaluated per row.
  */
 public final class SurveyMedia {
 
-    /** spec A-5: an upload not claimed within 60 minutes of creation expires. */
+    /** survey-media spec A-5: an upload not claimed within 60 minutes of creation expires. */
     public static final Duration CLAIM_WINDOW = Duration.ofMinutes(60);
 
     private static final Set<VariantKind> ALL_VARIANTS = EnumSet.allOf(VariantKind.class);
@@ -103,7 +103,7 @@ public final class SurveyMedia {
         this.version = version;
     }
 
-    /** spec 4.4 step 1: a new photo awaiting its content, created by the holder with its declaration. */
+    /** survey-media spec 4.4 step 1: a new photo awaiting its content, created by the holder with its declaration. */
     public static SurveyMedia create(SurveyMediaId id, String checklistId, String uploadKey, int mediaNo,
                                      MediaPlacement placement, EvidenceCategory category, String captionOrNull,
                                      String uploadedByUserId, long declaredSizeBytes, String sourceSha256,
@@ -132,9 +132,9 @@ public final class SurveyMedia {
                 version);
     }
 
-    // ==================== upload and processing (spec 4.2, 4.4) ====================
+    // ==================== upload and processing (survey-media spec 4.2, 4.4) ====================
 
-    /** spec 4.4 step 2: a content upload claims a photo awaiting content, not removed, within 60 minutes. */
+    /** survey-media spec 4.4 step 2: a content upload claims a photo awaiting content, not removed, within 60 minutes. */
     public void claim(String token, String attemptKey, Instant now) {
         if (status != MediaStatus.AWAITING_CONTENT || isRemoved() || !now.isBefore(createdAt.plus(CLAIM_WINDOW))) {
             throw refused("claim");
@@ -145,7 +145,7 @@ public final class SurveyMedia {
         receiveStartedAt = now;
     }
 
-    /** spec 4.4 step 2: an aborted, failed or stale upload gives the claim back. */
+    /** survey-media spec 4.4 step 2: an aborted, failed or stale upload gives the claim back. */
     public void releaseClaim() {
         if (status != MediaStatus.RECEIVING) {
             throw refused("release its claim");
@@ -155,7 +155,7 @@ public final class SurveyMedia {
     }
 
     /**
-     * spec 4.4 step 2, BR-17: the completion point. The checked bytes of the declared size are stored under the
+     * survey-media spec 4.4 step 2, BR-17: the completion point. The checked bytes of the declared size are stored under the
      * attempt's key; the photo is PROCESSING from here, whatever happens to the lead later.
      */
     public void commit(String sourceKey, long sizeBytes, Instant now) {
@@ -168,7 +168,7 @@ public final class SurveyMedia {
         contentReceivedAt = now;
     }
 
-    /** spec 4.4 step 3: the worker's outcome with exactly one variant of each kind; never for a removed photo. */
+    /** survey-media spec 4.4 step 3: the worker's outcome with exactly one variant of each kind; never for a removed photo. */
     public void ready(List<MediaVariant> newVariants, SourceFormat format, Instant now) {
         if (status != MediaStatus.PROCESSING || isRemoved()) {
             throw refused("become ready");
@@ -184,7 +184,7 @@ public final class SurveyMedia {
         variants = newVariants.stream().sorted((a, b) -> a.kind().compareTo(b.kind())).toList();
     }
 
-    /** spec 4.5: a content reason ends the photo REJECTED; a removed photo is cancelled instead. */
+    /** survey-media spec 4.5: a content reason ends the photo REJECTED; a removed photo is cancelled instead. */
     public void reject(MediaStatusReason reason, Instant now) {
         if (reason == null || !reason.isRejection()) {
             throw new IllegalArgumentException("A rejection has one of the eight content reasons.");
@@ -195,7 +195,7 @@ public final class SurveyMedia {
         finish(MediaStatus.REJECTED, reason, now);
     }
 
-    /** spec A-7, BR-18: processing could not complete; a removed photo is cancelled instead. */
+    /** survey-media spec A-7, BR-18: processing could not complete; a removed photo is cancelled instead. */
     public void fail(Instant now) {
         if (status != MediaStatus.PROCESSING || isRemoved()) {
             throw refused("fail");
@@ -203,7 +203,7 @@ public final class SurveyMedia {
         finish(MediaStatus.FAILED, MediaStatusReason.PROCESSING_UNAVAILABLE, now);
     }
 
-    /** spec 4.7, BR-17: a photo removed while PROCESSING ends CANCELLED, never READY. */
+    /** survey-media spec 4.7, BR-17: a photo removed while PROCESSING ends CANCELLED, never READY. */
     public void cancel(Instant now) {
         if (status != MediaStatus.PROCESSING || !isRemoved()) {
             throw refused("be cancelled");
@@ -211,7 +211,7 @@ public final class SurveyMedia {
         finish(MediaStatus.CANCELLED, MediaStatusReason.REMOVED, now);
     }
 
-    /** spec 4.2, 4.8: no content arrived in time, or a takeover ended the previous holder's upload. */
+    /** survey-media spec 4.2, 4.8: no content arrived in time, or a takeover ended the previous holder's upload. */
     public void expire(Instant now) {
         if (status != MediaStatus.AWAITING_CONTENT && status != MediaStatus.RECEIVING) {
             throw refused("expire");
@@ -220,7 +220,7 @@ public final class SurveyMedia {
         finish(MediaStatus.UPLOAD_EXPIRED, MediaStatusReason.CONTENT_NOT_RECEIVED, now);
     }
 
-    /** spec 4.4 step 3: the raw source is gone from the store (set only once its delete succeeded). */
+    /** survey-media spec 4.4 step 3: the raw source is gone from the store (set only once its delete succeeded). */
     public void markSourceDeleted(Instant now) {
         if (sourceStorageKey == null || sourceDeletedAt != null || status == MediaStatus.RECEIVING) {
             throw refused("mark its source deleted");
@@ -228,10 +228,10 @@ public final class SurveyMedia {
         sourceDeletedAt = now;
     }
 
-    // ==================== removal and deletion (spec 4.7, A-9, A-17) ====================
+    // ==================== removal and deletion (survey-media spec 4.7, A-9, A-17) ====================
 
     /**
-     * spec 4.7, A-9: the sticky removal mark, by the holder or by a G1 save's cascade. A READY photo that is not held
+     * survey-media spec 4.7, A-9: the sticky removal mark, by the holder or by a G1 save's cascade. A READY photo that is not held
      * gets its content deletion request at once; a held one at its release (A-23). The status does not change: a
      * PROCESSING photo is cancelled at its outcome.
      */
@@ -247,7 +247,7 @@ public final class SurveyMedia {
         }
     }
 
-    /** spec 4.7: the deletion request of a removed READY photo that is not held and has none yet. */
+    /** survey-media spec 4.7: the deletion request of a removed READY photo that is not held and has none yet. */
     public void requestContentDeletion(Instant now) {
         if (!isRemoved() || status != MediaStatus.READY || isHeld() || contentDeleteRequestedAt != null) {
             throw refused("request its content deletion");
@@ -255,7 +255,7 @@ public final class SurveyMedia {
         contentDeleteRequestedAt = now;
     }
 
-    /** spec 4.7, I-4: the deletion job confirmed that no object of the photo is left. */
+    /** survey-media spec 4.7, I-4: the deletion job confirmed that no object of the photo is left. */
     public void markContentDeleted(Instant now) {
         if (contentDeleteRequestedAt == null || contentDeletedAt != null || isHeld()) {
             throw refused("mark its content deleted");
@@ -263,7 +263,7 @@ public final class SurveyMedia {
         contentDeletedAt = now;
     }
 
-    /** spec 5.1: a reconciliation after a database restore found a READY photo's variants missing. */
+    /** survey-media spec 5.1: a reconciliation after a database restore found a READY photo's variants missing. */
     public void markContentMissing(Instant now) {
         if (status != MediaStatus.READY || contentMissingAt != null) {
             throw refused("mark its content missing");
@@ -271,10 +271,10 @@ public final class SurveyMedia {
         contentMissingAt = now;
     }
 
-    // ==================== security hold (spec A-23) ====================
+    // ==================== security hold (survey-media spec A-23) ====================
 
     /**
-     * spec A-23: an ADMIN holds a PROCESSING or READY photo that is not removed.
+     * survey-media spec A-23: an ADMIN holds a PROCESSING or READY photo that is not removed.
      *
      * @return false for a photo already held: a no-op that keeps the first reason
      */
@@ -290,7 +290,7 @@ public final class SurveyMedia {
     }
 
     /**
-     * spec A-23: an ADMIN releases the hold; a removed READY photo then gets its deletion request in the same write.
+     * survey-media spec A-23: an ADMIN releases the hold; a removed READY photo then gets its deletion request in the same write.
      *
      * @return false for a photo not held: a no-op
      */
@@ -306,7 +306,7 @@ public final class SurveyMedia {
         return true;
     }
 
-    // ==================== derived states (spec 4.2) ====================
+    // ==================== derived states (survey-media spec 4.2) ====================
 
     public boolean isRemoved() {
         return removal != null;
@@ -336,7 +336,7 @@ public final class SurveyMedia {
         return status == MediaStatus.READY && isContentPresent() && !isRemoved() && !isHeld();
     }
 
-    /** spec A-23: an ADMIN also reads a held READY photo whose content is present, removed or not. */
+    /** survey-media spec A-23: an ADMIN also reads a held READY photo whose content is present, removed or not. */
     public boolean isServableToAdmin() {
         return status == MediaStatus.READY && isContentPresent() && (isHeld() || !isRemoved());
     }
@@ -484,7 +484,7 @@ public final class SurveyMedia {
         this.version = storedVersion;
     }
 
-    /** Ids and state only: never the caption, hash, keys or upload key (spec 4.9). */
+    /** Ids and state only: never the caption, hash, keys or upload key (survey-media spec 4.9). */
     @Override
     public String toString() {
         return "SurveyMedia[" + id + " of " + checklistId + ", " + status + (isRemoved() ? ", removed" : "")

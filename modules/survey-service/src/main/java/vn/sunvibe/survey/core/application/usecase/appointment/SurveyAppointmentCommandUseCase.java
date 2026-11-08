@@ -12,7 +12,7 @@ import vn.sunvibe.survey.core.application.shared.external.lead.SurveyViewer;
 /**
  * Use Case - SurveyAppointmentCommandUseCase
  * <p>
- * The survey commands of staff (survey-schedule US-1..US-3, BR-11; spec 4.6, 7.1). Each runs in one transaction with
+ * The survey commands of staff (survey-schedule US-1..US-3, BR-11; survey-schedule spec 4.6, 7.1). Each runs in one transaction with
  * the lead move it needs, checks in the order of spec 5.5 and answers with the whole survey block.
  */
 public interface SurveyAppointmentCommandUseCase {

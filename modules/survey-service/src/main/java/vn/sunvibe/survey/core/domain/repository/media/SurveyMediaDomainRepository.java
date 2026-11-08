@@ -32,22 +32,22 @@ public interface SurveyMediaDomainRepository {
      */
     void update(SurveyMedia media);
 
-    /** {@code FOR UPDATE} on the photos, taken in id order (spec 5.4); unknown ids are skipped. */
+    /** {@code FOR UPDATE} on the photos, taken in id order (survey-media spec 5.4); unknown ids are skipped. */
     List<SurveyMedia> lockForUpdate(Collection<SurveyMediaId> ids);
 
     /** Every photo of the checklist by number, with its variants; a plain read. */
     List<SurveyMedia> findForChecklist(String checklistId);
 
     /**
-     * spec A-9: the id, placement and category of every selected photo of the checklist, by a scalar query, so no
+     * survey-media spec A-9: the id, placement and category of every selected photo of the checklist, by a scalar query, so no
      * photo row is loaded before its lock.
      */
     List<PlacedMedia> findSelectedPlacements(String checklistId);
 
-    /** spec 4.8: the ids of the uploader's AWAITING_CONTENT and RECEIVING photos of the checklist (scalar query). */
+    /** survey-media spec 4.8: the ids of the uploader's AWAITING_CONTENT and RECEIVING photos of the checklist (scalar query). */
     List<SurveyMediaId> findOpenUploadIds(String checklistId, String uploaderUserId);
 
-    /** A plain read of a photo with its variants, for checks before a conditional update (spec 4.4 step 2). */
+    /** A plain read of a photo with its variants, for checks before a conditional update (survey-media spec 4.4 step 2). */
     Optional<SurveyMedia> findById(SurveyMediaId id);
 
     /** Every uploader of a photo of these revisions, removed ones included (submission plan PD-2). */
@@ -59,60 +59,60 @@ public interface SurveyMediaDomainRepository {
     /** The photos with these ids, with their variants, in id order; unknown ids are skipped. */
     List<SurveyMedia> findByIds(Collection<SurveyMediaId> ids);
 
-    /** The checklist of a photo by a scalar query, without loading it (spec 5.4 paths without a lead lock). */
+    /** The checklist of a photo by a scalar query, without loading it (survey-media spec 5.4 paths without a lead lock). */
     Optional<String> findChecklistIdById(SurveyMediaId id);
 
-    /** The photo of this uploader's key on the checklist (spec 4.4 step 1 replay). */
+    /** The photo of this uploader's key on the checklist (survey-media spec 4.4 step 1 replay). */
     Optional<SurveyMedia> findByUploadKey(String checklistId, String uploadedByUserId, String uploadKey);
 
     /**
-     * spec A-16 (b): photos with this hash and committed content on checklists of the same lead whose visit is not the
+     * survey-media spec A-16 (b): photos with this hash and committed content on checklists of the same lead whose visit is not the
      * given checklist's visit (through {@code survey_checklists.lead_id}).
      */
     List<SurveyMedia> findCommittedHashOnOtherVisits(String leadId, String checklistId, String sha256);
 
     /**
-     * spec 4.4 step 2: AWAITING_CONTENT, not removed and created after {@code createdAfter} becomes RECEIVING with
+     * survey-media spec 4.4 step 2: AWAITING_CONTENT, not removed and created after {@code createdAfter} becomes RECEIVING with
      * the claim; false when no row matched.
      */
     boolean claimIfAwaiting(SurveyMediaId id, String token, String attemptKey, Instant now, Instant createdAfter);
 
-    /** spec 4.4 step 2: a RECEIVING photo holding this claim token goes back to AWAITING_CONTENT. */
+    /** survey-media spec 4.4 step 2: a RECEIVING photo holding this claim token goes back to AWAITING_CONTENT. */
     boolean releaseClaimIfToken(SurveyMediaId id, String token);
 
     /**
-     * spec 4.4 step 4: the checklist's AWAITING_CONTENT photos created at or before the cutoff become UPLOAD_EXPIRED
+     * survey-media spec 4.4 step 4: the checklist's AWAITING_CONTENT photos created at or before the cutoff become UPLOAD_EXPIRED
      * (CONTENT_NOT_RECEIVED); returns how many. The caller holds the set lock.
      */
     int expireStale(String checklistId, Instant createdAtOrBefore, Instant now);
 
-    /** spec 4.4 step 4: AWAITING_CONTENT photos created at or before the cutoff, oldest first. */
+    /** survey-media spec 4.4 step 4: AWAITING_CONTENT photos created at or before the cutoff, oldest first. */
     List<MediaRef> findAwaitingCreatedBefore(Instant cutoff, int limit);
 
-    /** spec 4.4 step 4: RECEIVING photos whose claim started at or before the cutoff, oldest first. */
+    /** survey-media spec 4.4 step 4: RECEIVING photos whose claim started at or before the cutoff, oldest first. */
     List<MediaRef> findReceivingStartedBefore(Instant cutoff, int limit);
 
-    /** spec 4.4 step 4: PROCESSING photos received at or before the cutoff, oldest first. */
+    /** survey-media spec 4.4 step 4: PROCESSING photos received at or before the cutoff, oldest first. */
     List<MediaRef> findProcessingReceivedBefore(Instant cutoff, int limit);
 
-    /** spec 4.4 step 4: sources not deleted after an outcome, received at or before the cutoff, oldest first. */
+    /** survey-media spec 4.4 step 4: sources not deleted after an outcome, received at or before the cutoff, oldest first. */
     List<MediaRef> findSourcesNotDeletedBefore(Instant cutoff, int limit);
 
-    /** spec 4.7: content deletions requested at or before the cutoff and not done, oldest first. */
+    /** survey-media spec 4.7: content deletions requested at or before the cutoff and not done, oldest first. */
     List<MediaRef> findDeletionsRequestedBefore(Instant cutoff, int limit);
 
     /**
-     * spec A-17: deletes at most {@code limit} UPLOAD_EXPIRED records of the checklist finished at or before the
+     * survey-media spec A-17: deletes at most {@code limit} UPLOAD_EXPIRED records of the checklist finished at or before the
      * cutoff; returns how many. The caller holds the set lock.
      */
     int deleteExpiredRecords(String checklistId, Instant finishedAtOrBefore, int limit);
 
-    /** spec 4.4 step 4: the quarantine keys a RECEIVING (attempt) or PROCESSING (source) photo references. */
+    /** survey-media spec 4.4 step 4: the quarantine keys a RECEIVING (attempt) or PROCESSING (source) photo references. */
     java.util.Set<String> findQuarantineKeysInUse();
 
-    /** spec 5.1: READY photos not marked content missing and not content deleted, by id after the given one. */
+    /** survey-media spec 5.1: READY photos not marked content missing and not content deleted, by id after the given one. */
     List<MediaRef> findReadyWithoutContentMissing(String afterIdOrNull, int limit);
 
-    /** spec A-17: UPLOAD_EXPIRED records finished at or before the cutoff, oldest first. */
+    /** survey-media spec A-17: UPLOAD_EXPIRED records finished at or before the cutoff, oldest first. */
     List<MediaRef> findExpiredFinishedBefore(Instant cutoff, int limit);
 }

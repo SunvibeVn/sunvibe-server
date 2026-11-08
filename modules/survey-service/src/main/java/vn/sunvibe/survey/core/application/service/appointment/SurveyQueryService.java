@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 /**
  * Use Case Implementation - SurveyQueryService
  * <p>
- * The survey reads of staff (survey-schedule US-4, spec 7.1): a lead's survey block (one survey access-log row per
+ * The survey reads of staff (survey-schedule US-4, survey-schedule spec 7.1): a lead's survey block (one survey access-log row per
  * read, A-13), the survey list and the overlap pre-check. The list and the pre-check carry no phone, address, pin,
  * access note or on-site contact and write no access log (spec 4.9).
  */
@@ -79,7 +79,7 @@ public class SurveyQueryService implements SurveyQueryUseCase {
 
     /**
      * survey-checklist spec 4.10: a lead that exists but is hidden from the caller writes one LEAD event; an
-     * unknown lead writes none. The access-log row names the survey block (spec A-10).
+     * unknown lead writes none. The access-log row names the survey block (survey-checklist spec A-10).
      */
     @Override
     @Transactional(isolation = Isolation.REPEATABLE_READ)

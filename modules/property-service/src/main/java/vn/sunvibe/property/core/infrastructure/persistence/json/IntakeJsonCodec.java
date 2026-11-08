@@ -59,7 +59,7 @@ public class IntakeJsonCodec implements OwnerSnapshotCodec {
         return json == null ? List.of() : read(json, MAPPINGS);
     }
 
-    /** An empty list is stored as no value: a cleared row holds nothing (spec 4.1). */
+    /** An empty list is stored as no value: a cleared row holds nothing (property-create intake spec 4.1). */
     public String availability(List<AvailabilityItem> items) {
         return items.isEmpty() ? null : write(items);
     }

@@ -7,7 +7,7 @@ package vn.sunvibe.property.core.application.shared.external.user;
  */
 public record OwnerRoute(Outcome outcome, String userIdOrNull) {
 
-    /** The answers of spec 4.6 step 1. */
+    /** The answers of property-create intake spec 4.6 step 1. */
     public enum Outcome {
         /** The address breaks the email policy. */
         INVALID,

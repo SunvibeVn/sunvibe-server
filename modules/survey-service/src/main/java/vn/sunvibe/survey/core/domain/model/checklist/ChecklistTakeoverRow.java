@@ -35,7 +35,7 @@ public record ChecklistTakeoverRow(long id, SurveyChecklistId checklistId, int t
     }
 
     /**
-     * Takeover #1 of a new revision started by someone other than the previous revision's holder (submission spec A-7,
+     * Takeover #1 of a new revision started by someone other than the previous revision's holder (survey-checklist submission spec A-7,
      * plan PD-9): it names that holder and has no checkpoint, because the previous revision is frozen.
      */
     public static ChecklistTakeoverRow revisionByOther(long id, SurveyChecklistId checklistId,

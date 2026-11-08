@@ -15,7 +15,7 @@ import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaIncidentDomainR
 
 /**
  * Records overdue deletions as incidents (survey-media spec A-18, BR-18 "có bản ghi sự cố tối thiểu"): each write in
- * its own short READ COMMITTED transaction outside the lock order of spec 5.4, with an error log of ids only.
+ * its own short READ COMMITTED transaction outside the lock order of survey-media spec 5.4, with an error log of ids only.
  */
 @Component
 public class MediaIncidentRecorder {

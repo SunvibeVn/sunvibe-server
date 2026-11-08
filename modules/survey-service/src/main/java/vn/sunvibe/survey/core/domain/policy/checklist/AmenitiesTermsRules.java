@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.BiFunction;
 
-/** The body rules of G6 and G8 (survey-checklist spec 4.6; BR-5, BR-11 G6) with the money of spec D-1. */
+/** The body rules of G6 and G8 (survey-checklist spec 4.6; BR-5, BR-11 G6) with the money of survey-checklist spec D-1. */
 final class AmenitiesTermsRules {
 
     static final int MAX_OTHER_ITEMS = 20;
@@ -147,7 +147,7 @@ final class AmenitiesTermsRules {
                         (p, value) -> check.text(p, value, 2000)));
     }
 
-    /** A terms field: terms source, owner's form only on the monthly rent (spec A-18), no N/A. */
+    /** A terms field: terms source, owner's form only on the monthly rent (survey-checklist spec A-18), no N/A. */
     private static <V> SourcedField<V> term(BodyChecker check, String path, SourcedField<V> field,
                                             boolean ownerFormAllowed, BiFunction<String, V, V> rule) {
         return check.sourced(path, field, SourceFamily.TERMS, ownerFormAllowed, false, rule);
@@ -176,7 +176,7 @@ final class AmenitiesTermsRules {
                 check.optionalText(path + ".note", value.note(), 200));
     }
 
-    /** spec D-1: whole VND from 0 to 999,999,999,999,999; 0 means confirmed free or no deposit. */
+    /** survey-checklist spec D-1: whole VND from 0 to 999,999,999,999,999; 0 means confirmed free or no deposit. */
     private static Money money(BodyChecker check, String path, Money value) {
         if (value == null) {
             check.required(path);
@@ -187,7 +187,7 @@ final class AmenitiesTermsRules {
         return value;
     }
 
-    /** spec D-1: a monthly rent of at least 1 VND, in the ADR-006 price shape with unit MONTH. */
+    /** survey-checklist spec D-1: a monthly rent of at least 1 VND, in the ADR-006 price shape with unit MONTH. */
     private static RentMoney rent(BodyChecker check, String path, RentMoney value) {
         amount(check, path + ".amount", value.amount(), 1);
         currency(check, path + ".currency", value.currency());
@@ -257,7 +257,7 @@ final class AmenitiesTermsRules {
     }
 
     /**
-     * spec 4.6: each member null (the common charge applies) or a charge term in VALUE; whether the scope allows
+     * survey-checklist spec 4.6: each member null (the common charge applies) or a charge term in VALUE; whether the scope allows
      * overrides at all is a rule of save step 9.
      */
     private static ChargeOverrides overrides(BodyChecker check, String path, ChargeOverrides value) {

@@ -8,7 +8,7 @@ package vn.sunvibe.auth.core.application.usecase.role;
  */
 public record OwnerLookup(Outcome outcome, String userIdOrNull) {
 
-    /** The three answers of spec 4.6 step 1. */
+    /** The three answers of property-create intake spec 4.6 step 1. */
     public enum Outcome {
         /** The address breaks the email policy; nothing was read. */
         INVALID,

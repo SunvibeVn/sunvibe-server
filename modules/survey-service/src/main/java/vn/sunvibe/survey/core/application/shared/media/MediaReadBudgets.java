@@ -64,7 +64,7 @@ public class MediaReadBudgets {
                 return true;
             }
             if (counters.markExceededFirst(userId, hourStart, kind, now)) {
-                // spec 4.9, A-26: one event per user, kind and hour
+                // survey-media spec 4.9, A-26: one event per user, kind and hour
                 events.recordInTransaction(userId, leadId, resourceType, resourceId, SecurityAction.READ,
                         SecurityOutcome.BUDGET_EXCEEDED, null);
             }

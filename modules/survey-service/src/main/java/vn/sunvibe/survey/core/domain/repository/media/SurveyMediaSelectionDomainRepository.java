@@ -24,7 +24,7 @@ public interface SurveyMediaSelectionDomainRepository {
     Optional<MediaSelection> findOne(String checklistId, SurveyMediaId mediaId);
 
     /**
-     * The revision the photo was carried from into this one, by a scalar query (submission spec 5.5): it loads no row,
+     * The revision the photo was carried from into this one, by a scalar query (survey-checklist submission spec 5.5): it loads no row,
      * so {@link #findOne} after the locks still reads what they protect.
      */
     Optional<String> findCarriedFrom(String checklistId, SurveyMediaId mediaId);

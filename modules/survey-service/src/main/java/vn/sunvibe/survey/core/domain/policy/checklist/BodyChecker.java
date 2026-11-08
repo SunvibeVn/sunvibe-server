@@ -19,13 +19,13 @@ import java.util.function.BiFunction;
 
 /**
  * Collects every broken rule of one checklist body while it normalises the values (survey-checklist spec 5.5 save
- * step 1, PD-2): text through {@link SurveyText} (NFC, trimmed, optional blank is absent, phone rule, spec A-11), the
- * wrapper consistency of spec 4.6 and the source rules. Paths are JSON paths of the request; messages never quote a
+ * step 1, PD-2): text through {@link SurveyText} (NFC, trimmed, optional blank is absent, phone rule, survey-checklist spec A-11), the
+ * wrapper consistency of survey-checklist spec 4.6 and the source rules. Paths are JSON paths of the request; messages never quote a
  * value. A rule that fails returns null, so the caller keeps walking the body and reports all violations at once.
  */
 final class BodyChecker {
 
-    /** Length of the reasons, relay bases and basis texts of spec 4.6 and 5.2. */
+    /** Length of the reasons, relay bases and basis texts of survey-checklist spec 4.6 and 5.2. */
     static final int REASON_MAX = 500;
 
     private final LocalDate today;
@@ -85,7 +85,7 @@ final class BodyChecker {
 
     // ==================== values ====================
 
-    /** A client id of a space, hazard or item: a ULID (spec A-23). */
+    /** A client id of a space, hazard or item: a ULID (survey-checklist spec A-23). */
     String ulid(String path, String value) {
         if (value == null) {
             required(path);
@@ -143,7 +143,7 @@ final class BodyChecker {
     // ==================== wrappers ====================
 
     /**
-     * An unsourced field (spec 4.6): {@code value} exactly when VALUE, {@code naReason} 1..500 exactly when
+     * An unsourced field (survey-checklist spec 4.6): {@code value} exactly when VALUE, {@code naReason} 1..500 exactly when
      * NOT_APPLICABLE and only where the field allows it. The value rule gets the value's path and returns the
      * normalised value or null after a violation.
      */
@@ -180,7 +180,7 @@ final class BodyChecker {
     }
 
     /**
-     * A sourced field (spec 4.6, A-18): as {@link #field}, plus a source of the field's family with VALUE and only
+     * A sourced field (survey-checklist spec 4.6, A-18): as {@link #field}, plus a source of the field's family with VALUE and only
      * then; owner's form only where the field allows it; {@code confirmedOn} (2000-01-01..today) and
      * {@code receivedByUserId} exactly for an owner statement; {@code relayBasis} only on an owner statement (whether
      * the caller needs one is a rule of save step 9).
@@ -236,14 +236,14 @@ final class BodyChecker {
         return source;
     }
 
-    /** The parts of an owner statement or owner fix report: date, receiver and optional relay basis (spec A-18). */
+    /** The parts of an owner statement or owner fix report: date, receiver and optional relay basis (survey-checklist spec A-18). */
     Statement statement(String path, LocalDate confirmedOn, String receivedByUserId, String relayBasis) {
         return statement(path, "confirmedOn", confirmedOn, receivedByUserId, relayBasis, true);
     }
 
     /**
      * As {@link #statement(String, String, LocalDate, String, String, boolean)} with the date under another name;
-     * {@code checkDateRange} false leaves the range to a rule that needs stored data (owner fix reports, spec A-7).
+     * {@code checkDateRange} false leaves the range to a rule that needs stored data (owner fix reports, survey-checklist spec A-7).
      */
     Statement statement(String path, String dateName, LocalDate date, String receivedByUserId, String relayBasis,
                         boolean checkDateRange) {

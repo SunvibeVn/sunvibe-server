@@ -16,7 +16,7 @@ public record MediaListView(String checklistId, KnownVersion basis, boolean uplo
                             List<MediaItemView> notAcceptedItems, List<MediaItemView> removedItems,
                             int totalNotAccepted, int totalRemoved, List<CoveragePair> coverage) {
 
-    /** spec 7.2 {@code limits}. */
+    /** survey-media spec 7.2 {@code limits}. */
     public record Limits(long maxFileBytes, int maxSelected, int selectedCount, int maxPending, int pendingCount) {
     }
 

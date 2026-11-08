@@ -11,7 +11,7 @@ import java.util.Set;
  * Port to the owner lead, owned by acquisition-service (survey-schedule spec 5.4, ADR-009). The adapter lives in app.
  * Every call joins the caller's transaction; {@link #apply} writes the lead row first, before any survey row.
  * Checklist commands read the lead row under a share lock first and add their History entry last (survey-checklist
- * spec 5.5); only a decision writes it, through {@link #apply} on the row it locked (submission spec 5.4).
+ * spec 5.5); only a decision writes it, through {@link #apply} on the row it locked (survey-checklist submission spec 5.4).
  */
 public interface SurveyLeadPort {
 

@@ -1,6 +1,6 @@
 package vn.sunvibe.survey.core.domain.policy.checklist;
 
-/** Why a viewer cannot edit a revision, first that applies (survey-checklist spec 4.4, submission spec 5.1). */
+/** Why a viewer cannot edit a revision, first that applies (survey-checklist spec 4.4, survey-checklist submission spec 5.1). */
 public enum ReadOnlyReason {
     /** The requirement changed after this visit, also when it changed back. */
     INTENT_CHANGED,

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
-/** The primary key of a photo's row under a revision: the revision and the photo (submission spec 5.3). */
+/** The primary key of a photo's row under a revision: the revision and the photo (survey-checklist submission spec 5.3). */
 @Embeddable
 @Getter
 @NoArgsConstructor

@@ -17,7 +17,7 @@ import vn.sunvibe.survey.core.domain.policy.media.ReadBudgetArithmetic;
 import vn.sunvibe.survey.core.domain.repository.media.MediaCountersRepository;
 
 /**
- * The limits of survey photo intake, counted in the database (spec A-3, A-27, BR-6): under the user's advisory
+ * The limits of survey photo intake, counted in the database (survey-media spec A-3, A-27, BR-6): under the user's advisory
  * transaction lock (two-int form, media namespace) the photo records and declared bytes of the rolling hour and the
  * expensive outcomes of the clock hour; under the set lock the selected and pending photos of the checklist. Exact
  * across instances (SV-017). Runs in the caller's READ COMMITTED transaction.
@@ -33,13 +33,13 @@ public class MediaLimitCounter {
         this.counters = counters;
     }
 
-    /** spec A-3: the user's advisory lock, held until the caller's transaction ends (spec 5.4 lock order). */
+    /** survey-media spec A-3: the user's advisory lock, held until the caller's transaction ends (survey-media spec 5.4 lock order). */
     public void lockUser(String userId) {
         counters.lockUser(userId);
     }
 
     /**
-     * spec 5.4 create (11): 300 photo records and 3 GiB of declared size per rolling hour ({@code records},
+     * survey-media spec 5.4 create (11): 300 photo records and 3 GiB of declared size per rolling hour ({@code records},
      * {@code bytes}; retry once the oldest record has left the hour), then the expensive outcomes (A-27).
      *
      * @throws MediaRateLimitedException 429 with the field and the seconds to wait
@@ -55,7 +55,7 @@ public class MediaLimitCounter {
     }
 
     /**
-     * spec A-27: at 20 expensive outcomes of the uploader in the clock hour, refused until the hour passes.
+     * survey-media spec A-27: at 20 expensive outcomes of the uploader in the clock hour, refused until the hour passes.
      *
      * @throws MediaRateLimitedException 429 on {@code expensive}
      */
@@ -68,7 +68,7 @@ public class MediaLimitCounter {
     }
 
     /**
-     * spec 5.4 create (13), BR-6: 100 selected and 20 pending photos per checklist, {@code selected} first.
+     * survey-media spec 5.4 create (13), BR-6: 100 selected and 20 pending photos per checklist, {@code selected} first.
      *
      * @throws MediaLimitReachedException 409 on the field
      */

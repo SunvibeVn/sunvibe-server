@@ -44,7 +44,7 @@ public final class ChecklistUnits {
     public record Located(ProvenanceUnit unit, String path) {
     }
 
-    /** The value an other item records for the correction rule: label, space and presence (spec A-19). */
+    /** The value an other item records for the correction rule: label, space and presence (survey-checklist spec A-19). */
     public record OtherItemValue(String label, String spaceId, YesNo presence) {
 
         @Override
@@ -291,7 +291,7 @@ public final class ChecklistUnits {
             }
         }
 
-        /** A plain nullable field: a value is VALUE, null is UNKNOWN (spec A-26). */
+        /** A plain nullable field: a value is VALUE, null is UNKNOWN (survey-checklist spec A-26). */
         private void plain(UnitKey key, UnitKind kind, Object value, String path) {
             add(new ProvenanceUnit(key, kind, value == null ? FieldState.UNKNOWN : FieldState.VALUE, value, null, null,
                     null, null, null, value), path);

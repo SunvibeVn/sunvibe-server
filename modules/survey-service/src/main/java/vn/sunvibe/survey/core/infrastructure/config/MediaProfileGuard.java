@@ -13,7 +13,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * The start-up guard of survey-media (spec A-1, A-28). An environment is non-production only when its active-profile
+ * The start-up guard of survey-media (survey-media spec A-1, A-28). An environment is non-production only when its active-profile
  * set is non-empty and entirely inside {dev, test, lan}; an empty set counts as production. Elsewhere a configuration
  * error refuses the start: a local store, the stub scanner, an {@code s3.endpoint} that is not https, uploads on while
  * an adapter is {@code none}, processing on while some but not all adapters are {@code none}. A configured processor
@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 public class MediaProfileGuard {
 
     private static final Set<String> NON_PRODUCTION_PROFILES = Set.of("dev", "test", "lan");
-    /** spec 5.2: the CHECK of survey_media_variants.processor_version (at most 100 characters). */
+    /** survey-media spec 5.2: the CHECK of survey_media_variants.processor_version (at most 100 characters). */
     private static final Pattern PROCESSOR_VERSION = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._:@/+-]{0,99}");
 
     private final MediaRuntimeMode mode;

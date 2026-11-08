@@ -19,7 +19,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OwnerProofRepositoryAdapter implements OwnerProofDomainRepository {
 
-    /** One statement, so parallel wrong entries all count (spec S-8); a phrase past the limit is ended by its count. */
+    /** One statement, so parallel wrong entries all count (property-create intake spec S-8); a phrase past the limit is ended by its count. */
     private static final String COUNT_WRONG_PHRASE = """
             update inventory_owner_proofs
                set phrase_failed_attempts = phrase_failed_attempts + 1

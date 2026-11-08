@@ -104,7 +104,7 @@ public class IntakeReadiness {
         return List.copyOf(views);
     }
 
-    /** spec 4.9: on a link nothing is written to the unit; a difference shows here. */
+    /** property-create intake spec 4.9: on a link nothing is written to the unit; a difference shows here. */
     private static boolean differs(InventoryIntake row, UnitMapping mapping, InventoryReadRepository.UnitFacts unit) {
         return row.getAvailability().stream().filter(item -> item.spaceId().equals(mapping.spaceId())).findFirst()
                 .map(AvailabilityItem::state).map(state -> !state.unitState().name().equals(unit.availabilityState()))

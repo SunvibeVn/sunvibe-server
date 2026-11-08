@@ -8,7 +8,7 @@ import java.time.Instant;
 /**
  * The one intake health row of every instance (survey-media spec 5.2, A-18). The read joins the caller's transaction
  * (the list reads it inside its repeatable-read snapshot); every write runs in its own short READ COMMITTED transaction
- * that holds no other lock, outside the lock order of spec 5.4, and is called only after or outside a lock-holding
+ * that holds no other lock, outside the lock order of survey-media spec 5.4, and is called only after or outside a lock-holding
  * transaction. Stored times are application-clock values.
  */
 public interface IntakeHealthRepository {

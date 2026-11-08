@@ -60,13 +60,13 @@ public class IntakeCommandSupport {
         return LocalDate.ofInstant(now, VIETNAM);
     }
 
-    /** The lead under FOR NO KEY UPDATE: the first load of an assignee command (spec 5.3). */
+    /** The lead under FOR NO KEY UPDATE: the first load of an assignee command (property-create intake spec 5.3). */
     public IntakeLead lockVisibleLead(String leadId, IntakeActor actor) {
         return leads.findVisibleForUpdate(leadId, actor.viewer())
                 .orElseThrow(() -> new IntakeRefusedException(IntakeError.NOT_FOUND));
     }
 
-    /** spec 4.3: the lead's assignee, in a SALE or SALE_LEADER role; a manager role alone does not. */
+    /** property-create intake spec 4.3: the lead's assignee, in a SALE or SALE_LEADER role; a manager role alone does not. */
     public void requireAssignee(IntakeLead lead, IntakeActor actor) {
         if (!actor.saleRole() || !actor.userId().equals(lead.assigneeOrNull())) {
             throw new IntakeRefusedException(IntakeError.INTAKE_NOT_ASSIGNEE);
@@ -91,7 +91,7 @@ public class IntakeCommandSupport {
     }
 
     /**
-     * spec 5.4: no live proof or no check DONE answers OWNER_PROOF_REQUIRED, and any other state of 4.2 answers INTAKE_STATE.
+     * property-create intake spec 5.4: no live proof or no check DONE answers OWNER_PROOF_REQUIRED, and any other state of 4.2 answers INTAKE_STATE.
      */
     public void requireCheckedRow(IntakeState state) {
         if (!state.checkDone()) {
@@ -109,7 +109,7 @@ public class IntakeCommandSupport {
     }
 
     /**
-     * Stores what the read computed (spec 4.1): abandons a dead open row, voiding its request and proof and closing its
+     * Stores what the read computed (property-create intake spec 4.1): abandons a dead open row, voiding its request and proof and closing its
      * undecided cases; moves a row to DRAFT as a withdrawal does; moves it between OWNER_CONFIRMED and CASE_OPEN.
      *
      * @return the current row as stored now; null with none
@@ -147,7 +147,7 @@ public class IntakeCommandSupport {
         return row;
     }
 
-    /** spec 4.10: a forced property clears any other target at the next accepted command of its side. */
+    /** property-create intake spec 4.10: a forced property clears any other target at the next accepted command of its side. */
     private void clearOtherTarget(IntakeState state, InventoryIntake row, Instant now) {
         IntakeTarget target = row.getTarget();
         if (target != null && state.forcedPropertyId().filter(id -> !id.equals(target.propertyIdOrNull())).isPresent()) {
@@ -167,7 +167,7 @@ public class IntakeCommandSupport {
         }
     }
 
-    /** Voids every open request and the proof in force of a row; the snapshots go with them (spec 4.6 step 1). */
+    /** Voids every open request and the proof in force of a row; the snapshots go with them (property-create intake spec 4.6 step 1). */
     public void voidWork(String intakeId, Instant now) {
         for (OwnerRequest request : requests.findByIntakeId(intakeId)) {
             if (!request.isClosed()) {
@@ -187,7 +187,7 @@ public class IntakeCommandSupport {
         });
     }
 
-    /** Any exit that is no decision closes the undecided cases of the row, on either side (spec 4.10). */
+    /** Any exit that is no decision closes the undecided cases of the row, on either side (property-create intake spec 4.10). */
     public void closeUndecidedCases(String intakeId) {
         for (DuplicateCase item : cases.findForIntake(intakeId)) {
             if (item.getStatus() == CaseStatus.OPEN) {

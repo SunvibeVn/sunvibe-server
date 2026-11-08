@@ -23,7 +23,7 @@ public record AppointmentDetails(Instant startAt, int durationMinutes, MeetingLo
     }
 
     /**
-     * Checked values (survey-schedule BR-4, spec A-14, A-24, A-25): a whole-minute start, a duration of 15..480 in
+     * Checked values (survey-schedule BR-4, survey-schedule spec A-14, A-24, A-25): a whole-minute start, a duration of 15..480 in
      * steps of 15, optional access note (1..1000) and on-site name and role (1..100 each) without phone numbers.
      * Whether the start lies in the booking window is checked by the appointment, which knows when it changes.
      *

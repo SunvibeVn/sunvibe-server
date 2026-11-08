@@ -1,6 +1,6 @@
 package vn.sunvibe.survey.core.domain.model.checklist;
 
-/** Why a revision failed (survey-checklist D3-15, submission spec 4.5). */
+/** Why a revision failed (survey-checklist D3-15, survey-checklist submission spec 4.5). */
 public enum FailedKind {
     /** The property is out of scope: the lead closes as REJECTED. */
     OUT_OF_SCOPE,

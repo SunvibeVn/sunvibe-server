@@ -23,13 +23,13 @@ public interface SurveyChecklistGroupDomainRepository {
     /** The groups of each given checklist, in one statement. */
     Map<SurveyChecklistId, Map<ChecklistGroup, GroupState>> findAllOf(Collection<SurveyChecklistId> checklistIds);
 
-    /** The group row read with {@code FOR SHARE} (the G1 row of a G2..G8 save, spec 5.5). */
+    /** The group row read with {@code FOR SHARE} (the G1 row of a G2..G8 save, survey-checklist spec 5.5). */
     GroupState lockForShare(SurveyChecklistId checklistId, ChecklistGroup group);
 
     /** The group row read with {@code FOR UPDATE} (the saved group, the G1 row of a G1 save, cascaded groups). */
     GroupState lockForUpdate(SurveyChecklistId checklistId, ChecklistGroup group);
 
-    /** The other groups after the G1 lock of a G1 save (spec 5.5), in one statement. */
+    /** The other groups after the G1 lock of a G1 save (survey-checklist spec 5.5), in one statement. */
     Map<ChecklistGroup, GroupState> findOthers(SurveyChecklistId checklistId, ChecklistGroup except);
 
     /**

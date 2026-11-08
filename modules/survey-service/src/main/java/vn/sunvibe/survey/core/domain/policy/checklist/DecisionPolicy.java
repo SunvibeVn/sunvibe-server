@@ -31,8 +31,8 @@ public final class DecisionPolicy {
     }
 
     /**
-     * What every decision needs (spec 4.5): the {@code errors[].field} of each state that fails now, in the order of
-     * spec 5.5: the revision SUBMITTED, the lead SURVEY_SCHEDULED, the lead's current cycle, the current visit, serving
+     * What every decision needs (survey-checklist submission spec 4.5): the {@code errors[].field} of each state that fails now, in the order of
+     * survey-checklist submission spec 5.5: the revision SUBMITTED, the lead SURVEY_SCHEDULED, the lead's current cycle, the current visit, serving
      * on (a reviewer must see the photos, A-3).
      */
     public static List<String> stateBlockers(ChecklistStatus status, LeadStatus leadStatus, int revisionIntentCycle,
@@ -56,7 +56,7 @@ public final class DecisionPolicy {
         return List.copyOf(blockers);
     }
 
-    /** The {@code errors[].field} of every PASSED rule that fails now, in rule order (spec 7.3, {@code decisionBlockedBy}). */
+    /** The {@code errors[].field} of every PASSED rule that fails now, in rule order (survey-checklist submission spec 7.3, {@code decisionBlockedBy}). */
     public static List<String> passedBlockers(DecisionFacts facts) {
         List<String> blockers = new ArrayList<>();
         if (facts.warnings().stream().anyMatch(warning -> HAZARD_WARNINGS.contains(warning.type()))) {

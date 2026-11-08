@@ -20,7 +20,7 @@ import vn.sunvibe.survey.core.application.service.media.MediaProcessingWorker;
 import vn.sunvibe.survey.core.infrastructure.config.MediaScheduling;
 
 /**
- * Puts the processing worker on the media scheduler (survey-media plan PD-4, spec A-1): only while processing is
+ * Puts the processing worker on the media scheduler (survey-media plan PD-4, survey-media spec A-1): only while processing is
  * effectively on, and only after the processor's self-probe passed. A failing self-probe is not a configuration error:
  * the instance starts and processes nothing while the probe is retried every 5 seconds for about a minute (a processor
  * container that starts a little after the API, code review M9); when every attempt failed, a PROCESSOR pause is
@@ -80,7 +80,7 @@ public class MediaWorkerRegistration {
         selfProbe(1);
     }
 
-    /** spec A-1, A-18: the processor answers its probe before this instance processes anything. */
+    /** survey-media spec A-1, A-18: the processor answers its probe before this instance processes anything. */
     private void selfProbe(int attempt) {
         ProbeResult result;
         try {
@@ -111,7 +111,7 @@ public class MediaWorkerRegistration {
 
     /**
      * survey-media spec amendment 2026-11-05: the worker stays off only until a processor probe of this instance
-     * passes. This reads what the probe runner remembers and runs no probe of its own, so spec A-18 still holds.
+     * passes. This reads what the probe runner remembers and runs no probe of its own, so survey-media spec A-18 still holds.
      */
     void awaitProcessor(Instant since) {
         if (!probes.processorPassedSince(since)) {

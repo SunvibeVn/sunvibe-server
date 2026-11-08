@@ -6,7 +6,7 @@ public enum ChangeKind {
     FIRST_FILL,
     /**
      * A new entry of a list: a space, hazard, G6 item or other item whose key has neither metadata nor a tombstone; the
-     * same identity sent again after its removal is REPLACED (spec A-29).
+     * same identity sent again after its removal is REPLACED (survey-checklist spec A-29).
      */
     ADDED_ENTRY,
     /** A recorded unit, or one coming back from a tombstone, gets another value, state, source or date. */

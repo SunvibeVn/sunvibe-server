@@ -36,7 +36,7 @@ import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRe
  * does (no stored variant row, over 60 minutes); an orphan over 24 hours opens or counts in ORPHAN_OVERDUE and pauses
  * intake once its page's progress is written; the orphans it could not delete stay counted in the run, which blocks a
  * resume (A-18), and a failed listing or delete asks for a store probe. A run open over 24
- * hours is abandoned with an ids-only error log. Its duration is logged (an upgrade trigger, spec 4.12).
+ * hours is abandoned with an ids-only error log. Its duration is logged (an upgrade trigger, survey-media spec 4.12).
  */
 @Service
 public class MediaFullListingJob {

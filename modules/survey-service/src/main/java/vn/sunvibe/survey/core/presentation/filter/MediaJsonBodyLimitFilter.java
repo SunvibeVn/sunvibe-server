@@ -33,7 +33,7 @@ import vn.sunvibe.survey.core.presentation.exception.MediaBodyTooLargeException;
 
 /**
  * Caps the JSON bodies of the survey-media create, removal, hold and release at 16 KiB, counted while reading and
- * before parsing (spec A-11, the create order (0) of 5.4; SV-053). A larger announced {@code Content-Length} is
+ * before parsing (survey-media spec A-11, the create order (0) of 5.4; SV-053). A larger announced {@code Content-Length} is
  * answered 413 here, before anything is read; a body without a length (chunked) is counted while it is read and
  * {@link MediaBodyTooLargeException} stops the read past the limit, which the survey exception handler answers with
  * the same 413 body. A body without a length that is not JSON is answered 415 here, because the container could parse

@@ -130,8 +130,8 @@ import java.util.function.Function;
  * The {@code groups} and {@code effectiveTerms} blocks of the checklist response (survey-checklist spec 7.2).
  * Each group's content is read through {@code InputForm.ofStored} (plan PD-5), so every per-space list holds one
  * entry per G1 space in G1 order with UNKNOWN where nothing is stored, and each unit's metadata (or its tombstone,
- * spec A-19) goes back onto its wrapper, item, space or hazard, plain fields onto {@code fieldMeta} (plan PD-1).
- * Source fields carry the family enums of spec 7.2.
+ * survey-checklist spec A-19) goes back onto its wrapper, item, space or hazard, plain fields onto {@code fieldMeta} (plan PD-1).
+ * Source fields carry the family enums of survey-checklist spec 7.2.
  */
 final class ChecklistGroupsConverter {
 
@@ -480,7 +480,7 @@ final class ChecklistGroupsConverter {
 
     // ==================== values ====================
 
-    /** The family enum of spec 7.2 for a stored source; the template rules only store a source of the family. */
+    /** The family enum of survey-checklist spec 7.2 for a stored source; the template rules only store a source of the family. */
     private static <E extends Enum<E>> E source(Class<E> family, ChecklistSource source) {
         return source == null ? null : Enum.valueOf(family, source.name());
     }

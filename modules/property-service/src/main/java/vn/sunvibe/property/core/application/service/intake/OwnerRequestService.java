@@ -82,7 +82,7 @@ public class OwnerRequestService implements OwnerRequestUseCase {
         return new IssuedRequest(id, code, expiresAt);
     }
 
-    /** spec 4.2: DRAFT, AWAITING_OWNER, or a result whose owner proof no longer stands. */
+    /** property-create intake spec 4.2: DRAFT, AWAITING_OWNER, or a result whose owner proof no longer stands. */
     private void requireState(IntakeState state) {
         IntakeStatus effective = state.effectiveOrNull();
         boolean open = effective == IntakeStatus.DRAFT || effective == IntakeStatus.AWAITING_OWNER;
@@ -110,7 +110,7 @@ public class OwnerRequestService implements OwnerRequestUseCase {
         return inventory.property(row.getResultPropertyId()).map(InventoryReadRepository.PropertyFacts::ownerId).orElse(null);
     }
 
-    /** spec 4.2: on a COMPLETED row only the owner of the result can bind; anyone else reads as NOT_FOUND. */
+    /** property-create intake spec 4.2: on a COMPLETED row only the owner of the result can bind; anyone else reads as NOT_FOUND. */
     private static String target(OwnerRoute route, InventoryIntake row, String resultOwnerOrNull) {
         if (route.outcome() != OwnerRoute.Outcome.FOUND) {
             return null;

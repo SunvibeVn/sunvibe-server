@@ -56,7 +56,7 @@ public class OwnerCheckService implements OwnerCheckUseCase {
     private final IntakeTrailDomainRepository trail;
     private final IntakeWork work;
 
-    /** Not read-only: it writes the access log row (spec 4.12). */
+    /** Not read-only: it writes the access log row (property-create intake spec 4.12). */
     @Override
     @Transactional
     public OwnerCheckContext context(String leadId, IntakeActor actor) {
@@ -134,7 +134,7 @@ public class OwnerCheckService implements OwnerCheckUseCase {
         }
     }
 
-    /** spec 4.6 step 6: the limit reads REFUSED only, so a proof that merely died after a start does not stop this manager. */
+    /** property-create intake spec 4.6 step 6: the limit reads REFUSED only, so a proof that merely died after a start does not stop this manager. */
     private void requireNoRefusalBy(IntakeActor actor, String leadId) {
         boolean refusedBefore = proofs.findByLeadId(leadId).stream()
                 .anyMatch(proof -> proof.getOwnerCheck() == OwnerCheckState.REFUSED

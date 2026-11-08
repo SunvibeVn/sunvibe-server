@@ -14,7 +14,7 @@ import java.util.Optional;
 /**
  * Use Case - SurveyQueryUseCase
  * <p>
- * The survey reads of staff (survey-schedule US-4, spec 7.1): a lead's survey block (access-logged), the survey list
+ * The survey reads of staff (survey-schedule US-4, survey-schedule spec 7.1): a lead's survey block (access-logged), the survey list
  * and the overlap pre-check (neither access-logged).
  */
 public interface SurveyQueryUseCase {

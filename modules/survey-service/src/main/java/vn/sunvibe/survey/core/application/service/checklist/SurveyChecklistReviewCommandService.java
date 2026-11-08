@@ -14,7 +14,7 @@ import vn.sunvibe.survey.core.application.usecase.checklist.SurveyChecklistRevie
 
 /**
  * Use Case Implementation - submission, review and revisions (survey-checklist submission spec 4.3..4.6, 5.4, 5.5). One
- * transaction per command, every rule read from rows taken under the locks of spec 5.4, in the one lock order: lead,
+ * transaction per command, every rule read from rows taken under the locks of survey-checklist submission spec 5.4, in the one lock order: lead,
  * checklist, media sets in id order, photos in id order, activity. Each command runs in its own class:
  * {@link ChecklistSubmitter}, {@link ChecklistDecider} and {@link ChecklistRevisionStarter}, sharing
  * {@link ChecklistReviewSteps}.

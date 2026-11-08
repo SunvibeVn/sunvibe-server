@@ -31,7 +31,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
             "uq_survey_checklists_draft_per_appointment");
 
     /**
-     * submission spec I-1: one SUBMITTED revision per lead and intent cycle, also under concurrent submits;
+     * survey-checklist submission spec I-1: one SUBMITTED revision per lead and intent cycle, also under concurrent submits;
      * property-create requalification spec I-1: one unmarked PASSED per lead and intent cycle, also under concurrent
      * decisions.
      */

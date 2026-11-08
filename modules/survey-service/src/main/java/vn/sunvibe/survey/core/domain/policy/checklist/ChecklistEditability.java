@@ -10,7 +10,7 @@ import java.util.Optional;
  * Who may edit a draft (survey-checklist spec 4.4, BR-12, BR-14): a DRAFT on the lead's current visit of its own intent
  * cycle, the lead in SURVEY_SCHEDULED, the viewer the lead's assignee and the holder, the assignee eligible. The
  * reasons are checked in this order; a SCHEDULED re-survey does not lock the draft, because the VISITED appointment
- * stays the current visit (spec 4.3).
+ * stays the current visit (survey-checklist spec 4.3).
  */
 public final class ChecklistEditability {
 

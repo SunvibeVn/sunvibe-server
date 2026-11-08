@@ -212,7 +212,7 @@ public class ChecklistRequestConverter {
                 content);
     }
 
-    /** spec A-12: the versions sent for the groups a G1 save may cascade into; a left-out group is absent. */
+    /** survey-checklist spec A-12: the versions sent for the groups a G1 save may cascade into; a left-out group is absent. */
     private static Map<ChecklistGroup, Long> otherVersions(ChecklistOtherGroupVersions versions) {
         Map<ChecklistGroup, Long> map = new EnumMap<>(ChecklistGroup.class);
         if (versions != null) {
@@ -428,7 +428,7 @@ public class ChecklistRequestConverter {
         return new SourcedField<>(state, value, naReason, source(source), confirmedOn, receivedByUserId, relayBasis);
     }
 
-    /** The domain source of a family enum: the family enums of spec 7.2 use the domain names. */
+    /** The domain source of a family enum: the family enums of survey-checklist spec 7.2 use the domain names. */
     private static ChecklistSource source(Enum<?> family) {
         return family == null ? null : ChecklistSource.valueOf(family.name());
     }

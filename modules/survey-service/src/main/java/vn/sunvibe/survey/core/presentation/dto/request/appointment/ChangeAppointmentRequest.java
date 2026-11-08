@@ -13,7 +13,7 @@ import java.util.Optional;
 /**
  * DTO - ChangeAppointmentRequest (Record)
  * <p>
- * Change a scheduled appointment (survey-schedule US-2 AC-1, spec A-4): the full new value of every editable field and
+ * Change a scheduled appointment (survey-schedule US-2 AC-1, survey-schedule spec A-4): the full new value of every editable field and
  * a reason. Every key must be present; access note and on-site contact may be null to clear them (a missing key is
  * 400 on that key). Changing start, duration or place removes the owner's confirmation.
  */

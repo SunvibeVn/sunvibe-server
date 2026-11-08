@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 /**
  * Writes audit events on one thread and one connection of its own (auth-email-access spec 5.4). A request only puts its
  * event in a bounded queue, so it never takes a second connection and the event survives the rollback of the request.
- * What is queued when the process crashes is lost (spec 2.4 item 7); {@link #close()} drains the queue on a normal stop.
+ * What is queued when the process crashes is lost (auth-email-access spec 2.4 item 7); {@link #close()} drains the queue on a normal stop.
  */
 @Log4j2
 @Component

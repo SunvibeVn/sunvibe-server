@@ -44,7 +44,7 @@ public interface SurveyAppointmentDomainRepository {
 
     /**
      * The scheduled appointments of the surveyor whose time overlaps [start, end), oldest start first; touching
-     * intervals do not overlap (survey-schedule US-1 AC-4, spec A-10).
+     * intervals do not overlap (survey-schedule US-1 AC-4, survey-schedule spec A-10).
      */
     List<SurveyAppointment> findOverlapping(String surveyorUserId, Instant start, Instant end,
                                             Optional<SurveyAppointmentId> excludeOrEmpty);

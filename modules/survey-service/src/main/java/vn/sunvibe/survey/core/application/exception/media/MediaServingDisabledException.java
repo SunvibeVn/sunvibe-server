@@ -11,7 +11,7 @@ public class MediaServingDisabledException extends RuntimeException {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    /** spec A-24: serving comes back with a restart; the client tries again a few minutes later. */
+    /** survey-media spec A-24: serving comes back with a restart; the client tries again a few minutes later. */
     public static final long RETRY_AFTER_SECONDS = 300;
 
     public MediaServingDisabledException() {

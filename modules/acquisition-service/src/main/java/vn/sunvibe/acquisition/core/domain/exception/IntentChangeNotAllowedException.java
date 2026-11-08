@@ -6,7 +6,7 @@ import java.io.Serial;
 import java.util.List;
 
 /**
- * The lead's status does not allow a requirement change (survey-schedule US-5, spec 4.6): only an assigned, contacted,
+ * The lead's status does not allow a requirement change (survey-schedule US-5, survey-schedule spec 4.6): only an assigned, contacted,
  * held or survey-scheduled lead may change it. Carries the current status and the statuses that allow it. The message
  * holds statuses only, never lead data.
  */

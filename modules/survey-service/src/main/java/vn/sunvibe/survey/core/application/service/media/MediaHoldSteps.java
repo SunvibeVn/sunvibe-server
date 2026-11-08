@@ -96,7 +96,7 @@ public class MediaHoldSteps {
 
     /**
      * spec 5.4: the lead and checklist FOR SHARE, then the set rows of the photo's origin and of every revision that
-     * selects it, in id order (checklist submission spec 5.4), and the photo FOR UPDATE; no group row.
+     * selects it, in id order (survey-checklist submission spec 5.4), and the photo FOR UPDATE; no group row.
      */
     private AdminLocked lockForAdmin(SurveyViewer viewer, SurveyMediaId id) {
         String checklistId = media.findChecklistIdById(id).orElseThrow(MediaNotFoundException::new);

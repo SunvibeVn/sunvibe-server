@@ -5,7 +5,7 @@ import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueExceptio
 import java.util.Optional;
 
 /**
- * One page of the survey list (survey-schedule US-4, spec 7.1, A-11): the scope, an optional surveyor (only with
+ * One page of the survey list (survey-schedule US-4, survey-schedule spec 7.1, A-11): the scope, an optional surveyor (only with
  * {@code ALL}), a zero-based page and a size of 1..100.
  */
 public record SurveyListQuery(SurveyListScope scope, Optional<String> surveyorUserId, int page, int size) {

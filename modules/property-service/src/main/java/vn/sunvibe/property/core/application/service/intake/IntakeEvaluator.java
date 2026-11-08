@@ -105,7 +105,7 @@ public class IntakeEvaluator {
                 caseFacts, readings, forced, latestCompleted, ofLead, gate);
     }
 
-    /** The open rows of the lead whose source died: the next accepted command abandons them (spec 4.1). */
+    /** The open rows of the lead whose source died: the next accepted command abandons them (property-create intake spec 4.1). */
     public List<InventoryIntake> deadOpenRows(IntakeState state) {
         return state.rows().stream().filter(row -> row.getStatus().isOpen()
                 && !CurrentRowPolicy.sourceLive(row, state.sourceFacts())).toList();
@@ -121,7 +121,7 @@ public class IntakeEvaluator {
         return proof.isLive(binding, users.ownerStanding(proof.getUserId()).signInLosses());
     }
 
-    /** spec 4.10: an open row whose source and proof are live, as a competing intake must be. */
+    /** property-create intake spec 4.10: an open row whose source and proof are live, as a competing intake must be. */
     public boolean sideLive(InventoryIntake row) {
         return row.getStatus().isOpen() && proofs.findInForce(row.getId()).filter(this::isLiveNow).isPresent();
     }
@@ -138,7 +138,7 @@ public class IntakeEvaluator {
         return CurrentRowPolicy.sourceLive(row, facts) && proofLive(proof, row);
     }
 
-    /** The cases of a row on its scope, on either side of a pair (spec 4.10). */
+    /** The cases of a row on its scope, on either side of a pair (property-create intake spec 4.10). */
     public List<CaseFacts> caseFacts(InventoryIntake row) {
         String scope = row.scopeHash();
         List<CaseFacts> facts = new ArrayList<>();
@@ -171,7 +171,7 @@ public class IntakeEvaluator {
         return winner.completed() ? winner.resultPropertyIdOrNull() : null;
     }
 
-    /** A DECIDED case holds or forces only its waiting intake; for the other side it is over (spec 4.10). */
+    /** A DECIDED case holds or forces only its waiting intake; for the other side it is over (property-create intake spec 4.10). */
     public static Reading readingFor(String intakeId, CaseFacts facts) {
         Reading reading = CasePolicy.read(facts);
         boolean decided = facts.row().getStatus() == CaseStatus.DECIDED;
@@ -201,7 +201,7 @@ public class IntakeEvaluator {
                 lead.closed());
     }
 
-    /** spec 4.11: an unreleased suspension of the whole lead. */
+    /** property-create intake spec 4.11: an unreleased suspension of the whole lead. */
     public static boolean wholeLeadRestricted(List<IntakeSuspension> suspensions) {
         return suspensions.stream().anyMatch(item -> item.isActive() && item.onWholeLead());
     }

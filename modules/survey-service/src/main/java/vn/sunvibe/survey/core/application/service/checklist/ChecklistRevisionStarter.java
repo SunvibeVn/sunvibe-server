@@ -88,9 +88,9 @@ public class ChecklistRevisionStarter {
     }
 
     /**
-     * Start revision check order (spec 5.5): body (400) → visible (404, event) → assignee (403, event) → state (409
+     * Start revision check order (survey-checklist submission spec 5.5): body (400) → visible (404, event) → assignee (403, event) → state (409
      * CHECKLIST_NOT_ALLOWED on status) → a later revision (409 CHECKLIST_ALREADY_STARTED) → eligible (422) → intake
-     * needed or absent (400). Locks (spec 5.4): lead and previous revision FOR SHARE, the new rows, then the origin sets
+     * needed or absent (400). Locks (survey-checklist submission spec 5.4): lead and previous revision FOR SHARE, the new rows, then the origin sets
      * and photos. Groups keep content and per-unit metadata, so a copied value keeps who entered it (S-12).
      */
     ChecklistRevisionResult startRevision(SurveyViewer viewer, StartRevisionCommand command) {

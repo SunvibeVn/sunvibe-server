@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /**
- * The gaps known so far, computed on every read (survey-checklist spec 4.7, submission spec 4.4).
+ * The gaps known so far, computed on every read (survey-checklist spec 4.7, survey-checklist submission spec 4.4).
  */
 @Schema(description = "The gaps known so far, computed on every read")
 public record ChecklistReadiness(

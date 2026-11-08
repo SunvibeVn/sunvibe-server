@@ -18,10 +18,10 @@ import java.util.Map;
 
 /**
  * A checklist as a reader of its lead sees it (survey-checklist spec 7.2 {@code ChecklistResponse}): the checklist,
- * the lead's code and status, the lead's staff (only for a viewer who can edit, spec A-25), the visit, the viewer's
+ * the lead's code and status, the lead's staff (only for a viewer who can edit, survey-checklist spec A-25), the visit, the viewer's
  * editability, the seven groups as stored, the computed parts (address difference, readiness, effective terms, earlier
  * hazards), the owner's form, takeovers, corrections, editors, the latest change, one name map for every staff id the
- * answer holds and the review part (submission spec 7.2). Private survey data: never logged.
+ * answer holds and the review part (survey-checklist submission spec 7.2). Private survey data: never logged.
  */
 public record ChecklistView(SurveyChecklist checklist, String requestCode, String leadStatus, List<String> leadStaff,
                             SurveyAppointment visit, Editability editability, Map<ChecklistGroup, GroupState> groups,

@@ -37,7 +37,7 @@ public interface InventoryReadRepository {
 
     List<UnitFacts> units(Collection<String> unitIds);
 
-    /** Every property of a ward, whoever owns it: by {@code ward_code}, or by normalized name on a legacy row (spec 4.10). */
+    /** Every property of a ward, whoever owns it: by {@code ward_code}, or by normalized name on a legacy row (property-create intake spec 4.10). */
     List<PropertyFacts> propertiesOfWard(String wardCode, String normalizedWardName);
 
     /** The property with this code when {@code ownerId} owns it. */
@@ -48,7 +48,7 @@ public interface InventoryReadRepository {
 
     long ownedCount(String ownerId, String wardCodeOrNull, String qOrNull);
 
-    /** An OWNER ownership row of this user, valid today, on this property (spec 4.7; SV-034). */
+    /** An OWNER ownership row of this user, valid today, on this property (property-create intake spec 4.7; SV-034). */
     boolean ownsNow(String propertyId, String userId);
 
     /** The next number of an intake property code (A-3). */

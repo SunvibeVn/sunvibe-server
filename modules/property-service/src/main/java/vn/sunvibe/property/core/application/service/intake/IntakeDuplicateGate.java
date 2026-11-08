@@ -79,7 +79,7 @@ public class IntakeDuplicateGate {
     }
 
     /**
-     * A link whose place differs from the source's opens a case, because one asset can be typed two ways (spec 4.7).
+     * A link whose place differs from the source's opens a case, because one asset can be typed two ways (property-create intake spec 4.7).
      *
      * @return whether a case now holds the row in CASE_OPEN
      */
@@ -94,7 +94,7 @@ public class IntakeDuplicateGate {
                 PairKey.linkPlace(propertyId, row.getId(), scope), scope, null, CaseSignal.LINK_PLACE, now));
     }
 
-    /** spec 4.10: no row is no hit, because the other side may have just left; a stored row answers by how it reads now. */
+    /** property-create intake spec 4.10: no row is no hit, because the other side may have just left; a stored row answers by how it reads now. */
     private boolean answer(String intakeId, DuplicateCase fresh) {
         cases.insertIfAbsent(fresh);
         return cases.findLiveByPairKey(fresh.getPairKey()).map(stored -> holds(intakeId, stored)).orElse(false);

@@ -16,7 +16,7 @@ import java.util.Optional;
 public interface InventoryIntakeJpaRepository extends JpaRepository<InventoryIntakeEntity, String> {
 
     /**
-     * The row lock of an intake command (spec 5.3): native and scalar, because PESSIMISTIC_WRITE takes FOR UPDATE, which
+     * The row lock of an intake command (property-create intake spec 5.3): native and scalar, because PESSIMISTIC_WRITE takes FOR UPDATE, which
      * blocks the key-share lock of an FK insert, and an entity could outlive the lock with an old state.
      */
     @Query(value = "select id from inventory_intakes where id = :id for no key update", nativeQuery = true)

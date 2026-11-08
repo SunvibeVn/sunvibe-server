@@ -1,6 +1,6 @@
 package vn.sunvibe.survey.core.domain.model.appointment;
 
-/** Why an appointment is unconfirmed (survey-schedule US-1 AC-5, spec A-28); a later cause replaces an earlier one. */
+/** Why an appointment is unconfirmed (survey-schedule US-1 AC-5, survey-schedule spec A-28); a later cause replaces an earlier one. */
 public enum ConfirmationCause {
     /** Booked without the owner's confirmation. */
     NEW,

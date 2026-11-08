@@ -4,7 +4,7 @@ import java.time.Instant;
 
 /**
  * The application clock of survey-media (plan Global Constraints: {@code AppClock}, truncated to microseconds as the
- * TIMESTAMPTZ columns store it), as a seam the clean-up and outage tests can move (spec A-15).
+ * TIMESTAMPTZ columns store it), as a seam the clean-up and outage tests can move (survey-media spec A-15).
  */
 @FunctionalInterface
 public interface MediaClock {

@@ -8,7 +8,7 @@ import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistEvidenc
 
 import java.util.List;
 
-/** survey-media spec 4.7, BR-8, checklist submission spec I-5: a photo in any submission's frozen set is referenced. */
+/** survey-media spec 4.7, BR-8, survey-checklist submission spec I-5: a photo in any submission's frozen set is referenced. */
 @Component
 @RequiredArgsConstructor
 public class ChecklistEvidenceReferences implements EvidenceReferencePort {

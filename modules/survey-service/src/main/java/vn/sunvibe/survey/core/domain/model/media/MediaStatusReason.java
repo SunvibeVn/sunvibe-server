@@ -16,7 +16,7 @@ public enum MediaStatusReason {
     TOO_MANY_PIXELS,
     /** REJECTED: the malware scan found something (survey-media spec 4.5). */
     MALWARE_DETECTED,
-    /** REJECTED: the scanner answered with a limit or error for this file three times (spec A-7, A-27). */
+    /** REJECTED: the scanner answered with a limit or error for this file three times (survey-media spec A-7, A-27). */
     SCAN_LIMIT_EXCEEDED,
     /** FAILED: processing could not complete in time or attempts (survey-media spec A-7). */
     PROCESSING_UNAVAILABLE,

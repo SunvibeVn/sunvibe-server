@@ -3,7 +3,7 @@ package vn.sunvibe.survey.core.domain.model.appointment;
 import java.time.Instant;
 
 /**
- * The visit of an appointment (survey-schedule US-3 AC-1, AC-1a, spec 5.2): own or proxy record, who reached the
+ * The visit of an appointment (survey-schedule US-3 AC-1, AC-1a, survey-schedule spec 5.2): own or proxy record, who reached the
  * property and when, the revision in force then, the note, who entered it and when the server stored it, and for a
  * proxy record its reason and basis. Staff text: never logged.
  */

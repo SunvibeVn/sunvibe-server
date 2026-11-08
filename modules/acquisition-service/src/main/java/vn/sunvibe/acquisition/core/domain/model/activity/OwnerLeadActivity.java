@@ -12,7 +12,7 @@ import java.util.Set;
 /**
  * One entry in the history of an owner lead: what happened, who did it (empty for the system) and when. The id is a
  * Snowflake number given by the caller. Entries of survey and requirement commands carry no text, only the reference
- * of the survey appointment they concern (survey-schedule BR-8, spec 4.9). Entries of survey checklists reference
+ * of the survey appointment they concern (survey-schedule BR-8, survey-schedule spec 4.9). Entries of survey checklists reference
  * the checklist and, for a save, the group as the reference detail (survey-checklist BR-15, spec A-13); a review keeps
  * its outcome and kind there, with the lead's move (survey-checklist submission spec 4.9).
  */

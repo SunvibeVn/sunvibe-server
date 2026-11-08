@@ -40,7 +40,7 @@ public final class CurrentRowPolicy {
                            boolean waiting) {
     }
 
-    /** spec 4.1: the current unmarked PASSED, not EVIDENCE_GONE, in the lead's current cycle, on an open lead. */
+    /** property-create intake spec 4.1: the current unmarked PASSED, not EVIDENCE_GONE, in the lead's current cycle, on an open lead. */
     public static boolean sourceLive(InventoryIntake row, SourceFacts facts) {
         return !facts.leadClosed() && !facts.evidenceGone() && row.getIntentCycle() == facts.leadCycle()
                 && Objects.equals(row.getSourceChecklistId(), facts.currentPassedIdOrNull());
@@ -65,7 +65,7 @@ public final class CurrentRowPolicy {
                 .max(Comparator.comparingInt(InventoryIntake::getIntakeNo));
     }
 
-    /** First match wins (spec 4.1); empty reads as none. */
+    /** First match wins (property-create intake spec 4.1); empty reads as none. */
     public static Optional<IntakeStatus> effectiveStatus(IntakeStatus stored, RowFacts facts) {
         if (!stored.isOpen()) {
             return Optional.of(stored);
@@ -94,7 +94,7 @@ public final class CurrentRowPolicy {
         return stored != IntakeStatus.DRAFT && effective == IntakeStatus.DRAFT;
     }
 
-    /** spec 4.1: expectedVersion is null only with no current row, and a value then, or null on a row, is stale. */
+    /** property-create intake spec 4.1: expectedVersion is null only with no current row, and a value then, or null on a row, is stale. */
     public static boolean versionMatches(Long expected, Long rowVersionOrNull) {
         return Objects.equals(expected, rowVersionOrNull);
     }

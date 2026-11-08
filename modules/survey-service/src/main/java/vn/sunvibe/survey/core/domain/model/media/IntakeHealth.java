@@ -14,7 +14,7 @@ public record IntakeHealth(long failureSeq, long stateEpoch, Instant lastSweepOk
                            Instant lastFailureAt, Instant lastWorkerBeatAt, Instant lastDeletionBeatAt,
                            Instant scanBlockedSince, Instant intakePausedSince, PauseReason pauseReason) {
 
-    /** spec A-18: intake pauses when the last complete sweep is older than this (the sweeper runs every 5 minutes). */
+    /** survey-media spec A-18: intake pauses when the last complete sweep is older than this (the sweeper runs every 5 minutes). */
     public static final Duration SWEEP_STALE_AFTER = Duration.ofMinutes(10);
 
     public IntakeHealth {
@@ -42,7 +42,7 @@ public record IntakeHealth(long failureSeq, long stateEpoch, Instant lastSweepOk
     }
 
     /**
-     * A failing path (spec A-18): {@code failureSeq + 1} and the failure time; with a reason, a pause that keeps the
+     * A failing path (survey-media spec A-18): {@code failureSeq + 1} and the failure time; with a reason, a pause that keeps the
      * first pause time and reason and bumps {@code stateEpoch} only when intake was open.
      */
     public IntakeHealth failure(PauseReason pauseOrNull, Instant now) {
@@ -56,7 +56,7 @@ public record IntakeHealth(long failureSeq, long stateEpoch, Instant lastSweepOk
     }
 
     /**
-     * The resume of a complete sweep (spec A-18): only when paused and no failure happened since {@code seqAtStart};
+     * The resume of a complete sweep (survey-media spec A-18): only when paused and no failure happened since {@code seqAtStart};
      * otherwise this row, unchanged.
      */
     public IntakeHealth resumed(long seqAtStart, Instant now) {

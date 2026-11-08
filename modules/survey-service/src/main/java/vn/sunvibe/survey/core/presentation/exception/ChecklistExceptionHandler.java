@@ -69,7 +69,7 @@ final class ChecklistExceptionHandler {
         return conflict(ErrorCode.CHECKLIST_READ_ONLY, e.getMessage());
     }
 
-    /** Gate S2 (submission spec 7.3): uploads or submission are off. */
+    /** Gate S2 (survey-checklist submission spec 7.3): uploads or submission are off. */
     static ResponseEntity<ErrorResponse<ValidationError>> handleSubmissionNotAvailable(
             ChecklistSubmissionNotAvailableException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(
@@ -77,21 +77,21 @@ final class ChecklistExceptionHandler {
                 List.of(ValidationError.of("submission", SUBMISSION_NOT_AVAILABLE_MESSAGE))));
     }
 
-    /** Gates S3..S7 (submission spec 7.3): one entry per failing gate; the read shows the details. */
+    /** Gates S3..S7 (survey-checklist submission spec 7.3): one entry per failing gate; the read shows the details. */
     static ResponseEntity<ErrorResponse<ValidationError>> handleNotReady(ChecklistNotReadyException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(ErrorCode.CHECKLIST_NOT_READY,
                 NOT_READY_MESSAGE, e.fields().stream().map(field -> ValidationError.of(field, NOT_READY_MESSAGE))
                         .toList()));
     }
 
-    /** submission spec 7.3: the caller is in the excluded set, or cannot sign in. */
+    /** survey-checklist submission spec 7.3: the caller is in the excluded set, or cannot sign in. */
     static ResponseEntity<ErrorResponse<ValidationError>> handleReviewNotAllowed(ChecklistReviewNotAllowedException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ErrorResponse.of(
                 ErrorCode.CHECKLIST_REVIEW_NOT_ALLOWED, REVIEW_NOT_ALLOWED_MESSAGE,
                 List.of(ValidationError.of("reviewer", REVIEW_NOT_ALLOWED_MESSAGE))));
     }
 
-    /** submission spec 7.3: one entry per failed rule; the read shows which PASSED rules fail now. */
+    /** survey-checklist submission spec 7.3: one entry per failed rule; the read shows which PASSED rules fail now. */
     static ResponseEntity<ErrorResponse<ValidationError>> handleDecisionNotAllowed(
             ChecklistDecisionNotAllowedException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.of(

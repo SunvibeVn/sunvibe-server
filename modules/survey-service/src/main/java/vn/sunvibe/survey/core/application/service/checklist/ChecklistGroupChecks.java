@@ -137,7 +137,7 @@ public class ChecklistGroupChecks {
         var earlierGroups = groups.findAllOf(earlier.stream().map(SurveyChecklist::getId).toList());
         Map<String, SurveyChecklist> byChecklistId = new HashMap<>();
         earlier.forEach(other -> byChecklistId.put(other.getId().getValue(), other));
-        // submission spec 4.6: a revision of the same visit is the same hazard, so no link may name it
+        // survey-checklist submission spec 4.6: a revision of the same visit is the same hazard, so no link may name it
         for (ChecklistHazards other : EarlierHazardChain.linkTargets(earlier.stream()
                         .map(revision -> ChecklistViewAssembler.hazards(revision, earlierGroups.get(revision.getId())))
                         .toList(), checklist.getVisitAppointmentId().getValue())) {

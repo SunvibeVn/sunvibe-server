@@ -10,7 +10,7 @@ import vn.sunvibe.survey.core.infrastructure.config.MediaProperties;
 import vn.sunvibe.survey.core.infrastructure.config.MediaScheduling;
 
 /**
- * Puts the content deletion job on the media scheduler (survey-media plan PD-4, spec 4.7): unless every adapter is
+ * Puts the content deletion job on the media scheduler (survey-media plan PD-4, survey-media spec 4.7): unless every adapter is
  * {@code none}, whatever processing says, so deletions go on while processing is off.
  */
 @Component

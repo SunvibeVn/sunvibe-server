@@ -21,14 +21,14 @@ public final class ReadBudgetArithmetic {
         return now.truncatedTo(ChronoUnit.HOURS);
     }
 
-    /** spec A-26: the limit this hour still allows, given the previous hour's count. */
+    /** survey-media spec A-26: the limit this hour still allows, given the previous hour's count. */
     public static long effectiveLimit(long budget, long previousHourCount, Instant now) {
         long elapsedMillis = Duration.between(hourStart(now), now).toMillis();
         long carried = Math.multiplyExact(previousHourCount, HOUR_MILLIS - elapsedMillis) / HOUR_MILLIS;
         return budget - carried;
     }
 
-    /** spec A-26: {@code effectiveLimit ≤ 0} refuses without counting. */
+    /** survey-media spec A-26: {@code effectiveLimit ≤ 0} refuses without counting. */
     public static boolean refusesWithoutCounting(long effectiveLimit) {
         return effectiveLimit <= 0;
     }

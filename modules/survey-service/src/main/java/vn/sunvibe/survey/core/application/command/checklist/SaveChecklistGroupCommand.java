@@ -8,7 +8,7 @@ import java.util.Map;
 
 /**
  * Save one group of a draft (survey-checklist spec 7.1): the group version read, for a G1 save the versions of the
- * other groups it changes (spec A-12; empty for other groups), the correction or null, and the whole group content.
+ * other groups it changes (survey-checklist spec A-12; empty for other groups), the correction or null, and the whole group content.
  * A null version is refused as a missing value.
  */
 public record SaveChecklistGroupCommand(String checklistId, ChecklistGroup group, Long expectedVersion,

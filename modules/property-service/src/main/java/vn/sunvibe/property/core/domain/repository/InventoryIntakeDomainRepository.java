@@ -29,10 +29,10 @@ public interface InventoryIntakeDomainRepository {
 
     List<InventoryIntake> findByLeadId(String leadId);
 
-    /** The COMPLETED rows whose result is this property: a winner of a case can name it that way (spec 4.11). */
+    /** The COMPLETED rows whose result is this property: a winner of a case can name it that way (property-create intake spec 4.11). */
     List<InventoryIntake> findCompletedByResult(String propertyId);
 
-    /** The open rows of a ward: the competing intakes of the signal (spec 4.10). */
+    /** The open rows of a ward: the competing intakes of the signal (property-create intake spec 4.10). */
     List<InventoryIntake> findOpenOfWard(String wardCode);
 
     /** The highest number of the lead plus one; only under the lead lock is it safe to use. */

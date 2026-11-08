@@ -43,12 +43,12 @@ public interface LeadIntakeUseCase {
 
     /**
      * The facts of these leads with no viewer, in one read each kind. Only for what no staff member asks directly: the owner
-     * commands, the manager's owner check and the duplicate signal, whose candidates a SALE's own view hides (spec 4.10).
+     * commands, the manager's owner check and the duplicate signal, whose candidates a SALE's own view hides (property-create intake spec 4.10).
      * Only inside the caller's transaction; an unknown or malformed id is absent.
      */
     Map<String, LeadIntakeFacts> systemFacts(Collection<String> leadIds);
 
-    /** The other open leads of this lead's phone, leaving out those the viewer cannot see (spec 5.1, US-3 AC-2). */
+    /** The other open leads of this lead's phone, leaving out those the viewer cannot see (property-create intake spec 5.1, US-3 AC-2). */
     List<String> otherOpenLeadIdsOfPhone(String leadId, SurveyLeadViewer viewer);
 
     /**

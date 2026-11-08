@@ -13,7 +13,7 @@ public final class MediaViewerRights {
     }
 
     /**
-     * spec 7.2: uploads on, intake not paused and the viewer could create now: the holder who is the lead's eligible
+     * survey-media spec 7.2: uploads on, intake not paused and the viewer could create now: the holder who is the lead's eligible
      * assignee on an editable checklist (the checklist's editability for this viewer already says all three).
      */
     public static boolean uploadEnabled(boolean uploadsOn, IntakeHealth health, Editability editabilityForViewer) {

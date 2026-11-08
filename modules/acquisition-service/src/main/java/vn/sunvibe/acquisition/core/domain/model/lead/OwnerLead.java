@@ -301,7 +301,7 @@ public final class OwnerLead {
      * CONTACTED, a contacted or held lead keeps its status. The submission snapshot never changes. The caller checks
      * the request values first ({@link #checkIntentChangeValues}); here the status is checked before the values that
      * need the lead (survey-schedule spec 5.5): the new intent differs from the current one and the basis is not
-     * before the lead's creation date (spec A-25).
+     * before the lead's creation date (survey-schedule spec A-25).
      *
      * @throws IntentChangeNotAllowedException the lead's status does not allow a requirement change
      * @throws InvalidLeadCommandException     field {@code newIntent}, {@code askingPrice.unit}, {@code basis} or
@@ -340,7 +340,7 @@ public final class OwnerLead {
     }
 
     /**
-     * The value rules of {@link #changeIntent} that need no lead (survey-schedule US-5 AC-1..AC-3, spec A-14, A-17,
+     * The value rules of {@link #changeIntent} that need no lead (survey-schedule US-5 AC-1..AC-3, survey-schedule spec A-14, A-17,
      * A-25): a rental intent, a price in its unit (or none), a reason of 1..500 characters and a basis whose date is
      * not after today and whose text has 1..500 characters; neither text may hold a phone number.
      *

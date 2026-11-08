@@ -21,8 +21,8 @@ public interface SurveyChecklistCommandUseCase {
     ChecklistTakeoverResult takeOver(SurveyViewer viewer, TakeOverChecklistCommand command);
 
     /**
-     * Save one group (survey-checklist US-1, BR-14, BR-15, BR-21..BR-24, spec 5.5 steps 1..10): a content equal to the
-     * stored one is a no-op answer (spec A-17); a G1 save cascades into the groups it changes (spec A-12).
+     * Save one group (survey-checklist US-1, BR-14, BR-15, BR-21..BR-24, survey-checklist spec 5.5 steps 1..10): a content equal to the
+     * stored one is a no-op answer (survey-checklist spec A-17); a G1 save cascades into the groups it changes (survey-checklist spec A-12).
      */
     ChecklistView save(SurveyViewer viewer, SaveChecklistGroupCommand command);
 }

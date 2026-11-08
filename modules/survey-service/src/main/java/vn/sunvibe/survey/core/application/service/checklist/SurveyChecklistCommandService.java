@@ -69,7 +69,7 @@ import java.util.Optional;
 /**
  * Use Case Implementation - checklist commands (survey-checklist spec 4.5, 4.8, 5.5). Each command is one transaction:
  * the body is checked first, then the lead id by a scalar query and the lead row under a share lock, the caller and the
- * states in the order of spec 5.5, then the survey rows, the access log and, last, the lead History entry, which is an
+ * states in the order of survey-checklist spec 5.5, then the survey rows, the access log and, last, the lead History entry, which is an
  * activity row only: the lead's version and status never change. The answer is assembled after the writes. A save
  * runs through {@link ChecklistGroupWriter}, and its checks through {@link ChecklistGroupChecks}.
  */
@@ -142,7 +142,7 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         if (lead.status() != LeadStatus.SURVEY_SCHEDULED) {
             throw new ChecklistNotAllowedException("status", List.of(LeadStatus.SURVEY_SCHEDULED.name()));
         }
-        // submission spec 4.6: a visit gets its first revision here; every later one comes from "start revision"
+        // survey-checklist submission spec 4.6: a visit gets its first revision here; every later one comes from "start revision"
         List<SurveyChecklist> ofLead = checklists.findByLeadId(lead.leadId());
         if (ofLead.stream().anyMatch(checklist -> checklist.getVisitAppointmentId().equals(appointment.getId()))) {
             throw new ChecklistAlreadyStartedException(null);
@@ -164,7 +164,7 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         }
         ChecklistInputs.throwIfAny(violations);
 
-        // submission spec A-2: the revision links the last submitted one of the cycle, of an earlier visit
+        // survey-checklist submission spec A-2: the revision links the last submitted one of the cycle, of an earlier visit
         SurveyChecklistId previous = ofLead.stream().filter(earlier -> earlier.getSubmittedAt() != null
                         && earlier.getIntentCycle() == lead.intentCycle())
                 .max(Comparator.comparingInt(SurveyChecklist::getChecklistNo)).map(SurveyChecklist::getId)
@@ -224,7 +224,7 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
             // spec 5.5: a concurrent takeover changed the row first; answered on the version the caller sent
             throw new SurveyConcurrentModificationException("expectedVersion");
         }
-        // survey-media spec 4.8, A-22: in this transaction, after the checklist update (spec 5.4)
+        // survey-media spec 4.8, A-22: in this transaction, after the checklist update (survey-media spec 5.4)
         mediaCascade.endOpenUploads(checklist.getId().getValue(), previousHolder, now);
         Map<ChecklistGroup, GroupState> before = groups.findAll(checklist.getId());
         takeovers.save(new ChecklistTakeoverRow(snowflakes.generateId(), checklist.getId(),

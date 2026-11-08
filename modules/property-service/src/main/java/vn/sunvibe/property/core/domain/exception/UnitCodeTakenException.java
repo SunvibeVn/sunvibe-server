@@ -1,7 +1,7 @@
 package vn.sunvibe.property.core.domain.exception;
 
 /**
- * A unit code the property already has, ignoring case and surrounding spaces (property-create intake BR-8, spec 5.1). The
+ * A unit code the property already has, ignoring case and surrounding spaces (property-create intake BR-8, property-create intake spec 5.1). The
  * code is not in the message: it can come from a survey.
  */
 public class UnitCodeTakenException extends RuntimeException {

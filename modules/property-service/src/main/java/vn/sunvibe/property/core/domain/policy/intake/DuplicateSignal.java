@@ -44,7 +44,7 @@ public final class DuplicateSignal {
         return Optional.empty();
     }
 
-    /** Whether two places are one place, for the check of a link (spec 4.7). */
+    /** Whether two places are one place, for the check of a link (property-create intake spec 4.7). */
     public static boolean samePlace(Place first, Place second) {
         return placeSignal(first, second).isPresent();
     }

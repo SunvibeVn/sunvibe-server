@@ -8,7 +8,7 @@ import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import java.time.Instant;
 
 /**
- * Record that someone reached the property (survey-schedule US-3 AC-1, AC-1a; spec A-8): the whole-minute arrival,
+ * Record that someone reached the property (survey-schedule US-3 AC-1, AC-1a; survey-schedule spec A-8): the whole-minute arrival,
  * a note of 1..2000 characters, who went and, for a proxy record, the reason and basis.
  */
 public record RecordVisitCommand(String appointmentId, long expectedLeadVersion, long expectedAppointmentVersion,

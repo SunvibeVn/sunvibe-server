@@ -13,7 +13,7 @@ public enum ChecklistSource {
     ESTIMATED(SourceKind.ON_SITE),
     /** Said by the owner, with the date and the staff member who heard it. */
     OWNER_STATED(SourceKind.OWNER_STATED),
-    /** Held by the owner's own web submission (three fields only, spec A-18). */
+    /** Held by the owner's own web submission (three fields only, survey-checklist spec A-18). */
     OWNER_FORM(SourceKind.OWNER_FORM);
 
     private final SourceKind kind;

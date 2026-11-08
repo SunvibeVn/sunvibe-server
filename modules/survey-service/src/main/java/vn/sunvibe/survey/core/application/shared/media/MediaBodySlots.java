@@ -26,7 +26,7 @@ import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaBodySlotDomainR
 @Component
 public class MediaBodySlots {
 
-    /** spec A-3: a slot row expires 11 minutes after it was taken (the 10-minute body deadline and a margin). */
+    /** survey-media spec A-3: a slot row expires 11 minutes after it was taken (the 10-minute body deadline and a margin). */
     public static final Duration SLOT_LIFETIME = Duration.ofMinutes(11);
     /** The wait a refused upload is told; a body slot frees within seconds for photos of usual size. */
     public static final long RETRY_AFTER_SECONDS = 10;

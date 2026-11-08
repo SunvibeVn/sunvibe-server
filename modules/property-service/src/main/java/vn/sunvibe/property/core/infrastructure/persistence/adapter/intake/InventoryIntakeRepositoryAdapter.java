@@ -18,7 +18,7 @@ import java.util.Optional;
 
 /**
  * Repository Implementation - intake rows. No entity stays managed: open-in-view keeps a persistence context for the whole
- * request, and a managed row would answer with its old state after a lock (spec 3, 5.3), so every read and write detaches.
+ * request, and a managed row would answer with its old state after a lock (property-create intake spec 3, 5.3), so every read and write detaches.
  */
 @Service
 @RequiredArgsConstructor

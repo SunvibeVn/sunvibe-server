@@ -42,10 +42,10 @@ import java.util.function.Function;
  * The preview lists, computed from the stored groups on every read (survey-checklist spec 4.7, US-2 AC-1, AC-2, AC-4,
  * BR-11, BR-17, BR-18, E-1). Every group is read as GET shows it ({@link InputForm#ofStored}), so a space without
  * entries lists each needed field. Missing items are in group order, then space order; a field of the direct-check
- * catalogue (spec A-28) counts only when checked on site. Nothing here blocks a save. Evidence comes last: while the
+ * catalogue (survey-checklist spec A-28) counts only when checked on site. Nothing here blocks a save. Evidence comes last: while the
  * checklist's photos are available (survey-media spec A-1, 4.6) one item per required (placement, category) pair that
  * is not COVERED, from the same coverage as the media list, and one per selected photo that is held or lost its content
- * (submission spec 4.4); otherwise the single EVIDENCE_PENDING.
+ * (survey-checklist submission spec 4.4); otherwise the single EVIDENCE_PENDING.
  */
 public final class ReadinessCalculator {
 
@@ -60,7 +60,7 @@ public final class ReadinessCalculator {
 
     /**
      * @param photosOrNull every photo row of the checklist read with the groups (survey-media spec 5.4), or null when
-     *                     the checklist's photos are not available (uploads never on and no media-set row, spec A-1)
+     *                     the checklist's photos are not available (uploads never on and no media-set row, survey-media spec A-1)
      */
     public static Readiness of(Map<ChecklistGroup, GroupDocument> groups, LocationDifference difference,
                                List<EarlierHazard> earlier, Collection<SurveyMedia> photosOrNull) {

@@ -9,7 +9,7 @@ import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import java.time.Instant;
 
 /**
- * Change a scheduled appointment (survey-schedule US-2 AC-1, spec A-4): the full new value of every editable field and
+ * Change a scheduled appointment (survey-schedule US-2 AC-1, survey-schedule spec A-4): the full new value of every editable field and
  * a reason; optional texts may be null to clear them. Checked and cleaned here, before any lookup.
  */
 public record ChangeAppointmentCommand(String appointmentId, long expectedLeadVersion,

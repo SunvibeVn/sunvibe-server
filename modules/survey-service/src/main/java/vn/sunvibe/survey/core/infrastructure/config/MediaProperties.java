@@ -19,11 +19,11 @@ import java.time.Duration;
 @Setter
 public class MediaProperties {
 
-    /** spec A-1: the owner's go-live switch; off in every committed profile. */
+    /** survey-media spec A-1: the owner's go-live switch; off in every committed profile. */
     private boolean uploadEnabled = false;
-    /** spec A-1: off stops the worker without stopping reads and pauses intake. */
+    /** survey-media spec A-1: off stops the worker without stopping reads and pauses intake. */
     private boolean processingEnabled = true;
-    /** spec A-24: the serving kill switch of content GETs. */
+    /** survey-media spec A-24: the serving kill switch of content GETs. */
     private boolean servingEnabled = true;
     private StoreKind store = StoreKind.NONE;
     private final Local local = new Local();
@@ -43,16 +43,16 @@ public class MediaProperties {
     private final Budgets budgets = new Budgets();
     private final Bodies bodies = new Bodies();
     private final Housekeeping housekeeping = new Housekeeping();
-    /** spec 5.1: the operator sets it for one start after a database restore (the restore runbook). */
+    /** survey-media spec 5.1: the operator sets it for one start after a database restore (the restore runbook). */
     private boolean reconcileAfterRestore = false;
 
     /** The object store adapter. */
     public enum StoreKind {
         /** No store: no photo can exist. */
         NONE,
-        /** A local directory; dev, test and lan only (spec A-1). */
+        /** A local directory; dev, test and lan only (survey-media spec A-1). */
         LOCAL,
-        /** The S3-compatible adapter used for Cloudflare R2 (spec 4.12). */
+        /** The S3-compatible adapter used for Cloudflare R2 (survey-media spec 4.12). */
         S3
     }
 
@@ -62,7 +62,7 @@ public class MediaProperties {
         NONE,
         /** ClamAV {@code clamd} over TCP or a Unix socket. */
         CLAMAV,
-        /** The in-memory stub; dev, test and lan only (spec A-1). */
+        /** The in-memory stub; dev, test and lan only (survey-media spec A-1). */
         STUB
     }
 
@@ -109,7 +109,7 @@ public class MediaProperties {
     @Setter
     public static class Processor {
         private ProcessorKind kind = ProcessorKind.NONE;
-        /** spec A-28: the processing image digest, or dev-&lt;libvips version&gt;; stored on every variant. */
+        /** survey-media spec A-28: the processing image digest, or dev-&lt;libvips version&gt;; stored on every variant. */
         private String version;
         private String host;
         private int port;
@@ -117,7 +117,7 @@ public class MediaProperties {
         private String socket;
     }
 
-    /** spec 4.4 step 4, A-18: the sweep and the probe poll of this instance. */
+    /** survey-media spec 4.4 step 4, A-18: the sweep and the probe poll of this instance. */
     @Getter
     @Setter
     public static class Housekeeping {
@@ -137,11 +137,11 @@ public class MediaProperties {
     @Setter
     public static class Worker {
         private Duration pollInterval = Duration.ofSeconds(5);
-        /** spec 5.1: concurrent processing runs of this instance. */
+        /** survey-media spec 5.1: concurrent processing runs of this instance. */
         private int concurrency = 2;
     }
 
-    /** spec A-25: content GET concurrency and stream limits. */
+    /** survey-media spec A-25: content GET concurrency and stream limits. */
     @Getter
     @Setter
     public static class Reads {
@@ -155,7 +155,7 @@ public class MediaProperties {
         private Duration acquisitionTimeout = Duration.ofSeconds(2);
     }
 
-    /** spec A-26: per-user hourly read budgets. */
+    /** survey-media spec A-26: per-user hourly read budgets. */
     @Getter
     @Setter
     public static class Budgets {
@@ -165,7 +165,7 @@ public class MediaProperties {
         private int list = 1200;
     }
 
-    /** spec A-3: content bodies at once. */
+    /** survey-media spec A-3: content bodies at once. */
     @Getter
     @Setter
     public static class Bodies {

@@ -23,10 +23,10 @@ public interface OwnerProofDomainRepository {
 
     List<OwnerProof> findByLeadId(String leadId);
 
-    /** Every proof of the account, for the signals of the owner check (spec 7.1). */
+    /** Every proof of the account, for the signals of the owner check (property-create intake spec 7.1). */
     List<OwnerProof> findByUserId(String userId);
 
-    /** Every proof whose request this user created (spec 7.1). */
+    /** Every proof whose request this user created (property-create intake spec 7.1). */
     List<OwnerProof> findByRequestCreator(String creatorUserId);
 
     /**

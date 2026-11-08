@@ -11,7 +11,7 @@ public enum SourceFamily {
     AREA(EnumSet.of(ChecklistSource.MEASURED, ChecklistSource.ESTIMATED, ChecklistSource.OWNER_STATED)),
     /** floors, rooms, bathrooms, shared bathroom use: seen on site, owner said. */
     COUNT(EnumSet.of(ChecklistSource.OBSERVED_ON_SITE, ChecklistSource.OWNER_STATED)),
-    /** dates and rental terms: seen on site, owner said, owner's form (only where spec A-18 allows it). */
+    /** dates and rental terms: seen on site, owner said, owner's form (only where survey-checklist spec A-18 allows it). */
     TERMS(EnumSet.of(ChecklistSource.OBSERVED_ON_SITE, ChecklistSource.OWNER_STATED, ChecklistSource.OWNER_FORM)),
     /** furnishing and amenity items: seen on site, owner said. */
     AMENITY(EnumSet.of(ChecklistSource.OBSERVED_ON_SITE, ChecklistSource.OWNER_STATED));

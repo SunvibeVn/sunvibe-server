@@ -61,7 +61,7 @@ public enum OwnerLeadActivityType {
     REQUALIFICATION_MARKED,
     /** An inventory intake of the lead completed (property-create intake spec 4.12). */
     INVENTORY_INTAKE_COMPLETED,
-    /** Use of the lead's inventory was suspended, by a manager or by the owner's withdrawal (intake spec 4.12). */
+    /** Use of the lead's inventory was suspended, by a manager or by the owner's withdrawal (property-create intake spec 4.12). */
     INVENTORY_INTAKE_SUSPENDED,
     /** A suspension was released, or a result restored on a new proof (property-create intake spec 4.12). */
     INVENTORY_INTAKE_RESTORED

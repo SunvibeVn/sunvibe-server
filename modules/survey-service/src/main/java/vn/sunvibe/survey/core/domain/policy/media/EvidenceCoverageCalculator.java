@@ -64,7 +64,7 @@ public final class EvidenceCoverageCalculator {
     private static CoveragePair sharedPair(EvidenceCategory category, Field<AreaCheck> g4Field, boolean evaluated,
                                            Collection<SurveyMedia> photos) {
         if (!evaluated) {
-            // spec 4.6: without spaces only EXTERIOR_ACCESS is evaluated (plan ruling: listed, not required)
+            // survey-media spec 4.6: without spaces only EXTERIOR_ACCESS is evaluated (plan ruling: listed, not required)
             return notRequired(null, category, naReason(g4Field), photos);
         }
         return exemptable(null, category, g4Field, photos);
@@ -97,12 +97,12 @@ public final class EvidenceCoverageCalculator {
                 processingCount(spaceId, category, photos), CoverageState.OPTIONAL);
     }
 
-    /** spec 4.2: usable = servable; it counts for its own placement and category only. */
+    /** survey-media spec 4.2: usable = servable; it counts for its own placement and category only. */
     private static int readyCount(String spaceId, EvidenceCategory category, Collection<SurveyMedia> photos) {
         return (int) photos.stream().filter(p -> on(p, spaceId, category) && p.isServable()).count();
     }
 
-    /** spec 4.6, A-23: selected PROCESSING photos that are not held; uploads still streaming do not count. */
+    /** survey-media spec 4.6, A-23: selected PROCESSING photos that are not held; uploads still streaming do not count. */
     private static int processingCount(String spaceId, EvidenceCategory category, Collection<SurveyMedia> photos) {
         return (int) photos.stream().filter(p -> on(p, spaceId, category) && p.isSelected()
                 && p.getStatus() == MediaStatus.PROCESSING && !p.isHeld()).count();

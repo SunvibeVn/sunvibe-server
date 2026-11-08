@@ -28,7 +28,7 @@ public interface SurveyChecklistJpaRepository extends JpaRepository<SurveyCheckl
     @Query("select c from SurveyChecklistEntity c where c.id = :id")
     Optional<SurveyChecklistEntity> findForShareById(@Param("id") String id);
 
-    /** The row with a PostgreSQL {@code FOR NO KEY UPDATE} lock (submission spec 5.4, plan PD-8). */
+    /** The row with a PostgreSQL {@code FOR NO KEY UPDATE} lock (survey-checklist submission spec 5.4, plan PD-8). */
     @Query(value = "select * from survey_checklists where id = :id for no key update", nativeQuery = true)
     Optional<SurveyChecklistEntity> findForNoKeyUpdateById(@Param("id") String id);
 

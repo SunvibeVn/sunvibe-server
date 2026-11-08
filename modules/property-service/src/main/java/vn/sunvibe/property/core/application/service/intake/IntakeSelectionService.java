@@ -84,7 +84,7 @@ public class IntakeSelectionService implements IntakeSelectionUseCase {
                 source.longitude() == null ? null : source.longitude().doubleValue());
     }
 
-    /** spec 4.5: WHOLE takes the one space, PARTS 1..50 unique spaces of the source; anything outside cannot be chosen. */
+    /** property-create intake spec 4.5: WHOLE takes the one space, PARTS 1..50 unique spaces of the source; anything outside cannot be chosen. */
     private static List<SelectedSpace> selection(IntakeSource source, List<String> spaceIds) {
         Map<String, IntakeSource.Space> spaces = source.spaces().stream()
                 .collect(Collectors.toMap(IntakeSource.Space::spaceId, Function.identity()));

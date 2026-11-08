@@ -10,8 +10,8 @@ public enum ReviewReason {
     LEAD_STATUS,
     /** The revision's cycle ended, or it is no longer on the cycle's current visit. */
     INTENT_CHANGED,
-    /** Photos cannot be served, so nobody can see the evidence (spec A-3). */
+    /** Photos cannot be served, so nobody can see the evidence (survey-checklist submission spec A-3). */
     SERVING_DISABLED,
-    /** The viewer touched the record or is the lead's assignee (spec 4.2). */
+    /** The viewer touched the record or is the lead's assignee (survey-checklist submission spec 4.2). */
     NOT_INDEPENDENT
 }
