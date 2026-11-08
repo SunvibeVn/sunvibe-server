@@ -28,6 +28,7 @@ import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.property.core.domain.model.property.Property;
 import vn.sunvibe.property.core.domain.model.unit.Unit;
+import vn.sunvibe.shared.security.CurrentPrincipal;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
@@ -179,12 +180,14 @@ class NamingConventionArchTest {
 
 	/**
 	 * Clean-up spec N-13: a converter maps what it is given. The caller comes from a resolver or
-	 * {@code CurrentPrincipal}, so no converter fails a request on its own reading of the security context.
+	 * {@code CurrentPrincipal}, so no converter fails a request on its own reading of the security context. Since the
+	 * W30/W31 plan amendment of 2026-11-08 (SV-272) the rule names {@code CurrentPrincipal} too: spec 4.3 says a
+	 * converter reads no security context, and through that reader it would.
 	 */
 	@Test
 	void presentationConverters_doNotReadTheSecurityContext() {
 		noClasses().that().resideInAPackage(PRESENTATION_CONVERTER)
-				.should().dependOnClassesThat().belongToAnyOf(SecurityContextHolder.class)
+				.should().dependOnClassesThat().belongToAnyOf(SecurityContextHolder.class, CurrentPrincipal.class)
 				.check(classes);
 	}
 
