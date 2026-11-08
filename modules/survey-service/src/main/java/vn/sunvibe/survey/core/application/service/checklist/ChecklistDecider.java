@@ -110,7 +110,7 @@ public class ChecklistDecider {
      * of the review reaches the lead: its History entry has the outcome and kind, a close reason the fixed one (A-11).
      * The transaction ends before the answer is built, so the lead row is not held for its reads (spec 9.5).
      */
-    public ChecklistDecideResult decide(SurveyViewer viewer, DecideChecklistCommand command) {
+    ChecklistDecideResult decide(SurveyViewer viewer, DecideChecklistCommand command) {
         DecisionBody body = decisionBody(command);
         if (!directory.canSignIn(viewer.userId())) {
             throw new ChecklistReviewNotAllowedException();

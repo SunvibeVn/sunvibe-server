@@ -93,7 +93,7 @@ public class ChecklistRevisionStarter {
      * needed or absent (400). Locks (spec 5.4): lead and previous revision FOR SHARE, the new rows, then the origin sets
      * and photos. Groups keep content and per-unit metadata, so a copied value keeps who entered it (S-12).
      */
-    public ChecklistRevisionResult startRevision(SurveyViewer viewer, StartRevisionCommand command) {
+    ChecklistRevisionResult startRevision(SurveyViewer viewer, StartRevisionCommand command) {
         List<Violation> violations = new ArrayList<>();
         ReasonBasis intake = command.intakeOrNull() == null ? null : ChecklistInputs.reasonAndBasis("intake.",
                 command.intakeOrNull().reason(), command.intakeOrNull().basis(), violations);

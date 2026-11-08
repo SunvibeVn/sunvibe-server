@@ -257,7 +257,7 @@ class SurveyChecklistReviewDecideTest {
 
     /** spec 4.2, 9.5: the decision and the lead move commit together; the answer is read after, read-only. */
     @Test
-    void decide_leadMoveInTheDecisionTransaction() {
+    void decide_passed_leadMovesInsideTheDecisionTransaction() {
         h.journalTransactions = true;
         h.journal.clear();
 

@@ -99,7 +99,7 @@ public class ChecklistGroupWriter {
     }
 
     /** The checklist context the save ran on, and whether it wrote a group: false for a no-op (spec A-17). */
-    public record Saved(CommandContext context, boolean written) {
+    record Saved(CommandContext context, boolean written) {
     }
 
     /**
@@ -111,7 +111,7 @@ public class ChecklistGroupWriter {
      * Then one save-log row per written group and the correction on the named group's row; the access log and the
      * History entry, the last writes, are the service's.
      */
-    public Saved save(SurveyViewer viewer, SaveChecklistGroupCommand command, Instant now) {
+    Saved save(SurveyViewer viewer, SaveChecklistGroupCommand command, Instant now) {
         LocalDate today = SurveyTimeRules.vietnamDate(now);
         List<Violation> violations = new ArrayList<>();
         if (command.expectedVersion() == null) {

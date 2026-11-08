@@ -95,7 +95,7 @@ public class ChecklistSubmitter {
      * (409) → S2 (409 CHECKLIST_SUBMISSION_NOT_AVAILABLE) → S3..S7 (409 CHECKLIST_NOT_READY). The lead is read under its
      * share lock and never written. A second submit of one revision waits on the checklist lock and replays.
      */
-    public ChecklistSubmitResult submit(SurveyViewer viewer, SubmitChecklistCommand command) {
+    ChecklistSubmitResult submit(SurveyViewer viewer, SubmitChecklistCommand command) {
         if (command.expectedVersion() == null) {
             throw new ChecklistValidationException(List.of(new Violation("expectedVersion",
                     "expectedVersion is required.")));
