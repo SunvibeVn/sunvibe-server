@@ -121,7 +121,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
         return jpaRepository.nextChecklistNo(leadId);
     }
 
-    private static SurveyChecklistEntity toEntity(SurveyChecklist checklist) {
+    static SurveyChecklistEntity toEntity(SurveyChecklist checklist) {
         return SurveyChecklistEntity.builder()
                 .id(checklist.getId().getValue())
                 .leadId(checklist.getLeadId())
@@ -145,7 +145,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
                 .build();
     }
 
-    private static SurveyChecklist toDomain(SurveyChecklistEntity entity) {
+    static SurveyChecklist toDomain(SurveyChecklistEntity entity) {
         return SurveyChecklist.load(SurveyChecklistId.of(entity.getId()), entity.getLeadId(), entity.getChecklistNo(),
                 SurveyAppointmentId.of(entity.getVisitAppointmentId()), entity.getIntentCycle(),
                 entity.getHolderUserId(), entity.getTemplateCode(), entity.getTemplateVersion(), entity.getKind(),
