@@ -8,7 +8,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
-import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
+import vn.sunvibe.survey.core.domain.policy.common.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.CompletableRecord;
 import vn.sunvibe.survey.core.domain.policy.checklist.PassedUsability;
 import vn.sunvibe.survey.core.domain.policy.checklist.ResumeTarget;

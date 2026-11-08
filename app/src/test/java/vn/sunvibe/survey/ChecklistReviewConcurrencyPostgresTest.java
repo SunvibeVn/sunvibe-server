@@ -49,7 +49,7 @@ import vn.sunvibe.integration.SurveyLeadEventsAdapter;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistReviewApiSupport.Ready;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * Submission, review and holds against each other on PostgreSQL (survey-checklist submission spec 5.4, S-10). A forced

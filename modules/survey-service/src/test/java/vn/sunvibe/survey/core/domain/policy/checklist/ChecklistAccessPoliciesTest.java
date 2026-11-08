@@ -7,7 +7,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.ObservedLocation;
-import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistSnapshot;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistEditState;
 import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.math.BigDecimal;
@@ -61,7 +61,7 @@ class ChecklistAccessPoliciesTest {
 
     @Test
     void editability_noCurrentVisitInTheCycle_isNewerVisit() {
-        SurveyChecklistSnapshot checklist = new SurveyChecklistSnapshot(CHECKLIST, VISIT, 1, SALE_A,
+        ChecklistEditState checklist = new ChecklistEditState(CHECKLIST, VISIT, 1, SALE_A,
                 ChecklistStatus.DRAFT);
 
         assertEquals(ReadOnlyReason.NEWER_VISIT, ChecklistEditability.of(checklist, SURVEY_SCHEDULED, 1, SALE_A,
@@ -87,7 +87,7 @@ class ChecklistAccessPoliciesTest {
     }
 
     private static Editability ofStatus(ChecklistStatus status, int leadCycle) {
-        return ChecklistEditability.of(new SurveyChecklistSnapshot(CHECKLIST, VISIT, 1, SALE_A, status),
+        return ChecklistEditability.of(new ChecklistEditState(CHECKLIST, VISIT, 1, SALE_A, status),
                 SURVEY_SCHEDULED, leadCycle, SALE_A, true, Optional.of(VISIT), SALE_A);
     }
 
@@ -157,7 +157,7 @@ class ChecklistAccessPoliciesTest {
 
     private static Editability edit(String holder, int leadCycle, LeadStatus leadStatus, String assignee,
                                     boolean eligible, String currentVisit, String viewer) {
-        return ChecklistEditability.of(new SurveyChecklistSnapshot(CHECKLIST, VISIT, 1, holder, ChecklistStatus.DRAFT),
+        return ChecklistEditability.of(new ChecklistEditState(CHECKLIST, VISIT, 1, holder, ChecklistStatus.DRAFT),
                 leadStatus, leadCycle, assignee, eligible, Optional.of(currentVisit), viewer);
     }
 

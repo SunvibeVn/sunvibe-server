@@ -3,7 +3,7 @@ package vn.sunvibe.survey.core.application.command.appointment;
 import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 /**
  * Resume the survey work of a held lead from its current visit (survey-schedule BR-11, B-6): a reason and the

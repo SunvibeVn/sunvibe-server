@@ -66,7 +66,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.UnitKey;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.UnitMeta;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChargeOrigin;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.EarlierHazard;
@@ -436,7 +436,8 @@ public class ChecklistResponseConverter {
     }
 
     private static ChecklistTakeover takeover(
-            vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover takeover, Function<String, String> names) {
+            vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow takeover,
+            Function<String, String> names) {
         return new ChecklistTakeover(takeover.takeoverNo(), takeover.kind(), takeover.fromUserId(),
                 names.apply(takeover.fromUserId()), takeover.toUserId(), names.apply(takeover.toUserId()),
                 takeover.reason(), basis(takeover.basis()), takeover.occurredAt(), takeover.snapshotOrNull() != null);

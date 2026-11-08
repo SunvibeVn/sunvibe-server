@@ -9,9 +9,9 @@ import java.util.Map;
  * A takeover checkpoint (survey-checklist spec 4.5, BR-14): every stored group with its version, provenance and last
  * save, as it was just before the takeover. Private survey data, read only through its endpoint.
  */
-public record ChecklistSnapshot(Map<ChecklistGroup, GroupState> groups) {
+public record TakeoverCheckpoint(Map<ChecklistGroup, GroupState> groups) {
 
-    public ChecklistSnapshot {
+    public TakeoverCheckpoint {
         if (groups == null || !groups.keySet().containsAll(ChecklistGroup.stored())) {
             throw new IllegalArgumentException("A checkpoint holds every stored group.");
         }
@@ -20,6 +20,6 @@ public record ChecklistSnapshot(Map<ChecklistGroup, GroupState> groups) {
 
     @Override
     public String toString() {
-        return "ChecklistSnapshot[hidden]";
+        return "TakeoverCheckpoint[hidden]";
     }
 }

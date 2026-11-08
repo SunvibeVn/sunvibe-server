@@ -53,7 +53,7 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.ChecklistReviewApiSupport.Ready;
 import vn.sunvibe.survey.ChecklistReviewConcurrencyPostgresTest.Pause;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * The requalification against the lead's other commands on PostgreSQL (property-create requalification spec 5.3, S-5,

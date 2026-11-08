@@ -7,7 +7,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistPerson;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
@@ -237,14 +237,14 @@ public final class InMemoryChecklistRepositories {
     /** Insert-only takeover rows. */
     public static class Takeovers implements SurveyChecklistTakeoverDomainRepository {
 
-        private final List<ChecklistTakeover> stored = new ArrayList<>();
+        private final List<ChecklistTakeoverRow> stored = new ArrayList<>();
         private final List<String> journal;
 
         public Takeovers(List<String> journal) {
             this.journal = journal;
         }
 
-        public List<ChecklistTakeover> all() {
+        public List<ChecklistTakeoverRow> all() {
             return List.copyOf(stored);
         }
 
@@ -255,26 +255,26 @@ public final class InMemoryChecklistRepositories {
         }
 
         @Override
-        public void save(ChecklistTakeover takeover) {
+        public void save(ChecklistTakeoverRow takeover) {
             journal.add("takeover:" + takeover.kind());
             stored.add(takeover);
         }
 
         @Override
-        public List<ChecklistTakeover> findByChecklistId(SurveyChecklistId checklistId) {
+        public List<ChecklistTakeoverRow> findByChecklistId(SurveyChecklistId checklistId) {
             return stored.stream().filter(takeover -> takeover.checklistId().equals(checklistId))
-                    .sorted(Comparator.comparingInt(ChecklistTakeover::takeoverNo)).toList();
+                    .sorted(Comparator.comparingInt(ChecklistTakeoverRow::takeoverNo)).toList();
         }
 
         @Override
-        public Optional<ChecklistTakeover> find(SurveyChecklistId checklistId, int takeoverNo) {
+        public Optional<ChecklistTakeoverRow> find(SurveyChecklistId checklistId, int takeoverNo) {
             return findByChecklistId(checklistId).stream().filter(takeover -> takeover.takeoverNo() == takeoverNo)
                     .findFirst();
         }
 
         @Override
         public int findNextTakeoverNo(SurveyChecklistId checklistId) {
-            return findByChecklistId(checklistId).stream().mapToInt(ChecklistTakeover::takeoverNo).max().orElse(0)
+            return findByChecklistId(checklistId).stream().mapToInt(ChecklistTakeoverRow::takeoverNo).max().orElse(0)
                     + 1;
         }
     }

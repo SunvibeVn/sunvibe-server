@@ -16,7 +16,7 @@ import tools.jackson.databind.JsonNode;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
-import vn.sunvibe.property.core.domain.policy.AddressNormalizer;
+import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
 import vn.sunvibe.survey.SurveyApiTestSupport;
 

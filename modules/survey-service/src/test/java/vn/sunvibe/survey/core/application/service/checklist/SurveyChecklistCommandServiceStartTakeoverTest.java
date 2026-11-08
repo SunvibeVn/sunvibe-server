@@ -21,7 +21,7 @@ import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationExce
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.TakeoverKind;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
@@ -131,7 +131,7 @@ class SurveyChecklistCommandServiceStartTakeoverTest {
 
         h.commands.start(own(SALE_B), new StartChecklistCommand(id, intake(arrivalDate(visit))));
 
-        ChecklistTakeover intake = h.takeovers.all().get(0);
+        ChecklistTakeoverRow intake = h.takeovers.all().get(0);
         assertEquals(1, intake.takeoverNo());
         assertEquals(TakeoverKind.START_BY_OTHER, intake.kind());
         assertNull(intake.fromUserId());
@@ -248,7 +248,7 @@ class SurveyChecklistCommandServiceStartTakeoverTest {
         SurveyChecklist after = h.checklists.all().get(0);
         assertEquals(SALE_B, after.getHolderUserId());
         assertEquals(1L, after.getVersion());
-        ChecklistTakeover takeover = h.takeovers.all().get(0);
+        ChecklistTakeoverRow takeover = h.takeovers.all().get(0);
         assertEquals(TakeoverKind.TAKEOVER, takeover.kind());
         assertEquals(1, takeover.takeoverNo());
         assertEquals(SALE_A, takeover.fromUserId());

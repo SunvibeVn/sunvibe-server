@@ -9,7 +9,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.FieldState;
 import vn.sunvibe.survey.core.domain.model.checklist.SourceFamily;
 import vn.sunvibe.survey.core.domain.model.checklist.SourcedField;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

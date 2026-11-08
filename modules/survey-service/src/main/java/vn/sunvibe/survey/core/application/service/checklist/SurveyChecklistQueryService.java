@@ -22,7 +22,7 @@ import vn.sunvibe.survey.core.application.shared.external.staff.SurveyorDirector
 import vn.sunvibe.survey.core.application.usecase.checklist.SurveyChecklistQueryUseCase;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
@@ -109,7 +109,7 @@ public class SurveyChecklistQueryService implements SurveyChecklistQueryUseCase 
     public CheckpointView readCheckpoint(SurveyViewer viewer, String checklistId, int takeoverNo) {
         String resourceId = checklistId + ":" + takeoverNo;
         ReadContext context = loader.loadForRead(viewer, checklistId, SecurityResourceType.CHECKPOINT, resourceId);
-        ChecklistTakeover takeover = takeovers.find(context.checklist().getId(), takeoverNo)
+        ChecklistTakeoverRow takeover = takeovers.find(context.checklist().getId(), takeoverNo)
                 .filter(row -> row.snapshotOrNull() != null)
                 .orElseThrow(ChecklistNotFoundException::new);
         Set<String> ids = new LinkedHashSet<>();

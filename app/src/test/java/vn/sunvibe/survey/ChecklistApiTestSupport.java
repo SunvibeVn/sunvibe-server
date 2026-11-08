@@ -21,7 +21,7 @@ import tools.jackson.databind.node.ObjectNode;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * Shared helpers of the checklist API tests (survey-checklist spec 7.1), on top of {@link SurveyApiTestSupport}: a

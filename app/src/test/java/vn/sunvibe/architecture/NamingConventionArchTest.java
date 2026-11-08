@@ -4,6 +4,9 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 
+import java.util.Map;
+import java.util.Set;
+
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -11,6 +14,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -18,6 +23,15 @@ import com.tngtech.archunit.lang.CompositeArchRule;
 import com.tngtech.archunit.lang.syntax.elements.GivenClassesConjunction;
 
 import jakarta.persistence.AttributeConverter;
+
+import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
+import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.property.core.domain.model.property.Property;
+import vn.sunvibe.property.core.domain.model.unit.Unit;
+import vn.sunvibe.shared.security.CurrentPrincipal;
+import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
+import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
+import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 
 /**
  * The names and packages of {@code .claude/rules/naming-layout.md}, on the compiled main classes of every feature core
@@ -34,6 +48,24 @@ class NamingConventionArchTest {
 	private static final String PERSISTENCE_CONVERTER = CORE + ".infrastructure.persistence.converter..";
 	private static final String PERSISTENCE_REPOSITORY = CORE + ".infrastructure.persistence.repository..";
 	private static final String PERSISTENCE_ADAPTER = CORE + ".infrastructure.persistence.adapter..";
+
+	/**
+	 * N-14: the top-level presentation classes that may still use a repository, rules or an aggregate, each with its
+	 * reason; their nested classes follow them. The list only shrinks.
+	 */
+	private static final Map<String, String> PRESENTATION_DOMAIN_ALLOWLIST = Map.of(
+			"vn.sunvibe.survey.core.presentation.converter.ChecklistResponseConverter",
+			"ChecklistView hands SurveyChecklist and SurveyAppointment to it (spec 4.2), and it dates the owner form"
+					+ " with SurveyTimeRules.vietnamDate; moving either into the view changes ChecklistViewAssembler"
+					+ " (application/shared)",
+			"vn.sunvibe.property.core.presentation.converter.PropertyCreateResponseConverter",
+			"PropertyFindByIdUseCase returns the Property aggregate; a result record would change that use case and"
+					+ " PropertyFindByIdService, outside presentation (W31 plan Task E1)");
+
+	/** N-14: the aggregates the {@code *LayerArchTest} classes name. */
+	private static final Set<String> AGGREGATES = Set.of(
+			AppUser.class.getName(), OwnerLead.class.getName(), Property.class.getName(), Unit.class.getName(),
+			SurveyAppointment.class.getName(), SurveyChecklist.class.getName(), SurveyMedia.class.getName());
 
 	private static JavaClasses classes;
 
@@ -102,7 +134,10 @@ class NamingConventionArchTest {
 				.check(classes);
 	}
 
-	/** Clean-up spec N-9: a use case package holds interfaces and the records they publish, never an implementation. */
+	/**
+	 * Clean-up spec N-9: a use case package holds interfaces and the records and exceptions they publish, never an
+	 * implementation.
+	 */
 	@Test
 	void useCases_holdNoServiceOrComponent() {
 		noClasses().that().resideInAPackage(CORE + ".application.usecase..")
@@ -147,13 +182,81 @@ class NamingConventionArchTest {
 
 	/**
 	 * Clean-up spec N-13: a converter maps what it is given. The caller comes from a resolver or
-	 * {@code CurrentPrincipal}, so no converter fails a request on its own reading of the security context.
+	 * {@code CurrentPrincipal}, so no converter fails a request on its own reading of the security context. Since the
+	 * W30/W31 plan amendment of 2026-11-08 (SV-272) the rule names {@code CurrentPrincipal} too: spec 4.3 says a
+	 * converter reads no security context, and through that reader it would.
 	 */
 	@Test
 	void presentationConverters_doNotReadTheSecurityContext() {
 		noClasses().that().resideInAPackage(PRESENTATION_CONVERTER)
-				.should().dependOnClassesThat().belongToAnyOf(SecurityContextHolder.class)
+				.should().dependOnClassesThat().belongToAnyOf(SecurityContextHolder.class, CurrentPrincipal.class)
 				.check(classes);
+	}
+
+	/**
+	 * Clean-up spec N-14 (section 4.2): presentation may use domain enums, records and exceptions, but no repository
+	 * interface, no class that holds rules ({@code *Policy}, {@code *Rules}) and no aggregate of a {@code *LayerArchTest}.
+	 * ArchUnit counts method calls and field reads too, not only imports. What stays is in
+	 * {@link #PRESENTATION_DOMAIN_ALLOWLIST}, which only shrinks, except that splitting a listed class replaces its entry
+	 * with the new classes.
+	 */
+	@Test
+	void presentation_usesNoRepositoryRulesOrAggregate() {
+		noClasses().that().resideInAPackage(CORE + ".presentation..")
+				.and(DescribedPredicate.not(allowlistedInPresentation()))
+				.should().dependOnClassesThat(repositoryRulesOrAggregate())
+				.check(classes);
+	}
+
+	/**
+	 * Clean-up spec N-15 (amendment 2026-11-07): an exception sits in an exception package, or with the contract it
+	 * belongs to, a use case or a port, because {@code ModuleBoundaryArchTest} lets an integration adapter read only
+	 * those two packages (ADR-009).
+	 */
+	@Test
+	void exceptions_resideInAnExceptionPackage() {
+		topLevelClassesIn(CORE + "..").and().haveSimpleNameEndingWith("Exception")
+				.should().resideInAnyPackage(CORE + "..exception..", CORE + ".application.usecase..",
+						CORE + ".application.shared.external..")
+				.check(classes);
+	}
+
+	/**
+	 * Clean-up spec N-16 (amendment 2026-11-07): {@code domain/policy/} holds only concept folders. Written without
+	 * {@code that()} on the package, so it stays green once the package holds no loose class.
+	 */
+	@Test
+	void domainPolicy_hasNoLooseClass() {
+		noClasses().that().areTopLevelClasses().should().resideInAPackage(CORE + ".domain.policy").check(classes);
+	}
+
+	private static DescribedPredicate<JavaClass> allowlistedInPresentation() {
+		return DescribedPredicate.describe("on the N-14 allowlist",
+				origin -> PRESENTATION_DOMAIN_ALLOWLIST.containsKey(topLevelName(origin)));
+	}
+
+	private static DescribedPredicate<JavaClass> repositoryRulesOrAggregate() {
+		DescribedPredicate<JavaClass> inDomain = JavaClass.Predicates.resideInAPackage(CORE + ".domain..");
+		return DescribedPredicate.describe("a domain repository interface, Policy or Rules class, or an aggregate",
+				target -> {
+					if (AGGREGATES.contains(target.getName())) {
+						return true;
+					}
+					if (!inDomain.test(target) || target.isEnum() || target.isRecord()) {
+						return false;
+					}
+					String name = target.getSimpleName();
+					return target.isInterface() && name.endsWith("Repository")
+							|| name.endsWith("Policy") || name.endsWith("Rules");
+				});
+	}
+
+	private static String topLevelName(JavaClass javaClass) {
+		JavaClass current = javaClass;
+		while (current.getEnclosingClass().isPresent()) {
+			current = current.getEnclosingClass().get();
+		}
+		return current.getName();
 	}
 
 	private static GivenClassesConjunction topLevelClassesIn(String packageIdentifier) {

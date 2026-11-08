@@ -4,7 +4,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.Coordinates;
 import vn.sunvibe.survey.core.domain.model.appointment.LeadLocationSnapshot;
 import vn.sunvibe.survey.core.domain.model.appointment.MeetingLocation;
 import vn.sunvibe.survey.core.domain.model.checklist.ObservedLocation;
-import vn.sunvibe.survey.core.domain.policy.PlaceComparison;
+import vn.sunvibe.survey.core.domain.policy.common.PlaceComparison;
 
 /**
  * How the observed address differs from the lead's place and from the meeting place, by the survey-schedule A-16

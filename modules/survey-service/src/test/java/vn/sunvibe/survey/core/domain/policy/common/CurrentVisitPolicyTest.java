@@ -1,4 +1,4 @@
-package vn.sunvibe.survey.core.domain.policy;
+package vn.sunvibe.survey.core.domain.policy.common;
 
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;

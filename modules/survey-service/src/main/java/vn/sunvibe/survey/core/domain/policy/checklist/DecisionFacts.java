@@ -13,7 +13,7 @@ import java.util.Set;
  * photos as read under the locks, the photos the reviewer rejects, a SCHEDULED appointment on the lead and the frozen
  * G1 and G4.
  */
-public record DecisionFacts(List<ChecklistWarning> warnings, Collection<SurveyMedia> frozenPhotos,
+public record DecisionFacts(List<PreviewWarning> warnings, Collection<SurveyMedia> frozenPhotos,
                             Set<String> rejectedMediaIds, boolean scheduledAppointment, IdentificationContent g1,
                             ConditionContent g4OrNull) {
 }

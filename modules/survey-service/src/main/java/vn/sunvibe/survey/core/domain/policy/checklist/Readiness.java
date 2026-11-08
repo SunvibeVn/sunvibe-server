@@ -8,7 +8,7 @@ import java.util.List;
  * first of them that fails.
  */
 public record Readiness(boolean submissionAvailable, String submissionUnavailableReason, List<MissingItem> missing,
-                        List<UnconfirmedTerm> unconfirmedTerms, List<ChecklistWarning> warnings) {
+                        List<UnconfirmedTerm> unconfirmedTerms, List<PreviewWarning> warnings) {
 
     /** spec 4.7: photos are not available, or uploads are off (submission spec A-3). */
     public static final String EVIDENCE_NOT_AVAILABLE = "EVIDENCE_NOT_AVAILABLE";

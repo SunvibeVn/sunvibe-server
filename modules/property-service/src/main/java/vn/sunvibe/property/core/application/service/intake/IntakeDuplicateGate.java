@@ -10,7 +10,7 @@ import vn.sunvibe.property.core.domain.model.intake.DuplicateCase;
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;
 import vn.sunvibe.property.core.domain.model.intake.SelectedSpace;
 import vn.sunvibe.property.core.domain.model.intake.UnitMapping;
-import vn.sunvibe.property.core.domain.policy.AddressNormalizer;
+import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.property.core.domain.policy.intake.CasePolicy.Reading;
 import vn.sunvibe.property.core.domain.policy.intake.DuplicateSignal;
 import vn.sunvibe.property.core.domain.policy.intake.DuplicateSignal.Place;

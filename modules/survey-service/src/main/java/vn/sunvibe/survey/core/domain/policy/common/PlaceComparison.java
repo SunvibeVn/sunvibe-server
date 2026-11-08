@@ -1,4 +1,4 @@
-package vn.sunvibe.survey.core.domain.policy;
+package vn.sunvibe.survey.core.domain.policy.common;
 
 import vn.sunvibe.survey.core.domain.model.appointment.Coordinates;
 

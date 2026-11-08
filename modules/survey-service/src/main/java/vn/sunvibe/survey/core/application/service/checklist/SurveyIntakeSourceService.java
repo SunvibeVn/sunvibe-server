@@ -36,7 +36,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.TermsSpace;
 import vn.sunvibe.survey.core.domain.model.checklist.YesNo;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.Usability;
 import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;

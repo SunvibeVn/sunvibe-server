@@ -44,8 +44,8 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSave;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSnapshot;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.TakeoverCheckpoint;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.Correction;
 import vn.sunvibe.survey.core.domain.model.checklist.GroupContent;
 import vn.sunvibe.survey.core.domain.model.checklist.Hazard;
@@ -71,8 +71,8 @@ import vn.sunvibe.survey.core.domain.model.log.AccessResourceType;
 import vn.sunvibe.survey.core.domain.model.log.SurveyAccessLog;
 import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
-import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.CurrentVisitPolicy;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.CascadeResult;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistHazards;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistDateRules;
@@ -223,7 +223,7 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         }
         groups.insertAll(checklist.getId(), initial);
         if (intake != null) {
-            takeovers.save(ChecklistTakeover.startByOther(snowflakes.generateId(), checklist.getId(),
+            takeovers.save(ChecklistTakeoverRow.startByOther(snowflakes.generateId(), checklist.getId(),
                     viewer.userId(), intake.reason(), intake.basis(), now));
         }
         ChecklistActivityResult activity = finish(viewer, lead, checklist, ChecklistActivityType.CHECKLIST_STARTED,
@@ -271,9 +271,9 @@ public class SurveyChecklistCommandService implements SurveyChecklistCommandUseC
         // survey-media spec 4.8, A-22: in this transaction, after the checklist update (spec 5.4)
         mediaCascade.endOpenUploads(checklist.getId().getValue(), previousHolder, now);
         Map<ChecklistGroup, GroupState> before = groups.findAll(checklist.getId());
-        takeovers.save(new ChecklistTakeover(snowflakes.generateId(), checklist.getId(),
+        takeovers.save(new ChecklistTakeoverRow(snowflakes.generateId(), checklist.getId(),
                 takeovers.findNextTakeoverNo(checklist.getId()), TakeoverKind.TAKEOVER, previousHolder,
-                viewer.userId(), input.reason(), input.basis(), new ChecklistSnapshot(before), now));
+                viewer.userId(), input.reason(), input.basis(), new TakeoverCheckpoint(before), now));
         ChecklistActivityResult activity = finish(viewer, context.lead(), checklist,
                 ChecklistActivityType.CHECKLIST_TAKEN_OVER, null, now);
         return new ChecklistTakeoverResult(views.assemble(viewer, context.lead(), context.ofLead(), checklist),

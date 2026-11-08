@@ -29,7 +29,7 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistReviewApiSupport.Ready;
 import vn.sunvibe.survey.core.application.service.media.MediaContentDeletionJob;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * The review contract over HTTP (survey-checklist submission spec 7.1..7.3): what the checklist read and the survey

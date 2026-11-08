@@ -75,7 +75,7 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
 import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistDateRules;
 import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
 import vn.sunvibe.survey.core.domain.policy.media.MediaContentIdentity;

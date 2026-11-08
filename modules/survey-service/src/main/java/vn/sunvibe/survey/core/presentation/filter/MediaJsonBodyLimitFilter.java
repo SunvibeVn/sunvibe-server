@@ -29,6 +29,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import tools.jackson.databind.json.JsonMapper;
 import vn.sunvibe.shared.constant.error.ErrorCode;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
+import vn.sunvibe.survey.core.presentation.exception.MediaBodyTooLargeException;
 
 /**
  * Caps the JSON bodies of the survey-media create, removal, hold and release at 16 KiB, counted while reading and

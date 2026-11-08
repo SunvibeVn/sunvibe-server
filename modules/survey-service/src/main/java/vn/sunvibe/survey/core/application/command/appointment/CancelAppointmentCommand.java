@@ -3,7 +3,7 @@ package vn.sunvibe.survey.core.application.command.appointment;
 import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.model.appointment.CancelReason;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 /**
  * Cancel a scheduled appointment with one of the five user reasons (survey-schedule US-2 AC-2, spec A-26): a

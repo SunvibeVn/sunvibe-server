@@ -251,8 +251,8 @@ class ReadinessCalculatorTest {
                         HazardSeverity.IMPORTANT, HazardStatus.OPEN), List.of(new AddressedBy(
                         "01JCHECK000000000000000002", 2, H1, AddressKind.CARRIED))));
 
-        assertEquals(List.of(ChecklistWarning.openHazard(H1), ChecklistWarning.earlierHazard(
-                        "01JCHECK000000000000000001", 1, earlier.hazardId()), ChecklistWarning.partialAccess(SPACE_1)),
+        assertEquals(List.of(PreviewWarning.openHazard(H1), PreviewWarning.earlierHazard(
+                        "01JCHECK000000000000000001", 1, earlier.hazardId()), PreviewWarning.partialAccess(SPACE_1)),
                 ReadinessCalculator.of(groups, LocationDifference.NONE, chain).warnings());
     }
 

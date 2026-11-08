@@ -39,6 +39,23 @@ class LeadStatusContractTest {
 		}
 	}
 
+	/**
+	 * The three enums agree on which statuses are closed (SV-272). Property also gets {@code IntakeLead.closed} from
+	 * acquisition through its adapter; this test keeps property's own enum in step with it.
+	 */
+	@Test
+	void closedStatuses_areTheSameInEveryModule() {
+		Set<String> acquisition = Arrays.stream(OwnerLeadStatus.values()).filter(OwnerLeadStatus::isClosed)
+				.map(Enum::name).collect(Collectors.toCollection(TreeSet::new));
+
+		assertEquals(acquisition, Arrays.stream(vn.sunvibe.survey.core.domain.model.lead.LeadStatus.values())
+				.filter(vn.sunvibe.survey.core.domain.model.lead.LeadStatus::isClosed)
+				.map(Enum::name).collect(Collectors.toCollection(TreeSet::new)), "survey");
+		assertEquals(acquisition, Arrays.stream(vn.sunvibe.property.core.domain.model.lead.LeadStatus.values())
+				.filter(vn.sunvibe.property.core.domain.model.lead.LeadStatus::isClosed)
+				.map(Enum::name).collect(Collectors.toCollection(TreeSet::new)), "property");
+	}
+
 	private static Set<String> names(Enum<?>[] values) {
 		return Arrays.stream(values).map(Enum::name).collect(Collectors.toCollection(TreeSet::new));
 	}

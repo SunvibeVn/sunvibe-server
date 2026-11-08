@@ -57,7 +57,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistGroup;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSubmission;
-import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeover;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistTakeoverRow;
 import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceRejection;
@@ -82,9 +82,9 @@ import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationException;
 import vn.sunvibe.survey.core.domain.model.security.SecurityOutcome;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
-import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.CurrentVisitPolicy;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistDateRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.DecisionPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.GateFacts;
@@ -386,7 +386,7 @@ public class SurveyChecklistReviewCommandService implements SurveyChecklistRevie
                 0L, null, null)));
         groups.insertAll(next.getId(), copied);
         if (intake != null) {
-            takeovers.save(ChecklistTakeover.revisionByOther(snowflakes.generateId(), next.getId(),
+            takeovers.save(ChecklistTakeoverRow.revisionByOther(snowflakes.generateId(), next.getId(),
                     previous.getHolderUserId(), viewer.userId(), intake.reason(), intake.basis(), now));
         }
         String nextId = next.getId().getValue();

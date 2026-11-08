@@ -3,7 +3,7 @@ package vn.sunvibe.survey.core.application.command.appointment;
 import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 /**
  * What makes a visit record a proxy record (survey-schedule US-3 AC-1a, BR-9, spec A-8): why someone other than the

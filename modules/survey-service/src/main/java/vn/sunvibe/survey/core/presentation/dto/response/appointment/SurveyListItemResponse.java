@@ -5,7 +5,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentKind;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.ConfirmationCause;
 import vn.sunvibe.survey.core.domain.model.appointment.ConfirmationState;
-import vn.sunvibe.survey.core.domain.policy.ListGroup;
+import vn.sunvibe.survey.core.domain.policy.appointment.ListGroup;
 
 import java.time.Instant;
 

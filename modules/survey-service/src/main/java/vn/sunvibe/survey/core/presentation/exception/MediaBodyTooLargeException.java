@@ -1,10 +1,11 @@
-package vn.sunvibe.survey.core.presentation.filter;
+package vn.sunvibe.survey.core.presentation.exception;
 
 import java.io.Serial;
 
 /**
  * A survey-media JSON body is larger than {@link #MAX_BODY_BYTES} (spec A-11, SV-053): thrown by the counting stream
- * of {@link MediaJsonBodyLimitFilter} while the body is read and answered 413 {@code PAYLOAD_TOO_LARGE}.
+ * of {@link vn.sunvibe.survey.core.presentation.filter.MediaJsonBodyLimitFilter} while the body is read and answered
+ * 413 {@code PAYLOAD_TOO_LARGE}.
  */
 public class MediaBodyTooLargeException extends RuntimeException {
 
