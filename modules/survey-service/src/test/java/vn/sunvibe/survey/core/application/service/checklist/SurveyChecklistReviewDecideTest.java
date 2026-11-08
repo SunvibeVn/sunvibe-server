@@ -254,4 +254,22 @@ class SurveyChecklistReviewDecideTest {
         assertTrue(journal.indexOf("checklist:forUpdate") < journal.indexOf("decision:insert"), journal.toString());
         assertTrue(journal.indexOf("decision:insert") < journal.indexOf("lead:CHECKLIST_REVIEWED"), journal.toString());
     }
+
+    /** spec 4.2, 9.5: the decision and the lead move commit together; the answer is read after, read-only. */
+    @Test
+    void decide_passed_leadMovesInsideTheDecisionTransaction() {
+        h.journalTransactions = true;
+        h.journal.clear();
+
+        h.reviews.decide(all(LEADER), passed(version));
+
+        List<String> journal = h.journal;
+        int begin = journal.indexOf("tx:begin");
+        int commit = journal.indexOf("tx:commit");
+        assertTrue(begin >= 0 && begin < journal.indexOf("checklist:forUpdate"), journal.toString());
+        assertTrue(journal.indexOf("decision:insert") < commit, journal.toString());
+        assertTrue(journal.indexOf("lead:CHECKLIST_REVIEWED") < commit, journal.toString());
+        assertTrue(journal.indexOf("lead:CHECKLIST_REVIEWED") > begin, journal.toString());
+        assertTrue(commit < journal.indexOf("tx:begin:readOnly"), journal.toString());
+    }
 }

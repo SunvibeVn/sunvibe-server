@@ -8,6 +8,12 @@ import vn.sunvibe.survey.core.application.command.common.BasisInput;
 import vn.sunvibe.survey.core.application.command.checklist.IntakeInput;
 import vn.sunvibe.survey.core.application.command.checklist.StartChecklistCommand;
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistStartResult;
+import vn.sunvibe.survey.core.application.service.checklist.ChecklistDecider;
+import vn.sunvibe.survey.core.application.service.checklist.ChecklistGroupChecks;
+import vn.sunvibe.survey.core.application.service.checklist.ChecklistGroupWriter;
+import vn.sunvibe.survey.core.application.service.checklist.ChecklistReviewSteps;
+import vn.sunvibe.survey.core.application.service.checklist.ChecklistRevisionStarter;
+import vn.sunvibe.survey.core.application.service.checklist.ChecklistSubmitter;
 import vn.sunvibe.survey.core.application.service.checklist.SurveyChecklistCommandService;
 import vn.sunvibe.survey.core.application.service.checklist.SurveyChecklistQueryService;
 import vn.sunvibe.survey.core.application.service.checklist.SurveyChecklistRequalificationCommandService;
@@ -61,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 import static vn.sunvibe.survey.core.testsupport.AppointmentFixture.atLead;
 import static vn.sunvibe.survey.core.testsupport.AppointmentFixture.details;
@@ -115,6 +122,8 @@ public final class ChecklistServiceHarness {
     public final ChecklistViewAssembler views;
     /** The submission switch (checklist submission spec A-3): off, as configured, unless a test turns it on. */
     public boolean submissionOn;
+    /** When on, the decision's transaction boundaries go to the journal ({@code tx:begin}, {@code tx:commit}, ...). */
+    public boolean journalTransactions;
     public final RevisionPhotos revisionPhotos;
     public final SurveyRecordReader records;
     public final SurveyStateService surveyStates;
@@ -144,13 +153,23 @@ public final class ChecklistServiceHarness {
                 records, directory, switches);
         views = new ChecklistViewAssembler(checklists, groups, takeovers, saves, leads, directory, mediaSets,
                 revisionPhotos, switches, () -> submissionOn, health, reviewReader);
-        commands = new SurveyChecklistCommandService(checklists, groups, takeovers, saves, appointments, accessLogs,
-                leads, directory, loader, views, new ChecklistMediaCascade(mediaSets, media, mediaJobs, selections), ulids,
-                snowflakes);
-        reviews = new SurveyChecklistReviewCommandService(checklists, groups, takeovers, submissions, evidence,
-                decisions, media, mediaSets, selections, accessLogs, leads, directory, loader, exclusions, records,
-                recorder, views, switches, () -> submissionOn,
-                (contents, frozen) -> contents.keySet() + "|" + frozen, ulids, snowflakes, new NoTransactions());
+        ChecklistMediaCascade mediaCascade = new ChecklistMediaCascade(mediaSets, media, mediaJobs, selections);
+        commands = new SurveyChecklistCommandService(checklists, groups, takeovers, appointments, accessLogs, leads,
+                directory, loader, views, mediaCascade, new ChecklistGroupWriter(groups, saves, leads, loader, views,
+                mediaCascade, new ChecklistGroupChecks(checklists, groups, leads), snowflakes), ulids, snowflakes);
+        ChecklistReviewSteps reviewSteps = new ChecklistReviewSteps(groups, media, mediaSets, selections, accessLogs,
+                leads, views, snowflakes);
+        reviews = new SurveyChecklistReviewCommandService(
+                new ChecklistSubmitter(checklists, groups, submissions, evidence, loader, views, switches,
+                        () -> submissionOn, (contents, frozen) -> contents.keySet() + "|" + frozen, reviewSteps),
+                new ChecklistRevisionStarter(checklists, groups, takeovers, mediaSets, selections, directory, loader,
+                        records, views, reviewSteps, ulids, snowflakes),
+                new ChecklistDecider(checklists, evidence, decisions, leads, directory, loader, exclusions, recorder,
+                        views, switches, reviewSteps, new NoTransactions(entry -> {
+                            if (journalTransactions) {
+                                journal.add(entry);
+                            }
+                        })));
         requalification = new SurveyChecklistRequalificationCommandService(checklists, requalifications, accessLogs,
                 leads, loader, records, views, snowflakes, new NoTransactions());
         queries = new SurveyChecklistQueryService(checklists, appointments, takeovers, accessLogs, leads, directory,
@@ -347,8 +366,22 @@ public final class ChecklistServiceHarness {
         return Instant.now().truncatedTo(ChronoUnit.MICROS);
     }
 
-    /** A transaction manager that never has a transaction: the recorder writes at once. */
+    /**
+     * A transaction manager that never has a transaction: the recorder writes at once. Its boundaries go to the given
+     * sink as {@code tx:begin}, {@code tx:begin:readOnly}, {@code tx:commit} and {@code tx:rollback}.
+     */
     private static final class NoTransactions extends AbstractPlatformTransactionManager {
+
+        private final Consumer<String> boundaries;
+
+        NoTransactions() {
+            this(entry -> {
+            });
+        }
+
+        NoTransactions(Consumer<String> boundaries) {
+            this.boundaries = boundaries;
+        }
 
         @Override
         protected Object doGetTransaction() {
@@ -357,14 +390,17 @@ public final class ChecklistServiceHarness {
 
         @Override
         protected void doBegin(Object transaction, TransactionDefinition definition) {
+            boundaries.accept(definition.isReadOnly() ? "tx:begin:readOnly" : "tx:begin");
         }
 
         @Override
         protected void doCommit(DefaultTransactionStatus status) {
+            boundaries.accept("tx:commit");
         }
 
         @Override
         protected void doRollback(DefaultTransactionStatus status) {
+            boundaries.accept("tx:rollback");
         }
     }
 }
