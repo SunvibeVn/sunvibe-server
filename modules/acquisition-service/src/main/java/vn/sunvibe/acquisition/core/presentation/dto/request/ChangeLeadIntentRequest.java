@@ -15,7 +15,7 @@ import java.util.Optional;
 /**
  * DTO - ChangeLeadIntentRequest (Record)
  * <p>
- * Record a new requirement agreed with the owner (survey-schedule US-5, spec 7.1), guarded by the version the caller
+ * Record a new requirement agreed with the owner (survey-schedule US-5, survey-schedule spec 7.1), guarded by the version the caller
  * last saw. {@code askingPrice} must be sent, as a price or as an explicit null for none (spec A-17). Whether the
  * intent differs from the current one and the basis date is not before the lead's creation are checked by the
  * service. Messages are English and never repeat the value.

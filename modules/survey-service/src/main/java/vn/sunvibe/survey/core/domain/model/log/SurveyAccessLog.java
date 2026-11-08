@@ -3,7 +3,7 @@ package vn.sunvibe.survey.core.domain.model.log;
 import java.time.Instant;
 
 /**
- * One read of private survey data (survey-schedule BR-5, spec A-13; survey-checklist spec A-10): who, when, which lead
+ * One read of private survey data (survey-schedule BR-5, survey-schedule spec A-13; survey-checklist spec A-10): who, when, which lead
  * and what was shown: the survey block, a checklist or a checkpoint. Rows written before the checklist have no
  * resource (both null). Insert-only. The id is a Snowflake number given by the caller.
  */

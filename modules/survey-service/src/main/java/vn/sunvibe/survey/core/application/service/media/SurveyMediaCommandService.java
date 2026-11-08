@@ -37,7 +37,7 @@ import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
 
 /**
  * Survey photo commands (survey-media spec 4.4, 5.4). Each command runs in one READ COMMITTED transaction with the
- * locks of spec 5.4 in their global order; the transactions are programmatic because a refusal has work to do after
+ * locks of survey-media spec 5.4 in their global order; the transactions are programmatic because a refusal has work to do after
  * its rollback: a stale sweep is recorded as a pause (A-18), and a unique violation at insert is answered from a fresh
  * transaction (the replay, or the matching photo of the A-16 backstop), never a 500. This class owns every
  * transaction scope; the work inside them is in {@link MediaUploadSteps}, {@link MediaRemovalSteps} and
@@ -196,10 +196,10 @@ public class SurveyMediaCommandService implements SurveyMediaCommandUseCase {
         return inCommand(() -> removals.removeInTransaction(viewer, viewerCanHold, id, correction));
     }
 
-    // ==================== deselection (checklist submission spec 4.6, 5.4, A-12) ====================
+    // ==================== deselection (survey-checklist submission spec 4.6, 5.4, A-12) ====================
 
     /**
-     * Deselection order (submission spec 5.5, as a removal, on the revision of the path): (1) the correction's shape,
+     * Deselection order (survey-checklist submission spec 5.5, as a removal, on the revision of the path): (1) the correction's shape,
      * before any lookup → (2) 404 the revision or its lead not visible → (3) 403 not the assignee → 404 a photo not
      * carried into the revision, from a scalar read before any lock, so another lead's rows are never touched and its
      * photos never told apart → (4) 409 read-only → (5) 422 ineligible → (6) 409 takeover required; then under the set

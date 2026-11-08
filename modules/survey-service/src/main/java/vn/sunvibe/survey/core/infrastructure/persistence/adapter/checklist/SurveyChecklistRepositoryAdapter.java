@@ -31,7 +31,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
             "uq_survey_checklists_draft_per_appointment");
 
     /**
-     * submission spec I-1: one SUBMITTED revision per lead and intent cycle, also under concurrent submits;
+     * survey-checklist submission spec I-1: one SUBMITTED revision per lead and intent cycle, also under concurrent submits;
      * property-create requalification spec I-1: one unmarked PASSED per lead and intent cycle, also under concurrent
      * decisions.
      */
@@ -121,7 +121,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
         return jpaRepository.nextChecklistNo(leadId);
     }
 
-    private static SurveyChecklistEntity toEntity(SurveyChecklist checklist) {
+    static SurveyChecklistEntity toEntity(SurveyChecklist checklist) {
         return SurveyChecklistEntity.builder()
                 .id(checklist.getId().getValue())
                 .leadId(checklist.getLeadId())
@@ -145,7 +145,7 @@ public class SurveyChecklistRepositoryAdapter implements SurveyChecklistDomainRe
                 .build();
     }
 
-    private static SurveyChecklist toDomain(SurveyChecklistEntity entity) {
+    static SurveyChecklist toDomain(SurveyChecklistEntity entity) {
         return SurveyChecklist.load(SurveyChecklistId.of(entity.getId()), entity.getLeadId(), entity.getChecklistNo(),
                 SurveyAppointmentId.of(entity.getVisitAppointmentId()), entity.getIntentCycle(),
                 entity.getHolderUserId(), entity.getTemplateCode(), entity.getTemplateVersion(), entity.getKind(),

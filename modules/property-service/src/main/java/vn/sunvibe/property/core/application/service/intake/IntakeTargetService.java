@@ -65,7 +65,7 @@ public class IntakeTargetService implements IntakeTargetUseCase {
         return assembler.block(evaluator.read(lead, now), actor, now);
     }
 
-    /** spec 7.1: {@code canonicalSpaceId} only with CREATE; {@code propertyId} and the mappings only with LINK. */
+    /** property-create intake spec 7.1: {@code canonicalSpaceId} only with CREATE; {@code propertyId} and the mappings only with LINK. */
     private static TargetMode mode(TargetCommand command) {
         boolean create = "CREATE".equals(command.mode());
         boolean link = "LINK".equals(command.mode());

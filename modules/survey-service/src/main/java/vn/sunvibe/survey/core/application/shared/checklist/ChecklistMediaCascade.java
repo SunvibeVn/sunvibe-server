@@ -30,7 +30,7 @@ import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainReposi
 
 /**
  * What the checklist commands do to photos (survey-media spec A-9, 4.8, A-22, 5.4): a G1 save that ends placements
- * removes the selected photos on them and deselects the carried ones (checklist submission spec 4.6), and a takeover
+ * removes the selected photos on them and deselects the carried ones (survey-checklist submission spec 4.6), and a takeover
  * ends the previous holder's open uploads. Both take the set row
  * and then the photo rows {@code FOR UPDATE}, after the checklist's own rows; photo ids come from a scalar query, so
  * no photo row is loaded before its lock.
@@ -58,7 +58,7 @@ public class ChecklistMediaCascade {
 
     /**
      * The selected photos on the placements a G1 save ends: the own ones under the set and photo locks, and the carried
-     * ones, which the save only deselects, so their rows are read without a lock (submission spec 4.6).
+     * ones, which the save only deselects, so their rows are read without a lock (survey-checklist submission spec 4.6).
      */
     public record Ended(MediaSet setOrNull, List<SurveyMedia> photos, List<EndedCarried> carried) {
 
@@ -122,7 +122,7 @@ public class ChecklistMediaCascade {
                 jobs.upsertDeleteContent(photo.getId(), now.plus(MediaRemovalPolicy.CONTENT_DELETION_DELAY), now);
             }
         }
-        // submission spec 4.6, A-12: a carried photo leaves this revision and stays as it is in its origin
+        // survey-checklist submission spec 4.6, A-12: a carried photo leaves this revision and stays as it is in its origin
         for (EndedCarried carried : ended.carried()) {
             selections.update(carried.selection().deselected(callerUserId, RemovalKind.CASCADE, null, saveId, now));
         }

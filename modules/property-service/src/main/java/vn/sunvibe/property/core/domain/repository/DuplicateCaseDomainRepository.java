@@ -27,12 +27,12 @@ public interface DuplicateCaseDomainRepository {
     /** Writes the row and flushes. */
     void update(DuplicateCase row);
 
-    /** The cases of an intake on either side of a pair (spec 4.10). */
+    /** The cases of an intake on either side of a pair (property-create intake spec 4.10). */
     List<DuplicateCase> findForIntake(String intakeId);
 
     /** The cases that name this property as their candidate. */
     List<DuplicateCase> findNamingProperty(String propertyId);
 
-    /** The cases of a status in the order of the list: created_at, then id (spec 7.2). */
+    /** The cases of a status in the order of the list: created_at, then id (property-create intake spec 7.2). */
     List<DuplicateCase> findByStatus(CaseStatus status);
 }

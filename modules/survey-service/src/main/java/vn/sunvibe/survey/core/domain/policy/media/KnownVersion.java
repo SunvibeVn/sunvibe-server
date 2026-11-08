@@ -40,7 +40,7 @@ public record KnownVersion(long setVersion, long identificationVersion, long con
     }
 
     /**
-     * spec A-30: the first 8 hex characters of a SHA-256 over this viewer's inputs.
+     * survey-media spec A-30: the first 8 hex characters of a SHA-256 over this viewer's inputs.
      *
      * @param readOnlyReasonOrNull null when the checklist is editable for the viewer
      */

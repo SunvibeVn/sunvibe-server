@@ -47,7 +47,7 @@ import java.util.Set;
 
 /**
  * Builds the survey block of a lead (survey-schedule spec 7.2) for the reads and the command answers, and holds the
- * booking rules both share (spec 4.5, 4.6): a first survey is booked from ASSIGNED or CONTACTED, a re-survey from
+ * booking rules both share (survey-schedule spec 4.5, 4.6): a first survey is booked from ASSIGNED or CONTACTED, a re-survey from
  * CONTACTED or SURVEY_SCHEDULED, only for rental leads. One eligibility lookup and one name lookup per block.
  */
 @Component
@@ -144,7 +144,7 @@ public class SurveyBlockAssembler {
 
     /**
      * Whether a booking is possible now, in the order of the booking checks (survey-schedule spec 4.6, 7.2): a
-     * scheduled appointment, a NEW lead (no assignee), the survey record (checklist submission spec 4.8), the status for
+     * scheduled appointment, a NEW lead (no assignee), the survey record (survey-checklist submission spec 4.8), the status for
      * the booking kind, the intent, the assignee's eligibility.
      */
     public static BookingState bookingState(LeadFacts lead, List<SurveyAppointment> ofLead,

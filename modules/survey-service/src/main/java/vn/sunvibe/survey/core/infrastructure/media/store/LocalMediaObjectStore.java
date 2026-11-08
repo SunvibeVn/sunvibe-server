@@ -48,7 +48,7 @@ public class LocalMediaObjectStore implements MediaObjectStore {
             if (written != length) {
                 throw new StoreUnavailableException(StoreUnavailableException.WRONG_ANSWER);
             }
-            // spec I-3: a hard link is created only when the key does not exist, in one step; a move is no
+            // survey-media spec I-3: a hard link is created only when the key does not exist, in one step; a move is no
             // create-only write on Linux, where rename replaces its target (SV-068). The temporary name is removed
             // in finally.
             Files.createLink(target, temp);
@@ -158,7 +158,7 @@ public class LocalMediaObjectStore implements MediaObjectStore {
                 Files.deleteIfExists(path);
             } catch (IOException ignored) {
                 // a leftover temporary name is skipped by listings and nothing removes it; after a put that
-                // created its key it is a second name of the key's bytes (dev, test and lan only, spec A-1)
+                // created its key it is a second name of the key's bytes (dev, test and lan only, survey-media spec A-1)
             }
         }
     }

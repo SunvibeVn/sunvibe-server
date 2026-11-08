@@ -128,7 +128,7 @@ public class S3MediaObjectStore implements MediaObjectStore, AutoCloseable {
         try {
             ResponseInputStream<GetObjectResponse> stream = client.getObject(request -> request.bucket(name(bucket))
                     .key(key));
-            // spec A-25: an abort drops the connection; a close would read the rest of the object first
+            // survey-media spec A-25: an abort drops the connection; a close would read the rest of the object first
             return new StoredObject(stream, stream.response().contentLength(), stream::abort);
         } catch (NoSuchKeyException e) {
             throw new StoreObjectNotFoundException();

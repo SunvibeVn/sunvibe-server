@@ -8,8 +8,8 @@ import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import java.time.Instant;
 
 /**
- * Book a survey for a lead (survey-schedule US-1, US-3 AC-2; spec 7.1). The values are checked and cleaned here, before
- * the lead is looked up (spec 5.5: body first): a whole-minute start, a duration of 15..480 in steps of 15 (60 when
+ * Book a survey for a lead (survey-schedule US-1, US-3 AC-2; survey-schedule spec 7.1). The values are checked and cleaned here, before
+ * the lead is looked up (survey-schedule spec 5.5: body first): a whole-minute start, a duration of 15..480 in steps of 15 (60 when
  * left out, survey-schedule spec A-5), the free texts by their limits without phone numbers. A missing meeting place
  * means the lead's own place.
  */

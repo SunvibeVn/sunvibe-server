@@ -84,7 +84,7 @@ final class MediaExceptionHandler {
                         List.of(ValidationError.of(e.getField(), e.getMessage()))));
     }
 
-    /** survey-media spec A-18: retry the same request later; no {@code Retry-After} (spec 7.3). */
+    /** survey-media spec A-18: retry the same request later; no {@code Retry-After} (survey-media spec 7.3). */
     static ResponseEntity<ErrorResponse<ValidationError>> handleMediaIntakePaused(MediaIntakePausedException e) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(ErrorResponse.of(ErrorCode.MEDIA_INTAKE_PAUSED, e.getMessage(), List.of()));

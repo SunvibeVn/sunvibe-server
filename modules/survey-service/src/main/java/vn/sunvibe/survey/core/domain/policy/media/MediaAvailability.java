@@ -16,7 +16,7 @@ public final class MediaAvailability {
     /**
      * The first reason of REMOVED, HELD, NOT_READY, CONTENT_DELETED, CONTENT_MISSING that applies, or null for a
      * servable photo; for a viewer who may hold photos (ADMIN) also null for a held photo whose content is otherwise
-     * servable, removed or not (spec A-23).
+     * servable, removed or not (survey-media spec A-23).
      */
     public static MediaUnavailableReason unavailableReason(SurveyMedia media, boolean viewerCanHold) {
         if (viewerCanHold && media.isServableToAdmin()) {

@@ -203,7 +203,7 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
     }
 
     /**
-     * survey-checklist D3-13, submission spec 4.8: a held lead with a PASSED or SUBMITTED revision of its cycle does
+     * survey-checklist D3-13, survey-checklist submission spec 4.8: a held lead with a PASSED or SUBMITTED revision of its cycle does
      * not go back to CONTACTED. The caller wrote the lead row, so the refusal rolls the move back.
      */
     private void requireNoReviewedRecord(OwnerLead lead) {

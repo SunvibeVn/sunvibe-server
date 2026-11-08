@@ -30,7 +30,7 @@ final class ConditionSafetyRules {
 
     // ==================== G4 condition ====================
 
-    /** Shared wet areas may be null here: whether the scope asks for them is a rule of save step 9 (spec 5.5). */
+    /** Shared wet areas may be null here: whether the scope asks for them is a rule of save step 9 (survey-checklist spec 5.5). */
     static ConditionContent condition(BodyChecker check, ConditionContent g) {
         Field<AreaCheck> sharedKitchen = g.sharedKitchen() == null ? null
                 : areaCheck(check, "content.sharedKitchen", g.sharedKitchen(), true);
@@ -49,7 +49,7 @@ final class ConditionSafetyRules {
 
     /**
      * {@code expectedVacantFrom} and {@code availableFrom}: sourced dates from 2000-01-01 to three years ahead; an
-     * owner's-form {@code availableFrom} only has to equal the submitted date, checked at save step 9 (spec A-7).
+     * owner's-form {@code availableFrom} only has to equal the submitted date, checked at save step 9 (survey-checklist spec A-7).
      */
     private static SourcedField<LocalDate> futureDate(BodyChecker check, String path, SourcedField<LocalDate> field,
                                                       boolean ownerFormAllowed) {
@@ -64,7 +64,7 @@ final class ConditionSafetyRules {
     }
 
     /**
-     * survey-checklist BR-17, spec 4.6: INSPECTED needs {@code noneObserved} and a note when something was seen;
+     * survey-checklist BR-17, survey-checklist spec 4.6: INSPECTED needs {@code noneObserved} and a note when something was seen;
      * NOT_ENTERED (not entered or only partly entered) needs what was not reached and why and may carry a note.
      */
     private static Field<AreaCheck> areaCheck(BodyChecker check, String path, Field<AreaCheck> field,
@@ -87,7 +87,7 @@ final class ConditionSafetyRules {
         });
     }
 
-    /** {@code noneObserved} required; a note of 1..1000 when something was seen (spec 4.6). */
+    /** {@code noneObserved} required; a note of 1..1000 when something was seen (survey-checklist spec 4.6). */
     private static Observation observation(BodyChecker check, String path, Observation value) {
         Boolean noneObserved = check.present(path + ".noneObserved", value.noneObserved());
         String note = Boolean.FALSE.equals(noneObserved)
@@ -111,7 +111,7 @@ final class ConditionSafetyRules {
     /**
      * survey-checklist spec 4.6.1: at most 30 hazards with unique client ids; each earlier hazard linked at most once;
      * a status note unless OPEN; the owner's report date, receiver and relay basis only, and date and receiver always,
-     * with OWNER_REPORTED_FIXED. The report date range needs the chain and is checked at save step 9 (spec A-7).
+     * with OWNER_REPORTED_FIXED. The report date range needs the chain and is checked at save step 9 (survey-checklist spec A-7).
      */
     private static List<Hazard> hazards(BodyChecker check, String path, List<Hazard> hazards) {
         if (check.list(path, hazards, MAX_HAZARDS, "hazards") == null) {

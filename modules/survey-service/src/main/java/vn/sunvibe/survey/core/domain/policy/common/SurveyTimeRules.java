@@ -9,7 +9,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 /**
- * Time rules of survey appointments (survey-schedule BR-4, spec 4.8): times are instants in whole minutes; staff enter
+ * Time rules of survey appointments (survey-schedule BR-4, survey-schedule spec 4.8): times are instants in whole minutes; staff enter
  * and read them in Vietnam time. A start lies between the current minute and 90 days ahead; a duration is 15..480
  * minutes in steps of 15; an arrival is not in the future, not before the minute the appointment was created and at
  * most 60 minutes before the start in force at that minute. The caller passes "now"; nothing here reads a clock.

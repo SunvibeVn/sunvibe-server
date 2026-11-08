@@ -3,7 +3,7 @@ package vn.sunvibe.survey.core.application.shared.media;
 import vn.sunvibe.survey.core.domain.model.media.MediaCounterKind;
 
 /**
- * The per-user hourly read budgets (survey-media spec A-26), set by {@code app.survey.media.budgets.*} (spec 9
+ * The per-user hourly read budgets (survey-media spec A-26), set by {@code app.survey.media.budgets.*} (survey-media spec 9
  * configuration); {@link #SPEC} holds the spec values, which are also the property defaults.
  */
 public record MediaReadBudgetLimits(long full, long preview, long thumbnail, long list) {

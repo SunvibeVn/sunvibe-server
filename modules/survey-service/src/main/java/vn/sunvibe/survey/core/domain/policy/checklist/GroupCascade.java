@@ -34,7 +34,7 @@ import java.util.function.Function;
  * G2, G3, G4, G6 (its other items too) and G8, and its hazards are detached (kept at asset level). Leaving PARTS clears
  * the shared wet areas of G4 and the charge overrides and space fees of G8, which only separate parts are asked for.
  * Leaving WHOLE clears the per-space owner's-form rent and available-from date, which a single part cannot carry
- * (spec A-18), and nothing else; the shared wet areas are not filled (spec PD-4). Renaming a space changes nothing,
+ * (survey-checklist spec A-18), and nothing else; the shared wet areas are not filled (spec PD-4). Renaming a space changes nothing,
  * because entries are keyed by space id.
  */
 public final class GroupCascade {

@@ -173,7 +173,7 @@ public class SurveyMediaQueryService implements SurveyMediaQueryUseCase {
         GroupState g1 = groupStates.get(ChecklistGroup.IDENTIFICATION);
         GroupState g4 = groupStates.get(ChecklistGroup.CONDITION);
         long setVersion = sets.findForRead(checklistId).map(MediaSet::getSetVersion).orElse(0L);
-        // checklist submission spec 4.6: own and carried photos, read after the set row
+        // survey-checklist submission spec 4.6: own and carried photos, read after the set row
         List<SurveyMedia> photos = revisionPhotos.of(checklistId);
         IntakeHealth row = health.read();
         boolean eligible = directory.isEligible(lead.assignedUserId());

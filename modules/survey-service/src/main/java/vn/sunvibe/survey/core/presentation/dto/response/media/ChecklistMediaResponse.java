@@ -33,14 +33,14 @@ public record ChecklistMediaResponse(
         @Schema(description = "Every allowed placement and category pair")
         List<Coverage> coverage) {
 
-    /** The versions the view was computed from (spec A-30). */
+    /** The versions the view was computed from (survey-media spec A-30). */
     @Schema(name = "ChecklistMediaBasis")
     public record Basis(long identificationVersion, long conditionVersion, long checklistVersion, long stateEpoch,
                         @Schema(description = "8 hex characters over this viewer's editability and switches")
                         String viewDigest) {
     }
 
-    /** spec 7.2 {@code limits}. */
+    /** survey-media spec 7.2 {@code limits}. */
     @Schema(name = "ChecklistMediaLimits")
     public record Limits(long maxFileBytes, int maxSelected, int selectedCount, int maxPending, int pendingCount) {
     }
@@ -50,7 +50,7 @@ public record ChecklistMediaResponse(
     public record Totals(int notAccepted, int removed) {
     }
 
-    /** spec 4.6: one placement and category pair. */
+    /** survey-media spec 4.6: one placement and category pair. */
     @Schema(name = "ChecklistMediaCoverage")
     public record Coverage(
             @Schema(nullable = true, description = "Null for the whole asset")

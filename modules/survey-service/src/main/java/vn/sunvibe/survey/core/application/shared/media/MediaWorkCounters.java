@@ -35,12 +35,12 @@ public class MediaWorkCounters {
         this.clock = clock;
     }
 
-    /** spec A-27: the run's milliseconds, added after each outcome. */
+    /** survey-media spec A-27: the run's milliseconds, added after each outcome. */
     public void addProcessingMillis(String uploaderUserId, long millis) {
         add(uploaderUserId, MediaCounterKind.PROC_MS, Math.max(0, millis));
     }
 
-    /** spec A-27: a processor limit hit, a scan-limit result or a decode over 30 s of wall clock. */
+    /** survey-media spec A-27: a processor limit hit, a scan-limit result or a decode over 30 s of wall clock. */
     public void addExpensive(String uploaderUserId) {
         add(uploaderUserId, MediaCounterKind.EXPENSIVE, 1);
     }

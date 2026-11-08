@@ -138,7 +138,7 @@ public class IntakeCompletionService implements IntakeCompletionUseCase {
         return new Outcome(row.getId(), false);
     }
 
-    /** spec 5.3: a COMPLETED row with an equal hash answers the stored result, another hash 409. An open row goes on. */
+    /** property-create intake spec 5.3: a COMPLETED row with an equal hash answers the stored result, another hash 409. An open row goes on. */
     private static Optional<String> repeat(IntakeState state, String previewHash) {
         InventoryIntake current = state.currentOrNull();
         InventoryIntake result = state.latestCompletedOrNull();
@@ -151,7 +151,7 @@ public class IntakeCompletionService implements IntakeCompletionUseCase {
         return Optional.of(result.getId());
     }
 
-    /** spec 5.3: no target or availability, a target a decision cleared included, answers INTAKE_STATE. */
+    /** property-create intake spec 5.3: no target or availability, a target a decision cleared included, answers INTAKE_STATE. */
     private static void requireWork(IntakeState state) {
         InventoryIntake row = state.currentOrNull();
         boolean confirmed = state.effectiveOrNull() == IntakeStatus.OWNER_CONFIRMED;
@@ -167,7 +167,7 @@ public class IntakeCompletionService implements IntakeCompletionUseCase {
         }
     }
 
-    /** spec 5.3: the ward lock comes first, and a miss is a conflict; a hit is a normal branch before any inventory write. */
+    /** property-create intake spec 5.3: the ward lock comes first, and a miss is a conflict; a hit is a normal branch before any inventory write. */
     private boolean signalHolds(InventoryIntake row, IntakeTarget target, IntakeSource source, Instant now) {
         if (target.mode() == TargetMode.LINK) {
             return gate.holdsLink(row, target.propertyIdOrNull(), now);
@@ -217,7 +217,7 @@ public class IntakeCompletionService implements IntakeCompletionUseCase {
                 space.areaSqm().doubleValue(), availability.state().unitState());
     }
 
-    /** spec 4.9: a link writes mappings and the result only (US-6 AC-2). */
+    /** property-create intake spec 4.9: a link writes mappings and the result only (US-6 AC-2). */
     private static Written linked(InventoryIntake row, IntakeTarget target, IntakeSource source) {
         Map<String, IntakeSource.Space> spaces = spaces(source);
         return new Written(target.propertyIdOrNull(), target.mappings().stream()

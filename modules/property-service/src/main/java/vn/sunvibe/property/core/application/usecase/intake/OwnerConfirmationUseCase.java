@@ -18,6 +18,6 @@ public interface OwnerConfirmationUseCase {
 
     void withdraw(String userId, String requestId, String password);
 
-    /** The phrase the manager read out; only this account can enter it (spec 4.6 step 6). */
+    /** The phrase the manager read out; only this account can enter it (property-create intake spec 4.6 step 6). */
     void enterPhrase(String userId, String requestId, String phrase);
 }

@@ -62,7 +62,7 @@ public class InventoryReadRepositoryAdapter implements InventoryReadRepository {
         return jdbc.query(UNIT_COLUMNS + " where u.id in (" + marks + ") order by u.unit_code, u.id", UNIT, unitIds.toArray());
     }
 
-    /** Legacy rows are matched in Java: they stop growing at T-3, and section 9 counts them (spec 4.10). */
+    /** Legacy rows are matched in Java: they stop growing at T-3, and section 9 counts them (property-create intake spec 4.10). */
     @Override
     public List<PropertyFacts> propertiesOfWard(String wardCode, String normalizedWardName) {
         List<PropertyFacts> ward = new ArrayList<>(jdbc.query(PROPERTY_COLUMNS + " where p.ward_code = ?", PROPERTY, wardCode));
@@ -98,7 +98,7 @@ public class InventoryReadRepositoryAdapter implements InventoryReadRepository {
         StringBuilder filter = new StringBuilder(" where p.owner_id = ?");
         arguments.add(ownerId);
         if (wardCodeOrNull != null) {
-            // spec 4.7: a legacy row has no ward code, so q alone can find it
+            // property-create intake spec 4.7: a legacy row has no ward code, so q alone can find it
             filter.append(qOrNull == null ? " and p.ward_code = ?" : " and (p.ward_code = ? or p.ward_code is null)");
             arguments.add(wardCodeOrNull);
         }

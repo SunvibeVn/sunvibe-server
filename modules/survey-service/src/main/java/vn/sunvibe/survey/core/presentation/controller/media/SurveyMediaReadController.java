@@ -67,7 +67,7 @@ public class SurveyMediaReadController {
     /**
      * GET /api/v1/staff/survey-media/{mediaId}/content/{variant}
      * <p>
-     * One variant of a servable photo (spec 5.4 content GET order).
+     * One variant of a servable photo (survey-media spec 5.4 content GET order).
      */
     @GetMapping(READ)
     @Operation(operationId = "getSurveyMediaContent",
@@ -133,7 +133,7 @@ public class SurveyMediaReadController {
         }
     }
 
-    /** spec 7.1: GET only; Spring would otherwise answer HEAD through the GET mapping. It exists only to refuse. */
+    /** survey-media spec 7.1: GET only; Spring would otherwise answer HEAD through the GET mapping. It exists only to refuse. */
     @Hidden
     @RequestMapping(value = READ, method = RequestMethod.HEAD)
     public void head() {
@@ -141,7 +141,7 @@ public class SurveyMediaReadController {
     }
 
     /**
-     * spec A-25: copies the variant, closing the store stream when no chunk was written for the no-progress timeout or
+     * survey-media spec A-25: copies the variant, closing the store stream when no chunk was written for the no-progress timeout or
      * the deadline passed; the answer then ends early and the client sees an incomplete body. Package-private for its
      * unit test.
      */
@@ -150,7 +150,7 @@ public class SurveyMediaReadController {
         long noProgressNanos = read.noProgressTimeout().toNanos();
         ScheduledFuture<?> watchdog = WATCHDOG.scheduleAtFixedRate(() -> {
             if (System.nanoTime() - lastProgress.get() > noProgressNanos || Instant.now().isAfter(read.deadline())) {
-                // spec A-25: end the store stream only; the request thread releases the slots when it returns
+                // survey-media spec A-25: end the store stream only; the request thread releases the slots when it returns
                 read.abortContent();
             }
         }, 200, 200, TimeUnit.MILLISECONDS);

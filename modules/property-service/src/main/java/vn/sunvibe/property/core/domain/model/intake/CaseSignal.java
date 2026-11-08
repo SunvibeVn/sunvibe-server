@@ -1,6 +1,6 @@
 package vn.sunvibe.property.core.domain.model.intake;
 
-/** Why a case opened (property-create intake D5-14, spec 4.7). */
+/** Why a case opened (property-create intake D5-14, property-create intake spec 4.7). */
 public enum CaseSignal {
     /** The normalized address of a property is equal. */
     ADDRESS,

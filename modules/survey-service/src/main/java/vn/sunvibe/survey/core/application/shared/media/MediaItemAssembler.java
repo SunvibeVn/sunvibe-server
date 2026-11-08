@@ -41,7 +41,7 @@ public class MediaItemAssembler {
     }
 
     /**
-     * @param carriedFrom the number of the revision each carried photo came from, by photo id (checklist submission
+     * @param carriedFrom the number of the revision each carried photo came from, by photo id (survey-checklist submission
      *                    spec 7.2)
      */
     public List<MediaItemView> assemble(List<SurveyMedia> photos, boolean viewerCanHold,

@@ -5,7 +5,7 @@ import java.util.Optional;
 
 /**
  * Port to the survey appointments of a lead, owned by survey-service (survey-schedule spec 5.4, ADR-009). The lead
- * commands call it in the same transaction, after the lead row was saved and flushed (lock order of spec 5.5); it
+ * commands call it in the same transaction, after the lead row was saved and flushed (lock order of survey-schedule spec 5.5); it
  * writes appointment rows only and never calls the lead back. Each hook answers the scheduled appointment it
  * changed, if any, so the lead's History entry can name it.
  */

@@ -10,8 +10,8 @@ import java.util.Map;
 /**
  * The stored document of one group (survey-checklist spec PD-1): the content and, per unit key, the metadata of units
  * that hold or held a value, plus the tombstones of units that left the content while their key can come back: units
- * the scope no longer allows (spec A-19) and removed G6 items, other items and hazards, kept by the identity they can
- * come back under (spec A-29, survey-checklist BR-28..BR-30). The G1 document also keeps the province and ward names
+ * the scope no longer allows (survey-checklist spec A-19) and removed G6 items, other items and hazards, kept by the identity they can
+ * come back under (survey-checklist spec A-29, survey-checklist BR-28..BR-30). The G1 document also keeps the province and ward names
  * of its observed address (null elsewhere and while the address is unknown).
  */
 public record GroupDocument(ChecklistGroup group, GroupContent content, Map<UnitKey, UnitMeta> meta,

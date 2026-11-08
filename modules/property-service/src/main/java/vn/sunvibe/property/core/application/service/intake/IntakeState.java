@@ -40,12 +40,12 @@ public record IntakeState(IntakeLead lead, Optional<IntakeSource> source, List<I
         return proofLive && proofOrNull.getOwnerCheck() == OwnerCheckState.DONE;
     }
 
-    /** The version a client must name; null with no current row (spec 4.1). */
+    /** The version a client must name; null with no current row (property-create intake spec 4.1). */
     public Long versionOrNull() {
         return currentOrNull == null ? null : currentOrNull.getVersion();
     }
 
-    /** spec 4.1: the latest COMPLETED row is not the current one, so a link to its property is all that is left. */
+    /** property-create intake spec 4.1: the latest COMPLETED row is not the current one, so a link to its property is all that is left. */
     public boolean hasEarlierResult() {
         return latestCompletedOrNull != null && !latestCompletedOrNull.equals(currentOrNull);
     }

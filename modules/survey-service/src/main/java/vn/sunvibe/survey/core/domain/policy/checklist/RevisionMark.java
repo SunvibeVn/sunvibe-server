@@ -11,7 +11,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.NeedsChangesKind;
 public record RevisionMark(ChecklistStatus status, NeedsChangesKind needsChangesKindOrNull,
                            FailedKind failedKindOrNull) {
 
-    /** The reviewer asked for a new visit ("dấu cần khảo sát lại", spec 4.1). */
+    /** The reviewer asked for a new visit ("dấu cần khảo sát lại", survey-checklist submission spec 4.1). */
     public boolean needsResurvey() {
         return needsChangesKindOrNull == NeedsChangesKind.RESURVEY_REQUIRED || failedKindOrNull == FailedKind.TEMPORARY;
     }

@@ -14,7 +14,7 @@ import vn.sunvibe.property.core.domain.repository.IntakeTrailDomainRepository;
 
 import java.time.Instant;
 
-/** Use Case Implementation - the intake block. Not read-only: it writes the access log row (spec 4.12). */
+/** Use Case Implementation - the intake block. Not read-only: it writes the access log row (property-create intake spec 4.12). */
 @Service
 @RequiredArgsConstructor
 public class InventoryIntakeReadService implements IntakeReadUseCase {

@@ -24,7 +24,7 @@ import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepo
 @Component
 public class MediaAccessLogger {
 
-    /** spec A-6: one MEDIA_LIST row per user and checklist per 10 minutes of list reads, a 204 poll included. */
+    /** survey-media spec A-6: one MEDIA_LIST row per user and checklist per 10 minutes of list reads, a 204 poll included. */
     public static final Duration LIST_ROW_EVERY = Duration.ofMinutes(10);
 
     private final SurveyAccessLogDomainRepository accessLogs;
@@ -45,14 +45,14 @@ public class MediaAccessLogger {
         this.ownTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
 
-    /** spec A-6, A-23: one row per delivered PREVIEW, FULL, download or ADMIN held read; resource = the photo. */
+    /** survey-media spec A-6, A-23: one row per delivered PREVIEW, FULL, download or ADMIN held read; resource = the photo. */
     public void contentRead(String userId, String leadId, AccessResourceType type, String mediaId) {
         Instant now = clock.now();
         ownTransaction.executeWithoutResult(status -> accessLogs.save(SurveyAccessLog.create(
                 snowflakes.generateId(), leadId, userId, now, type, mediaId, RequestId.current())));
     }
 
-    /** spec A-6: a list read; a row only when the user has none for the checklist in the last 10 minutes. */
+    /** survey-media spec A-6: a list read; a row only when the user has none for the checklist in the last 10 minutes. */
     public void listRead(String userId, String leadId, String checklistId) {
         Instant now = clock.now();
         ownTransaction.executeWithoutResult(status -> {

@@ -4,7 +4,7 @@ import java.io.Serial;
 
 /**
  * The surveyor (the lead's assignee) can no longer take leads, so the appointment cannot be booked, changed or
- * confirmed, or the caller cannot record their own visit (survey-schedule BR-6, spec 4.7). The field is null except
+ * confirmed, or the caller cannot record their own visit (survey-schedule BR-6, survey-schedule spec 4.7). The field is null except
  * {@code performedByUserId} for an own visit record.
  */
 public class SurveyorIneligibleException extends RuntimeException {

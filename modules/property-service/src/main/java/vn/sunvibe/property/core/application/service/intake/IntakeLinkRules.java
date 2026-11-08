@@ -81,7 +81,7 @@ public class IntakeLinkRules {
         }
     }
 
-    /** spec 4.7: WHOLE not onto a PARTS property; PARTS not onto a property an intake created WHOLE. */
+    /** property-create intake spec 4.7: WHOLE not onto a PARTS property; PARTS not onto a property an intake created WHOLE. */
     private static void requireLayout(PropertyFacts property, IntakeSource source) {
         RentalLayout scope = IntakeEvaluator.scope(source);
         boolean wholeOntoParts = scope == RentalLayout.WHOLE && RentalLayout.PARTS.name().equals(property.layoutOrNull());
@@ -103,7 +103,7 @@ public class IntakeLinkRules {
         }
     }
 
-    /** spec 4.10, D5-12: a forced property or an earlier result leaves one legal target. */
+    /** property-create intake spec 4.10, D5-12: a forced property or an earlier result leaves one legal target. */
     private static void requireBound(IntakeState state, PropertyFacts property) {
         Optional<String> bound = state.forcedPropertyId().or(() -> state.hasEarlierResult()
                 ? Optional.of(state.latestCompletedOrNull().getResultPropertyId()) : Optional.empty());
@@ -112,7 +112,7 @@ public class IntakeLinkRules {
         }
     }
 
-    /** spec 4.7: a manager's DIFFERENT_ASSET ruling on this intake and scope binds. */
+    /** property-create intake spec 4.7: a manager's DIFFERENT_ASSET ruling on this intake and scope binds. */
     private static boolean rulesOut(CaseFacts facts, String propertyId) {
         if (facts.row().getStatus() != CaseStatus.DECIDED || facts.row().getOutcome() != CaseOutcome.DIFFERENT_ASSET) {
             return false;

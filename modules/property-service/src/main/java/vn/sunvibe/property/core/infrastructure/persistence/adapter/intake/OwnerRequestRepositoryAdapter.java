@@ -21,7 +21,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class OwnerRequestRepositoryAdapter implements OwnerRequestDomainRepository {
 
-    /** One statement, so parallel wrong codes all count (spec S-5); the row at the limit voids and drops its snapshot. */
+    /** One statement, so parallel wrong codes all count (property-create intake spec S-5); the row at the limit voids and drops its snapshot. */
     private static final String COUNT_WRONG_CODE = """
             update inventory_owner_requests
                set failed_attempts = failed_attempts + 1,

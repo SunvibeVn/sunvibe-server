@@ -71,7 +71,7 @@ public final class InventoryIntake {
         this.updatedAt = required(updatedAt, "updatedAt");
     }
 
-    /** A first selection on a source: DRAFT, version 0 (spec 4.2). */
+    /** A first selection on a source: DRAFT, version 0 (property-create intake spec 4.2). */
     public static InventoryIntake create(String id, int intakeNo, String leadId, int intentCycle, IntakeSourceRef source,
                                          List<SelectedSpace> selection, Instant now) {
         return new InventoryIntake(id, intakeNo, leadId, intentCycle, source, IntakeStatus.DRAFT, 0L, selection, null, null,
@@ -90,7 +90,7 @@ public final class InventoryIntake {
                 createdAt, updatedAt);
     }
 
-    // ==================== Commands of spec 4.2 ====================
+    // ==================== Commands of property-create intake spec 4.2 ====================
 
     /** A new selection: back to DRAFT, with nothing kept that was built on the old scope. */
     public void select(List<SelectedSpace> newSelection, Instant now) {
@@ -101,7 +101,7 @@ public final class InventoryIntake {
         touch(now);
     }
 
-    /** A request went out. On a COMPLETED row the status stays: a new proof can restore a result (spec 4.2). */
+    /** A request went out. On a COMPLETED row the status stays: a new proof can restore a result (property-create intake spec 4.2). */
     public void awaitOwner(Instant now) {
         if (status != IntakeStatus.COMPLETED) {
             require(EnumSet.of(IntakeStatus.DRAFT, IntakeStatus.AWAITING_OWNER), "owner request");
@@ -118,7 +118,7 @@ public final class InventoryIntake {
         touch(now);
     }
 
-    /** A withdrawal, a refusal or the store of a computed DRAFT: what was built on the proof goes (spec 4.1, 4.2). */
+    /** A withdrawal, a refusal or the store of a computed DRAFT: what was built on the proof goes (property-create intake spec 4.1, 4.2). */
     public void backToDraft(Instant now) {
         require(AFTER_THE_REQUEST, "return to draft");
         clearWork();
@@ -132,7 +132,7 @@ public final class InventoryIntake {
         touch(now);
     }
 
-    /** A manager's ruling took the target away; the intake stays as it is (spec 4.10). */
+    /** A manager's ruling took the target away; the intake stays as it is (property-create intake spec 4.10). */
     public void clearTarget(Instant now) {
         target = null;
         previewHash = null;
@@ -170,14 +170,14 @@ public final class InventoryIntake {
         touch(now);
     }
 
-    /** The row's source died: the row ends, and a later command starts a new one (spec 4.1). */
+    /** The row's source died: the row ends, and a later command starts a new one (property-create intake spec 4.1). */
     public void abandon(Instant now) {
         require(OPEN, "abandon");
         status = IntakeStatus.ABANDONED;
         touch(now);
     }
 
-    /** A new proof takes over a completed result (spec 4.2, 4.11, E-13). */
+    /** A new proof takes over a completed result (property-create intake spec 4.2, 4.11, E-13). */
     public void restore(String newProofId, Instant now) {
         require(EnumSet.of(IntakeStatus.COMPLETED), "restoration");
         proofId = required(newProofId, "proofId");

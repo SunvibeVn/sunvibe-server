@@ -8,11 +8,11 @@ import java.util.List;
  * test, S3 for Cloudflare R2). Every key is written once with a create-only put (I-3); bytes behind a key never change.
  * Background work (content PUT, worker, sweeper, listing, deletion), content serving and health probes use three
  * separate bounded clients (A-25). Failures are {@link StoreUnavailableException} with a code, never SDK text; keys,
- * buckets and endpoints are never part of a message (spec 4.9).
+ * buckets and endpoints are never part of a message (survey-media spec 4.9).
  */
 public interface MediaObjectStore {
 
-    /** The two private buckets (spec 4.12): raw sources in quarantine, processed variants in media. */
+    /** The two private buckets (survey-media spec 4.12): raw sources in quarantine, processed variants in media. */
     enum Bucket {
         /** Raw sources under {@code quarantine/<mediaId>/<attempt>}; probe keys under {@code quarantine/health/}. */
         QUARANTINE,
@@ -45,7 +45,7 @@ public interface MediaObjectStore {
 
     /**
      * Opens a variant of the media bucket for serving, on the GET client whose pool is bounded with a 2 s acquisition
-     * timeout (spec A-25).
+     * timeout (survey-media spec A-25).
      *
      * @throws StoreObjectNotFoundException when the key does not exist
      * @throws StoreUnavailableException on a store-side error, a timeout or no free GET connection in time
@@ -59,7 +59,7 @@ public interface MediaObjectStore {
     ObjectPage list(Bucket bucket, String prefix, String startAfterOrNull, int maxKeys);
 
     /**
-     * spec A-18: a create-only put, get and delete of a unique key under the bucket's health prefix, on the probe
+     * survey-media spec A-18: a create-only put, get and delete of a unique key under the bucket's health prefix, on the probe
      * client; answers normally only when all three behaved.
      *
      * @throws StoreUnavailableException when the store failed or answered wrongly
@@ -68,7 +68,7 @@ public interface MediaObjectStore {
 
     /**
      * An opened object: close it to release its connection. {@code abort} ends the stream at once without reading the
-     * rest (spec A-25: an S3 stream drops its connection instead of draining it); by default it closes the stream.
+     * rest (survey-media spec A-25: an S3 stream drops its connection instead of draining it); by default it closes the stream.
      */
     record StoredObject(InputStream content, long length, Runnable abort) implements AutoCloseable {
 

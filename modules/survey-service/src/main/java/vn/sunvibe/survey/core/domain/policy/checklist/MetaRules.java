@@ -52,7 +52,7 @@ public final class MetaRules {
     }
 
     /**
-     * The tombstone a removal stamps (survey-checklist BR-29, BR-30, spec A-29), without the correcting save, which
+     * The tombstone a removal stamps (survey-checklist BR-29, BR-30, survey-checklist spec A-29), without the correcting save, which
      * the save sets: the remover as last editor at the removal time, never as observer; the observer, date, last
      * source and form field of the value the unit held; for a hazard with an owner fix report, who heard it and when.
      * A unit already cleared to UNKNOWN holds no value, so it keeps the metadata of its clearing.
@@ -75,7 +75,7 @@ public final class MetaRules {
                 stored.lastSource(), null, facts);
     }
 
-    /** The submission field an owner's-form unit comes from (spec 7.2). */
+    /** The submission field an owner's-form unit comes from (survey-checklist spec 7.2). */
     static String formField(String fieldName) {
         return switch (fieldName) {
             case "observedAddress" -> "address";

@@ -101,7 +101,7 @@ public class ChecklistContextLoader {
                 ChecklistNotFoundException::new);
         requireAssignee(viewer, lead, SecurityResourceType.CHECKLIST, checklistId, action);
         List<SurveyAppointment> ofLead = appointments.findByLeadId(leadId);
-        // submission spec 5.4: a save takes the row FOR SHARE first, so it waits for a running submit and then answers
+        // survey-checklist submission spec 5.4: a save takes the row FOR SHARE first, so it waits for a running submit and then answers
         // read-only; the groups of a SUBMITTED revision can therefore not change after the freeze
         SurveyChecklist checklist = (action == SecurityAction.SAVE ? checklists.findByIdForShare(id)
                 : checklists.findById(id)).orElseThrow(ChecklistNotFoundException::new);
@@ -109,7 +109,7 @@ public class ChecklistContextLoader {
     }
 
     /**
-     * A command that writes the revision row (submission spec 5.4, 5.5, plan PD-8): the steps of
+     * A command that writes the revision row (survey-checklist submission spec 5.4, 5.5, plan PD-8): the steps of
      * {@link #loadForCommand} up to the assignee, then the checklist's first load under {@code FOR NO KEY UPDATE}. The
      * caller decides what the row's state means, then asks {@link #requireEditable}.
      */
@@ -125,7 +125,7 @@ public class ChecklistContextLoader {
     }
 
     /**
-     * A command that moves the lead (submission spec 5.4, 5.5): the lead's first load under {@code FOR NO KEY UPDATE}
+     * A command that moves the lead (survey-checklist submission spec 5.4, 5.5): the lead's first load under {@code FOR NO KEY UPDATE}
      * (404 with an event when hidden), then the checklist's under the same lock. Two decisions on one revision serialise
      * on the lead row, and an ADMIN hold, which takes the lead {@code FOR SHARE} first, waits.
      */
@@ -143,7 +143,7 @@ public class ChecklistContextLoader {
     }
 
     /**
-     * The start of a revision (submission spec 5.4, 5.5): the steps of {@link #lockForWrite}, with the previous revision
+     * The start of a revision (survey-checklist submission spec 5.4, 5.5): the steps of {@link #lockForWrite}, with the previous revision
      * taken {@code FOR SHARE}: it is never written.
      */
     public ReadContext lockPrevious(SurveyViewer viewer, String checklistId) {

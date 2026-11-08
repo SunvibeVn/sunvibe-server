@@ -72,7 +72,7 @@ public class ChecklistReviewSteps {
         this.snowflakes = snowflakes;
     }
 
-    /** R2..R6 (spec 4.5) from the frozen G1 and G4 and the frozen photos as they stand now. */
+    /** R2..R6 (survey-checklist submission spec 4.5) from the frozen G1 and G4 and the frozen photos as they stand now. */
     void requirePassable(SurveyChecklist checklist, SurveyAppointment visit, List<SurveyAppointment> ofLead,
                          List<EvidenceEntry> frozen, List<EvidenceRejection> rejections) {
         Map<ChecklistGroup, GroupState> states = groups.findAll(checklist.getId());
@@ -87,7 +87,7 @@ public class ChecklistReviewSteps {
     }
 
     /**
-     * spec 5.4: the set rows of the revision and of its carried photos' origins in id order, then the selected photos
+     * survey-checklist submission spec 5.4: the set rows of the revision and of its carried photos' origins in id order, then the selected photos
      * in id order. Ids come from scalar reads, so no photo is loaded before its lock.
      */
     List<SurveyMedia> lockSelectedPhotos(String checklistId) {
@@ -103,7 +103,7 @@ public class ChecklistReviewSteps {
         return media.lockForUpdate(ids);
     }
 
-    /** The access-log row of the answer, then the History entry, the last write (spec 5.4). */
+    /** The access-log row of the answer, then the History entry, the last write (survey-checklist submission spec 5.4). */
     ChecklistActivityResult finish(SurveyViewer viewer, LeadFacts lead, SurveyChecklist checklist,
                                    ChecklistActivityType type, Instant now) {
         logAccess(viewer, lead, checklist, now);
@@ -111,7 +111,7 @@ public class ChecklistReviewSteps {
                 checklist.getId().getValue(), checklist.getChecklistNo(), null, now));
     }
 
-    /** The access-log row of the answer (spec 5.4). */
+    /** The access-log row of the answer (survey-checklist submission spec 5.4). */
     void logAccess(SurveyViewer viewer, LeadFacts lead, SurveyChecklist checklist, Instant now) {
         accessLogs.save(SurveyAccessLog.create(snowflakes.generateId(), lead.leadId(), viewer.userId(), now,
                 AccessResourceType.CHECKLIST, checklist.getId().getValue()));

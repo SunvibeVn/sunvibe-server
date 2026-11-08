@@ -39,7 +39,7 @@ import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaContentUseCas
 @Service
 public class SurveyMediaContentService implements SurveyMediaContentUseCase {
 
-    /** spec A-13: a body is read within 10 minutes of its claim. */
+    /** survey-media spec A-13: a body is read within 10 minutes of its claim. */
     public static final Duration BODY_DEADLINE = Duration.ofMinutes(10);
 
     private static final Logger log = LoggerFactory.getLogger(SurveyMediaContentService.class);
@@ -132,13 +132,13 @@ public class SurveyMediaContentService implements SurveyMediaContentUseCase {
         try {
             store.delete(MediaObjectStore.Bucket.QUARANTINE, key);
         } catch (RuntimeException e) {
-            // the orphan sweep deletes it later (spec A-17); ids only
+            // the orphan sweep deletes it later (survey-media spec A-17); ids only
             log.warn("Could not delete the upload attempt of survey photo {}", target.mediaId());
         }
     }
 
     /**
-     * spec A-13: reads and discards the rest of the declared body (at most 20 MiB, never stored) so the client reads
+     * survey-media spec A-13: reads and discards the rest of the declared body (at most 20 MiB, never stored) so the client reads
      * the answer; a client that stops sending ends the drain at the container's read timeout or the deadline.
      */
     private void drain(ContentBody body, long declaredLength) {

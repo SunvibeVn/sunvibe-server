@@ -4,18 +4,18 @@ import java.util.List;
 
 /**
  * The gaps known so far for a full-assessment submission, computed on every read (survey-checklist spec 4.7, US-2
- * AC-4); nothing here blocks a save. {@code submissionAvailable} is gates S2..S7 of submission spec 4.4, the reason the
+ * AC-4); nothing here blocks a save. {@code submissionAvailable} is gates S2..S7 of survey-checklist submission spec 4.4, the reason the
  * first of them that fails.
  */
 public record Readiness(boolean submissionAvailable, String submissionUnavailableReason, List<MissingItem> missing,
                         List<UnconfirmedTerm> unconfirmedTerms, List<PreviewWarning> warnings) {
 
-    /** spec 4.7: photos are not available, or uploads are off (submission spec A-3). */
+    /** spec 4.7: photos are not available, or uploads are off (survey-checklist submission spec A-3). */
     public static final String EVIDENCE_NOT_AVAILABLE = "EVIDENCE_NOT_AVAILABLE";
 
     /** survey-checklist submission spec A-3: the submission switch is off. */
     public static final String SUBMISSION_NOT_AVAILABLE = "SUBMISSION_NOT_AVAILABLE";
-    /** Gate S3 (submission spec 4.4): a SCHEDULED appointment on the lead. */
+    /** Gate S3 (survey-checklist submission spec 4.4): a SCHEDULED appointment on the lead. */
     public static final String APPOINTMENT_SCHEDULED = "APPOINTMENT_SCHEDULED";
     /** Gate S4: readiness items are missing. */
     public static final String MISSING_ITEMS = "MISSING_ITEMS";

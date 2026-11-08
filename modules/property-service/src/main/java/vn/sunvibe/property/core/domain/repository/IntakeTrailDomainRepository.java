@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Set;
 
 /**
- * The insert-only trail of an intake (property-create intake I-4, spec 4.12): the assignee commands, which make up the actor
+ * The insert-only trail of an intake (property-create intake I-4, property-create intake spec 4.12): the assignee commands, which make up the actor
  * set of D5-7 and D5-15, and the access log. Neither holds a phone, email, code, phrase, password or address.
  */
 public interface IntakeTrailDomainRepository {

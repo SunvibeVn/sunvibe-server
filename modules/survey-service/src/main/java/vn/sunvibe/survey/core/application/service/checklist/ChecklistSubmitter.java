@@ -90,7 +90,7 @@ public class ChecklistSubmitter {
     }
 
     /**
-     * Submit check order (spec 5.5): body (400) → revision exists, lead visible (404, event) → assignee (403, event) →
+     * Submit check order (survey-checklist submission spec 5.5): body (400) → revision exists, lead visible (404, event) → assignee (403, event) →
      * read-only (409; revision SUBMITTED by the caller: the replay of A-4) → eligible (422) → holder (409) → version
      * (409) → S2 (409 CHECKLIST_SUBMISSION_NOT_AVAILABLE) → S3..S7 (409 CHECKLIST_NOT_READY). The lead is read under its
      * share lock and never written. A second submit of one revision waits on the checklist lock and replays.
@@ -144,7 +144,7 @@ public class ChecklistSubmitter {
         return new ChecklistSubmitResult(views.assemble(viewer, lead, locked.ofLead(), checklist), activity.entry());
     }
 
-    /** spec 4.3: the photo with the hash of its FULL variant, of its latest attempt. */
+    /** survey-checklist submission spec 4.3: the photo with the hash of its FULL variant, of its latest attempt. */
     private static EvidenceEntry entry(SurveyMedia photo) {
         MediaVariant full = photo.getVariants().stream().filter(variant -> variant.kind() == VariantKind.FULL)
                 .max(Comparator.comparingInt(MediaVariant::attempt))

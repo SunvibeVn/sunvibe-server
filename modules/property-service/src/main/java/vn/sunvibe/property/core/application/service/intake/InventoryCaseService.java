@@ -91,7 +91,7 @@ public class InventoryCaseService implements InventoryCaseUseCase {
         throw refused("status");
     }
 
-    /** Not read-only: opening a case writes an access log row (spec 4.12). */
+    /** Not read-only: opening a case writes an access log row (property-create intake spec 4.12). */
     @Override
     @Transactional
     public InventoryCaseView read(String caseId, IntakeActor actor) {
@@ -143,7 +143,7 @@ public class InventoryCaseService implements InventoryCaseUseCase {
         throw refused("outcome");
     }
 
-    /** spec 5.4: required only for SAME_ASSET on an intake candidate, and then one of the two sides. */
+    /** property-create intake spec 5.4: required only for SAME_ASSET on an intake candidate, and then one of the two sides. */
     private static void requireProceeding(DuplicateCase item, CaseOutcome decision, String proceedingOrNull) {
         boolean needed = decision == CaseOutcome.SAME_ASSET && !item.onProperty();
         boolean oneOfTheSides = item.getIntakeId().equals(proceedingOrNull) || Objects.equals(item.getCandidateIntakeId(),
@@ -153,7 +153,7 @@ public class InventoryCaseService implements InventoryCaseUseCase {
         }
     }
 
-    /** spec 4.10: a second same-user SAME_ASSET on another property would merge two assets, which is out of scope. */
+    /** property-create intake spec 4.10: a second same-user SAME_ASSET on another property would merge two assets, which is out of scope. */
     private void requireOneForcedProperty(DuplicateCase decided) {
         InventoryIntake row = rowOf(CasePolicy.waitingIntake(decided));
         if (decided.getOutcome() != CaseOutcome.SAME_ASSET) {
@@ -187,7 +187,7 @@ public class InventoryCaseService implements InventoryCaseUseCase {
         return Stream.of(item.getIntakeId(), item.getCandidateIntakeId()).filter(Objects::nonNull);
     }
 
-    /** spec 4.3: either side's lead, a property candidate's origin intake included. */
+    /** property-create intake spec 4.3: either side's lead, a property candidate's origin intake included. */
     private boolean workedEitherSide(DuplicateCase item, IntakeActor actor, Map<String, Boolean> workedByLead) {
         Stream<String> origin = item.onProperty() ? inventory.property(item.getCandidatePropertyId())
                 .map(PropertyFacts::intakeIdOrNull).stream() : Stream.empty();

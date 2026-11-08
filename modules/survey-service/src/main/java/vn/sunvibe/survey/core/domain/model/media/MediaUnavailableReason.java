@@ -4,12 +4,12 @@ package vn.sunvibe.survey.core.domain.model.media;
 public enum MediaUnavailableReason {
     /** The photo was removed (BR-8). */
     REMOVED,
-    /** An ADMIN holds the photo (spec A-23). */
+    /** An ADMIN holds the photo (survey-media spec A-23). */
     HELD,
     /** The photo is not READY: still uploading or processing, or never accepted. */
     NOT_READY,
-    /** Its content was deleted after the removal (spec 4.7). */
+    /** Its content was deleted after the removal (survey-media spec 4.7). */
     CONTENT_DELETED,
-    /** Its content is missing after a database restore (spec A-17). */
+    /** Its content is missing after a database restore (survey-media spec A-17). */
     CONTENT_MISSING
 }

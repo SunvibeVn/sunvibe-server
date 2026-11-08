@@ -4,7 +4,7 @@ import vn.sunvibe.survey.core.domain.policy.common.PlaceComparison;
 import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 /**
- * Where staff meet the owner (survey-schedule BR-7, spec C-3b): an address, a ward of the catalog with its province
+ * Where staff meet the owner (survey-schedule BR-7, survey-schedule spec C-3b): an address, a ward of the catalog with its province
  * and an optional pin; the lead's place unless staff give another one. Province, ward and pin were checked by the
  * intake location rules before (survey-schedule spec A-15). Private location data: never logged.
  */

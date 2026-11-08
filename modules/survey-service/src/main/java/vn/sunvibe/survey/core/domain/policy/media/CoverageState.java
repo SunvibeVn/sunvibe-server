@@ -10,6 +10,6 @@ public enum CoverageState {
     MISSING,
     /** Exempted (G4 NOT_APPLICABLE with its reason), or a shared pair not evaluated without spaces. */
     NOT_REQUIRED,
-    /** An optional category (SHARED_AMENITY, DETAIL): never required (spec A-12). */
+    /** An optional category (SHARED_AMENITY, DETAIL): never required (survey-media spec A-12). */
     OPTIONAL
 }

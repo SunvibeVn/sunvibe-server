@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.model.media;
 
 /**
- * What a photo shows (survey-media spec 4.1, 4.6, A-12), in the table order of spec 4.6, which orders coverage and
+ * What a photo shows (survey-media spec 4.1, 4.6, A-12), in the table order of survey-media spec 4.6, which orders coverage and
  * the missing items.
  */
 public enum EvidenceCategory {

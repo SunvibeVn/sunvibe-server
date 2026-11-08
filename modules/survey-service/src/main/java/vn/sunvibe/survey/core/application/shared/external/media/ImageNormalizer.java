@@ -17,26 +17,26 @@ import java.util.Optional;
 public interface ImageNormalizer {
 
     /**
-     * The format from the source's bytes, run before the scan (spec 4.5 row 2); empty when unsupported.
+     * The format from the source's bytes, run before the scan (survey-media spec 4.5 row 2); empty when unsupported.
      *
      * @throws ProcessorUnavailableException when the processor cannot be reached or answers nothing usable
      */
     Optional<SourceFormat> detect(InputStream source, long length);
 
     /**
-     * Structure, bounds, decode and the three variants (spec 4.5 rows 4-8).
+     * Structure, bounds, decode and the three variants (survey-media spec 4.5 rows 4-8).
      *
      * @throws ProcessorUnavailableException when the processor cannot be reached or the channel breaks
      */
     NormalizeResult normalize(InputStream source, long length);
 
     /**
-     * The processor probe of spec A-18: a fixed tiny JPEG normalized within a time limit, its output passing the caps
+     * The processor probe of survey-media spec A-18: a fixed tiny JPEG normalized within a time limit, its output passing the caps
      * and checks. INCOMPLETE when the processor could not be reached or did not answer in time.
      */
     ProbeResult probe();
 
-    /** The deployment's processor version stored on every variant (spec A-28). */
+    /** The deployment's processor version stored on every variant (survey-media spec A-28). */
     String processorVersion();
 
     /** The outcome of a normalize run. */
@@ -51,11 +51,11 @@ public interface ImageNormalizer {
         record Rejected(MediaStatusReason reason) implements NormalizeResult {
         }
 
-        /** The child exceeded a limit, crashed or was killed; twice is REJECTED UNREADABLE (spec A-7). */
+        /** The child exceeded a limit, crashed or was killed; twice is REJECTED UNREADABLE (survey-media spec A-7). */
         record LimitHit() implements NormalizeResult {
         }
 
-        /** The output failed a cap or a check: fail closed, the photo ends FAILED (spec 4.5 last row, A-28). */
+        /** The output failed a cap or a check: fail closed, the photo ends FAILED (survey-media spec 4.5 last row, A-28). */
         record Failed(String code) implements NormalizeResult {
         }
     }

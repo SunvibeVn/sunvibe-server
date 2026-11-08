@@ -5,7 +5,7 @@ import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import java.time.Duration;
 import java.time.Instant;
 
-/** The groups of the survey list (survey-schedule US-4, spec A-11), shown in this order. */
+/** The groups of the survey list (survey-schedule US-4, survey-schedule spec A-11), shown in this order. */
 public enum ListGroup {
     /** The appointment has ended (start + duration is now or earlier) and is still scheduled. */
     OVERDUE,

@@ -21,7 +21,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DuplicateCaseRepositoryAdapter implements DuplicateCaseDomainRepository {
 
-    /** The predicate is spelled as in uq_inventory_duplicate_cases_pair_key (spec 4.10). */
+    /** The predicate is spelled as in uq_inventory_duplicate_cases_pair_key (property-create intake spec 4.10). */
     private static final String INSERT = """
             insert into inventory_duplicate_cases (id, intake_id, candidate_property_id, candidate_intake_id, pair_key,
                 scope_hash, candidate_scope_hash, signal, status, version, created_at)

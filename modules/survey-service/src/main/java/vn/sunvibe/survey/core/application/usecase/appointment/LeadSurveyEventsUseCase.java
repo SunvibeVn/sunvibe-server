@@ -8,7 +8,7 @@ import java.util.Optional;
  * <p>
  * Published to acquisition-service (survey-schedule spec 5.4, ADR-009): a lead command that reassigns, holds, closes
  * or changes the requirement of a lead tells survey here, in its own transaction and after its lead row was saved and
- * flushed (lock order of spec 5.5). Each call changes the lead's scheduled appointment, if any, and answers it so the
+ * flushed (lock order of survey-schedule spec 5.5). Each call changes the lead's scheduled appointment, if any, and answers it so the
  * lead's History entry can name it. It writes appointment rows only: it never reads or moves the lead and writes no
  * History row (the lead command writes its own, survey-schedule BR-8).
  */

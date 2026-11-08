@@ -4,7 +4,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * The users who may not decide a revision (survey-checklist D3-9, D3-14, submission spec 4.2): everyone who performed,
+ * The users who may not decide a revision (survey-checklist D3-9, D3-14, survey-checklist submission spec 4.2): everyone who performed,
  * recorded, held, submitted, edited or added or removed photos in it or in an earlier revision of its visit, and the
  * lead's current assignee. An owner-statement receiver is not excluded.
  */

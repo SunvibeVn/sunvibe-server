@@ -69,7 +69,7 @@ import java.util.Set;
  * Builds what a checklist answer shows, after the writes and outside the share lock's critical work (survey-checklist
  * spec 5.5, 7.2): the groups read in one statement, the viewer's editability, the address difference, readiness,
  * effective terms, the chain of earlier hazards, the owner's form, takeovers, corrections, editors and the lead's staff
- * for an editor (spec A-25); every staff name through one directory lookup. The evidence part of readiness and the
+ * for an editor (survey-checklist spec A-25); every staff name through one directory lookup. The evidence part of readiness and the
  * media block come from the media-set row and the photos read with the groups (survey-media spec 4.6, A-1): the two
  * read endpoints run this in one REPEATABLE READ transaction, so {@code missingCount} matches {@code missing[]}.
  */
@@ -177,7 +177,7 @@ public class ChecklistViewAssembler {
     }
 
     /**
-     * submission spec 4.6, U-5: a revision copies its groups with their correction pointers, so its read lists the saves
+     * survey-checklist submission spec 4.6, U-5: a revision copies its groups with their correction pointers, so its read lists the saves
      * of the earlier revisions of the visit too; who edited it and when stay its own.
      */
     private List<ChecklistSave> savesOfTheVisit(SurveyChecklist checklist, List<ChecklistSave> own) {
@@ -194,7 +194,7 @@ public class ChecklistViewAssembler {
     }
 
     /**
-     * The readiness of a revision from rows the caller read under its locks (submission spec 4.4, I-6): the gates of a
+     * The readiness of a revision from rows the caller read under its locks (survey-checklist submission spec 4.4, I-6): the gates of a
      * submit read the same lists the page shows.
      */
     public Readiness readiness(SurveyChecklist checklist, Map<ChecklistGroup, GroupState> states,
@@ -245,7 +245,7 @@ public class ChecklistViewAssembler {
 
     /**
      * survey-media spec A-1: the photos are available when uploads are on or the checklist has a media-set row; then
-     * every photo row of the checklist and the carried photos it selects, read after the set row (evidence of spec 4.6),
+     * every photo row of the checklist and the carried photos it selects, read after the set row (evidence of survey-media spec 4.6),
      * else null. Without a set row no photo exists (a photo is created under the set lock after the row).
      */
     private Evidence evidence(SurveyChecklistId checklistId) {

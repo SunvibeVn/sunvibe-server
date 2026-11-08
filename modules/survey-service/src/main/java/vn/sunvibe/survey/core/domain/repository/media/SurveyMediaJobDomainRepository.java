@@ -18,39 +18,39 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
  */
 public interface SurveyMediaJobDomainRepository {
 
-    /** spec 4.4 step 2: the PROCESS job of a committed photo, PENDING from {@code dueAt} with no attempt yet. */
+    /** survey-media spec 4.4 step 2: the PROCESS job of a committed photo, PENDING from {@code dueAt} with no attempt yet. */
     void upsertProcess(SurveyMediaId mediaId, Instant dueAt, Instant now);
 
-    /** spec 4.7: the DELETE_CONTENT job of a removed READY photo, PENDING from {@code dueAt}. */
+    /** survey-media spec 4.7: the DELETE_CONTENT job of a removed READY photo, PENDING from {@code dueAt}. */
     void upsertDeleteContent(SurveyMediaId mediaId, Instant dueAt, Instant now);
 
     /** Every job of the photo. */
     List<MediaJob> findByMedia(SurveyMediaId mediaId);
 
     /**
-     * spec 4.4 step 3, A-27: in the caller's short transaction, the next due PROCESS job ({@code FOR UPDATE OF j SKIP
+     * survey-media spec 4.4 step 3, A-27: in the caller's short transaction, the next due PROCESS job ({@code FOR UPDATE OF j SKIP
      * LOCKED} through the partial index on kind and due time), ordered by its uploader's processing milliseconds of the
      * hour, skipping the given uploaders; it gets the new lease token, the lease end as due time and one more attempt.
      */
     Optional<MediaJobClaim> claimNextProcess(Instant now, Instant hourStart, Collection<String> excludedUploaders,
                                              String token, Instant leaseUntil);
 
-    /** spec A-7: the lease of a working job extended; false when the job no longer carries the token. */
+    /** survey-media spec A-7: the lease of a working job extended; false when the job no longer carries the token. */
     boolean renewLease(long jobId, String token, Instant leaseUntil, Instant now);
 
     /**
-     * spec 4.7: claims the earliest due PENDING DELETE_CONTENT job ({@code FOR UPDATE SKIP LOCKED} through the partial
+     * survey-media spec 4.7: claims the earliest due PENDING DELETE_CONTENT job ({@code FOR UPDATE SKIP LOCKED} through the partial
      * index on kind and due time); it gets the lease token, the lease end as due time and one more attempt.
      */
     Optional<MediaJob> claimNextDeleteContent(Instant now, String token, Instant leaseUntil);
 
-    /** spec 4.4 step 4: the sweeper closes a stale PROCESSING photo's job, whatever lease it has. */
+    /** survey-media spec 4.4 step 4: the sweeper closes a stale PROCESSING photo's job, whatever lease it has. */
     void closeProcess(SurveyMediaId mediaId, MediaJobState state, String code, Instant now);
 
-    /** spec A-18: whether a PENDING job of the kind is due now (a stale heartbeat then pauses intake). */
+    /** survey-media spec A-18: whether a PENDING job of the kind is due now (a stale heartbeat then pauses intake). */
     boolean anyDue(MediaJobKind kind, Instant now);
 
-    /** {@code FOR UPDATE} on the job row, after the set and photo rows (spec 5.4). */
+    /** {@code FOR UPDATE} on the job row, after the set and photo rows (survey-media spec 5.4). */
     Optional<MediaJob> lockForUpdate(long jobId);
 
     /** Fenced: the job ends in the state with its last error code. */
@@ -59,6 +59,6 @@ public interface SurveyMediaJobDomainRepository {
     /** Fenced: PENDING again from {@code dueAt}, the lease dropped, with the error code and the limit hits so far. */
     boolean retry(long jobId, String token, Instant dueAt, String errorCode, int limitHits, Instant now);
 
-    /** Fenced: PENDING again from {@code dueAt} without counting the attempt (spec A-18: the scan step was blocked). */
+    /** Fenced: PENDING again from {@code dueAt} without counting the attempt (survey-media spec A-18: the scan step was blocked). */
     boolean defer(long jobId, String token, Instant dueAt, Instant now);
 }

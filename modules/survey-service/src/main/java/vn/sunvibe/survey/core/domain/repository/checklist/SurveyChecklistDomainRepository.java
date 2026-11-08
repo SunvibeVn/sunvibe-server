@@ -39,7 +39,7 @@ public interface SurveyChecklistDomainRepository {
 
     /**
      * The checklist with a PostgreSQL {@code FOR NO KEY UPDATE} lock, as the first load of the row in its persistence
-     * context (submission spec 5.4, plan PD-8): a submit or a decision writes the row, and a plain read followed by a
+     * context (survey-checklist submission spec 5.4, plan PD-8): a submit or a decision writes the row, and a plain read followed by a
      * lock query would keep the stale instance.
      */
     Optional<SurveyChecklist> findByIdForUpdate(SurveyChecklistId id);

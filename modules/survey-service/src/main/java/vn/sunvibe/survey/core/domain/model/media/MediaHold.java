@@ -30,7 +30,7 @@ public record MediaHold(Instant heldAt, String heldByUserId, HoldReason reason, 
     }
 
     /**
-     * A new hold by the ADMIN. A photo whose last hold was CREDENTIAL_EXPOSURE keeps that reason (spec A-23), so its
+     * A new hold by the ADMIN. A photo whose last hold was CREDENTIAL_EXPOSURE keeps that reason (survey-media spec A-23), so its
      * caption stays hidden after the next release too.
      *
      * @throws IllegalStateException when already held (the caller answers the no-op first)
@@ -44,7 +44,7 @@ public record MediaHold(Instant heldAt, String heldByUserId, HoldReason reason, 
     }
 
     /**
-     * The release at {@code max(now, heldAt)} (spec A-23: {@code GREATEST(:appNow, held_at)}).
+     * The release at {@code max(now, heldAt)} (survey-media spec A-23: {@code GREATEST(:appNow, held_at)}).
      *
      * @throws IllegalStateException when not held (the caller answers the no-op first)
      */
@@ -57,7 +57,7 @@ public record MediaHold(Instant heldAt, String heldByUserId, HoldReason reason, 
     }
 
     /**
-     * spec 7.2, A-23: the caption is hidden from a viewer without hold rights while held, and after a release while the
+     * survey-media spec 7.2, A-23: the caption is hidden from a viewer without hold rights while held, and after a release while the
      * last reason is CREDENTIAL_EXPOSURE.
      */
     public boolean captionHidden(boolean viewerCanHold) {

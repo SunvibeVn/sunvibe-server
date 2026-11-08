@@ -157,7 +157,7 @@ public class SurveyMediaReadService implements SurveyMediaReadUseCase {
         return new Target(lead.leadId(), checklistId, photo, heldRead);
     }
 
-    /** spec A-6, A-23: the row of a delivered read; a THUMBNAIL is covered by the checklist's list row. */
+    /** survey-media spec A-6, A-23: the row of a delivered read; a THUMBNAIL is covered by the checklist's list row. */
     private void logRead(SurveyViewer viewer, Target target, VariantKind kind, boolean asDownload, String mediaId) {
         if (target.heldRead()) {
             accessLogger.contentRead(viewer.userId(), target.leadId(), AccessResourceType.MEDIA_HELD_READ, mediaId);
@@ -171,7 +171,7 @@ public class SurveyMediaReadService implements SurveyMediaReadUseCase {
         }
     }
 
-    /** spec 7.1, A-30: {@code thumbnail}, {@code preview} or {@code full}; anything else is 400 on {@code variant}. */
+    /** survey-media spec 7.1, A-30: {@code thumbnail}, {@code preview} or {@code full}; anything else is 400 on {@code variant}. */
     private static VariantKind variant(String variant) {
         if (variant != null) {
             for (VariantKind kind : VariantKind.values()) {
@@ -184,7 +184,7 @@ public class SurveyMediaReadService implements SurveyMediaReadUseCase {
                 "variant must be thumbnail, preview or full.")));
     }
 
-    /** spec A-30: {@code download} only as {@code true} or {@code false} and only on {@code full}. */
+    /** survey-media spec A-30: {@code download} only as {@code true} or {@code false} and only on {@code full}. */
     private static boolean download(String download, VariantKind kind) {
         if (download == null) {
             return false;

@@ -99,7 +99,7 @@ public class IntakeSuspensionService implements IntakeSuspensionUseCase {
         return Optional.ofNullable(state.currentOrNull()).or(() -> Optional.ofNullable(state.latestCompletedOrNull()));
     }
 
-    /** spec 5.4: a unit mapped by a COMPLETED intake of this lead, an earlier one included; anything else is 404. */
+    /** property-create intake spec 5.4: a unit mapped by a COMPLETED intake of this lead, an earlier one included; anything else is 404. */
     private InventoryIntake completedRowOf(IntakeState state, String unitId) {
         List<String> intakeIds = mappings.findByUnitIds(List.of(unitId)).stream().map(UnitMapping::intakeId).toList();
         return state.rows().stream().filter(row -> row.getStatus() == IntakeStatus.COMPLETED)
@@ -115,7 +115,7 @@ public class IntakeSuspensionService implements IntakeSuspensionUseCase {
         }
     }
 
-    /** spec 4.12: reference only; a suspension with no intake has both references null. */
+    /** property-create intake spec 4.12: reference only; a suspension with no intake has both references null. */
     private void history(IntakeHistoryEntry.Type type, IntakeLead lead, IntakeActor actor, Optional<InventoryIntake> named,
                          Instant now) {
         leads.recordActivity(lead.leadId(), new IntakeHistoryEntry(type, actor.userId(),

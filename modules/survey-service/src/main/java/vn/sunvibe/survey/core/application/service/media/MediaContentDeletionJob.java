@@ -35,7 +35,7 @@ import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaJobDomainReposi
 /**
  * The content deletion of a removed READY photo (survey-media spec 4.7, A-17, A-23): the job is claimed in its own
  * transaction; under the set, photo and job locks it re-checks that the photo is still asked to be deleted, not held,
- * not deleted yet and referenced by no submission (checklist submission spec I-5); it deletes every object under {@code media/<mediaId>/} outside the locks and checks that a
+ * not deleted yet and referenced by no submission (survey-checklist submission spec I-5); it deletes every object under {@code media/<mediaId>/} outside the locks and checks that a
  * listing of that prefix is empty; then, in a short transaction, sets {@code contentDeletedAt} and bumps the set
  * version. Metadata and hashes stay (I-4). A store failure or an object still listed retries the job later; it is
  * retried until done. Each run records the deletion heartbeat (A-18).
@@ -142,7 +142,7 @@ public class MediaContentDeletionJob {
             return false;
         }
         SurveyMedia photo = locked.photo();
-        // checklist submission spec I-5, D3-3: the content of a photo a submission references is never deleted
+        // survey-checklist submission spec I-5, D3-3: the content of a photo a submission references is never deleted
         String endCode = references.isReferenced(photo.getId()) ? "REFERENCED" : photo.isHeld() ? "HELD"
                 : photo.getContentDeletedAt() != null ? "ALREADY_DELETED"
                 : photo.getContentDeleteRequestedAt() == null ? "NOT_REQUESTED" : null;

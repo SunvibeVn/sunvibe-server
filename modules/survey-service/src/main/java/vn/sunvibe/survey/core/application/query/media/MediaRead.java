@@ -59,7 +59,7 @@ public final class MediaRead implements AutoCloseable {
     }
 
     /**
-     * spec A-25: the watchdog ends a stalled or late read's store stream at once (its connection dropped, not drained);
+     * survey-media spec A-25: the watchdog ends a stalled or late read's store stream at once (its connection dropped, not drained);
      * the read's slots stay taken until the request thread closes the read, so a thread still blocked writing to the
      * client keeps counting against the caps.
      */

@@ -47,7 +47,7 @@ public final class DuplicateCase {
         this.createdAt = createdAt;
     }
 
-    /** A new undecided case: one candidate, a property or an intake (spec 5.2 file 9). */
+    /** A new undecided case: one candidate, a property or an intake (property-create intake spec 5.2 file 9). */
     public static DuplicateCase open(String id, String intakeId, String candidatePropertyIdOrNull,
                                      String candidateIntakeIdOrNull, String pairKey, String scopeHash,
                                      String candidateScopeHashOrNull, CaseSignal signal, Instant now) {
@@ -75,7 +75,7 @@ public final class DuplicateCase {
         version++;
     }
 
-    /** An exit that is no decision (spec 4.10): a CLOSED pair that meets again opens a new case. */
+    /** An exit that is no decision (property-create intake spec 4.10): a CLOSED pair that meets again opens a new case. */
     public void close() {
         status = CaseStatus.CLOSED;
         version++;

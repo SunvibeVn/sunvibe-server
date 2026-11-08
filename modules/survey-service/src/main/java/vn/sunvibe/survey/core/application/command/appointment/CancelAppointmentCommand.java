@@ -6,7 +6,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 /**
- * Cancel a scheduled appointment with one of the five user reasons (survey-schedule US-2 AC-2, spec A-26): a
+ * Cancel a scheduled appointment with one of the five user reasons (survey-schedule US-2 AC-2, survey-schedule spec A-26): a
  * description of 1..500 characters is required for OTHER and optional otherwise.
  */
 public record CancelAppointmentCommand(String appointmentId, long expectedLeadVersion,

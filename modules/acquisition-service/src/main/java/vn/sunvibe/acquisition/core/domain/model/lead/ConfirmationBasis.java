@@ -20,7 +20,7 @@ public record ConfirmationBasis(LocalDate confirmedOn, String text) {
     /**
      * The basis with its text cleaned (Unicode NFC, trimmed), after checking it: a date not after {@code today} and
      * not before {@code notBeforeOrNull} (survey-schedule spec A-25), and a text of 1..500 characters holding no phone
-     * number (spec A-14).
+     * number (survey-schedule spec A-14).
      *
      * @throws InvalidLeadCommandException field {@code basis.confirmedOn} or {@code basis.text}
      */

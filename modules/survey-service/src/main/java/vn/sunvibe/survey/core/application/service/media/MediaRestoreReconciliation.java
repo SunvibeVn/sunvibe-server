@@ -167,7 +167,7 @@ public class MediaRestoreReconciliation {
     private boolean mark(MediaRef ref) {
         Boolean done = transaction.execute(status -> {
             Instant now = clock.now();
-            // checklist submission spec 5.4: a carried photo's loss shows in every revision that selects it
+            // survey-checklist submission spec 5.4: a carried photo's loss shows in every revision that selects it
             LockedSets locked = setLocks.lockFor(ref.checklistId(), ref.mediaId()).orElse(null);
             if (locked == null) {
                 return false;

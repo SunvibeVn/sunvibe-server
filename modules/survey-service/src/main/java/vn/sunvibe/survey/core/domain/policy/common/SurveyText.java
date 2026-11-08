@@ -6,7 +6,7 @@ import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueExceptio
 import java.text.Normalizer;
 
 /**
- * The one cleaning and checking rule of the free text staff type into survey commands (survey-schedule BR-4, spec
+ * The one cleaning and checking rule of the free text staff type into survey commands (survey-schedule BR-4, survey-schedule spec
  * A-14, A-24): Unicode NFC and trimmed, inner spaces and line breaks kept; optional text that is blank counts as
  * absent, required text keeps at least one character; a Vietnamese phone number is refused (survey BR-4: no number of
  * a third party). Messages name the field and never quote the text.

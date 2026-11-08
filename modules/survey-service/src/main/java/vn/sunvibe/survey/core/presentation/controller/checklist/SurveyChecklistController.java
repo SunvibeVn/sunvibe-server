@@ -39,7 +39,7 @@ import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistTaken
  * The survey checklists of staff (survey-checklist spec 7.1): read a checklist, take a draft over, read a takeover
  * checkpoint and save one group of a draft. Sale staff and ADMIN only; a checklist of a lead the caller may not see
  * answers 404 exactly like one that does not exist, and only the lead's eligible assignee takes over (survey-checklist
- * spec 4.4). No operation deletes a checklist (spec I-6).
+ * spec 4.4). No operation deletes a checklist (survey-checklist spec I-6).
  */
 @RestController
 @RequestMapping(SurveyChecklistController.PATH)

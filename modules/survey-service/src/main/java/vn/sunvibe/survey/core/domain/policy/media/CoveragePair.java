@@ -9,7 +9,7 @@ import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 public record CoveragePair(String spaceIdOrNull, EvidenceCategory category, boolean required,
                            String notRequiredReasonOrNull, int readyCount, int processingCount, CoverageState state) {
 
-    /** A required pair that is not COVERED: one readiness item (spec 4.6). */
+    /** A required pair that is not COVERED: one readiness item (survey-media spec 4.6). */
     public boolean missing() {
         return required && state != CoverageState.COVERED;
     }

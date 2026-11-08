@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /**
  * G3 values of one space (survey-checklist spec 4.6): area in square metres with one decimal, bedrooms, private
- * bathrooms, shared bathroom use and the layout note (a plain authored note, spec A-26).
+ * bathrooms, shared bathroom use and the layout note (survey-checklist spec A-26: a plain authored note).
  */
 public record DimensionsSpace(String spaceId, SourcedField<BigDecimal> area, SourcedField<Integer> bedrooms,
                               SourcedField<Integer> privateBathrooms, SourcedField<YesNo> sharedBathroomUse,

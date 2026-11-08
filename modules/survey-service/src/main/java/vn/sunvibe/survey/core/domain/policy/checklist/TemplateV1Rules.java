@@ -206,7 +206,7 @@ public final class TemplateV1Rules {
         return code;
     }
 
-    /** A client ULID not used twice in the list (spec A-23). */
+    /** A client ULID not used twice in the list (survey-checklist spec A-23). */
     static String uniqueId(BodyChecker check, String path, String value, Set<String> seen) {
         String id = check.ulid(path, value);
         if (id != null && !seen.add(id)) {
@@ -279,7 +279,7 @@ public final class TemplateV1Rules {
 
     /**
      * The per-space entries of a group: a list (empty when nothing is recorded), each entry naming a space by a ULID
-     * at most once (spec 4.6 "each id at most once"); whether G1 knows the space is a rule of save step 9.
+     * at most once (survey-checklist spec 4.6 "each id at most once"); whether G1 knows the space is a rule of save step 9.
      */
     static <T> List<T> entries(BodyChecker check, List<T> entries, Function<T, String> idOf,
                                BiFunction<String, T, T> rules) {

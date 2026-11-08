@@ -6,7 +6,7 @@ import java.util.function.BooleanSupplier;
 
 /**
  * The first reason the viewer cannot decide a revision (survey-checklist submission spec 4.2): the same order as the
- * decision (spec 5.5) on the state blockers it computes, so a read and a command cannot disagree. The exclusion is asked
+ * decision (survey-checklist submission spec 5.5) on the state blockers it computes, so a read and a command cannot disagree. The exclusion is asked
  * last: it costs reads a viewer refused earlier never needs.
  */
 public final class ReviewRights {
@@ -31,7 +31,7 @@ public final class ReviewRights {
     }
 
     /**
-     * A SUBMITTED revision off the current visit cannot arise (a booking is refused while one exists, spec 4.8), and the
+     * A SUBMITTED revision off the current visit cannot arise (a booking is refused while one exists, survey-checklist submission spec 4.8), and the
      * contract has no reason of its own for it: it counts as a record that moved on.
      */
     private static ReviewReason ofBlocker(String field) {

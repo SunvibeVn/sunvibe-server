@@ -43,7 +43,7 @@ public final class MediaSet {
         return lastMediaNo;
     }
 
-    /** spec 4.2: every change a reader can see bumps the set version. */
+    /** survey-media spec 4.2: every change a reader can see bumps the set version. */
     public void bump(Instant now) {
         setVersion++;
         updatedAt = now;

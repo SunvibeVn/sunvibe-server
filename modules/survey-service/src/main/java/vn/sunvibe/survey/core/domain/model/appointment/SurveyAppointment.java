@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * Domain Model - SurveyAppointment (Aggregate Root)
  * <p>
- * One booking of a site survey for an owner lead (survey-schedule US-1..US-3, spec 4.4): SCHEDULED until a visit is
+ * One booking of a site survey for an owner lead (survey-schedule US-1..US-3, survey-schedule spec 4.4): SCHEDULED until a visit is
  * recorded (VISITED) or it is cancelled (CANCELLED); both are final. While scheduled its start, duration, meeting
  * place, access note, on-site contact and the owner's confirmation may change; every change keeps a full revision and
  * an event (insert-only, survey BR-5). The surveyor is always the lead's assignee (C-1) and follows a reassignment
@@ -169,7 +169,7 @@ public final class SurveyAppointment {
     }
 
     /**
-     * Change the editable values with a reason (survey-schedule US-2 AC-1, spec A-4): a new revision keeps the full
+     * Change the editable values with a reason (survey-schedule US-2 AC-1, survey-schedule spec A-4): a new revision keeps the full
      * new values and the earlier ones stay. A new start lies from the current minute to 90 days ahead; a kept start is
      * not checked again, so an overdue appointment can still change its note or place (survey-schedule BR-4). A change
      * of start or duration makes the appointment UNCONFIRMED with cause TIME_CHANGED, a change of place only with cause
@@ -205,7 +205,7 @@ public final class SurveyAppointment {
 
     /**
      * Record that the owner confirmed the current time and place (survey-schedule US-1 AC-5), with an optional note.
-     * Returns false, and changes nothing, when it is already confirmed (spec A-6).
+     * Returns false, and changes nothing, when it is already confirmed (survey-schedule spec A-6).
      *
      * @throws InvalidSurveyValueException field {@code note}
      * @throws AppointmentStateException   the appointment is not scheduled
@@ -265,7 +265,7 @@ public final class SurveyAppointment {
     }
 
     /**
-     * Cancel because a lead command stopped the survey work (survey-schedule BR-3, spec 4.6): LEAD_ON_HOLD with the
+     * Cancel because a lead command stopped the survey work (survey-schedule BR-3, survey-schedule spec 4.6): LEAD_ON_HOLD with the
      * hold note, LEAD_CLOSED with the close reason, INTENT_CHANGED without text. The text was checked by the lead
      * command; it is kept as typed (NFC, trimmed), up to 2000 characters.
      *
@@ -302,7 +302,7 @@ public final class SurveyAppointment {
     }
 
     /**
-     * Record that someone reached the property (survey-schedule US-3 AC-1, AC-1a, E-4, E-7; spec 4.8, A-8). The
+     * Record that someone reached the property (survey-schedule US-3 AC-1, AC-1a, E-4, E-7; survey-schedule spec 4.8, A-8). The
      * arrival is a whole minute, not in the future, not before the minute of booking and at most 60 minutes before the
      * start of the revision in force at the arrival; the performer must have held the appointment then. An own record
      * is entered by the performer; a proxy record by someone else, with a reason and a basis dated from the arrival
@@ -352,7 +352,7 @@ public final class SurveyAppointment {
     }
 
     /**
-     * The revision in force at a minute: the latest one whose own time, cut to the minute, is not after it (spec 4.8),
+     * The revision in force at a minute: the latest one whose own time, cut to the minute, is not after it (survey-schedule spec 4.8),
      * so an arrival entered in the booking minute finds revision 1.
      *
      * @throws IllegalStateException the minute is before the appointment was booked

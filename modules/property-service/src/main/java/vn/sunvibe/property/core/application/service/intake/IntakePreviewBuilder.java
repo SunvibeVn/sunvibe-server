@@ -45,7 +45,7 @@ public class IntakePreviewBuilder {
     private final UserDirectoryPort users;
     private final IntakeLeadPort leads;
 
-    /** spec 4.8: G1 text holding U+0000 cannot reach a property; a 409, never a database error. */
+    /** property-create intake spec 4.8: G1 text holding U+0000 cannot reach a property; a 409, never a database error. */
     public static void requireStorable(IntakeSource source) {
         boolean clean = Stream.of(source.addressText(), source.wardName(), source.provinceName())
                 .allMatch(text -> text == null || text.indexOf(NUL) < 0)
@@ -134,7 +134,7 @@ public class IntakePreviewBuilder {
         }).toList();
     }
 
-    /** spec 7.1: the canonical unit takes the property's code, which a create draws only at completion. */
+    /** property-create intake spec 7.1: the canonical unit takes the property's code, which a create draws only at completion. */
     private static String unitCode(InventoryIntake row, IntakeSource.Space space, Map<String, UnitFacts> unitsBySpace) {
         IntakeTarget target = row.getTarget();
         if (target.mode() == TargetMode.LINK) {

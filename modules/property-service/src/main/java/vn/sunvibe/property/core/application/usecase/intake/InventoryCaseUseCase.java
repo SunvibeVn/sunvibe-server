@@ -15,7 +15,7 @@ public interface InventoryCaseUseCase {
     InventoryCaseView decide(String caseId, IntakeActor actor, String outcome, String proceedingIntakeIdOrNull, String basis,
                              Long expectedVersion);
 
-    /** {@code totalElements} counts after the filter of who worked a side (spec 4.3). */
+    /** {@code totalElements} counts after the filter of who worked a side (property-create intake spec 4.3). */
     @Schema(name = "InventoryCasePage")
     record CasePage(List<CaseItem> items, int page, int size, long totalElements) {
     }

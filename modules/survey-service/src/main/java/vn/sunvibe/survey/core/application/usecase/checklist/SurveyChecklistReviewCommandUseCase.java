@@ -13,7 +13,7 @@ public interface SurveyChecklistReviewCommandUseCase {
 
     /**
      * The holder freezes the revision with its photos (survey-checklist US-2): the lead's version and status stay. A
-     * repeat by the same caller answers the revision and writes nothing (spec A-4).
+     * repeat by the same caller answers the revision and writes nothing (survey-checklist submission spec A-4).
      */
     ChecklistSubmitResult submit(SurveyViewer viewer, SubmitChecklistCommand command);
 

@@ -4,7 +4,7 @@ import java.util.List;
 
 /**
  * G1 (survey-checklist spec 4.6): the observed address, the difference note, the asset type, the fit, the rental
- * scope, the observed spaces and the two notes. Rental scope and notes are plain nullable fields (spec A-26).
+ * scope, the observed spaces and the two notes. Rental scope and notes are plain nullable fields (survey-checklist spec A-26).
  */
 public record IdentificationContent(SourcedField<ObservedLocation> observedAddress, String differenceNote,
                                     Field<PropertyTypeCode> propertyType, Field<FitAssessment> fit,

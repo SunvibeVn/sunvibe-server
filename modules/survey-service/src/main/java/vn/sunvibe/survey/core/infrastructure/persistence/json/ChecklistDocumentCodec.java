@@ -185,7 +185,7 @@ public class ChecklistDocumentCodec implements SubmissionCanonicalForm {
         return CANONICAL.writeValueAsString(node);
     }
 
-    /** The spaces of a submission (submission spec 4.3). */
+    /** The spaces of a submission (survey-checklist submission spec 4.3). */
     public String writeSubmittedSpaces(List<SubmittedSpace> spaces) {
         return mapper.writeValueAsString(spaces);
     }
@@ -199,7 +199,7 @@ public class ChecklistDocumentCodec implements SubmissionCanonicalForm {
         }
     }
 
-    /** The group versions of a submission, by group name (submission spec 4.3). */
+    /** The group versions of a submission, by group name (survey-checklist submission spec 4.3). */
     public String writeGroupVersions(Map<ChecklistGroup, Long> versions) {
         return mapper.writeValueAsString(new java.util.TreeMap<>(versions));
     }

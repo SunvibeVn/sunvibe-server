@@ -60,9 +60,9 @@ import java.util.stream.Collectors;
 @Component
 public class ChecklistDecider {
 
-    /** spec A-10: reason, notes and limitations. */
+    /** survey-checklist submission spec A-10: reason, notes and limitations. */
     private static final int DECISION_TEXT_MAX = 2000;
-    /** spec A-10: the reason of a photo mark. */
+    /** survey-checklist submission spec A-10: the reason of a photo mark. */
     private static final int REJECTION_TEXT_MAX = 500;
 
     private final SurveyChecklistDomainRepository checklists;
@@ -103,7 +103,7 @@ public class ChecklistDecider {
     }
 
     /**
-     * Decide check order (spec 5.5): role (403, on the endpoint) → body (400) → an account that can sign in (403, plan
+     * Decide check order (survey-checklist submission spec 5.5): role (403, on the endpoint) → body (400) → an account that can sign in (403, plan
      * PD-6) → revision exists, lead visible (404, event) → version (409) → state (409 CHECKLIST_DECISION_NOT_ALLOWED) →
      * excluded (403 CHECKLIST_REVIEW_NOT_ALLOWED, event) → marks among the frozen photos (400) → R2..R6 for PASSED (409).
      * The lead row is locked first, so every rule reads what a hold, a reassignment or a second decision left. No text
@@ -176,7 +176,7 @@ public class ChecklistDecider {
                 locked.ofLead(), moved.entry());
     }
 
-    /** The texts of a decision, cleaned (spec A-10), with its photo marks. */
+    /** The texts of a decision, cleaned (survey-checklist submission spec A-10), with its photo marks. */
     private record DecisionBody(String reason, String notes, String limitations, List<EvidenceRejection> rejections) {
 
         @Override
@@ -185,7 +185,7 @@ public class ChecklistDecider {
         }
     }
 
-    /** spec 5.5 body: A-10 on the texts and R1 on the shape, every violation at once. */
+    /** survey-checklist submission spec 5.5 body: A-10 on the texts and R1 on the shape, every violation at once. */
     private static DecisionBody decisionBody(DecideChecklistCommand command) {
         List<Violation> violations = new ArrayList<>();
         if (command.expectedVersion() == null) {
@@ -229,7 +229,7 @@ public class ChecklistDecider {
         }
     }
 
-    /** The outcome table of spec 4.5. */
+    /** The outcome table of survey-checklist submission spec 4.5. */
     private static LeadMoveTarget target(DecideChecklistCommand command) {
         return switch (command.outcome()) {
             case PASSED -> LeadMoveTarget.QUALIFIED;
@@ -240,7 +240,7 @@ public class ChecklistDecider {
         };
     }
 
-    /** spec 4.9: the History detail, {@code <OUTCOME>[:<KIND>]}; never a text. */
+    /** survey-checklist submission spec 4.9: the History detail, {@code <OUTCOME>[:<KIND>]}; never a text. */
     private static String detail(DecideChecklistCommand command) {
         return switch (command.outcome()) {
             case PASSED -> command.outcome().name();
@@ -249,7 +249,7 @@ public class ChecklistDecider {
         };
     }
 
-    /** spec A-11: the fixed close reason of a rejection; the reviewer's own reason stays in the decision. */
+    /** survey-checklist submission spec A-11: the fixed close reason of a rejection; the reviewer's own reason stays in the decision. */
     private static String closeReason(DecideChecklistCommand command, SurveyChecklist checklist) {
         if (command.failedKindOrNull() == FailedKind.OUT_OF_SCOPE) {
             return "Survey failed: out of scope (checklist #" + checklist.getChecklistNo() + ")";

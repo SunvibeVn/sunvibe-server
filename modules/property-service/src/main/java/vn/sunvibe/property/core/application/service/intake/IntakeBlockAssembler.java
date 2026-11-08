@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 /**
  * Turns the state of a lead into its block (property-create intake spec 7.1). The block reads as the store would leave it, so
- * a computed DRAFT shows no target, availability or case (spec 4.1).
+ * a computed DRAFT shows no target, availability or case (property-create intake spec 4.1).
  */
 @Component
 @RequiredArgsConstructor
@@ -75,7 +75,7 @@ public class IntakeBlockAssembler {
                 term.text()) : null, term.source(), term.date());
     }
 
-    /** spec 4.2: a decline or a void reads WAITING until the end of the request, so staff cannot read it. */
+    /** property-create intake spec 4.2: a decline or a void reads WAITING until the end of the request, so staff cannot read it. */
     private static String ownerState(IntakeState state, Instant now) {
         if (state.proofLive()) {
             return "CONFIRMED";
@@ -118,7 +118,7 @@ public class IntakeBlockAssembler {
                 mappings.findByIntakeId(completed.getId()).size(), completed.getCompletedAt());
     }
 
-    /** spec 7.1: only for manager roles, and the reason is left out for the assignee. */
+    /** property-create intake spec 7.1: only for manager roles, and the reason is left out for the assignee. */
     private List<IntakeBlockView.Suspension> suspensions(IntakeState state, IntakeActor actor) {
         if (!actor.manager()) {
             return List.of();

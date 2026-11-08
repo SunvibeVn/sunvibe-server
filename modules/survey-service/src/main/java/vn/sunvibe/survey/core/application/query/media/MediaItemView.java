@@ -34,7 +34,7 @@ public record MediaItemView(String id, int mediaNo, MediaStatus status, MediaSta
         }
     }
 
-    /** The current hold (spec A-23); who and why only for a viewer who may hold photos. */
+    /** The current hold (survey-media spec A-23); who and why only for a viewer who may hold photos. */
     public record Held(Instant at, String byUserIdOrNull, String byNameOrNull, HoldReason reasonOrNull) {
     }
 

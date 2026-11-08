@@ -38,7 +38,7 @@ import vn.sunvibe.survey.core.presentation.dto.response.media.SurveyMediaStateRe
 /**
  * The survey photos of staff (survey-media spec 7.1): private photos of a checklist draft, uploaded by its holder.
  * Sale staff and ADMIN only; a checklist or photo of a lead the caller may not see answers 404 exactly like one that
- * does not exist (spec 4.3).
+ * does not exist (survey-media spec 4.3).
  */
 @RestController
 @RequestMapping(SurveyMediaController.STAFF)
@@ -56,7 +56,7 @@ public class SurveyMediaController {
     public static final String HOLD_RELEASE = "/survey-media/{mediaId}/hold-release";
     /** The removal path, also matched by the JSON body limit (spec A-11). */
     public static final String REMOVAL = "/survey-media/{mediaId}/removal";
-    /** The deselection path, also matched by the JSON body limit (checklist submission spec 7.1). */
+    /** The deselection path, also matched by the JSON body limit (survey-checklist submission spec 7.1). */
     public static final String DESELECTION = "/survey-checklists/{checklistId}/media/{mediaId}/deselection";
 
     private final SurveyMediaCommandUseCase commandUseCase;

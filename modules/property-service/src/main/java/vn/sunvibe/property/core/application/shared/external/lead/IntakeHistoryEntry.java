@@ -12,7 +12,7 @@ import java.time.Instant;
 public record IntakeHistoryEntry(Type type, String actorUserIdOrNull, String intakeIdOrNull, Integer intakeNoOrNull,
                                  Instant occurredAt) {
 
-    /** The History types of spec 4.12. */
+    /** The History types of property-create intake spec 4.12. */
     public enum Type {
         INVENTORY_INTAKE_COMPLETED,
         INVENTORY_INTAKE_SUSPENDED,

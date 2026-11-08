@@ -73,22 +73,22 @@ import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaVariantDomainRe
 @Service
 public class MediaProcessingWorker {
 
-    /** spec A-7: the lease of a claimed job, renewed every minute while working. */
+    /** survey-media spec A-7: the lease of a claimed job, renewed every minute while working. */
     public static final Duration LEASE = Duration.ofMinutes(5);
     public static final Duration RENEW_EVERY = Duration.ofMinutes(1);
-    /** spec A-7: at most 6 attempts, the backoff before attempts 2 to 6. */
+    /** survey-media spec A-7: at most 6 attempts, the backoff before attempts 2 to 6. */
     public static final int MAX_ATTEMPTS = 6;
     static final List<Duration> BACKOFF = List.of(Duration.ofSeconds(30), Duration.ofMinutes(1),
             Duration.ofMinutes(2), Duration.ofMinutes(5), Duration.ofMinutes(10));
-    /** spec A-7, BR-18: a source 50 minutes after receipt is never processed into READY. */
+    /** survey-media spec A-7, BR-18: a source 50 minutes after receipt is never processed into READY. */
     public static final Duration SOURCE_MAX_AGE = Duration.ofMinutes(50);
-    /** spec A-27: at most 2 runs in flight per uploader on this instance. */
+    /** survey-media spec A-27: at most 2 runs in flight per uploader on this instance. */
     public static final int IN_FLIGHT_PER_UPLOADER = 2;
-    /** spec A-27: a decode over 30 s of wall clock is an expensive outcome. */
+    /** survey-media spec A-27: a decode over 30 s of wall clock is an expensive outcome. */
     static final Duration SLOW_DECODE = Duration.ofSeconds(30);
-    /** spec A-18: while scanning is blocked a job waits this long without using an attempt. */
+    /** survey-media spec A-18: while scanning is blocked a job waits this long without using an attempt. */
     static final Duration SCAN_BLOCKED_WAIT = Duration.ofMinutes(1);
-    /** spec A-7: a per-file scan condition is retried at most twice; a processor limit hit, once. */
+    /** survey-media spec A-7: a per-file scan condition is retried at most twice; a processor limit hit, once. */
     static final int SCAN_CONDITION_RETRIES = 2;
 
     private static final Logger log = LoggerFactory.getLogger(MediaProcessingWorker.class);
@@ -358,7 +358,7 @@ public class MediaProcessingWorker {
             }
         }
 
-        /** spec A-7: the next attempt after its backoff, or FAILED after the last one. */
+        /** survey-media spec A-7: the next attempt after its backoff, or FAILED after the last one. */
         private void retry(String code, int limitHits, SurveyMedia photoOrNull) {
             if (job.attempts() >= MAX_ATTEMPTS) {
                 SurveyMedia photo = photoOrNull != null ? photoOrNull : media.findById(mediaId).orElse(null);
@@ -374,7 +374,7 @@ public class MediaProcessingWorker {
                     job.attempts(), code);
         }
 
-        /** spec A-7: the lease extended every minute; false when this run lost it (its objects are deleted). */
+        /** survey-media spec A-7: the lease extended every minute; false when this run lost it (its objects are deleted). */
         private boolean renewIfDue() {
             Instant now = clock.now();
             if (Duration.between(lastRenewal, now).compareTo(RENEW_EVERY) < 0) {
@@ -391,7 +391,7 @@ public class MediaProcessingWorker {
         }
 
         /**
-         * The outcome under the set, photo and job locks (spec 5.4), only while the job carries this lease and the
+         * The outcome under the set, photo and job locks (survey-media spec 5.4), only while the job carries this lease and the
          * photo is PROCESSING; then the source is deleted and marked. A fenced-out run deletes only its own objects.
          */
         private void commit(Outcome outcome, SurveyMedia seen) {
@@ -439,7 +439,7 @@ public class MediaProcessingWorker {
                     photo.reject(effective.reasonOrNull(), now);
                     if (effective.reasonOrNull() == MediaStatusReason.MALWARE_DETECTED) {
                         String leadId = checklists.findLeadIdById(SurveyChecklistId.of(checklistId)).orElseThrow();
-                        // spec 4.9: the uploader, the photo and the job id; no body, hash or signature name
+                        // survey-media spec 4.9: the uploader, the photo and the job id; no body, hash or signature name
                         events.recordInTransaction(photo.getUploadedByUserId(), leadId, SecurityResourceType.MEDIA,
                                 mediaId.getValue(), SecurityAction.SCAN, SecurityOutcome.MALWARE_DETECTED,
                                 String.valueOf(job.id()));
@@ -456,13 +456,13 @@ public class MediaProcessingWorker {
             return effective.kind();
         }
 
-        /** After an outcome: delete the source, then mark it deleted in a short transaction (spec 4.4 step 3). */
+        /** After an outcome: delete the source, then mark it deleted in a short transaction (survey-media spec 4.4 step 3). */
         private void deleteSource(SurveyMedia seen) {
             String key = seen.getSourceStorageKey();
             try {
                 store.delete(Bucket.QUARANTINE, key);
             } catch (RuntimeException e) {
-                // the sweep deletes it later (spec 4.4 step 4)
+                // the sweep deletes it later (survey-media spec 4.4 step 4)
                 log.warn("Could not delete the source of survey photo {}", mediaId);
                 return;
             }
@@ -487,7 +487,7 @@ public class MediaProcessingWorker {
                 try {
                     store.delete(Bucket.MEDIA, key);
                 } catch (RuntimeException e) {
-                    // the orphan sweep deletes it later (spec A-17)
+                    // the orphan sweep deletes it later (survey-media spec A-17)
                     log.warn("Could not delete a variant of survey photo {}", mediaId);
                 }
             }

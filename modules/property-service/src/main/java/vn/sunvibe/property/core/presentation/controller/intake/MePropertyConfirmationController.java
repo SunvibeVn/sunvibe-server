@@ -42,7 +42,7 @@ public class MePropertyConfirmationController {
     private final OwnerConfirmationUseCase confirmations;
     private final IntakeActorResolver actors;
 
-    /** The list of spec 7.3. */
+    /** The list of property-create intake spec 7.3. */
     @Schema(name = "OwnerConfirmationList")
     public record Items(List<OwnerConfirmationItem> items) {
     }

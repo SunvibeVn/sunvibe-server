@@ -5,7 +5,7 @@ import java.io.Serial;
 /**
  * The store failed or did not answer in time (survey-media spec 4.4 step 2, A-18, A-25): answered 503
  * MEDIA_STORE_UNAVAILABLE, and a store probe is asked for. The message is the code only: never a key, bucket,
- * endpoint or SDK text (spec 4.9).
+ * endpoint or SDK text (survey-media spec 4.9).
  */
 public class StoreUnavailableException extends RuntimeException {
 

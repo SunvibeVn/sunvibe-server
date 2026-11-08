@@ -3,7 +3,7 @@ package vn.sunvibe.survey.core.application.exception.common;
 import java.io.Serial;
 
 /**
- * The lead or the appointment changed since the caller read it (survey-schedule BR-2, spec A-2). Names the request
+ * The lead or the appointment changed since the caller read it (survey-schedule BR-2, survey-schedule spec A-2). Names the request
  * field that carried the stale version: {@code expectedLeadVersion} or {@code expectedAppointmentVersion}.
  */
 public class SurveyConcurrentModificationException extends RuntimeException {
