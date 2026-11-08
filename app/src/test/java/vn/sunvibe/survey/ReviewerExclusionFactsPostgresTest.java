@@ -40,7 +40,7 @@ import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaCommandUseCas
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewerExclusion;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewerExclusionFacts;
 import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;

@@ -23,7 +23,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
-import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
+import vn.sunvibe.survey.core.domain.policy.common.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.DecisionFacts;
 import vn.sunvibe.survey.core.domain.policy.checklist.DecisionPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.Readiness;

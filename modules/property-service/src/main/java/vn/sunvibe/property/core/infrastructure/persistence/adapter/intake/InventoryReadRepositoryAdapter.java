@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
-import vn.sunvibe.property.core.domain.policy.AddressNormalizer;
+import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.property.core.domain.repository.InventoryReadRepository;
 import vn.sunvibe.shared.time.AppClock;
 

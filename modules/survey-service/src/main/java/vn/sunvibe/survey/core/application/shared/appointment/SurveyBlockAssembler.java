@@ -24,7 +24,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.Holder;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.resumption.SurveyResumption;
-import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
+import vn.sunvibe.survey.core.domain.policy.common.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStartPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.RequalificationPolicy;

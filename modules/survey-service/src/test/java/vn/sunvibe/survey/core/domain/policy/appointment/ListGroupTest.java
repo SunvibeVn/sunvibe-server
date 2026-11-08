@@ -1,4 +1,4 @@
-package vn.sunvibe.survey.core.domain.policy;
+package vn.sunvibe.survey.core.domain.policy.appointment;
 
 import org.junit.jupiter.api.Test;
 

@@ -32,7 +32,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.ProvenanceUnit;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.UnitMeta;
-import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
+import vn.sunvibe.survey.core.domain.policy.common.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistEditability;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistHazards;
 import vn.sunvibe.survey.core.domain.policy.checklist.EarlierHazard;

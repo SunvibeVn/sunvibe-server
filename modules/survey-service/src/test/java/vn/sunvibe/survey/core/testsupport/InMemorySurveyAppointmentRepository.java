@@ -5,7 +5,7 @@ import vn.sunvibe.survey.core.domain.exception.appointment.AppointmentAlreadySch
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentStatus;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
-import vn.sunvibe.survey.core.domain.policy.ListGroup;
+import vn.sunvibe.survey.core.domain.policy.appointment.ListGroup;
 import vn.sunvibe.survey.core.domain.repository.common.PageResult;
 import vn.sunvibe.survey.core.domain.repository.appointment.ScheduledSearch;
 import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;

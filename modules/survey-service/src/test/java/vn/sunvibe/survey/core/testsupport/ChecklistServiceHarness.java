@@ -50,7 +50,7 @@ import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 import vn.sunvibe.survey.core.domain.model.media.MediaPlacement;
 import vn.sunvibe.survey.core.domain.model.media.MediaSet;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 import java.time.Duration;
 import java.time.Instant;

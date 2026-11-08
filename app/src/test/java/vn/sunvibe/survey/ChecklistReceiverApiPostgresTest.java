@@ -34,7 +34,7 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * Who may be named as the receiver of an owner statement and what the owner's own web form lets a draft use

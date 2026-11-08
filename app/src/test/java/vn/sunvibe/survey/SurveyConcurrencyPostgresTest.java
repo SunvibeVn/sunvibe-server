@@ -35,7 +35,7 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * Concurrent commands on one lead across acquisition and survey on PostgreSQL (survey-schedule spec 5.5; W15-4,

@@ -58,7 +58,7 @@ import vn.sunvibe.integration.SurveyLeadEventsAdapter;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * Checklist commands against each other and against lead commands on PostgreSQL (survey-checklist spec 5.5; W16-4,

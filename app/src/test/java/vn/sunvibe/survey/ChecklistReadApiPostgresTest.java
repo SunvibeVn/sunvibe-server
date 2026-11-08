@@ -35,7 +35,7 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.logging.CorrelationId;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * The checklist reads, the survey block's checklist state, the access log and the security events end to end

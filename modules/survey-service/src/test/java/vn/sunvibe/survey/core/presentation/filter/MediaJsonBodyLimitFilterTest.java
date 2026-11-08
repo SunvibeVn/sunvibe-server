@@ -18,6 +18,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import vn.sunvibe.survey.core.presentation.exception.MediaBodyTooLargeException;
 
 /**
  * The JSON bodies of create, removal, hold and release are capped at 16 KiB, counted while reading and before parsing

@@ -131,7 +131,10 @@ class NamingConventionArchTest {
 				.check(classes);
 	}
 
-	/** Clean-up spec N-9: a use case package holds interfaces and the records they publish, never an implementation. */
+	/**
+	 * Clean-up spec N-9: a use case package holds interfaces and the records and exceptions they publish, never an
+	 * implementation.
+	 */
 	@Test
 	void useCases_holdNoServiceOrComponent() {
 		noClasses().that().resideInAPackage(CORE + ".application.usecase..")
@@ -198,6 +201,28 @@ class NamingConventionArchTest {
 				.and(DescribedPredicate.not(allowlistedInPresentation()))
 				.should().dependOnClassesThat(repositoryRulesOrAggregate())
 				.check(classes);
+	}
+
+	/**
+	 * Clean-up spec N-15 (amendment 2026-11-07): an exception sits in an exception package, or with the contract it
+	 * belongs to, a use case or a port, because {@code ModuleBoundaryArchTest} lets an integration adapter read only
+	 * those two packages (ADR-009).
+	 */
+	@Test
+	void exceptions_resideInAnExceptionPackage() {
+		topLevelClassesIn(CORE + "..").and().haveSimpleNameEndingWith("Exception")
+				.should().resideInAnyPackage(CORE + "..exception..", CORE + ".application.usecase..",
+						CORE + ".application.shared.external..")
+				.check(classes);
+	}
+
+	/**
+	 * Clean-up spec N-16 (amendment 2026-11-07): {@code domain/policy/} holds only concept folders. Written without
+	 * {@code that()} on the package, so it stays green once the package holds no loose class.
+	 */
+	@Test
+	void domainPolicy_hasNoLooseClass() {
+		noClasses().that().areTopLevelClasses().should().resideInAPackage(CORE + ".domain.policy").check(classes);
 	}
 
 	private static DescribedPredicate<JavaClass> allowlistedInPresentation() {

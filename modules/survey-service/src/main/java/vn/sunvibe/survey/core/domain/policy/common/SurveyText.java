@@ -1,4 +1,4 @@
-package vn.sunvibe.survey.core.domain.policy;
+package vn.sunvibe.survey.core.domain.policy.common;
 
 import vn.sunvibe.shared.text.PhoneNumberDetector;
 import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;

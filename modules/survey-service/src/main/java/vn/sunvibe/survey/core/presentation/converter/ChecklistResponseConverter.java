@@ -66,7 +66,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupDocument;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.GroupState;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.UnitKey;
 import vn.sunvibe.survey.core.domain.model.checklist.unit.UnitMeta;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChargeOrigin;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.EarlierHazard;

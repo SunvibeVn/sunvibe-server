@@ -43,7 +43,7 @@ import vn.sunvibe.survey.core.domain.model.media.MediaStatus;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.model.security.SecurityAction;
 import vn.sunvibe.survey.core.domain.model.security.SecurityResourceType;
-import vn.sunvibe.survey.core.domain.policy.CurrentVisitPolicy;
+import vn.sunvibe.survey.core.domain.policy.common.CurrentVisitPolicy;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistEditability;
 import vn.sunvibe.survey.core.domain.policy.checklist.Editability;
 import vn.sunvibe.survey.core.domain.policy.media.EvidenceCoverageCalculator;

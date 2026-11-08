@@ -1,4 +1,4 @@
-package vn.sunvibe.property.core.domain.policy;
+package vn.sunvibe.property.core.domain.policy.intake;
 
 import java.text.Normalizer;
 import java.util.Locale;

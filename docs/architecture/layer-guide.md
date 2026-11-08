@@ -496,5 +496,10 @@ public class PropertyRepositoryAdapter implements PropertyDomainRepository {
 ### 6. Exception Handling
 
 - **Domain exceptions**: `domain/exception/` - Business rule violations
-- **Application exceptions**: `application/exception/` - Application-specific errors
-- **Presentation exceptions**: `presentation/exception/` - HTTP error responses via `@ExceptionHandler`
+- **Application exceptions**: `application/exception/` - Application-specific errors. An exception that crosses a
+  module boundary sits with its contract instead: in `application/usecase/` beside the use case that throws it, or in
+  `application/shared/external/<system>/` beside the port, because `ModuleBoundaryArchTest` lets an integration
+  adapter read only those two packages (ADR-009)
+- **Presentation exceptions**: `presentation/exception/` - HTTP error responses via `@ExceptionHandler`, and the
+  exceptions of the presentation layer itself (acquisition `PayloadTooLargeException`, survey
+  `MediaBodyTooLargeException`)

@@ -24,7 +24,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.appointment.VisitRecordKind;
-import vn.sunvibe.survey.core.domain.policy.ListGroup;
+import vn.sunvibe.survey.core.domain.policy.appointment.ListGroup;
 import vn.sunvibe.survey.core.domain.repository.common.PageResult;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyAppointmentRepository;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyHistoryRepositories;

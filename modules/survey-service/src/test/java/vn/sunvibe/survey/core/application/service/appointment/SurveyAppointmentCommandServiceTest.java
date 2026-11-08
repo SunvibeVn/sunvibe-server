@@ -42,7 +42,7 @@ import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
 import vn.sunvibe.survey.core.domain.model.appointment.VisitRecordKind;
 import vn.sunvibe.survey.core.domain.model.appointment.AppointmentDetails;
 import vn.sunvibe.survey.core.domain.model.appointment.Coordinates;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyAppointmentRepository;
 import vn.sunvibe.survey.core.testsupport.InMemorySurveyHistoryRepositories;
 import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;

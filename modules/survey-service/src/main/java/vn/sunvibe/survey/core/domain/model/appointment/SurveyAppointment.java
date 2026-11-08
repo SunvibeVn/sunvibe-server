@@ -3,8 +3,8 @@ package vn.sunvibe.survey.core.domain.model.appointment;
 import vn.sunvibe.survey.core.domain.exception.appointment.AppointmentStateException;
 import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.exception.appointment.PerformerMismatchException;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 import java.time.Instant;
 import java.util.ArrayList;

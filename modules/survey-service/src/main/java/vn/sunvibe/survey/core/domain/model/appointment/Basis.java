@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.model.appointment;
 
 import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 import java.time.LocalDate;
 

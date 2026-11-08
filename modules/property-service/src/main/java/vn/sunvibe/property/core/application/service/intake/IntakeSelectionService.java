@@ -14,7 +14,7 @@ import vn.sunvibe.property.core.domain.model.intake.IntakeSourceRef;
 import vn.sunvibe.property.core.domain.model.intake.IntakeStatus;
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;
 import vn.sunvibe.property.core.domain.model.intake.SelectedSpace;
-import vn.sunvibe.property.core.domain.policy.AddressNormalizer;
+import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.property.core.domain.repository.InventoryIntakeDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 

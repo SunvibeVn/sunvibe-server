@@ -18,7 +18,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.model.checklist.RequalificationKind;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;
 
 import java.time.Instant;

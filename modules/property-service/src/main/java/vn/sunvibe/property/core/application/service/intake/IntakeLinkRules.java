@@ -11,7 +11,7 @@ import vn.sunvibe.property.core.domain.model.intake.CaseStatus;
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;
 import vn.sunvibe.property.core.domain.model.intake.SelectedSpace;
 import vn.sunvibe.property.core.domain.model.intake.SpaceUnitMapping;
-import vn.sunvibe.property.core.domain.policy.AddressNormalizer;
+import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.property.core.domain.policy.intake.CasePolicy.CaseFacts;
 import vn.sunvibe.property.core.domain.repository.IntakeSuspensionDomainRepository;
 import vn.sunvibe.property.core.domain.repository.InventoryReadRepository;

@@ -14,7 +14,7 @@ import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueExceptio
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 import vn.sunvibe.survey.core.domain.policy.media.MediaFileRules;
 
 /**

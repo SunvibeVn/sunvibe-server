@@ -49,11 +49,11 @@ modules/{module-name}/src/main/java/vn/sunvibe/{module}/core/
 ├── application/          # Application Layer
 │   ├── command/          # CQRS Commands (immutable records)
 │   ├── query/            # CQRS read models
-│   ├── usecase/          # Use case interfaces and the records they publish
+│   ├── usecase/          # Use case interfaces and the records and exceptions they publish
 │   ├── service/          # Use case implementations and their collaborators
 │   ├── exception/        # Application-specific exceptions
 │   └── shared/           # Helpers shared inside the application layer
-│       └── external/     # Ports to other modules and systems
+│       └── external/     # Ports to other modules and systems, with their records and exceptions
 ├── domain/               # Domain Layer (Core)
 │   ├── model/
 │   │   └── {concept}/    # Aggregate, entities, value objects, enums

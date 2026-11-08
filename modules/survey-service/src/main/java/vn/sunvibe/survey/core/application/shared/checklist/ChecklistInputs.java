@@ -5,7 +5,7 @@ import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationExce
 import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.model.appointment.Basis;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 import java.util.List;
 

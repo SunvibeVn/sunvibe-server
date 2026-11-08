@@ -28,7 +28,7 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
-import vn.sunvibe.survey.core.domain.policy.ListGroup;
+import vn.sunvibe.survey.core.domain.policy.appointment.ListGroup;
 
 /**
  * Who may read and book surveys, the survey list and the survey access log end to end (survey-schedule spec 7;

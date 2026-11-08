@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.domain.model.appointment;
 
-import vn.sunvibe.survey.core.domain.policy.PlaceComparison;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.PlaceComparison;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 /**
  * Where staff meet the owner (survey-schedule BR-7, spec C-3b): an address, a ward of the catalog with its province

@@ -1,7 +1,7 @@
 package vn.sunvibe.survey.core.application.command.appointment;
 
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
-import vn.sunvibe.survey.core.domain.policy.SurveyText;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyText;
 
 /**
  * Record or remove the owner's confirmation of a scheduled appointment (survey-schedule US-1 AC-5), with an optional

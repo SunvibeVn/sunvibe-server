@@ -63,7 +63,6 @@ import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueExceptio
 import vn.sunvibe.survey.core.domain.exception.appointment.PerformerMismatchException;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
-import vn.sunvibe.survey.core.presentation.filter.MediaBodyTooLargeException;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;

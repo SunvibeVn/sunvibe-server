@@ -2,7 +2,7 @@ package vn.sunvibe.survey.core.domain.policy.checklist;
 
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.survey.core.domain.model.checklist.Violation;
-import vn.sunvibe.survey.core.domain.policy.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 import java.time.Instant;
 import java.time.LocalDate;

@@ -1,4 +1,6 @@
-package vn.sunvibe.survey.core.domain.policy;
+package vn.sunvibe.survey.core.domain.policy.appointment;
+
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 import java.time.Duration;
 import java.time.Instant;
