@@ -55,7 +55,9 @@ class NamingConventionArchTest {
 	 */
 	private static final Map<String, String> PRESENTATION_DOMAIN_ALLOWLIST = Map.of(
 			"vn.sunvibe.survey.core.presentation.converter.ChecklistResponseConverter",
-			"ChecklistView hands SurveyChecklist and SurveyAppointment to it (spec 4.2)",
+			"ChecklistView hands SurveyChecklist and SurveyAppointment to it (spec 4.2), and it dates the owner form"
+					+ " with SurveyTimeRules.vietnamDate; moving either into the view changes ChecklistViewAssembler"
+					+ " (application/shared)",
 			"vn.sunvibe.property.core.presentation.converter.PropertyCreateResponseConverter",
 			"PropertyFindByIdUseCase returns the Property aggregate; a result record would change that use case and"
 					+ " PropertyFindByIdService, outside presentation (W31 plan Task E1)");
