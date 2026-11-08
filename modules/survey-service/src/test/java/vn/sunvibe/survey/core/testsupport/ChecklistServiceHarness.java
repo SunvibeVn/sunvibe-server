@@ -8,6 +8,8 @@ import vn.sunvibe.survey.core.application.command.common.BasisInput;
 import vn.sunvibe.survey.core.application.command.checklist.IntakeInput;
 import vn.sunvibe.survey.core.application.command.checklist.StartChecklistCommand;
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistStartResult;
+import vn.sunvibe.survey.core.application.service.checklist.ChecklistGroupChecks;
+import vn.sunvibe.survey.core.application.service.checklist.ChecklistGroupWriter;
 import vn.sunvibe.survey.core.application.service.checklist.SurveyChecklistCommandService;
 import vn.sunvibe.survey.core.application.service.checklist.SurveyChecklistQueryService;
 import vn.sunvibe.survey.core.application.service.checklist.SurveyChecklistRequalificationCommandService;
@@ -144,9 +146,10 @@ public final class ChecklistServiceHarness {
                 records, directory, switches);
         views = new ChecklistViewAssembler(checklists, groups, takeovers, saves, leads, directory, mediaSets,
                 revisionPhotos, switches, () -> submissionOn, health, reviewReader);
-        commands = new SurveyChecklistCommandService(checklists, groups, takeovers, saves, appointments, accessLogs,
-                leads, directory, loader, views, new ChecklistMediaCascade(mediaSets, media, mediaJobs, selections), ulids,
-                snowflakes);
+        ChecklistMediaCascade mediaCascade = new ChecklistMediaCascade(mediaSets, media, mediaJobs, selections);
+        commands = new SurveyChecklistCommandService(checklists, groups, takeovers, appointments, accessLogs, leads,
+                directory, loader, views, mediaCascade, new ChecklistGroupWriter(groups, saves, leads, loader, views,
+                mediaCascade, new ChecklistGroupChecks(checklists, groups, leads), snowflakes), ulids, snowflakes);
         reviews = new SurveyChecklistReviewCommandService(checklists, groups, takeovers, submissions, evidence,
                 decisions, media, mediaSets, selections, accessLogs, leads, directory, loader, exclusions, records,
                 recorder, views, switches, () -> submissionOn,
