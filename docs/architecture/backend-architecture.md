@@ -113,7 +113,10 @@ Presentation  ──►  Application  ──►  Domain  ◄──  Infrastructu
 Forbidden:
 - ❌ Domain importing `infrastructure.*`, `presentation.*`, `application.*` (except shared types if absolutely necessary)
 - ❌ Application importing `infrastructure.*`, `presentation.*`
-- ❌ Presentation importing `infrastructure.*` (use application layer instead) or the domain layer directly (use use cases)
+- ❌ Presentation importing `infrastructure.*` (use application layer instead), or using a domain repository interface,
+  a class that holds rules (`*Policy`, `*Rules`) or an aggregate (use a use case result). Domain enums, value records
+  and exceptions are allowed wherever they sit, `domain.policy` and `domain.repository` included (`PageResult`). The
+  exceptions are a named allowlist in `NamingConventionArchTest` (spec N-14), which only shrinks.
 
 ### Between modules (ADR-009)
 Full rule: `sunvibe-hub/docs/decisions/ADR-009-cross-module-ports.md`.
