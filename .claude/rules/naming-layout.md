@@ -53,7 +53,7 @@ areas as the concepts there (`domain/policy/{appointment,checklist,media,common}
 
 `presentation/scheduler/` and `application/usecase/external/` are not homes for new code. survey-service keeps its media
 job classes in `application/service/media/` and its programmatic registration in `infrastructure/media/`, a documented
-design (`performance-concurrency.md`). Its `presentation/converter/` stays flat: the six classes call each other
+design (`performance-concurrency.md`). Its `presentation/converter/` stays flat: its classes call each other
 package-private across areas.
 
 Package names that code compares do not move (spec R-5): the `basePackages` of the exception handlers, the `*JpaConfig`
