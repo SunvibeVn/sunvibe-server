@@ -95,8 +95,10 @@ class CapturingMessagesConfig {
 			public void sendPasswordResetEmail(String email, String otpCode, String resetToken) {
 				failIfDown();
 				waitIfHeld();
-				lastResetTokens.put(email, resetToken);
+				// The message first: a caller reads the token and then the code, so the code must be there once the
+				// token is.
 				lastMessages.put(email, "Password reset code " + otpCode);
+				lastResetTokens.put(email, resetToken);
 			}
 
 			@Override
@@ -179,10 +181,23 @@ class CapturingMessagesConfig {
 		return lastCode(destination);
 	}
 
-	/** The reset token mailed to {@code destination}; fails when none arrives. */
+	/**
+	 * The reset token mailed to {@code destination}; fails when none arrives. It waits for a reset mail, not for any
+	 * message, since the address may already hold a sign-up mail, and it takes the token, so a second reset waits for
+	 * its own mail.
+	 */
 	String awaitResetToken(String destination) {
-		awaitMessage(destination);
-		String token = lastResetTokens.get(destination);
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+		String token = lastResetTokens.remove(destination);
+		while (token == null && System.nanoTime() < deadline) {
+			try {
+				Thread.sleep(20);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				break;
+			}
+			token = lastResetTokens.remove(destination);
+		}
 		if (token == null) {
 			throw new IllegalStateException("No reset mail reached this destination");
 		}

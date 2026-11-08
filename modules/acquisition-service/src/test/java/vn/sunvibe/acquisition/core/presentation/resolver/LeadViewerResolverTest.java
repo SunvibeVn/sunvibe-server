@@ -1,5 +1,6 @@
 package vn.sunvibe.acquisition.core.presentation.resolver;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -9,6 +10,7 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadAccess;
 import vn.sunvibe.acquisition.core.domain.model.lead.LeadViewer;
 import vn.sunvibe.shared.security.AuthenticatedUser;
@@ -33,73 +35,87 @@ class LeadViewerResolverTest {
             .role("SUPER_ADMIN").implies("ADMIN")
             .build();
 
-    private final LeadViewerResolver resolver = new LeadViewerResolver();
+    private final LeadViewerResolver resolver = new LeadViewerResolver(REAL_HIERARCHY);
+
+    @AfterEach
+    void clearContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
-    void toViewer_sale_isOwn() {
-        LeadViewer viewer = resolver.toViewer(staff("ROLE_SALE"), REAL_HIERARCHY);
+    void current_sale_isOwn() {
+        signIn(staff("ROLE_SALE"));
 
-        assertEquals(new LeadViewer(USER_ID, LeadAccess.OWN), viewer);
+        assertEquals(new LeadViewer(USER_ID, LeadAccess.OWN), resolver.current());
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"ROLE_SALE_LEADER", "ROLE_SALES_MANAGER", "ROLE_ADMIN"})
-    void toViewer_leaderManagerOrAdmin_isAll(String role) {
-        LeadViewer viewer = resolver.toViewer(staff(role), REAL_HIERARCHY);
+    void current_leaderManagerOrAdmin_isAll(String role) {
+        signIn(staff(role));
 
-        assertEquals(new LeadViewer(USER_ID, LeadAccess.ALL), viewer);
+        assertEquals(new LeadViewer(USER_ID, LeadAccess.ALL), resolver.current());
     }
 
     @Test
-    void toViewer_superAdminWithTheRealHierarchy_isAll() {
-        LeadViewer viewer = resolver.toViewer(staff("ROLE_SUPER_ADMIN"), REAL_HIERARCHY);
+    void current_superAdminWithTheRealHierarchy_isAll() {
+        signIn(staff("ROLE_SUPER_ADMIN"));
 
-        assertEquals(LeadAccess.ALL, viewer.access());
+        assertEquals(LeadAccess.ALL, resolver.current().access());
     }
 
     /** Without the hierarchy SUPER_ADMIN matches nothing: the resolver must expand, not read the raw roles. */
     @Test
-    void toViewer_superAdminWithoutHierarchy_failsClosed() {
-        assertThrows(IllegalStateException.class,
-                () -> resolver.toViewer(staff("ROLE_SUPER_ADMIN"), new NullRoleHierarchy()));
+    void current_superAdminWithoutHierarchy_failsClosed() {
+        signIn(staff("ROLE_SUPER_ADMIN"));
+        LeadViewerResolver withoutHierarchy = new LeadViewerResolver(new NullRoleHierarchy());
+
+        assertThrows(IllegalStateException.class, withoutHierarchy::current);
     }
 
     @Test
-    void toViewer_saleAndSaleLeader_isAll() {
-        LeadViewer viewer = resolver.toViewer(staff("ROLE_SALE", "ROLE_SALE_LEADER"), REAL_HIERARCHY);
+    void current_saleAndSaleLeader_isAll() {
+        signIn(staff("ROLE_SALE", "ROLE_SALE_LEADER"));
 
-        assertEquals(LeadAccess.ALL, viewer.access());
+        assertEquals(LeadAccess.ALL, resolver.current().access());
     }
 
     @Test
-    void toViewer_ownerOnly_throwsIllegalState() {
-        IllegalStateException error = assertThrows(IllegalStateException.class,
-                () -> resolver.toViewer(staff("ROLE_OWNER"), REAL_HIERARCHY));
+    void current_ownerOnly_throwsIllegalState() {
+        signIn(staff("ROLE_OWNER"));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, resolver::current);
 
         assertFalse(error.getMessage().contains(USER_ID), error.getMessage());
     }
 
     @Test
-    void toViewer_principalNotAnAuthenticatedUser_throwsIllegalState() {
-        Authentication authentication = UsernamePasswordAuthenticationToken.authenticated("0909123456", null,
-                java.util.List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+    void current_principalNotAnAuthenticatedUser_throwsIllegalState() {
+        signIn(UsernamePasswordAuthenticationToken.authenticated("0909123456", null,
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
 
-        assertThrows(IllegalStateException.class, () -> resolver.toViewer(authentication, REAL_HIERARCHY));
+        assertThrows(IllegalStateException.class, resolver::current);
     }
 
     @Test
-    void toViewer_noAuthentication_throwsIllegalState() {
-        assertThrows(IllegalStateException.class, () -> resolver.toViewer(null, REAL_HIERARCHY));
+    void current_noAuthentication_throwsIllegalState() {
+        assertThrows(IllegalStateException.class, resolver::current);
     }
 
     @Test
     void actorId_staff_isTheUserIdOfThePrincipal() {
-        assertEquals(USER_ID, resolver.actorId(staff("ROLE_ADMIN")));
+        signIn(staff("ROLE_ADMIN"));
+
+        assertEquals(USER_ID, resolver.actorId());
     }
 
     @Test
     void actorId_noAuthentication_throwsIllegalState() {
-        assertThrows(IllegalStateException.class, () -> resolver.actorId(null));
+        assertThrows(IllegalStateException.class, resolver::actorId);
+    }
+
+    private static void signIn(Authentication authentication) {
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 
     private static Authentication staff(String... roles) {

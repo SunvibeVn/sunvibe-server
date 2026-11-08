@@ -104,6 +104,7 @@ import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistTakeove
 import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSelectionDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaSetDomainRepository;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -128,7 +129,6 @@ public class SurveyChecklistReviewCommandService implements SurveyChecklistRevie
     private static final int DECISION_TEXT_MAX = 2000;
     /** spec A-10: the reason of a photo mark. */
     private static final int REJECTION_TEXT_MAX = 500;
-    private static final String SURVEY_SCHEDULED = "SURVEY_SCHEDULED";
 
     private final SurveyChecklistDomainRepository checklists;
     private final SurveyChecklistGroupDomainRepository groups;
@@ -274,8 +274,9 @@ public class SurveyChecklistReviewCommandService implements SurveyChecklistRevie
         Decided decided = decisionTransaction.execute(status -> decideInTransaction(viewer, command, body));
         LeadFacts after = decided.lead();
         return answerTransaction.execute(status -> new ChecklistDecideResult(views.assemble(viewer, after,
-                decided.ofLead(), decided.checklist()), new LeadState(after.leadId(), after.status(), after.version(),
-                after.lastActivityAt()), decided.entry()));
+                decided.ofLead(), decided.checklist()),
+                new LeadState(after.leadId(), after.statusName(), after.version(), after.lastActivityAt()),
+                decided.entry()));
     }
 
     /** What a committed decision leaves for its answer. */
@@ -321,13 +322,14 @@ public class SurveyChecklistReviewCommandService implements SurveyChecklistRevie
         }
         decisions.save(new ChecklistDecision(checklist.getId(), command.outcome(), command.needsChangesKindOrNull(),
                 command.failedKindOrNull(), body.reason(), body.notes(), body.limitations(), viewer.userId(), now,
-                lead.status(), target == LeadMoveTarget.KEEP ? lead.status() : target.name(), body.rejections()));
+                lead.statusName(), target == LeadMoveTarget.KEEP ? lead.statusName() : target.name(),
+                body.rejections()));
         LeadMoveResult moved = leads.apply(lead.leadId(), lead.version(), new LeadMove(LeadMoveEvent.CHECKLIST_REVIEWED,
                 target, viewer.userId(), checklist.getId().getValue(), checklist.getChecklistNo(), now,
                 detail(command), closeReason(command, checklist)));
         accessLogs.save(SurveyAccessLog.create(snowflakes.generateId(), lead.leadId(), viewer.userId(), now,
                 AccessResourceType.CHECKLIST, checklist.getId().getValue()));
-        return new Decided(checklist, lead.moved(moved.status(), moved.version(), moved.lastActivityAt()),
+        return new Decided(checklist, lead.moved(moved.statusName(), moved.version(), moved.lastActivityAt()),
                 locked.ofLead(), moved.entry());
     }
 
@@ -350,7 +352,7 @@ public class SurveyChecklistReviewCommandService implements SurveyChecklistRevie
         SurveyRecordReader.CycleRecord record = records.read(lead.leadId(), lead.intentCycle(), locked.ofLead());
         boolean onCurrentVisit = record.currentVisit().filter(visit -> visit.getId()
                 .equals(previous.getVisitAppointmentId())).isPresent();
-        if (!SURVEY_SCHEDULED.equals(lead.status()) || previous.getIntentCycle() != lead.intentCycle()
+        if (lead.status() != LeadStatus.SURVEY_SCHEDULED || previous.getIntentCycle() != lead.intentCycle()
                 || !onCurrentVisit || !returnedForDocuments(record, previous)) {
             throw new ChecklistNotAllowedException("status", List.of());
         }

@@ -304,6 +304,20 @@ class AcquisitionExceptionHandlerTest {
         assertEquals(List.of(field), response.getBody().errors().stream().map(ValidationError::field).toList());
     }
 
+    /** acquisition keeps the index as Bean Validation writes it; survey writes it dotted (clean-up spec S-8). */
+    @Test
+    void handle_indexedField_keepsTheBrackets() throws Exception {
+        BeanPropertyBindingResult binding = new BeanPropertyBindingResult(new Object(), "request");
+        binding.addError(new FieldError("request", "spaces[1].code", "Code is required."));
+
+        ResponseEntity<ErrorResponse<ValidationError>> response =
+                handle(new MethodArgumentNotValidException(headerParameter(), binding));
+
+        assertEquals(400, response.getStatusCode().value());
+        assertEquals(List.of("spaces[1].code"),
+                response.getBody().errors().stream().map(ValidationError::field).toList());
+    }
+
     @Test
     void handle_unparsableJson_isMalformedRequest() throws Exception {
         ResponseEntity<ErrorResponse<ValidationError>> response =

@@ -197,6 +197,23 @@ class PropertyCreateServiceOwnerTest {
         assertTrue(ownerships.saved().isEmpty());
     }
 
+    /** The cause stays for the log; the message of the wrapped error never copies it (clean-up spec S-8). */
+    @Test
+    void execute_unitSaveFails_keepsTheCauseOutOfTheMessage() {
+        RuntimeException cause = new RuntimeException("unit table unavailable");
+        UnitDomainRepository failingUnits = unit -> {
+            throw cause;
+        };
+        PropertyCreateService failing = new PropertyCreateService(properties, new EmptyRuleCategories(),
+                new EmptyAmenityTypes(), users, failingUnits, ownerships);
+
+        PropertyServiceException error = assertThrows(PropertyServiceException.class,
+                () -> failing.execute(command(OWNER_ID)));
+
+        assertEquals("Failed to create property", error.getMessage());
+        assertSame(cause, error.getCause());
+    }
+
     private static PropertyCreateCommand command(String ownerId) {
         return command("DA-APT-001", ownerId);
     }

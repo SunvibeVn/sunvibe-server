@@ -33,6 +33,7 @@ import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStart;
 import vn.sunvibe.survey.core.domain.policy.checklist.RevisionStartPolicy;
 import vn.sunvibe.survey.core.domain.repository.appointment.SurveyAppointmentDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.appointment.SurveyResumptionDomainRepository;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,8 +55,9 @@ public class SurveyBlockAssembler {
 
     /** survey-schedule C-1, US-5 AC-3: only rental leads are surveyed. */
     public static final List<String> RENTAL_INTENTS = List.of("SHORT_TERM_RENT", "LONG_TERM_RENT");
-    private static final List<String> FIRST_SURVEY_STATUSES = List.of("ASSIGNED", "CONTACTED");
-    private static final List<String> RESURVEY_STATUSES = List.of("CONTACTED", "SURVEY_SCHEDULED");
+    private static final List<LeadStatus> FIRST_SURVEY_STATUSES = List.of(LeadStatus.ASSIGNED, LeadStatus.CONTACTED);
+    private static final List<LeadStatus> RESURVEY_STATUSES =
+            List.of(LeadStatus.CONTACTED, LeadStatus.SURVEY_SCHEDULED);
 
     private final SurveyAppointmentDomainRepository appointments;
     private final SurveyResumptionDomainRepository resumptions;
@@ -77,7 +79,7 @@ public class SurveyBlockAssembler {
     }
 
     /** The lead statuses a booking of this kind is made from (survey-schedule spec 4.5). */
-    public static List<String> allowedStatusesFor(AppointmentKind kind) {
+    public static List<LeadStatus> allowedStatusesFor(AppointmentKind kind) {
         return kind == AppointmentKind.RESURVEY ? RESURVEY_STATUSES : FIRST_SURVEY_STATUSES;
     }
 
@@ -103,7 +105,7 @@ public class SurveyBlockAssembler {
         Optional<SurveyAppointment> currentVisit = record.currentVisit();
         boolean assigneeEligible = lead.assignedUserId() != null && eligible.contains(lead.assignedUserId());
         BookingState booking = bookingState(lead, ofLead, assigneeEligible, record);
-        Optional<ResumeTarget> resumeTarget = "ON_HOLD".equals(lead.status()) && currentVisit.isPresent()
+        Optional<ResumeTarget> resumeTarget = lead.status() == LeadStatus.ON_HOLD && currentVisit.isPresent()
                 ? records.resumeTarget(record, lead.intentCycle()) : Optional.empty();
 
         Map<String, List<ChecklistSummaryView>> summaries = checklists.summaries(viewer, lead, ofLead,
@@ -150,7 +152,7 @@ public class SurveyBlockAssembler {
         if (ofLead.stream().anyMatch(appointment -> appointment.getStatus() == AppointmentStatus.SCHEDULED)) {
             return blocked(BookingBlock.ALREADY_SCHEDULED);
         }
-        if (lead.assignedUserId() == null || "NEW".equals(lead.status())) {
+        if (lead.assignedUserId() == null || lead.status() == LeadStatus.NEW) {
             return blocked(BookingBlock.NO_ASSIGNEE);
         }
         if (record.latestSubmitted()) {

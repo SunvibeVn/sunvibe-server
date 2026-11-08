@@ -44,6 +44,7 @@ import vn.sunvibe.survey.core.domain.policy.checklist.RequalificationPolicy;
 import vn.sunvibe.survey.core.domain.repository.common.SurveyAccessLogDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistRequalificationDomainRepository;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -67,7 +68,6 @@ public class SurveyChecklistRequalificationCommandService implements SurveyCheck
     /** spec A-6: the source and the scope. */
     private static final int DETAIL_MAX = 500;
     private static final String CHECKLIST = "checklist";
-    private static final String QUALIFIED = "QUALIFIED";
     private static final String NOT_CURRENT_MESSAGE = "This revision is not the lead's current PASSED revision.";
 
     private final SurveyChecklistDomainRepository checklists;
@@ -108,7 +108,7 @@ public class SurveyChecklistRequalificationCommandService implements SurveyCheck
         Marked marked = markTransaction.execute(status -> markInTransaction(viewer, command, body));
         LeadFacts after = marked.lead();
         return answerTransaction.execute(status -> new ChecklistRequalifyResult(views.assemble(viewer, after,
-                marked.ofLead(), marked.checklist()), new LeadState(after.leadId(), after.status(), after.version(),
+                marked.ofLead(), marked.checklist()), new LeadState(after.leadId(), after.statusName(), after.version(),
                 after.lastActivityAt()), marked.entry()));
     }
 
@@ -141,7 +141,7 @@ public class SurveyChecklistRequalificationCommandService implements SurveyCheck
                 .ifPresent(violations::add);
         ChecklistInputs.throwIfAny(violations);
 
-        LeadMoveTarget target = QUALIFIED.equals(lead.status()) ? LeadMoveTarget.CONTACTED : LeadMoveTarget.KEEP;
+        LeadMoveTarget target = lead.status() == LeadStatus.QUALIFIED ? LeadMoveTarget.CONTACTED : LeadMoveTarget.KEEP;
         checklist.markRequalified(now);
         try {
             checklists.update(checklist);
@@ -149,12 +149,12 @@ public class SurveyChecklistRequalificationCommandService implements SurveyCheck
             throw new SurveyConcurrentModificationException("expectedVersion");
         }
         requalifications.save(new ChecklistRequalification(checklist.getId(), command.reasonKind(), body.reason(),
-                body.eventSource(), body.scope(), command.basisDate(), viewer.userId(), now, lead.status(),
-                target == LeadMoveTarget.KEEP ? lead.status() : target.name()));
+                body.eventSource(), body.scope(), command.basisDate(), viewer.userId(), now, lead.statusName(),
+                target == LeadMoveTarget.KEEP ? lead.statusName() : target.name()));
         LeadMoveResult moved = move(lead, target, viewer, checklist, now);
         accessLogs.save(SurveyAccessLog.create(snowflakes.generateId(), lead.leadId(), viewer.userId(), now,
                 AccessResourceType.CHECKLIST, checklist.getId().getValue()));
-        return new Marked(checklist, lead.moved(moved.status(), moved.version(), moved.lastActivityAt()),
+        return new Marked(checklist, lead.moved(moved.statusName(), moved.version(), moved.lastActivityAt()),
                 locked.ofLead(), moved.entry());
     }
 

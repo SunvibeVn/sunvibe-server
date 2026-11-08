@@ -1,7 +1,9 @@
 package vn.sunvibe.survey.core.domain.policy.checklist;
 
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 
@@ -12,12 +14,12 @@ import java.util.Set;
  */
 public final class RequalificationPolicy {
 
-    private static final Set<String> LEAD_STATUSES = Set.of("QUALIFIED", "ON_HOLD");
+    private static final Set<LeadStatus> LEAD_STATUSES = EnumSet.of(LeadStatus.QUALIFIED, LeadStatus.ON_HOLD);
 
     private RequalificationPolicy() {
     }
 
-    public static boolean leadAllows(String leadStatus) {
+    public static boolean leadAllows(LeadStatus leadStatus) {
         return LEAD_STATUSES.contains(leadStatus);
     }
 
@@ -26,7 +28,7 @@ public final class RequalificationPolicy {
      * @param currentPassed the unmarked PASSED of the lead's current cycle
      */
     public static RequalificationState state(boolean seesEveryLead, Optional<SurveyChecklist> currentPassed,
-                                             String leadStatus) {
+                                             LeadStatus leadStatus) {
         if (!seesEveryLead || !leadAllows(leadStatus)) {
             return RequalificationState.NOT_ALLOWED;
         }

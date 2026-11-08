@@ -1,9 +1,6 @@
 package vn.sunvibe.property.core.presentation.converter;
 
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-import vn.sunvibe.shared.security.AuthenticatedUser;
 import vn.sunvibe.property.core.application.command.PropertyCreateCommand;
 import vn.sunvibe.property.core.domain.exception.PropertyValidationException;
 import vn.sunvibe.property.core.domain.model.property.Property;
@@ -23,15 +20,13 @@ public class PropertyCreateRequestConverter {
 
     /**
      * Map PropertyCreateRequest -> PropertyCreateCommand
+     *
+     * @param actorUserId the caller's user id: actor of the OWNER grant and created_by
      */
-    public PropertyCreateCommand toCommand(PropertyCreateRequest request) {
+    public PropertyCreateCommand toCommand(PropertyCreateRequest request, String actorUserId) {
         if (request == null) {
             throw new IllegalArgumentException("PropertyCreateRequest cannot be null");
         }
-
-        // The caller, from the security context: actor of the OWNER grant and created_by
-        Authentication authentication = currentAuthentication();
-        String actorUserId = ((AuthenticatedUser) authentication.getPrincipal()).getUserId();
 
         // Convert property type string -> enum
         PropertyType propertyType = parsePropertyType(request.propertyType());
@@ -70,7 +65,7 @@ public class PropertyCreateRequestConverter {
                 // Ownership & audit
                 request.ownerId(),
                 actorUserId,
-                authentication.getName(),
+                actorUserId,
 
                 // Additional data
                 request.ruleCategories(),
@@ -105,18 +100,5 @@ public class PropertyCreateRequestConverter {
         } catch (IllegalArgumentException e) {
             throw new PropertyValidationException(Property.FieldName.TYPE, "Invalid property type.");
         }
-    }
-
-    /**
-     * The authenticated caller. Its principal must expose the user id (set by the JWT request filter).
-     */
-    private Authentication currentAuthentication() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()
-                && authentication.getPrincipal() instanceof AuthenticatedUser) {
-            return authentication;
-        }
-        // Unreachable after the JWT filter and @PreAuthorize; fails closed (500) rather than guess an owner
-        throw new IllegalStateException("Principal does not expose a user id");
     }
 }

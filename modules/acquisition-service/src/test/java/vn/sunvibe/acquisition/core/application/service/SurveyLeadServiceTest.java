@@ -9,6 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import vn.sunvibe.acquisition.core.application.shared.IntakeLocationRules;
 import vn.sunvibe.acquisition.core.application.shared.LeadAccessPolicy;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
@@ -113,7 +114,7 @@ class SurveyLeadServiceTest {
     void viewerFor_everyRoleSet_givesTheSameAccessAsTheLeadQueueConverter() {
         List<String> roles = List.of("ROLE_SALE", "ROLE_SALE_LEADER", "ROLE_SALES_MANAGER", "ROLE_ADMIN",
                 "ROLE_SUPER_ADMIN", "ROLE_CUSTOMER");
-        LeadViewerResolver resolver = new LeadViewerResolver();
+        LeadViewerResolver resolver = new LeadViewerResolver(REAL_HIERARCHY);
         for (int mask = 0; mask < 1 << roles.size(); mask++) {
             List<String> granted = new ArrayList<>();
             for (int i = 0; i < roles.size(); i++) {
@@ -127,7 +128,13 @@ class SurveyLeadServiceTest {
             Set<String> expanded = REAL_HIERARCHY.getReachableGrantedAuthorities(authentication.getAuthorities())
                     .stream().map(GrantedAuthority::getAuthority).collect(Collectors.toSet());
 
-            Optional<String> queue = access(() -> resolver.toViewer(authentication, REAL_HIERARCHY).access().name());
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            Optional<String> queue;
+            try {
+                queue = access(() -> resolver.current().access().name());
+            } finally {
+                SecurityContextHolder.clearContext();
+            }
             Optional<String> survey = access(() -> service.viewerFor(SALE_A, expanded).access().name());
 
             assertEquals(queue, survey, granted.toString());

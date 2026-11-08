@@ -189,7 +189,7 @@ class PropertyCreateCharacterizationTest {
 		assertEquals("AVAILABLE", response.path("status").asString());
 		assertEquals(landlordA.userId(), response.path("ownerId").asString());
 		assertEquals(admin.userId(), response.path("createdBy").asString(),
-				"createdBy is authentication.getName(), which is the user id (auth-email-access A-5)");
+				"createdBy is the caller's user id, which authentication.getName() also gave (auth-email-access A-5)");
 		assertEquals(2, response.path("imageCount").asInt());
 		assertEquals(2, response.path("ruleCount").asInt());
 		assertEquals(2, response.path("amenityCount").asInt());

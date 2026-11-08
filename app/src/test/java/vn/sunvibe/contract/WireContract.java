@@ -21,6 +21,8 @@ import com.networknt.schema.Schema;
 import com.networknt.schema.SchemaLocation;
 import com.networknt.schema.SchemaRegistry;
 import com.networknt.schema.dialect.Dialects;
+import com.networknt.schema.path.NodePath;
+import com.networknt.schema.path.PathType;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -62,14 +64,15 @@ final class WireContract {
 
 	private final JsonNode paths;
 	private final Map<String, List<Template>> templatesByMethod;
-	private final SchemaRegistry registry;
+	/** The whole contract, parsed once: the schema of each answer is a node of it, never a parse of its own. */
+	private final Schema document;
 	private final Map<String, Schema> schemas = new ConcurrentHashMap<>();
 
 	private WireContract(String contractJson) {
 		this.paths = JSON.readTree(contractJson).path("paths");
 		this.templatesByMethod = templates(paths);
-		this.registry = SchemaRegistry.withDialect(Dialects.getOpenApi31(),
-				builder -> builder.schemas(Map.of(BASE, contractJson)));
+		this.document = SchemaRegistry.withDialect(Dialects.getOpenApi31(),
+				builder -> builder.schemas(Map.of(BASE, contractJson))).getSchema(SchemaLocation.of(BASE));
 	}
 
 	static WireContract of(String contractJson) {
@@ -150,12 +153,16 @@ final class WireContract {
 	}
 
 	private List<Fault> validate(String method, String template, int status, String mediaType, byte[] body) {
-		Schema schema = schemas.computeIfAbsent(method + ' ' + template + ' ' + status,
-				key -> load(method, template, status, mediaType));
-		List<Error> errors = schema.validate(new String(body, StandardCharsets.UTF_8), InputFormat.JSON,
+		List<Error> errors = schema(method, template, status, mediaType).validate(new String(body, StandardCharsets.UTF_8), InputFormat.JSON,
 				context -> context.executionConfig(config -> config.formatAssertionsEnabled(true)));
 		return errors.stream().map(error -> new Fault(method, template, status, location(error), error.getKeyword()))
 				.distinct().toList();
+	}
+
+	/** The schema of one answer, loaded on its first check and kept for the run. */
+	Schema schema(String method, String template, int status, String mediaType) {
+		return schemas.computeIfAbsent(method + ' ' + template + ' ' + status,
+				key -> load(method, template, status, mediaType));
 	}
 
 	/** One fault per field, not one per row of a page: the index collapses, as in the ledger. */
@@ -164,8 +171,10 @@ final class WireContract {
 	}
 
 	private Schema load(String method, String template, int status, String mediaType) {
-		Schema schema = registry.getSchema(SchemaLocation.of(BASE + "#/paths/" + token(template) + '/'
-				+ method.toLowerCase(Locale.ROOT) + "/responses/" + status + "/content/" + token(mediaType) + "/schema"));
+		NodePath path = new NodePath(PathType.JSON_POINTER).append("paths").append(template)
+				.append(method.toLowerCase(Locale.ROOT)).append("responses").append(String.valueOf(status))
+				.append("content").append(mediaType).append("schema");
+		Schema schema = document.getSubSchema(path);
 		schema.initializeValidators();
 		return schema;
 	}
@@ -195,11 +204,6 @@ final class WireContract {
 
 	private static List<Fault> rule(String method, String template, int status, String keyword) {
 		return List.of(new Fault(method, template, status, "", keyword));
-	}
-
-	/** A JSON pointer token inside a URI fragment: escapes {@code ~} and {@code /}, then encodes the braces. */
-	private static String token(String text) {
-		return text.replace("~", "~0").replace("/", "~1").replace("{", "%7B").replace("}", "%7D");
 	}
 
 	private static Map<String, List<Template>> templates(JsonNode paths) {

@@ -486,7 +486,7 @@ class SurveyAppointmentCommandServiceTest {
         heldLeadWithVisit();
         LeadFacts lead = leads.get(LEAD);
         Instant heldAt = Instant.now().minus(Duration.ofDays(1));
-        leads.put(new LeadFacts(LEAD, lead.requestCode(), lead.status(), lead.intent(), 1, SALE_A, lead.version(),
+        leads.put(new LeadFacts(LEAD, lead.requestCode(), lead.statusName(), lead.intent(), 1, SALE_A, lead.version(),
                 lead.lastActivityAt(), lead.contactName(), lead.place(), lead.createdAt(), heldAt));
 
         assertEquals("basis.confirmedOn", assertThrows(InvalidSurveyValueException.class,

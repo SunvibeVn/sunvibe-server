@@ -16,9 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -75,7 +73,6 @@ public class OwnerLeadController {
     private final LeadViewerResolver viewerResolver;
     private final OwnerLeadRequestConverter requestConverter;
     private final OwnerLeadResponseConverter responseConverter;
-    private final RoleHierarchy roleHierarchy;
 
     /**
      * GET /api/v1/staff/owner-leads
@@ -320,6 +317,6 @@ public class OwnerLeadController {
     }
 
     private LeadViewer viewer() {
-        return viewerResolver.toViewer(SecurityContextHolder.getContext().getAuthentication(), roleHierarchy);
+        return viewerResolver.current();
     }
 }

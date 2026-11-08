@@ -134,16 +134,16 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
             throw new LeadVersionConflictException();
         }
         String to = move.target() == LeadMoveTarget.KEEP ? null : move.target().name();
-        if (!allowed(move, lead.status())) {
-            throw new LeadMoveRefusedException(lead.status());
+        if (!allowed(move, lead.statusName())) {
+            throw new LeadMoveRefusedException(lead.statusName());
         }
         moves.add(move);
-        LeadFacts moved = lead.moved(to == null ? lead.status() : to, lead.version() + 1, move.occurredAt());
+        LeadFacts moved = lead.moved(to == null ? lead.statusName() : to, lead.version() + 1, move.occurredAt());
         leads.put(leadId, moved);
         LeadHistoryEntry entry = new LeadHistoryEntry(move.event().name(), move.actorUserId(), null,
-                to == null ? null : lead.status(), to, move.referenceId(), move.referenceNo(), move.detailOrNull(),
+                to == null ? null : lead.statusName(), to, move.referenceId(), move.referenceNo(), move.detailOrNull(),
                 move.occurredAt());
-        return new LeadMoveResult(moved.status(), moved.version(), move.occurredAt(), entry);
+        return new LeadMoveResult(moved.statusName(), moved.version(), move.occurredAt(), entry);
     }
 
     private static boolean allowed(LeadMove move, String status) {
@@ -208,9 +208,9 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
     public List<LeadCycle> visibleOpenLeadCycles(SurveyViewer viewer) {
         journal.add("lead:cycles");
         return leads.values().stream()
-                .filter(lead -> lead.status().equals("SURVEY_SCHEDULED") || lead.status().equals("ON_HOLD"))
+                .filter(lead -> lead.statusName().equals("SURVEY_SCHEDULED") || lead.statusName().equals("ON_HOLD"))
                 .filter(lead -> viewer.access() == ViewerAccess.ALL || viewer.userId().equals(lead.assignedUserId()))
-                .map(lead -> new LeadCycle(lead.leadId(), lead.intentCycle(), lead.status(), lead.assignedUserId(),
+                .map(lead -> new LeadCycle(lead.leadId(), lead.intentCycle(), lead.statusName(), lead.assignedUserId(),
                         lead.requestCode())).toList();
     }
 
@@ -225,7 +225,7 @@ public class InMemorySurveyLeadPort implements SurveyLeadPort {
         checklistActivities.add(activity);
         LeadFacts lead = leads.get(leadId);
         // survey-checklist spec 4.9: LAST UPDATE moves, the version and status stay
-        leads.put(leadId, lead.moved(lead.status(), lead.version(), activity.occurredAt()));
+        leads.put(leadId, lead.moved(lead.statusName(), lead.version(), activity.occurredAt()));
         return new ChecklistActivityResult(activity.occurredAt(), new ChecklistHistoryEntry(activity.type().name(),
                 activity.actorUserId(), names.get(activity.actorUserId()), activity.checklistId(),
                 activity.checklistNo(), activity.detailOrNull(), activity.occurredAt()));

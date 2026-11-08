@@ -53,16 +53,14 @@ import vn.sunvibe.shared.logging.CorrelationId;
 
 import java.lang.reflect.Method;
 import java.sql.SQLException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Deque;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
+import static vn.sunvibe.shared.exception.ApiErrorSupport.anyInChain;
+import static vn.sunvibe.shared.exception.ApiErrorSupport.findCause;
+import static vn.sunvibe.shared.exception.ApiErrorSupport.jsonPath;
+import static vn.sunvibe.shared.exception.ApiErrorSupport.parameterName;
+import static vn.sunvibe.shared.exception.ApiErrorSupport.sortedByField;
 
 /**
  * ADR-010 error bodies of the acquisition endpoints (acquisition-owner-intake spec 6.5, acquisition-owner-lead-queue
@@ -94,8 +92,6 @@ public class AcquisitionExceptionHandler {
     static final String CONCURRENT_MODIFICATION_MESSAGE =
             "The lead was changed by someone else. Reload it and try again.";
     static final String INELIGIBLE_ASSIGNEE_MESSAGE = "The user cannot be given owner leads.";
-    private static final int MAX_CAUSE_DEPTH = 20;
-    private static final int MAX_EXCEPTIONS_CHECKED = 50;
 
     // ==================== 400 VALIDATION_FAILED ====================
 
@@ -304,7 +300,7 @@ public class AcquisitionExceptionHandler {
                     .headers(springError.getHeaders())
                     .body(ErrorResponse.of(ErrorCode.MALFORMED_REQUEST, REQUEST_NOT_PROCESSED_MESSAGE, List.of()));
         }
-        if (carriesRequestData(e)) {
+        if (anyInChain(e, AcquisitionExceptionHandler::quotesRequestData)) {
             // The message and the stack trace (with its causes) can quote submitted values, e.g. a SQL key
             log.error("Unexpected error in acquisition: {} (correlationId={})",
                     e.getClass().getName(), CorrelationId.current());
@@ -340,13 +336,8 @@ public class AcquisitionExceptionHandler {
 
     /** One entry per field (the first message), sorted by field so the body does not depend on check order. */
     private static ResponseEntity<ErrorResponse<ValidationError>> validationFailed(List<ValidationError> errors) {
-        Map<String, ValidationError> byField = new LinkedHashMap<>();
-        errors.forEach(error -> byField.putIfAbsent(error.field(), error));
-        List<ValidationError> sorted = byField.values().stream()
-                .sorted(Comparator.comparing(ValidationError::field))
-                .toList();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED, VALIDATION_FAILED_MESSAGE, sorted));
+                .body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED, VALIDATION_FAILED_MESSAGE, sortedByField(errors)));
     }
 
     private static List<ValidationError> fieldErrors(List<FieldError> fieldErrors) {
@@ -354,33 +345,6 @@ public class AcquisitionExceptionHandler {
                 .map(error -> ValidationError.of(error.getField(),
                         error.getDefaultMessage() == null ? INVALID_VALUE_MESSAGE : error.getDefaultMessage()))
                 .toList();
-    }
-
-    /** The name the client used: the header, query or path name when the parameter has one. */
-    private static String parameterName(MethodParameter parameter) {
-        RequestHeader header = parameter.getParameterAnnotation(RequestHeader.class);
-        if (header != null) {
-            return firstNonEmpty(header.name(), header.value(), parameter.getParameterName());
-        }
-        RequestParam param = parameter.getParameterAnnotation(RequestParam.class);
-        if (param != null) {
-            return firstNonEmpty(param.name(), param.value(), parameter.getParameterName());
-        }
-        PathVariable path = parameter.getParameterAnnotation(PathVariable.class);
-        if (path != null) {
-            return firstNonEmpty(path.name(), path.value(), parameter.getParameterName());
-        }
-        return firstNonEmpty(parameter.getParameterName(), "request", null);
-    }
-
-    private static String firstNonEmpty(String first, String second, String third) {
-        if (first != null && !first.isEmpty()) {
-            return first;
-        }
-        if (second != null && !second.isEmpty()) {
-            return second;
-        }
-        return third;
     }
 
     /**
@@ -422,52 +386,13 @@ public class AcquisitionExceptionHandler {
         return last;
     }
 
-    /** The JSON path of the value Jackson refused, property names (or array indexes) joined by dots. */
-    private static String jsonPath(JacksonException e) {
-        List<String> parts = new ArrayList<>();
-        for (JacksonException.Reference reference : e.getPath()) {
-            parts.add(reference.getPropertyName() != null
-                    ? reference.getPropertyName() : String.valueOf(reference.getIndex()));
-        }
-        return String.join(".", parts);
-    }
-
     /**
-     * True when the exception, one of its causes or one of the exceptions suppressed along the way (a failed
-     * rollback or close) may quote request data in its message: database errors (SQL keys and values), JSON errors
-     * and validation errors. A stack trace prints all of them, so all of them are checked.
+     * Database errors (SQL keys and values), JSON errors and validation errors may quote request data in their
+     * message. {@code anyInChain} applies it to the exception, its causes and what was suppressed along the way (a
+     * failed rollback or close), since a stack trace prints all of them.
      */
-    private static boolean carriesRequestData(Throwable e) {
-        Deque<Throwable> pending = new ArrayDeque<>();
-        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
-        pending.add(e);
-        while (!pending.isEmpty() && seen.size() < MAX_EXCEPTIONS_CHECKED) {
-            Throwable current = pending.poll();
-            if (!seen.add(current)) {
-                continue;
-            }
-            if (current instanceof DataAccessException || current instanceof SQLException
-                    || current instanceof JacksonException || current instanceof jakarta.validation.ValidationException
-                    || current instanceof ValidationException) {
-                return true;
-            }
-            if (current.getCause() != null) {
-                pending.add(current.getCause());
-            }
-            pending.addAll(List.of(current.getSuppressed()));
-        }
-        // Too many to check: assume the worst and keep the stack trace out
-        return !pending.isEmpty();
-    }
-
-    private static <T extends Throwable> T findCause(Throwable e, Class<T> type) {
-        Throwable current = e;
-        for (int depth = 0; current != null && depth < MAX_CAUSE_DEPTH; depth++) {
-            if (type.isInstance(current)) {
-                return type.cast(current);
-            }
-            current = current.getCause();
-        }
-        return null;
+    private static boolean quotesRequestData(Throwable e) {
+        return e instanceof DataAccessException || e instanceof SQLException || e instanceof JacksonException
+                || e instanceof jakarta.validation.ValidationException || e instanceof ValidationException;
     }
 }

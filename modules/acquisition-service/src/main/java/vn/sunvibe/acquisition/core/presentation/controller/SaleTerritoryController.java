@@ -14,7 +14,6 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -109,7 +108,7 @@ public class SaleTerritoryController {
     public ResponseEntity<SaleTerritoryResponse> assign(
             @PathVariable("wardCode") @Size(max = 10, message = WARD_CODE_MESSAGE) String wardCode,
             @Valid @RequestBody AssignTerritoryRequest request) {
-        String actorId = viewerResolver.actorId(SecurityContextHolder.getContext().getAuthentication());
+        String actorId = viewerResolver.actorId();
         return ResponseEntity.ok(responseConverter.toTerritory(
                 territoryUseCase.assign(wardCode, request.userId(), actorId)));
     }
@@ -135,7 +134,7 @@ public class SaleTerritoryController {
     })
     public ResponseEntity<Void> unassign(
             @PathVariable("wardCode") @Size(max = 10, message = WARD_CODE_MESSAGE) String wardCode) {
-        String actorId = viewerResolver.actorId(SecurityContextHolder.getContext().getAuthentication());
+        String actorId = viewerResolver.actorId();
         territoryUseCase.unassign(wardCode, actorId);
         return ResponseEntity.noContent().build();
     }

@@ -1,5 +1,6 @@
 package vn.sunvibe.property.core.domain.policy.intake;
 
+import vn.sunvibe.property.core.domain.model.lead.LeadStatus;
 import vn.sunvibe.property.core.domain.model.property.enums.AssetType;
 import vn.sunvibe.property.core.domain.model.property.enums.RentalLayout;
 
@@ -13,7 +14,6 @@ import java.util.List;
 public final class IntakeGate {
 
     private static final String LONG_TERM = "LONG_TERM_RENT";
-    private static final String QUALIFIED = "QUALIFIED";
 
     private IntakeGate() {
     }
@@ -26,7 +26,7 @@ public final class IntakeGate {
      * @param reconciliationRequired an earlier result stands on a wrong asset or owner, or was ruled out (D5-12, property-create BR-20)
      * @param restricted             an unreleased whole-lead suspension holds
      */
-    public record Facts(String intent, String leadStatus, boolean hasPassed, boolean passedUsable,
+    public record Facts(String intent, LeadStatus leadStatus, boolean hasPassed, boolean passedUsable,
                         AssetType assetTypeOrNull, RentalLayout scopeOrNull, boolean reconciliationRequired,
                         boolean restricted) {
     }
@@ -36,7 +36,7 @@ public final class IntakeGate {
         if (!LONG_TERM.equals(facts.intent())) {
             reasons.add(GateReason.NOT_LONG_TERM);
         }
-        if (!QUALIFIED.equals(facts.leadStatus())) {
+        if (facts.leadStatus() != LeadStatus.QUALIFIED) {
             reasons.add(GateReason.NOT_QUALIFIED);
         }
         if (!facts.hasPassed()) {

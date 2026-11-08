@@ -2,6 +2,7 @@ package vn.sunvibe.survey.core.domain.policy.checklist;
 
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyIntent;
+import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
 import java.util.Optional;
 
@@ -12,13 +13,11 @@ import java.util.Optional;
  */
 public final class ChecklistStartPolicy {
 
-    private static final String SURVEY_SCHEDULED = "SURVEY_SCHEDULED";
-
     private ChecklistStartPolicy() {
     }
 
     public static ChecklistStart of(Optional<SurveyAppointment> currentVisit, boolean currentVisitHasRevision,
-                                    String leadStatus, String assigneeUserId, boolean assigneeEligible,
+                                    LeadStatus leadStatus, String assigneeUserId, boolean assigneeEligible,
                                     String viewerUserId) {
         if (currentVisit.isEmpty()) {
             return ChecklistStart.blocked(StartBlock.NO_CURRENT_VISIT);
@@ -27,7 +26,7 @@ public final class ChecklistStartPolicy {
         if (visit.getIntent() != SurveyIntent.LONG_TERM_RENT) {
             return ChecklistStart.blocked(StartBlock.INTENT);
         }
-        if (!SURVEY_SCHEDULED.equals(leadStatus)) {
+        if (leadStatus != LeadStatus.SURVEY_SCHEDULED) {
             return ChecklistStart.blocked(StartBlock.LEAD_STATUS);
         }
         if (currentVisitHasRevision) {

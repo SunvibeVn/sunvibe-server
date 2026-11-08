@@ -25,6 +25,7 @@ import vn.sunvibe.property.core.presentation.dto.request.PropertyCreateRequest;
 import vn.sunvibe.property.core.presentation.dto.response.PropertyCreateResponse;
 import vn.sunvibe.shared.dto.response.error.BaseErrorModel;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
+import vn.sunvibe.shared.security.CurrentPrincipal;
 
 /**
  * Controller - PropertyController (Record version)
@@ -78,7 +79,7 @@ public class PropertyController {
                 request.propertyCode(), request.title());
 
         // ==================== Step 1: Map Request -> Command ====================
-        PropertyCreateCommand command = requestConverter.toCommand(request);
+        PropertyCreateCommand command = requestConverter.toCommand(request, CurrentPrincipal.requireUserId());
         log.debug("Request mapped to command");
 
         // ==================== Step 2: Execute UseCase ====================

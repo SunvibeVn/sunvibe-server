@@ -9,6 +9,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -119,6 +121,34 @@ class OpenApiContractShapesTest {
 
 		assertFalse(content.path("get").isMissingNode(), content.toString());
 		assertEquals(List.of("get"), fieldNames(content));
+	}
+
+	/**
+	 * Every JSON answer names its shape (SV-177): an object schema with no properties, reference, additional properties or
+	 * composition takes any object, so the wire check passes whatever the server sends behind it.
+	 */
+	@Test
+	void everyJsonAnswer_namesItsShape() {
+		List<String> loose = new ArrayList<>();
+		contract.path("paths").properties().forEach(path -> path.getValue().properties().forEach(operation ->
+				operation.getValue().path("responses").properties().forEach(response ->
+						response.getValue().path("content").properties().forEach(media -> {
+							if (isJson(media.getKey()) && isLoose(media.getValue().path("schema"))) {
+								loose.add(operation.getKey().toUpperCase(Locale.ROOT) + ' ' + path.getKey() + ' '
+										+ response.getKey());
+							}
+						}))));
+
+		assertEquals(List.of(), loose, loose.size() + " loose answers");
+	}
+
+	private static boolean isJson(String mediaType) {
+		return mediaType.contains("json") || "*/*".equals(mediaType);
+	}
+
+	private static boolean isLoose(JsonNode schema) {
+		return "object".equals(schema.path("type").asString())
+				&& Stream.of("properties", "$ref", "additionalProperties", "allOf", "anyOf", "oneOf").noneMatch(schema::has);
 	}
 
 	private static JsonNode responseSchema(JsonNode operation, String status) {
