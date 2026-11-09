@@ -49,8 +49,8 @@ import vn.sunvibe.survey.core.application.shared.external.lead.SurveyLeadPort;
 @ActiveProfiles("test")
 @Import({ PostgresContainerConfig.class, ChecklistRollbackPostgresTest.FailingDoubles.class })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-// The doubles make a context (and a PostgreSQL container) no other class reuses: close it after the class so the
-// cached contexts of the suite fit in the test JVM
+// The doubles make a context (and a database on the shared server) no other class reuses: close it after the class so
+// the cached contexts of the suite fit in the test JVM
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ChecklistRollbackPostgresTest {
 

@@ -52,8 +52,8 @@ tasks.withType<Test> {
     testLogging {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
-    // The API tests keep more than twenty Spring contexts, each with its own PostgreSQL container, plus the check limits
-    // test's 50-space answers. Past 1 GB the JVM stalled in GC while loading a context (property-create intake, 2026-11-06)
+    // The API tests keep more than twenty Spring contexts, each with its own database on one PostgreSQL container, plus
+    // the check limits test's 50-space answers. Past 1 GB the JVM stalled in GC while loading a context (property-create intake, 2026-11-06)
     maxHeapSize = "2g"
     // The contract the wire check reads; exportOpenApi writes this file and never reads it
     systemProperty("contract.file", rootProject.file("api/openapi.json").absolutePath)

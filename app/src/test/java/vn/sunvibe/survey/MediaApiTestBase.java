@@ -10,7 +10,7 @@ import vn.sunvibe.PostgresContainerConfig;
 /**
  * The one test configuration of the survey-media API and persistence tests (plan Global Constraints): the property set
  * of the checklist API tests plus the test-only switch toggle ({@link MediaTestSwitches}), so they all share one Spring
- * context and one PostgreSQL container. Switches vary through that runtime toggle, never through other properties.
+ * context and one database. Switches vary through that runtime toggle, never through other properties.
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,

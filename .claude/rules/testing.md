@@ -12,6 +12,14 @@ paths:
 - PostgreSQL behavior (constraints, native SQL, Flyway): test it on PostgreSQL with Testcontainers through
   vn.sunvibe.PostgresContainerConfig (@Import it with spring.flyway.enabled=true and ddl-auto=validate, like
   FlywayPostgresMigrationTest). Docker must run locally and in CI; these tests are never skipped without it.
+- One PostgreSQL container serves the whole test JVM; each Spring context gets its own database on it
+  (PostgresContainerConfig, SV-175). **Mandatory:** a read of a cluster-wide view that is not limited to one backend
+  (`pg_locks`, `pg_stat_activity`, `pg_stat_database`) filters by `current_database()`, or it counts other contexts'
+  sessions. psql inside the container targets `PostgresTestDatabase.name()`, never the container's default database.
+- Spring caches one context per exact configuration: web environment, `@Import` classes and the `properties` array,
+  whose order counts. A new API test reuses a context by copying an existing class's set as written; a different
+  property, import or double is a new context (about 5 s and its pool). Measured 2026-11-09 (W34): 35 contexts, each
+  for a real difference, so no shared annotation would merge any.
 - Endpoints: API tests over HTTP (SpringBootTest RANDOM_PORT) through the real filter chain: the happy path, 401
   without a token, 403 for a wrong role, the ownership case (another owner's resource answers as the spec says)
   and the spec's error codes (assert the ErrorResponse `code`, not only the status).
