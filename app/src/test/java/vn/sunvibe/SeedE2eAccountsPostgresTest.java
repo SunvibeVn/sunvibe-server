@@ -28,11 +28,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import vn.sunvibe.PostgresContainerConfig.PostgresTestDatabase;
 
 /**
  * The E2E seed script {@code scripts/dev/seed-e2e-accounts.sql} run with psql inside the test PostgreSQL container
@@ -66,8 +66,9 @@ class SeedE2eAccountsPostgresTest {
 	@Value("${local.server.port}")
 	private int port;
 
+	/** The database of this context on the shared server (PostgresContainerConfig). */
 	@Autowired
-	private PostgreSQLContainer postgres;
+	private PostgresTestDatabase database;
 
 	@Autowired
 	private JdbcTemplate jdbc;
@@ -355,12 +356,12 @@ class SeedE2eAccountsPostgresTest {
 
 	private ExecResult execPsql(List<String> variables) throws Exception {
 		assertTrue(Files.isRegularFile(SCRIPT), "seed script missing: " + SCRIPT.toAbsolutePath().normalize());
-		postgres.copyFileToContainer(MountableFile.forHostPath(SCRIPT), SCRIPT_IN_CONTAINER);
-		List<String> command = new ArrayList<>(List.of("psql", "-U", postgres.getUsername(),
-				"-d", postgres.getDatabaseName(), "-v", "ON_ERROR_STOP=1"));
+		database.container().copyFileToContainer(MountableFile.forHostPath(SCRIPT), SCRIPT_IN_CONTAINER);
+		List<String> command = new ArrayList<>(List.of("psql", "-U", database.container().getUsername(),
+				"-d", database.name(), "-v", "ON_ERROR_STOP=1"));
 		command.addAll(variables);
 		command.addAll(List.of("-f", SCRIPT_IN_CONTAINER));
-		return postgres.execInContainer(command.toArray(String[]::new));
+		return database.container().execInContainer(command.toArray(String[]::new));
 	}
 
 	private JsonNode logIn(String username, String password) throws Exception {

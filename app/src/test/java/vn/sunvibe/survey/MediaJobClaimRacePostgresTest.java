@@ -205,8 +205,10 @@ class MediaJobClaimRacePostgresTest extends MediaApiTestBase {
 			if (parked.isDone()) {
 				fail("the second claim ended before the gate: " + parked.get());
 			}
+			// pg_locks is cluster-wide, and the contexts share one server (PostgresContainerConfig)
 			if (jdbc.queryForObject("select count(*) from pg_locks where locktype = 'advisory' and objid = ?"
-					+ " and not granted", Integer.class, GATE) > 0) {
+					+ " and not granted and database = (select oid from pg_database where datname = current_database())",
+					Integer.class, GATE) > 0) {
 				return;
 			}
 			Thread.sleep(20);

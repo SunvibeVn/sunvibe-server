@@ -505,8 +505,10 @@ public final class MediaApiTestSupport {
 		public void awaitWaiters(int n) throws InterruptedException {
 			long deadline = System.nanoTime() + java.time.Duration.ofSeconds(30).toNanos();
 			while (System.nanoTime() < deadline) {
+				// pg_locks is cluster-wide, and the contexts share one server (PostgresContainerConfig)
 				Integer waiting = jdbc.queryForObject("select count(*) from pg_locks where locktype = 'advisory'"
-						+ " and not granted", Integer.class);
+						+ " and not granted and database = (select oid from pg_database where datname = current_database())",
+						Integer.class);
 				if (waiting != null && waiting >= n) {
 					return;
 				}

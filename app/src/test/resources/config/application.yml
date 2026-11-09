@@ -1,0 +1,10 @@
+# Tests only. Loaded after the main application.yml, so it wins over it, while a test class's own
+# @SpringBootTest(properties) still wins over this file.
+# The PostgreSQL tests share one server across up to 32 cached contexts (vn.sunvibe.PostgresContainerConfig), so a
+# context keeps two idle connections, not five, and drops the extra ones after ten seconds (Hikari's minimum).
+# The pool size stays as application.yml sets it: the race tests and the small-pool tests rely on it.
+spring:
+  datasource:
+    hikari:
+      minimum-idle: 2
+      idle-timeout: 10000
