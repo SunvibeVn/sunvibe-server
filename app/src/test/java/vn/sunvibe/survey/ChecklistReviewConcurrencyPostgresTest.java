@@ -58,8 +58,8 @@ import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
  * with fresh leads. Never a 500, a deadlock or a state the rules refuse. Needs Docker.
  */
 @Import(ChecklistReviewConcurrencyPostgresTest.PausingDoubles.class)
-// The doubles make a context (and a PostgreSQL container) no other class reuses: close it after the class so the cached
-// contexts of the suite fit in the test JVM
+// The doubles make a context (and a database on the shared server) no other class reuses: close it after the class so
+// the cached contexts of the suite fit in the test JVM
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ChecklistReviewConcurrencyPostgresTest extends MediaApiTestBase {
 

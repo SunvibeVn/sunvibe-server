@@ -36,13 +36,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.Container.ExecResult;
-import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.MountableFile;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
+import vn.sunvibe.PostgresContainerConfig.PostgresTestDatabase;
 import vn.sunvibe.survey.ChecklistApiTestSupport;
 import vn.sunvibe.survey.SurveyApiTestSupport;
 import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
@@ -119,8 +119,9 @@ class SeedE2eOwnerLeadsPostgresTest {
 	@Value("${local.server.port}")
 	private int port;
 
+	/** The database of this context on the shared server (PostgresContainerConfig). */
 	@Autowired
-	private PostgreSQLContainer postgres;
+	private PostgresTestDatabase database;
 
 	@Autowired
 	private JdbcTemplate jdbc;
@@ -996,24 +997,24 @@ class SeedE2eOwnerLeadsPostgresTest {
 			List<String> connectionArgs) throws Exception {
 		assertTrue(Files.isRegularFile(script), "seed script missing: " + script.toAbsolutePath().normalize());
 		String inContainer = "/tmp/" + script.getFileName();
-		postgres.copyFileToContainer(MountableFile.forHostPath(script), inContainer);
+		database.container().copyFileToContainer(MountableFile.forHostPath(script), inContainer);
 		List<String> command = new ArrayList<>();
-		command.addAll(List.of("env", "PGPASSWORD=" + postgres.getPassword()));
+		command.addAll(List.of("env", "PGPASSWORD=" + database.container().getPassword()));
 		if (legacyClientEncoding) {
 			command.add("PGCLIENTENCODING=WIN1252");
 		}
 		command.add("psql");
 		command.addAll(connectionArgs);
-		command.addAll(List.of("-U", postgres.getUsername(),
-				"-d", postgres.getDatabaseName(), "-v", "ON_ERROR_STOP=1"));
+		command.addAll(List.of("-U", database.container().getUsername(),
+				"-d", database.name(), "-v", "ON_ERROR_STOP=1"));
 		command.addAll(variables);
 		command.addAll(List.of("-f", inContainer));
-		return postgres.execInContainer(command.toArray(String[]::new));
+		return database.container().execInContainer(command.toArray(String[]::new));
 	}
 
 	/** The container's own address on the Docker network: reachable over TCP and not a loopback address. */
 	private String containerAddress() throws Exception {
-		ExecResult result = postgres.execInContainer("hostname", "-i");
+		ExecResult result = database.container().execInContainer("hostname", "-i");
 		assertEquals(0, result.getExitCode(), "hostname -i failed: " + result.getStderr());
 		String address = result.getStdout().trim().split("\s+")[0];
 		assertFalse(address.isEmpty() || address.startsWith("127.") || address.equals("::1"), address);

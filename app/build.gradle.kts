@@ -52,11 +52,15 @@ tasks.withType<Test> {
     testLogging {
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
     }
-    // The API tests keep more than twenty Spring contexts, each with its own PostgreSQL container, plus the check limits
-    // test's 50-space answers. Past 1 GB the JVM stalled in GC while loading a context (property-create intake, 2026-11-06)
+    // The API tests keep more than twenty Spring contexts, each with its own database on one PostgreSQL container, plus
+    // the check limits test's 50-space answers. Past 1 GB the JVM stalled in GC while loading a context
+    // (property-create intake, 2026-11-06)
     maxHeapSize = "2g"
     // The contract the wire check reads; exportOpenApi writes this file and never reads it
     systemProperty("contract.file", rootProject.file("api/openapi.json").absolutePath)
+    // The media test store lives in this build folder (MediaTestStoreReset.root()), so a run in another checkout
+    // never empties it (SV-271)
+    systemProperty("media.test.dir", layout.buildDirectory.get().asFile.absolutePath)
 }
 
 // The contract export runs only through exportOpenApi, so a normal build never rewrites api/openapi.json. The tagged
@@ -71,6 +75,9 @@ tasks.named<Test>("test") {
     // MediaTestStoreReset empties the media test store before the run (SV-264). This task only: exportOpenApi and the
     // tagged tasks share the classpath and must not wipe the store under a running build
     systemProperty("media.test.reset", "true")
+    // A full heap ends the test JVM with an error instead of a run that hangs for hours (SV-271). It acts only when an
+    // OutOfMemoryError is thrown: a heap that thrashes in GC just below full can still stall the run
+    jvmArgs("-XX:+ExitOnOutOfMemoryError")
 }
 
 // ./gradlew :app:r2ContractTest: the object store contract against a Cloudflare R2 test bucket (survey-media spec

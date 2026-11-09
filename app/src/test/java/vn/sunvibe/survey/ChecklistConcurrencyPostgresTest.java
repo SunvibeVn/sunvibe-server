@@ -77,8 +77,8 @@ import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 @ActiveProfiles("test")
 @Import({ PostgresContainerConfig.class, ChecklistConcurrencyPostgresTest.PausingDoubles.class })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-// The doubles make a context (and a PostgreSQL container) no other class reuses: close it after the class so the
-// cached contexts of the suite fit in the test JVM
+// The doubles make a context (and a database on the shared server) no other class reuses: close it after the class so
+// the cached contexts of the suite fit in the test JVM
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ChecklistConcurrencyPostgresTest {
 
@@ -303,8 +303,11 @@ class ChecklistConcurrencyPostgresTest {
 
 		Future<Result> paused = async(() -> send(ChecklistCommand.SAVE, setup));
 		awaitReached(pause, "parts save");
+		// pg_locks is cluster-wide and the contexts share one server (PostgresContainerConfig): a relation OID alone
+		// does not name a database, so the join on pg_class could count a lock in another context's database
 		assertTrue(checklists.rows("select count(*) from pg_locks l join pg_class c on c.oid = l.relation where "
-				+ "c.relname = 'owner_leads' and l.mode = 'RowShareLock' and l.granted and l.pid <> pg_backend_pid()")
+				+ "c.relname = 'owner_leads' and l.mode = 'RowShareLock' and l.granted and l.pid <> pg_backend_pid()"
+				+ " and l.database = (select oid from pg_database where datname = current_database())")
 				> 0, "the lead share lock is held while the save waits");
 		Result other = checklists.put(saleA, setup.checklistId(), "dimensions", 0, dimensions, null, null);
 		pause.release.countDown();

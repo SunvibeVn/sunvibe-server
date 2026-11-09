@@ -11,7 +11,10 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** The media test store starts each test run empty (SV-264); here on a folder of the test's own. */
+/**
+ * The media test store starts each test run empty (SV-264), in a folder of the build that runs (SV-271); here on a folder
+ * of the test's own.
+ */
 class MediaTestStoreResetTest {
 
 	@TempDir
@@ -31,6 +34,30 @@ class MediaTestStoreResetTest {
 		try (Stream<Path> left = Files.list(root)) {
 			assertEquals(List.of(), left.toList());
 		}
+	}
+
+	/** SV-271: two checkouts, two build folders, two stores; a run empties only its own. */
+	@Test
+	void root_buildFolderGiven_isUnderIt() {
+		Path build = temp.resolve("checkout-a/app/build");
+
+		assertEquals(build.resolve("sunvibe-media-api-test"),
+				MediaTestStoreReset.root(build.toString(), temp.resolve("tmp").toString()));
+	}
+
+	/** A run outside Gradle (an IDE) has no build folder property and keeps the temp folder of before. */
+	@Test
+	void root_noBuildFolder_isTheTempFolder() {
+		assertEquals(temp.resolve("tmp").resolve("sunvibe-media-api-test"),
+				MediaTestStoreReset.root(null, temp.resolve("tmp").toString()));
+	}
+
+	/** MediaContentReadApiPostgresTest looks for this segment in answers and logs: every root keeps it. */
+	@Test
+	void root_alwaysEndsWithTheSegmentTheLeakCheckLooksFor() {
+		assertEquals("sunvibe-media-api-test", MediaTestStoreReset.root(null, temp.toString()).getFileName().toString());
+		assertEquals("sunvibe-media-api-test",
+				MediaTestStoreReset.root(temp.resolve("b").toString(), temp.toString()).getFileName().toString());
 	}
 
 	@Test

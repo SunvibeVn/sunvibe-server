@@ -4,11 +4,14 @@ import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.type;
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
 import static com.tngtech.archunit.core.domain.properties.HasOwner.Predicates.With.owner;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.stereotype.Controller;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -21,7 +24,9 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 /**
  * Layer direction inside survey-service (backend-architecture.md, layer-guide.md), the same rules as
  * {@link PropertyLayerArchTest}: the domain depends on no other layer and on no framework (pure Java), the application
- * only on the domain, infrastructure never on presentation, and only persistence rebuilds the aggregate.
+ * only on the domain, infrastructure never on presentation, and only persistence rebuilds the aggregate. Besides the
+ * layers, every controller carries a class-level {@code @PreAuthorize}: the security chain only requires sign-in on
+ * these paths, so the class annotation is the role guard of each method that has none of its own (SV-274).
  */
 class SurveyLayerArchTest {
 
@@ -87,6 +92,19 @@ class SurveyLayerArchTest {
 						.or(target(owner(type(SurveyChecklist.class))))
 						.or(target(owner(type(SurveyMedia.class))))))
 				.allowEmptyShould(true)
+				.check(classes);
+	}
+
+	/**
+	 * SV-274. Every controller of survey, wherever it sits and however it is annotated ({@code @RestController} or a
+	 * {@code @Controller}), carries a class-level {@code @PreAuthorize}. A method-level one replaces the class one for
+	 * that method, it is not combined with it: each one in survey today names a subset of its class's roles. This rule
+	 * does not read the expressions.
+	 */
+	@Test
+	void controllers_carryAClassLevelPreAuthorize() {
+		classes().that().areMetaAnnotatedWith(Controller.class)
+				.should().beAnnotatedWith(PreAuthorize.class)
 				.check(classes);
 	}
 }

@@ -26,7 +26,7 @@ import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 /**
  * A create needs one pooled connection (survey-media plan Tasks A5, A13): the intake gate's health read joins the
  * command's transaction instead of taking a second connection, so with a Hikari pool of one the create completes. Its
- * own context (the pool size is a property), with its own PostgreSQL container. Needs Docker.
+ * own context (the pool size is a property), with its own database. Needs Docker.
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
