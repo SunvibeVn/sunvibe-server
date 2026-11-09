@@ -448,7 +448,7 @@ public final class MediaApiTestSupport {
 	}
 
 	private static java.nio.file.Path objectPath(MediaObjectStore.Bucket bucket, String key) {
-		return java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "sunvibe-media-api-test", "store",
+		return MediaTestStoreReset.root().resolve("store").resolve(
 				bucket == MediaObjectStore.Bucket.QUARANTINE ? "quarantine-bucket" : "media-bucket").resolve(key);
 	}
 

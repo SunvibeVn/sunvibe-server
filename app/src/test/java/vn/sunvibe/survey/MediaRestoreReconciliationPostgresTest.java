@@ -271,7 +271,7 @@ class MediaRestoreReconciliationPostgresTest extends MediaApiTestBase {
 	}
 
 	private static Path objectPath(Bucket bucket, String key) {
-		return Path.of(System.getProperty("java.io.tmpdir"), "sunvibe-media-api-test", "store",
+		return MediaTestStoreReset.root().resolve("store").resolve(
 				bucket == Bucket.QUARANTINE ? "quarantine-bucket" : "media-bucket").resolve(key);
 	}
 }

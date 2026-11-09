@@ -33,10 +33,16 @@ import vn.sunvibe.PostgresContainerConfig;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class MediaApiTestBase {
 
-	/** The local object store of the media tests (spec A-1: dev, test and lan only), under the JVM's temp folder. */
+	/**
+	 * The local object store of the media tests (spec A-1: dev, test and lan only), in the folder of
+	 * {@link MediaTestStoreReset#root()}: under the build folder of the run (SV-271), or the JVM's temp folder outside
+	 * Gradle.
+	 */
 	static final String STORE = "app.survey.media.store=local";
-	static final String STORE_ROOT = "app.survey.media.local.root=${java.io.tmpdir}/sunvibe-media-api-test/store";
-	static final String SPOOL_DIR = "app.survey.media.spool-dir=${java.io.tmpdir}/sunvibe-media-api-test/spool";
+	static final String STORE_ROOT = "app.survey.media.local.root=${media.test.dir:${java.io.tmpdir}}"
+			+ "/sunvibe-media-api-test/store";
+	static final String SPOOL_DIR = "app.survey.media.spool-dir=${media.test.dir:${java.io.tmpdir}}"
+			+ "/sunvibe-media-api-test/spool";
 	/**
 	 * No background sweep or probe poll in the shared media context (spec 4.4 step 4 runs them every 5 minutes and
 	 * 10 seconds): with no scanner or processor configured, a sweep would pause intake (PROCESSING_OFF) under the

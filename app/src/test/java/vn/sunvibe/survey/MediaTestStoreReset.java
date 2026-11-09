@@ -25,6 +25,13 @@ import org.junit.platform.launcher.LauncherSessionListener;
 public final class MediaTestStoreReset implements LauncherSessionListener {
 
 	static final String SWITCH = "media.test.reset";
+	/**
+	 * The folder that holds the store, set by {@code app/build.gradle.kts} to the build folder of the run (SV-271): two
+	 * checkouts then never empty each other's files. {@link MediaApiTestBase} reads the same property.
+	 */
+	static final String DIR = "media.test.dir";
+	/** The last segment of every store path; MediaContentReadApiPostgresTest checks it never leaks. */
+	static final String SEGMENT = "sunvibe-media-api-test";
 
 	/** For {@code ServiceLoader}. */
 	public MediaTestStoreReset() {
@@ -33,8 +40,18 @@ public final class MediaTestStoreReset implements LauncherSessionListener {
 	@Override
 	public void launcherSessionOpened(LauncherSession session) {
 		if (Boolean.getBoolean(SWITCH)) {
-			clear(Path.of(System.getProperty("java.io.tmpdir"), "sunvibe-media-api-test"));
+			clear(root());
 		}
+	}
+
+	/** The store and spool folder of this test JVM. */
+	public static Path root() {
+		return root(System.getProperty(DIR), System.getProperty("java.io.tmpdir"));
+	}
+
+	/** Under {@code dir} when the build gives one, else under the temp folder, as before SV-271 (a run outside Gradle). */
+	static Path root(String dir, String tmpdir) {
+		return Path.of(dir != null ? dir : tmpdir, SEGMENT);
 	}
 
 	/** Deletes everything under {@code root} and keeps the folder; a failed delete fails the run, never silently. */
