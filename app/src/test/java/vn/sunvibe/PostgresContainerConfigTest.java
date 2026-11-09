@@ -28,19 +28,23 @@ class PostgresContainerConfigTest {
 	void twoContexts_shareTheServer_notTheRows() throws Exception {
 		TestContext first = new TestContextManager(FirstContext.class).getTestContext();
 		TestContext second = new TestContextManager(SecondContext.class).getTestContext();
-		JdbcTemplate one = jdbc(first.getApplicationContext());
-		JdbcTemplate two = jdbc(second.getApplicationContext());
+		try {
+			JdbcTemplate one = jdbc(first.getApplicationContext());
+			JdbcTemplate two = jdbc(second.getApplicationContext());
 
-		one.execute("create table if not exists isolation_probe (marker text)");
-		two.execute("create table if not exists isolation_probe (marker text)");
-		one.update("insert into isolation_probe values ('first')");
+			one.execute("create table if not exists isolation_probe (marker text)");
+			two.execute("create table if not exists isolation_probe (marker text)");
+			one.update("insert into isolation_probe values ('first')");
 
-		assertEquals(1, one.queryForObject("select count(*) from isolation_probe", Integer.class));
-		assertEquals(0, two.queryForObject("select count(*) from isolation_probe", Integer.class),
-				"the second context sees the first context's row");
-		assertEquals(server(one), server(two), "the two contexts run on two servers");
-		assertNotEquals(one.queryForObject("select current_database()", String.class),
-				two.queryForObject("select current_database()", String.class));
+			assertEquals(1, one.queryForObject("select count(*) from isolation_probe", Integer.class));
+			assertEquals(0, two.queryForObject("select count(*) from isolation_probe", Integer.class),
+					"the second context sees the first context's row");
+			assertEquals(server(one), server(two), "the two contexts run on two servers");
+			assertNotEquals(one.queryForObject("select current_database()", String.class),
+					two.queryForObject("select current_database()", String.class));
+		} finally {
+			close(first, second);
+		}
 	}
 
 	@Test
@@ -51,7 +55,18 @@ class PostgresContainerConfigTest {
 
 		TestContext open = new TestContextManager(FourthContext.class).getTestContext();
 
-		assertEquals(server, server(jdbc(open.getApplicationContext())), "the next context runs on another server");
+		try {
+			assertEquals(server, server(jdbc(open.getApplicationContext())), "the next context runs on another server");
+		} finally {
+			close(open);
+		}
+	}
+
+	/** The probe contexts leave Spring's cache, so they hold no slot or connection for the rest of the run. */
+	private static void close(TestContext... contexts) {
+		for (TestContext context : contexts) {
+			context.markApplicationContextDirty(HierarchyMode.EXHAUSTIVE);
+		}
 	}
 
 	private static JdbcTemplate jdbc(ApplicationContext context) {
@@ -63,7 +78,11 @@ class PostgresContainerConfigTest {
 		return jdbc.queryForObject("select system_identifier from pg_control_system()", Long.class);
 	}
 
-	/** The auto-configurations of the full application that connect it to the database. */
+	/**
+	 * The auto-configurations of the full application that connect it to the database. The service connection one
+	 * finds nothing today; it is there so that a return to {@code @ServiceConnection} would be tested as the
+	 * application runs it (with it, this test failed on the container-per-context set-up).
+	 */
 	@Configuration(proxyBeanMethods = false)
 	@ImportAutoConfiguration({ ServiceConnectionAutoConfiguration.class, DataSourceAutoConfiguration.class,
 		JdbcTemplateAutoConfiguration.class })

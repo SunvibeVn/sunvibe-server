@@ -16,8 +16,9 @@ paths:
   (PostgresContainerConfig, SV-175). **Mandatory:** a read of a cluster-wide view that is not limited to one backend
   (`pg_locks`, `pg_stat_activity`, `pg_stat_database`) filters by `current_database()`, or it counts other contexts'
   sessions. psql inside the container targets `PostgresTestDatabase.name()`, never the container's default database.
-- Spring caches one context per exact configuration: web environment, `@Import` classes and the `properties` array,
-  whose order counts. A new API test reuses a context by copying an existing class's set as written; a different
+- Spring caches one context per exact configuration: web environment, active profiles, the `@Import` classes (a set:
+  their order does not count), the `properties` array (its order counts), a `@DynamicPropertySource` and any nested
+  test configuration. A new API test reuses a context by copying an existing class's set as written; a different
   property, import or double is a new context (about 5 s and its pool). Measured 2026-11-09 (W34): 35 contexts, each
   for a real difference, so no shared annotation would merge any.
 - Endpoints: API tests over HTTP (SpringBootTest RANDOM_PORT) through the real filter chain: the happy path, 401

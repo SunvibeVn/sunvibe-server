@@ -157,20 +157,22 @@ class ChecklistRevisionApiPostgresTest extends MediaApiTestBase {
 	}
 
 	/**
-	 * SV-274: only the class-level @PreAuthorize keeps a signed-in CUSTOMER out. Its answer is the generic FORBIDDEN, not
-	 * a refusal of the service, and no new revision exists.
+	 * SV-274: the class-level @PreAuthorize refuses a signed-in role outside sale staff and ADMIN with the generic
+	 * FORBIDDEN, before the viewer resolver, which would fail closed with a 500; no new revision exists.
 	 */
 	@Test
 	void revision_wrongRole_403() throws Exception {
 		Ready ready = returned("DOCUMENTS_ONLY");
-		TestUser customer = survey.user("Revision Customer", "CUSTOMER");
 		int before = jdbc.queryForObject("select count(*) from survey_checklists where lead_id = ?", Integer.class,
 				ready.leadId());
+		for (String role : List.of("CUSTOMER", "OWNER", "LISTING_REVIEWER")) {
+			TestUser caller = survey.user("Revision " + role, role);
 
-		Result refused = revise(customer, ready.checklistId(), null);
+			Result refused = revise(caller, ready.checklistId(), null);
 
-		assertEquals(403, refused.status(), refused.rawBody());
-		assertEquals("FORBIDDEN", refused.body().path("code").asString(), refused.rawBody());
+			assertEquals(403, refused.status(), role + ": " + refused.rawBody());
+			assertEquals("FORBIDDEN", refused.body().path("code").asString(), role + ": " + refused.rawBody());
+		}
 		assertEquals(before, jdbc.queryForObject("select count(*) from survey_checklists where lead_id = ?", Integer.class,
 				ready.leadId()));
 	}

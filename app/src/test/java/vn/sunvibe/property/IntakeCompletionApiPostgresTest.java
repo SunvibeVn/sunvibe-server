@@ -369,7 +369,7 @@ class IntakeCompletionApiPostgresTest extends IntakeApiTestBase {
 				+ " and r.name = 'OWNER'", linked.owner().userId()));
 		assertEquals(0, count("select count(*) from inventory_unit_mappings where unit_id = ?", linked.unitId()));
 		Map<String, Object> row = intakeRow(leadId);
-		assertNotEquals("COMPLETED", row.get("status"));
+		assertEquals("OWNER_CONFIRMED", row.get("status"), "the intake stays where the link left it");
 		assertNull(row.get("result_property_id"));
 	}
 

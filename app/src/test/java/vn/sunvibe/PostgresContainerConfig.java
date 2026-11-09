@@ -87,8 +87,9 @@ public class PostgresContainerConfig {
 	private static final class SharedServer {
 
 		/**
-		 * Up to 32 cached contexts (Spring's default) share the server, each with a pool of up to 20 connections
-		 * (application.yml); the default of 100 would refuse a connection long before that.
+		 * Up to 32 cached contexts (Spring's default) share the server. Each keeps 2 idle connections
+		 * (src/test/resources/config/application.yml), about 64, while the running class may fill its pool of 20 and a
+		 * race test opens its own connections besides; the default of 100 leaves too little room for that.
 		 */
 		private static final int MAX_CONNECTIONS = 500;
 		private static final PostgreSQLContainer CONTAINER = start();
@@ -112,6 +113,10 @@ public class PostgresContainerConfig {
 			// The container's own URL with the new database name; its parameters stay
 			String url = CONTAINER.getJdbcUrl().replaceFirst("/" + CONTAINER.getDatabaseName() + "(\\?|$)",
 					"/" + name + "$1");
+			if (url.equals(CONTAINER.getJdbcUrl())) {
+				// The contexts would share the default database without a word
+				throw new IllegalStateException("could not name the database " + name + " in " + url);
+			}
 			return new PostgresTestDatabase(CONTAINER, name, url);
 		}
 	}

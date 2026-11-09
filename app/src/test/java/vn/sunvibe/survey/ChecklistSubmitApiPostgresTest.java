@@ -248,18 +248,21 @@ class ChecklistSubmitApiPostgresTest extends MediaApiTestBase {
 	}
 
 	/**
-	 * SV-274: only the class-level @PreAuthorize keeps a signed-in CUSTOMER out. Its answer is the generic FORBIDDEN, not
-	 * the assignee refusal the service would give, and it writes no security event.
+	 * SV-274: the class-level @PreAuthorize refuses a signed-in role outside sale staff and ADMIN with the generic
+	 * FORBIDDEN, before the viewer resolver, which would fail closed with a 500; nothing reaches the service, so no
+	 * security event is written and the checklist stays a draft.
 	 */
 	@Test
 	void submit_wrongRole_403() throws Exception {
 		Ready ready = review.ready(leader, sale);
-		TestUser customer = survey.user("Submit Customer", "CUSTOMER");
+		for (String role : List.of("CUSTOMER", "OWNER", "LISTING_REVIEWER")) {
+			TestUser caller = survey.user("Submit " + role, role);
 
-		Result refused = review.submit(customer, ready.checklistId());
+			Result refused = review.submit(caller, ready.checklistId());
 
-		assertEquals(403, refused.status(), refused.rawBody());
-		assertEquals("FORBIDDEN", refused.body().path("code").asString(), refused.rawBody());
+			assertEquals(403, refused.status(), role + ": " + refused.rawBody());
+			assertEquals("FORBIDDEN", refused.body().path("code").asString(), role + ": " + refused.rawBody());
+		}
 		assertEquals(0, jdbc.queryForObject("select count(*) from survey_security_events where lead_id = ?", Integer.class,
 				ready.leadId()));
 		assertEquals("DRAFT", jdbc.queryForObject("select status from survey_checklists where id = ?", String.class,
