@@ -285,6 +285,17 @@ class ChecklistReviewQueuePostgresTest extends MediaApiTestBase {
 		assertEquals(401, checklists.api().get(null, QUEUE).status());
 	}
 
+	/** SV-274: only the class-level @PreAuthorize keeps a signed-in CUSTOMER out; its answer is the generic FORBIDDEN. */
+	@Test
+	void queue_wrongRole_403() throws Exception {
+		TestUser customer = survey.user("Queue Customer", "CUSTOMER");
+
+		Result refused = checklists.api().get(customer, QUEUE);
+
+		assertEquals(403, refused.status(), refused.rawBody());
+		assertEquals("FORBIDDEN", refused.body().path("code").asString(), refused.rawBody());
+	}
+
 	/** S-18: the number of statements does not grow with the rows of the page. */
 	@Test
 	void queue_batchedExclusion_fixedQueryCount() throws Exception {

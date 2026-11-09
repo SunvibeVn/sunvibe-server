@@ -247,6 +247,25 @@ class ChecklistSubmitApiPostgresTest extends MediaApiTestBase {
 				+ " and action = 'SUBMIT' and outcome = 'NOT_ASSIGNEE'", Integer.class, ready.leadId()));
 	}
 
+	/**
+	 * SV-274: only the class-level @PreAuthorize keeps a signed-in CUSTOMER out. Its answer is the generic FORBIDDEN, not
+	 * the assignee refusal the service would give, and it writes no security event.
+	 */
+	@Test
+	void submit_wrongRole_403() throws Exception {
+		Ready ready = review.ready(leader, sale);
+		TestUser customer = survey.user("Submit Customer", "CUSTOMER");
+
+		Result refused = review.submit(customer, ready.checklistId());
+
+		assertEquals(403, refused.status(), refused.rawBody());
+		assertEquals("FORBIDDEN", refused.body().path("code").asString(), refused.rawBody());
+		assertEquals(0, jdbc.queryForObject("select count(*) from survey_security_events where lead_id = ?", Integer.class,
+				ready.leadId()));
+		assertEquals("DRAFT", jdbc.queryForObject("select status from survey_checklists where id = ?", String.class,
+				ready.checklistId()));
+	}
+
 	@Test
 	void submit_withoutToken_401() throws Exception {
 		Ready ready = review.ready(leader, sale);

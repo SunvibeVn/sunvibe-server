@@ -4,11 +4,14 @@ import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.type;
 import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
 import static com.tngtech.archunit.core.domain.properties.HasOwner.Predicates.With.owner;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.RestController;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -21,7 +24,9 @@ import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 /**
  * Layer direction inside survey-service (backend-architecture.md, layer-guide.md), the same rules as
  * {@link PropertyLayerArchTest}: the domain depends on no other layer and on no framework (pure Java), the application
- * only on the domain, infrastructure never on presentation, and only persistence rebuilds the aggregate.
+ * only on the domain, infrastructure never on presentation, and only persistence rebuilds the aggregate. Besides the
+ * layers, every controller carries a class-level {@code @PreAuthorize}: the security chain only requires sign-in on
+ * these paths, so a controller without one would let any signed-in role in (SV-274).
  */
 class SurveyLayerArchTest {
 
@@ -87,6 +92,14 @@ class SurveyLayerArchTest {
 						.or(target(owner(type(SurveyChecklist.class))))
 						.or(target(owner(type(SurveyMedia.class))))))
 				.allowEmptyShould(true)
+				.check(classes);
+	}
+
+	/** SV-274: a method-level annotation narrows the class rule; it never replaces it. */
+	@Test
+	void controllers_carryAClassLevelPreAuthorize() {
+		classes().that().resideInAPackage(PRESENTATION).and().areAnnotatedWith(RestController.class)
+				.should().beAnnotatedWith(PreAuthorize.class)
 				.check(classes);
 	}
 }

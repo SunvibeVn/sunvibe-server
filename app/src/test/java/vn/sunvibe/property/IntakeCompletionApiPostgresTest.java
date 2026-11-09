@@ -350,6 +350,29 @@ class IntakeCompletionApiPostgresTest extends IntakeApiTestBase {
 		assertRefused(409, "OWNER_PROOF_REQUIRED", complete(sale, ready.leadId(), versionOf(sale, ready.leadId()), hash));
 	}
 
+	/**
+	 * SV-034: a backfilled OWNER row (UNVERIFIED, valid since 2020) whose account is no longer an eligible owner grants
+	 * nothing on a link either: the eligibility check runs before the CREATE or LINK branch (spec 5.3).
+	 */
+	@Test
+	void link_backfilledOwnerNotEligible_refused() throws Exception {
+		Linked linked = linkedHouse("AVAILABLE");
+		String leadId = linked.passed().leadId();
+		jdbc.update("update property_ownerships set verification_state = 'UNVERIFIED', valid_from = ? where property_id = ?",
+				LocalDate.of(2020, 1, 1), linked.propertyId());
+		String hash = previewOk(leadId).path("previewHash").asString();
+		jdbc.update("insert into user_roles (user_id, role_id) select ?, id from roles where name = 'SALE'", linked.owner().userId());
+
+		assertRefused(409, "OWNER_PROOF_REQUIRED", complete(sale, leadId, versionOf(sale, leadId), hash));
+
+		assertEquals(0, count("select count(*) from user_roles ur join roles r on r.id = ur.role_id where ur.user_id = ?"
+				+ " and r.name = 'OWNER'", linked.owner().userId()));
+		assertEquals(0, count("select count(*) from inventory_unit_mappings where unit_id = ?", linked.unitId()));
+		Map<String, Object> row = intakeRow(leadId);
+		assertNotEquals("COMPLETED", row.get("status"));
+		assertNull(row.get("result_property_id"));
+	}
+
 	// ==================== repeat (S-18) ====================
 
 	@Test

@@ -156,6 +156,25 @@ class ChecklistRevisionApiPostgresTest extends MediaApiTestBase {
 		assertRefused(revise(sale, resurvey.checklistId(), null), 409, "CHECKLIST_NOT_ALLOWED", "status");
 	}
 
+	/**
+	 * SV-274: only the class-level @PreAuthorize keeps a signed-in CUSTOMER out. Its answer is the generic FORBIDDEN, not
+	 * a refusal of the service, and no new revision exists.
+	 */
+	@Test
+	void revision_wrongRole_403() throws Exception {
+		Ready ready = returned("DOCUMENTS_ONLY");
+		TestUser customer = survey.user("Revision Customer", "CUSTOMER");
+		int before = jdbc.queryForObject("select count(*) from survey_checklists where lead_id = ?", Integer.class,
+				ready.leadId());
+
+		Result refused = revise(customer, ready.checklistId(), null);
+
+		assertEquals(403, refused.status(), refused.rawBody());
+		assertEquals("FORBIDDEN", refused.body().path("code").asString(), refused.rawBody());
+		assertEquals(before, jdbc.queryForObject("select count(*) from survey_checklists where lead_id = ?", Integer.class,
+				ready.leadId()));
+	}
+
 	@Test
 	void revision_secondStart_alreadyStarted() throws Exception {
 		Ready ready = returned("DOCUMENTS_ONLY");
