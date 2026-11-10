@@ -1,10 +1,16 @@
 package vn.sunvibe.survey.core.presentation.exception;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import jakarta.persistence.OptimisticLockException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
@@ -65,6 +71,7 @@ import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -84,13 +91,23 @@ class SurveyExceptionHandlerTest {
     private final ExceptionHandlerMethodResolver resolver = new ExceptionHandlerMethodResolver(
             SurveyExceptionHandler.class);
 
+    private final Logger logger = (Logger) LoggerFactory.getLogger(SurveyExceptionHandler.class);
+    private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+    private Level loggerLevel;
+
     @BeforeEach
     void setUp() {
         MDC.put(CorrelationId.MDC_KEY, CORRELATION_ID);
+        loggerLevel = logger.getLevel();
+        logger.setLevel(Level.DEBUG);
+        logs.start();
+        logger.addAppender(logs);
     }
 
     @AfterEach
     void tearDown() {
+        logger.detachAppender(logs);
+        logger.setLevel(loggerLevel);
         MDC.clear();
     }
 
@@ -315,6 +332,41 @@ class SurveyExceptionHandlerTest {
         assertEquals(500, response.getStatusCode().value());
         assertEquals("INTERNAL_ERROR", response.getBody().code());
         assertFalse(response.getBody().message().contains("secret"));
+    }
+
+    @Test
+    void anythingElse_logsOneErrorWithTheClassTheCorrelationIdAndTheStackTrace() throws Exception {
+        handle(new IllegalStateException("secret 0905123456"));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertEquals("Unexpected error in survey: java.lang.IllegalStateException (correlationId=" + CORRELATION_ID + ")",
+                event.getFormattedMessage());
+        assertNotNull(event.getThrowableProxy(), "an ordinary exception keeps its stack trace in the log");
+    }
+
+    @Test
+    void otherIoFailure_isStillAnErrorWith500() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new IOException("No space left on device"));
+
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+        assertEquals(Level.ERROR, onlyEvent().getLevel());
+    }
+
+    @Test
+    void exceptionThatQuotesRequestData_isAnErrorWithoutTheStackTrace() throws Exception {
+        handle(new DataIntegrityViolationException("duplicate key value (phone)=(0905123456)"));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertNull(event.getThrowableProxy());
+        assertFalse(event.getFormattedMessage().contains("0905123456"));
+    }
+
+    private ILoggingEvent onlyEvent() {
+        assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
+        return logs.list.get(0);
     }
 
     // ==================== survey-media spec 7.3 ====================
