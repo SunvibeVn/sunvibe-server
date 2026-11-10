@@ -377,9 +377,10 @@ never go into a chat, a file in the repo or a PR. `gen-secrets.sh --check` (key 
 way a session looks at the file. Only the `postgres` service gets the `POSTGRES_*` values; the api service gets the whole
 file, so the java process holds every value in its environment.
 
-A session on the VM runs only: `gen-secrets.sh` and `gen-secrets.sh --check` (never under `bash -x`, which traces the
-values), `docker compose up`, `ps`, `logs`, `restart`, `stop` and `down`, `backup-db.sh`, the restore and grant commands of
-this section, `smoke.sh`, `free -m`, `df -h`, `timedatectl`, and `git` in the checkout. Anything that reads the env file, a
+A session on the VM runs only the commands this section gives (firewall, first start, update, logs, backup, restore, the
+first staff account, teardown; `gen-secrets.sh` never under `bash -x`, which traces the values), `docker compose ps`,
+`restart` and `stop`, and checks that print no value: `free -m`, `df -h`, `timedatectl`, `git status` and `git log` in the
+checkout. Anything that reads the env file, a
 process environment or container configuration is the owner's alone, for example `docker compose config` or `convert`,
 `docker inspect` or `docker container inspect`, `env`, `printenv` or `echo $KEY` inside a container, `ps e`, `ps eww` or
 `ps -E` on the VM, `cat`, `grep`, `less` or an editor on the env file, and a read of `/proc/*/environ`. Each prints values.
@@ -440,8 +441,10 @@ the proof is the outside port check of step 7.
 8. The backup cron line below.
 
 **Update.** `cd /opt/sunvibe/server && sudo git pull --ff-only origin main`, then steps 4 and 5 again: a key the example
-gained since is added to the env file and filled (an `<owner>` one waits for the owner's terminal). Then the `up -d --build`
-command of step 6. Flyway migrates at start. `sudo docker image prune -f` frees the old images.
+gained since is added to the env file with the example's value (an `<owner>` one waits for the owner's terminal), and so
+is a key removed from the file by hand, so change a value instead of removing its line. A `<generated>` key the file
+lacks is refused (exit 1, nothing written), because a new value would not read the data stored with the old one: for a key
+the example gained, run `gen-secrets.sh --new <KEY> /opt/sunvibe/test.env`. Then the `up -d --build` command of step 6. Flyway migrates at start. `sudo docker image prune -f` frees the old images.
 
 **Logs.** `cd /opt/sunvibe/server && sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml
 logs --since 1h api` (or `caddy`, `postgres`). Each service keeps at most five files of 10 MB.

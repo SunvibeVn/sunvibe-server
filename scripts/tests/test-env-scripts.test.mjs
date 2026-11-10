@@ -1,7 +1,8 @@
 // Behavior of the test-environment ops scripts (W35a plan Task S3, D-8):
 // - scripts/ops/test-env/gen-secrets.sh <env-file> fills every <generated> value of scripts/ops/env/test-env.env.example
-//   with a fresh random value of the length and encoding its consumer needs, never overwrites a filled value, asks for
-//   the mail login and key only on a terminal, prints key names only, and --check reports filled or missing per key.
+//   with a fresh random value of the length and encoding its consumer needs, never overwrites a filled value, adds a key
+//   the file lacks (a <generated> one in an existing file only when --new names it), asks for the mail login and key
+//   only on a terminal, prints key names only, and --check reports filled or missing per key.
 // - scripts/ops/test-env/backup-db.sh -f <compose-file> --env-file <env-file> --dir <dir> dumps through
 //   `docker compose exec -T postgres`, renames the dump only on success and keeps the 7 newest.
 // Temporary folders only; a stub `docker` first on PATH stands in for Docker.
@@ -123,19 +124,13 @@ test("genSecrets_keyMissingFromFile_addedFromExample", () => {
     const file = join(dir, "test.env");
     assert.equal(run(GEN_SECRETS, [file]).status, 0);
     const before = parseEnv(readFileSync(file, "utf8"));
-    // A key the example gained after the file was made (a generated one, a plain one and an owner one)
-    const dropped = ["ACQUISITION_HASH_KEY", "AUTH_MAIL_MAX_PER_HOUR", "MAIL_USERNAME"];
-    const text = readFileSync(file, "utf8")
-      .split(/\r?\n/)
-      .filter((line) => !dropped.some((key) => line.startsWith(`${key}=`)))
-      .join("\n");
-    writeFileSync(file, text);
+    // A key the example gained after the file was made: a plain one and an owner one
+    const dropped = ["AUTH_MAIL_MAX_PER_HOUR", "MAIL_USERNAME"];
+    writeFileSync(file, withoutKeys(readFileSync(file, "utf8"), dropped));
     const result = run(GEN_SECRETS, [file]);
     assert.equal(result.status, 0, result.output);
     const after = parseEnv(readFileSync(file, "utf8"));
     assert.deepEqual([...after.keys()].sort(), [...exampleKeys.keys()].sort(), "every key of the example is back");
-    assert.ok(base64Bytes(after.get("ACQUISITION_HASH_KEY")) >= 32, "the generated key is filled");
-    assert.notEqual(after.get("ACQUISITION_HASH_KEY"), before.get("ACQUISITION_HASH_KEY"), "a fresh value");
     assert.equal(after.get("AUTH_MAIL_MAX_PER_HOUR"), exampleKeys.get("AUTH_MAIL_MAX_PER_HOUR"));
     assert.equal(after.get("MAIL_USERNAME"), "<owner>", "left for the owner");
     for (const [key, value] of before) {
@@ -143,6 +138,43 @@ test("genSecrets_keyMissingFromFile_addedFromExample", () => {
     }
     for (const key of dropped) assert.match(result.stdout, new RegExp(`^added ${key}\\b`, "m"));
     assert.doesNotMatch(result.stdout, /^filled MAIL_USERNAME$/m, "no claim of a value it did not write");
+  } finally {
+    cleanup();
+  }
+});
+
+function withoutKeys(text, keys) {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => !keys.some((key) => line.startsWith(`${key}=`)))
+    .join("\n");
+}
+
+test("genSecrets_existingFile_generatedKeyAbsent_refusedUnlessNew", () => {
+  const { dir, cleanup } = tempDir("sv-gensecrets-");
+  try {
+    const file = join(dir, "test.env");
+    assert.equal(run(GEN_SECRETS, [file]).status, 0);
+    const before = parseEnv(readFileSync(file, "utf8"));
+    // A lost line of a key that data is stored under: a new value would not read the ID card numbers stored with the old
+    writeFileSync(file, withoutKeys(readFileSync(file, "utf8"), ["ID_CARD_CRYPTO_KEY", "AUTH_MAIL_MAX_PER_HOUR"]));
+    const lost = readFileSync(file, "utf8");
+    const refused = run(GEN_SECRETS, [file]);
+    assert.equal(refused.status, 1, refused.output);
+    assert.match(refused.stderr, /ID_CARD_CRYPTO_KEY/);
+    assert.match(refused.stderr, /--new/);
+    assert.equal(readFileSync(file, "utf8"), lost, "nothing written");
+
+    // A key the example gained is named on purpose
+    const added = run(GEN_SECRETS, ["--new", "ID_CARD_CRYPTO_KEY", file]);
+    assert.equal(added.status, 0, added.output);
+    const after = parseEnv(readFileSync(file, "utf8"));
+    assert.equal(base64Bytes(after.get("ID_CARD_CRYPTO_KEY")), 32);
+    assert.notEqual(after.get("ID_CARD_CRYPTO_KEY"), after.get("ID_CARD_CRYPTO_INDEX_KEY"));
+    assert.equal(after.get("AUTH_MAIL_MAX_PER_HOUR"), exampleKeys.get("AUTH_MAIL_MAX_PER_HOUR"));
+    for (const [key, value] of before) {
+      if (key !== "ID_CARD_CRYPTO_KEY" && key !== "AUTH_MAIL_MAX_PER_HOUR") assert.equal(after.get(key), value);
+    }
   } finally {
     cleanup();
   }

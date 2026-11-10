@@ -2,21 +2,27 @@
 # Fills the env file of the one-VM test environment (W35a plan Task S3, D-8; scripts/ops/README.md "Test environment on
 # one VM").
 #
-#   gen-secrets.sh <env-file>           create the file from the example when absent or empty (mode 600), fill every
-#                                       <generated> value, and on a terminal ask for the <owner> mail login and key
+#   gen-secrets.sh [--new <KEY>]... <env-file>
+#       create the file from the example when absent or empty (mode 600), add every key of the example the file lacks
+#       with the example's value, fill every <generated> value, and on a terminal ask for the <owner> mail login and key
 #   gen-secrets.sh --check <env-file>   print each key with filled or missing; exit 1 while any is missing
 #
 # Each <generated> value comes from openssl rand in the length and encoding its consumer needs. A filled value is never
 # overwritten, so a second run changes nothing. The script prints key names only, never a value.
+# The example is the list of keys: a key removed from the file comes back with the example's value. But a <generated> key
+# that an existing file lacks is refused (exit 1, nothing written) unless --new names it: a fresh value would not read the
+# data stored with the old one (encrypted ID card numbers, hashes, sessions). Put the old line back, or, for a key the
+# example gained, run again with --new <KEY>.
 set -euo pipefail
 umask 077
 
 EXAMPLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../env" && pwd)/test-env.env.example"
 readonly EXAMPLE
 readonly OWNER_KEYS=(MAIL_USERNAME MAIL_PASSWORD)
+NEW_KEYS=()
 
 usage() {
-  sed -n '5,7p' "$0" | sed 's/^# \{0,1\}//' >&2
+  sed -n '5,8p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 2
 }
 
@@ -95,16 +101,40 @@ check() {
 }
 
 fill() {
-  local file="$1" key value other db_password=""
-  if [ ! -s "$file" ]; then
+  local file="$1" key value other db_password="" existed=0
+  if [ -s "$file" ]; then
+    existed=1
+  else
     tr -d '\r' < "$EXAMPLE" > "$file"
     echo "created $file from the example"
   fi
   chmod 600 "$file"
 
-  # A key the example gained after the file was made comes in with the example's value (a placeholder is filled below)
-  local -a absent=()
+  # A key the file lacks comes in with the example's value (a placeholder is filled below). In an existing file a lacking
+  # <generated> key is refused unless named with --new, or unless it is one of the two database password keys and the
+  # other one holds the password.
+  local -a absent=() refused=()
   mapfile -t absent < <(comm -23 <(entries "$EXAMPLE" | cut -d= -f1 | sort) <(entries "$file" | cut -d= -f1 | sort))
+  for key in "${absent[@]}"; do
+    [ "$existed" -eq 1 ] && [ "$(value_of "$EXAMPLE" "$key")" = "<generated>" ] || continue
+    is_named_new "$key" && continue
+    case "$key" in
+      DB_PASSWORD) other=POSTGRES_PASSWORD ;;
+      POSTGRES_PASSWORD) other=DB_PASSWORD ;;
+      *) other="" ;;
+    esac
+    if [ -n "$other" ] && ! is_placeholder "$(value_of "$file" "$other")"; then continue; fi
+    refused+=("$key")
+  done
+  if [ "${#refused[@]}" -gt 0 ]; then
+    echo "gen-secrets.sh: ${refused[*]} missing from the existing env file; nothing was written. A new value would not" \
+      "read the data stored with the old one: put the old line back, or, for a key the example gained, run again with" \
+      "--new <KEY>." >&2
+    exit 1
+  fi
+  for key in "${NEW_KEYS[@]}"; do
+    if [[ " ${absent[*]} " != *" $key "* ]]; then echo "--new $key changes nothing: the file has that key"; fi
+  done
   for key in "${absent[@]}"; do
     set_value "$file" "$key" "$(value_of "$EXAMPLE" "$key")"
     echo "added $key from the example"
@@ -157,11 +187,28 @@ fill() {
   done
 }
 
-[ $# -ge 1 ] || usage
-if [ "$1" = "--check" ]; then
-  [ $# -eq 2 ] || usage
-  check "$2"
+is_named_new() {
+  local named
+  for named in "${NEW_KEYS[@]}"; do [ "$named" != "$1" ] || return 0; done
+  return 1
+}
+
+mode=fill
+target=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --check) mode=check; shift ;;
+    --new)
+      [ $# -ge 2 ] && [[ "$2" =~ ^[A-Z0-9_]+$ ]] || usage
+      NEW_KEYS+=("$2"); shift 2 ;;
+    -*) usage ;;
+    *) [ -z "$target" ] || usage; target="$1"; shift ;;
+  esac
+done
+[ -n "$target" ] || usage
+if [ "$mode" = check ]; then
+  [ "${#NEW_KEYS[@]}" -eq 0 ] || usage
+  check "$target"
 else
-  [ $# -eq 1 ] && [[ "$1" != -* ]] || usage
-  fill "$1"
+  fill "$target"
 fi

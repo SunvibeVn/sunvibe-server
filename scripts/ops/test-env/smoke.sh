@@ -118,14 +118,20 @@ if has_header "$refused" 'HTTP/[0-9.]+ 403.*' && ! has_header "$refused" 'access
 else
   fail "c preflight from $REFUSED_ORIGIN is not refused"
 fi
-# A client's X-Forwarded-Port must not reach the API: Tomcat would take it as the server port, and an origin on that port
-# would pass as the API's own
-code=$(status "$base/api/v1/public/provinces" -H "Origin: https://$host:9999" -H 'X-Forwarded-Port: 9999')
-if [ "$code" = "403" ]; then
-  pass "c a forged X-Forwarded-Port does not make https://$host:9999 the API's own origin"
-else
-  fail "c a forged X-Forwarded-Port made https://$host:9999 pass as the API's own origin (answered $code, expected 403)"
-fi
+# A client's X-Forwarded-Port, -Proto or -Host must not reach the API: Tomcat takes them from Caddy as the request's port,
+# scheme and host, and a forged one would make an origin of the client's choice pass as the API's own
+forged() {
+  # $1 the header name, $2 the origin it would make the API's own, $3 the forged header line
+  code=$(status "$base/api/v1/public/provinces" -H "Origin: $2" -H "$3")
+  if [ "$code" = "403" ]; then
+    pass "c a forged $1 does not make $2 the API's own origin"
+  else
+    fail "c a forged $1 made $2 pass as the API's own origin (answered $code, expected 403)"
+  fi
+}
+forged X-Forwarded-Port "https://$host:9999" 'X-Forwarded-Port: 9999'
+forged X-Forwarded-Proto "http://$host" 'X-Forwarded-Proto: http'
+forged X-Forwarded-Host "$REFUSED_ORIGIN" "X-Forwarded-Host: ${REFUSED_ORIGIN#https://}"
 
 # (d) first client: failed logins until 429, each with a forged X-Forwarded-For
 codes=""
