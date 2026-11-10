@@ -1,6 +1,7 @@
 package vn.sunvibe.survey;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -15,11 +16,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,8 +41,10 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.logging.CorrelationId;
 import vn.sunvibe.survey.ChecklistApiTestSupport.Visit;
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore;
+import vn.sunvibe.survey.core.presentation.exception.SurveyExceptionHandler;
 
 /**
  * Content GETs through the real HTTP stack with a Hikari pool of two connections (survey-media spec A-25, ADR-011
@@ -278,7 +286,113 @@ class MediaReadSlotsHttpStackPostgresTest {
 		assertTrue(Duration.ofNanos(System.nanoTime() - start).toSeconds() < 2);
 	}
 
+	/**
+	 * SV-268 (survey-media AC-5 of the client-abort spec): a FULL read the client resets after the first bytes, before
+	 * the watchdog could fire, is one DEBUG line of the survey handler; no logger writes WARN or above for it, its store
+	 * stream is closed and its read slots are free again (six further reads of the same user are all served).
+	 */
+	@Test
+	void clientResetDuringFull_debugOnlyAndSlotsFree() throws Exception {
+		String correlationId = "sv268-reset-" + System.nanoTime();
+		Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+		Logger handlerLogger = (Logger) LoggerFactory.getLogger(SurveyExceptionHandler.class);
+		Level handlerLevel = handlerLogger.getLevel();
+		ListAppender<ILoggingEvent> logs = new ListAppender<>();
+		logs.start();
+		root.addAppender(logs);
+		handlerLogger.setLevel(Level.DEBUG);
+		try {
+			String id = ready(5);
+			try (Socket socket = new Socket()) {
+				socket.setReceiveBufferSize(4 * 1024);
+				socket.connect(new InetSocketAddress("localhost", port));
+				socket.setSoTimeout(10_000);
+				socket.getOutputStream().write(("GET " + MediaApiTestSupport.MEDIA + "/" + id + "/content/full HTTP/1.1\r\n"
+						+ "Host: localhost\r\nAuthorization: Bearer " + readers.get(5).secret() + "\r\n"
+						+ CorrelationId.HEADER + ": " + correlationId + "\r\n\r\n").getBytes(StandardCharsets.US_ASCII));
+				socket.getOutputStream().flush();
+				InputStream in = socket.getInputStream();
+				String statusLine = readHead(in);
+				assertTrue(statusLine.startsWith("HTTP/1.1 200"), statusLine);
+				assertTrue(in.read() != -1, "at least one byte of the body arrived");
+				// at once, well inside the 2 s no-progress timeout: the watchdog has not fired (SV-268 D-8)
+				socket.setSoLinger(true, 0);
+			}
+
+			long deadline = System.nanoTime() + Duration.ofSeconds(15).toNanos();
+			while (handlerEvents(logs, correlationId).isEmpty() && System.nanoTime() < deadline) {
+				Thread.sleep(100);
+			}
+			assertEquals(1, store.served.size(), "one store stream was opened");
+			assertTrue(store.served.get(0).closed(), "the store stream of the reset read was closed");
+
+			for (int n = 0; n < 6; n++) {
+				stall(5);
+			}
+			awaitServingReads(7);
+
+			List<ILoggingEvent> handler = handlerEvents(logs, correlationId);
+			assertEquals(1, handler.size(), () -> describe(snapshot(logs)));
+			assertEquals(Level.DEBUG, handler.get(0).getLevel(), () -> describe(handler));
+			assertTrue(handler.get(0).getFormattedMessage().startsWith("Client abandoned the request in survey: "),
+					() -> describe(handler));
+			assertTrue(handler.get(0).getFormattedMessage().endsWith(" (correlationId=" + correlationId + ")"),
+					() -> describe(handler));
+			assertNull(handler.get(0).getThrowableProxy(), () -> describe(handler));
+			List<ILoggingEvent> loud = snapshot(logs).stream()
+					.filter(event -> event.getLevel().isGreaterOrEqual(Level.WARN))
+					.filter(event -> correlationId.equals(event.getMDCPropertyMap().get(CorrelationId.MDC_KEY)))
+					.toList();
+			assertTrue(loud.isEmpty(), () -> "WARN or above for the reset request: " + describe(loud));
+			List<ILoggingEvent> anonymousErrors = snapshot(logs).stream()
+					.filter(event -> event.getLevel().isGreaterOrEqual(Level.ERROR))
+					.filter(event -> event.getMDCPropertyMap().get(CorrelationId.MDC_KEY) == null)
+					.toList();
+			assertTrue(anonymousErrors.isEmpty(), () -> "ERROR without a correlation id: " + describe(anonymousErrors));
+		} finally {
+			root.detachAppender(logs);
+			handlerLogger.setLevel(handlerLevel);
+		}
+	}
+
 	// ==================== helpers ====================
+
+	/** Reads the status line and the headers of an answer; returns the status line. */
+	private static String readHead(InputStream in) throws IOException {
+		StringBuilder head = new StringBuilder();
+		for (int next = in.read(); next != -1; next = in.read()) {
+			head.append((char) next);
+			if (head.length() >= 4 && head.substring(head.length() - 4).equals("\r\n\r\n")) {
+				break;
+			}
+		}
+		int end = head.indexOf("\r\n");
+		return end < 0 ? head.toString() : head.substring(0, end);
+	}
+
+	/** The appender is filled by the server's threads; a copy taken under its lock (AppenderBase.doAppend). */
+	private static List<ILoggingEvent> snapshot(ListAppender<ILoggingEvent> logs) {
+		synchronized (logs) {
+			return new ArrayList<>(logs.list);
+		}
+	}
+
+	private static List<ILoggingEvent> handlerEvents(ListAppender<ILoggingEvent> logs, String correlationId) {
+		return snapshot(logs).stream()
+				.filter(event -> event.getLoggerName().equals(SurveyExceptionHandler.class.getName()))
+				.filter(event -> correlationId.equals(event.getMDCPropertyMap().get(CorrelationId.MDC_KEY)))
+				.toList();
+	}
+
+	private static String describe(List<ILoggingEvent> events) {
+		StringBuilder text = new StringBuilder();
+		for (ILoggingEvent event : events) {
+			text.append("\n  ").append(event.getLevel()).append(' ').append(event.getLoggerName()).append(" [")
+					.append(event.getThreadName()).append("] ").append(event.getFormattedMessage())
+					.append(event.getThrowableProxy() == null ? "" : " / " + event.getThrowableProxy().getClassName());
+		}
+		return text.toString();
+	}
 
 	private String ready(int user) {
 		return media.readyWithVariants(store, readerChecklists.get(user), readers.get(user).userId(), BIG_FULL, PREVIEW,

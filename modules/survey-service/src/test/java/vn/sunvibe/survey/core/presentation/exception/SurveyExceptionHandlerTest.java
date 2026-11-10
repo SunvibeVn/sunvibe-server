@@ -1,15 +1,27 @@
 package vn.sunvibe.survey.core.presentation.exception;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import jakarta.persistence.OptimisticLockException;
+import org.apache.catalina.connector.ClientAbortException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -17,7 +29,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.validation.method.MethodValidationResult;
@@ -65,10 +79,14 @@ import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
 
 import java.io.ByteArrayInputStream;
+import java.io.EOFException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.sql.SQLException;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -84,13 +102,23 @@ class SurveyExceptionHandlerTest {
     private final ExceptionHandlerMethodResolver resolver = new ExceptionHandlerMethodResolver(
             SurveyExceptionHandler.class);
 
+    private final Logger logger = (Logger) LoggerFactory.getLogger(SurveyExceptionHandler.class);
+    private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+    private Level loggerLevel;
+
     @BeforeEach
     void setUp() {
         MDC.put(CorrelationId.MDC_KEY, CORRELATION_ID);
+        loggerLevel = logger.getLevel();
+        logger.setLevel(Level.DEBUG);
+        logs.start();
+        logger.addAppender(logs);
     }
 
     @AfterEach
     void tearDown() {
+        logger.detachAppender(logs);
+        logger.setLevel(loggerLevel);
         MDC.clear();
     }
 
@@ -315,6 +343,137 @@ class SurveyExceptionHandlerTest {
         assertEquals(500, response.getStatusCode().value());
         assertEquals("INTERNAL_ERROR", response.getBody().code());
         assertFalse(response.getBody().message().contains("secret"));
+    }
+
+    @Test
+    void anythingElse_logsOneErrorWithTheClassTheCorrelationIdAndTheStackTrace() throws Exception {
+        handle(new IllegalStateException("secret 0905123456"));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertEquals("Unexpected error in survey: java.lang.IllegalStateException (correlationId=" + CORRELATION_ID + ")",
+                event.getFormattedMessage());
+        assertNotNull(event.getThrowableProxy(), "an ordinary exception keeps its stack trace in the log");
+    }
+
+    @Test
+    void otherIoFailure_isStillAnErrorWith500() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new IOException("No space left on device"));
+
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+        assertEquals(Level.ERROR, onlyEvent().getLevel());
+    }
+
+    @Test
+    void exceptionThatQuotesRequestData_isAnErrorWithoutTheStackTrace() throws Exception {
+        handle(new DataIntegrityViolationException("duplicate key value (phone)=(0905123456)"));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertNull(event.getThrowableProxy());
+        assertFalse(event.getFormattedMessage().contains("0905123456"));
+    }
+
+    /** SV-268: what Tomcat 11 and Spring 7 throw when the client closed the connection mid-request or mid-response. */
+    static Stream<Throwable> abandonedByTheClient() {
+        return Stream.of(
+                new ClientAbortException(new IOException("Broken pipe")),
+                new AsyncRequestNotUsableException("ServletOutputStream failed to write: java.io.IOException: "
+                        + "Connection reset by peer", new IOException("Connection reset by peer")),
+                new EOFException(),
+                new IOException("Broken pipe"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("abandonedByTheClient")
+    void clientAbort_isNotAnErrorAndHasNoStackTrace(Throwable abort) throws Exception {
+        handle((Exception) abort);
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.DEBUG, event.getLevel());
+        assertEquals("Client abandoned the request in survey: " + abort.getClass().getName() + " (correlationId="
+                + CORRELATION_ID + ")", event.getFormattedMessage());
+        assertNull(event.getThrowableProxy());
+    }
+
+    @Test
+    void databaseConnectionLoss_isStillAnErrorEvenWhenItsCauseSaysBrokenPipe() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new DataAccessResourceFailureException(
+                "could not execute statement", new IOException("Broken pipe")));
+
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+        assertEquals(Level.ERROR, onlyEvent().getLevel());
+    }
+
+    @Test
+    void clientAbort_answersWithoutABody() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(
+                new ClientAbortException(new IOException("Broken pipe")));
+
+        assertNull(response.getBody(), "nobody reads it, and the response may already be committed");
+    }
+
+    /** Pin (SV-268 U-6): a Spring MVC error keeps its status and headers, with the MALFORMED_REQUEST body. */
+    @Test
+    void springWebError_keepsItsStatusAndHeadersWithMalformedRequest() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new HttpMediaTypeNotSupportedException(
+                MediaType.TEXT_PLAIN, List.of(MediaType.APPLICATION_JSON)));
+
+        assertEquals(415, response.getStatusCode().value());
+        assertEquals("MALFORMED_REQUEST", response.getBody().code());
+        assertEquals(SurveyExceptionHandler.REQUEST_NOT_PROCESSED_MESSAGE, response.getBody().message());
+        assertTrue(response.getBody().errors().isEmpty());
+        assertEquals(List.of(MediaType.APPLICATION_JSON), response.getHeaders().getAccept());
+        assertTrue(logs.list.isEmpty(), () -> "log events: " + logs.list);
+    }
+
+    /** Pin (SV-268 U-3, AC-3): a database outage whose chain ends in an EOF is a server fault, not a client leaving. */
+    @Test
+    void databaseOutageEndingInEof_isAnErrorWithoutTheStackTrace() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new DataAccessResourceFailureException("x",
+                new SQLException("An I/O error occurred while sending to the backend.", "08006", new EOFException())));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertEquals("Unexpected error in survey: org.springframework.dao.DataAccessResourceFailureException "
+                + "(correlationId=" + CORRELATION_ID + ")", event.getFormattedMessage());
+        assertNull(event.getThrowableProxy());
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+    }
+
+    /** Pin (SV-268 U-2, AC-3): only an I/O failure can be the client leaving, whatever another message says. */
+    @Test
+    void nonIoFailureSayingBrokenPipe_isStillAnErrorWithTheStackTrace() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new IllegalStateException("Broken pipe"));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertEquals("Unexpected error in survey: java.lang.IllegalStateException (correlationId=" + CORRELATION_ID
+                + ")", event.getFormattedMessage());
+        assertNotNull(event.getThrowableProxy());
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+    }
+
+    /** Pin (SV-268 U-17, D-9): a client abort while a JSON answer is written stays with the catch-all as an ERROR. */
+    @Test
+    void jsonWriteAbort_isStillAnErrorWith500() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new HttpMessageNotWritableException(
+                "Could not write JSON", new ClientAbortException(new IOException("Broken pipe"))));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertNotNull(event.getThrowableProxy());
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+    }
+
+    private ILoggingEvent onlyEvent() {
+        assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
+        return logs.list.get(0);
     }
 
     // ==================== survey-media spec 7.3 ====================
