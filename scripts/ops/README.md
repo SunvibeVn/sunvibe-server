@@ -344,3 +344,138 @@ relay, `docker pause sv-smtp-relay`.
 A rehearsal proves what Sunvibe does, not what Brevo does. Delivery, DNS, link tracking and egress from the runtime are
 release evidence (spec O-2), tracked in the hub file
 `docs/features/auth/auth-email-access/impl/2026-11-05-auth-email-access-brevo-evidence.md`.
+
+## 10. Test environment on one VM (W35a)
+
+The free test environment of hub plan `docs/rebuild/implementation/2026-11-09-w35a-test-env-plan.md`: the API and
+PostgreSQL 17 on one Oracle Cloud Always Free VM (Singapore, `VM.Standard.A1.Flex`, 2 OCPU, 6 GB, Ubuntu 24.04 aarch64) at
+`https://api-test.sunvibe.vn`, for the web at `https://test.sunvibe.vn`. Files: `docker/api/Dockerfile`,
+`docker/test-env/compose.yaml` and `Caddyfile`, `scripts/ops/env/test-env.env.example`, `scripts/ops/test-env/`.
+
+**Limits.** Test data only. One VM: no HA, no point-in-time recovery, and the nightly dumps sit on the same VM, so losing
+the VM loses the data. Sign-up is open to anyone who finds the site (owner decision OD-1): each account leaves a real email,
+a password hash, and its IP and user agent in the auth audit for 180 days, in Singapore. This does not open sign-up on
+`www`. Survey photo upload is off (no store, scanner or processor runs); direct property creation is on, so visitors can
+enter property data too. Production hosting and hardening Task A5 come before any real user.
+
+**Shape.** Caddy is the only public entry (80 and 443, a Let's Encrypt certificate, http redirected to https,
+`X-Robots-Tag: noindex` on every answer, no `Server` header). The API and PostgreSQL publish no port. Caddy has the fixed
+address `172.30.0.10` on the compose network, and the API trusts forwarded headers from that address only
+(`SERVER_FORWARD_HEADERS_STRATEGY` and `SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES` in the env file; change the address in both
+files together). Without those two lines every client shares Caddy's rate-limit bucket; `smoke.sh` check (d) shows it. The
+API runs with a fixed 1.5 GB heap touched at start and `TZ=Asia/Ho_Chi_Minh`, so the nightly auth jobs run at night in
+Vietnam.
+
+**Secrets (plan D-8).** One env file outside the checkout, `/opt/sunvibe/test.env`, owned by root, mode 600, made and
+filled by `gen-secrets.sh`. The owner types the Brevo login and key at its hidden prompt in their own SSH terminal; they
+never go into a chat, a file in the repo or a PR. `gen-secrets.sh --check` (key names with `filled` or `missing`) is the only
+way a session looks at the file. A session never runs, on the VM: `docker compose config`, `docker inspect`, `env` or
+`printenv` inside a container, `cat`, `grep`, `less` or an editor on the env file, or a read of `/proc/*/environ`. Each
+prints the values. Only the `postgres` service gets the `POSTGRES_*` values; the api service gets the whole file.
+
+**Oracle.** An Always Free instance is reclaimed when its CPU, network and memory (95th percentile) all stay below 20% for
+7 days. Keep the Oracle Cloud Agent's Compute Instance Monitoring plugin on, so that Oracle sees the memory; the fixed heap
+keeps the VM near 45% of 6 GB. Read MemoryUtilization in the console, or `free -m` on the VM. Resize to 12 GB (Edit, shape
+2 OCPU, 12 GB) when photo upload is turned on. Never create a second A1 instance: going past 2 OCPU or 12 GB of A1 in the
+tenancy disables every A1 instance.
+
+**Firewall, before Docker is installed.** Oracle's Ubuntu image keeps its rules in `/etc/iptables/rules.v4` and may reject
+all but SSH. Read it; if it rejects the rest, find the line number of the `REJECT` rule of `INPUT` and insert the two rules
+before it, then save:
+
+```bash
+sudo cat /etc/iptables/rules.v4
+sudo iptables -L INPUT --line-numbers
+sudo iptables -I INPUT <number of the REJECT line> -p tcp -m state --state NEW --dport 80 -j ACCEPT
+sudo iptables -I INPUT <number of the REJECT line> -p tcp -m state --state NEW --dport 443 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+Never run `netfilter-persistent save` or `reload` once Docker runs: a save stores Docker's chains, a reload flushes them.
+The subnet's security list in the Oracle console must allow TCP 80 and 443 as well.
+
+**First start.**
+
+1. Swap for the image build: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile &&
+   sudo swapon /swapfile`, then add `/swapfile none swap sw 0 0` to `/etc/fstab`.
+2. Docker Engine and the compose plugin from Docker's apt repository (docs.docker.com, "Install Docker Engine on Ubuntu").
+   Leave unattended upgrades on.
+3. The code: `sudo git clone --branch main https://github.com/SunvibeVn/sunvibe-server /opt/sunvibe/server`.
+4. The secrets: `sudo /opt/sunvibe/server/scripts/ops/test-env/gen-secrets.sh /opt/sunvibe/test.env < /dev/null` fills
+   every generated key and says it left the mail login and key. The owner then runs
+   `sudo /opt/sunvibe/server/scripts/ops/test-env/gen-secrets.sh /opt/sunvibe/test.env` in their own SSH terminal and types
+   them. `MAIL_FROM` is `services@sunvibe.vn`: it must be a verified sender of the separate test account (owner decision
+   OD-2), or the owner changes that line. It is not a secret.
+5. `sudo /opt/sunvibe/server/scripts/ops/test-env/gen-secrets.sh --check /opt/sunvibe/test.env` exits 0.
+6. Start, from the checkout (`API_ENV_FILE` in the env file must name the env file itself):
+
+   ```bash
+   cd /opt/sunvibe/server
+   sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml up -d --build
+   sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml ps
+   ```
+
+7. The smoke checks. From another machine, then within one minute from the VM itself as the second client:
+
+   ```bash
+   scripts/ops/test-env/smoke.sh https://api-test.sunvibe.vn
+   scripts/ops/test-env/smoke.sh https://api-test.sunvibe.vn --second-client --resolve api-test.sunvibe.vn:443:127.0.0.1
+   ```
+
+   Every line must say `PASS`. The first run fills the login bucket of its machine's address for about a minute. From
+   outside, TCP 8081 and 5432 must not connect.
+8. The backup cron line below.
+
+**Update.** `cd /opt/sunvibe/server && sudo git pull --ff-only origin main`, then the `up -d --build` command of step 6.
+Flyway migrates at start. `sudo docker image prune -f` frees the old images.
+
+**Logs.** `sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml logs --since 1h api` (or
+`caddy`, `postgres`). Each service keeps at most five files of 10 MB.
+
+**Backup, nightly at 19:30 UTC (02:30 in Vietnam).** The VM clock is UTC (`timedatectl`). As root, in
+`/etc/cron.d/sunvibe-test-backup`:
+
+```text
+30 19 * * * root /opt/sunvibe/server/scripts/ops/test-env/backup-db.sh -f /opt/sunvibe/server/docker/test-env/compose.yaml --env-file /opt/sunvibe/test.env >> /var/log/sunvibe-test-backup.log 2>&1
+```
+
+`backup-db.sh` writes `/var/backups/sunvibe-test/sunvibe-test-<UTC time>.dump` (mode 600) through a temporary name, keeps
+the 7 newest, and exits 1 without touching the earlier dumps when the dump fails.
+
+**Restore into a scratch database** (a check, or before copying data back by hand):
+
+```bash
+cd /opt/sunvibe/server
+DC="docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml"
+sudo $DC exec -T postgres createdb -U sunvibe restore_check
+sudo sh -c "$DC exec -T postgres pg_restore -U sunvibe -d restore_check --no-owner < /var/backups/sunvibe-test/<dump>"
+sudo $DC exec -T postgres psql -U sunvibe -d restore_check -Atc 'SELECT count(*) FROM roles'
+sudo $DC exec -T postgres dropdb -U sunvibe restore_check
+```
+
+**The first staff account (owner decision OD-3; test environment only).** After the owner signs up on
+`https://test.sunvibe.vn`:
+
+```bash
+cd /opt/sunvibe/server
+sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U sunvibe -d sunvibe_core -v email='<the sign-up email>' \
+  < scripts/ops/test-env/grant-super-admin.sql
+```
+
+It grants `SUPER_ADMIN` to the one active account with that email and prints the account's roles; a second run changes
+nothing. It refuses, grants nothing and exits 3 when no single active account matches. The grant writes no audit event.
+The owner signs in again; then `SUPER_ADMIN` grants `ADMIN` through the API. Never run it on a production database: SV-142's
+production runbook is hardening F9.
+
+**Teardown.** The key `sunvibe_test_ed25519` (plan D-9) serves this VM only, so it goes with it.
+
+1. `sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml down -v` (containers, network,
+   the database and certificate volumes), then
+   `sudo rm -rf /opt/sunvibe /var/backups/sunvibe-test /etc/cron.d/sunvibe-test-backup /var/log/sunvibe-test-backup.log`.
+2. Remove the key's line from `~/.ssh/authorized_keys` on the VM, then terminate the instance with its boot volume in the
+   Oracle console.
+3. On the owner's Windows profile: delete `%USERPROFILE%\.ssh\sunvibe_test_ed25519` and `sunvibe_test_ed25519.pub`, and the
+   VM's line in `known_hosts`.
+4. Delete the SMTP key of the test Brevo account, the DNS records `api-test` and `test`, and the Vercel project of the test
+   web.
