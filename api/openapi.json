@@ -16786,9 +16786,8 @@
             "type" : [ "string", "null" ]
           },
           "bySaveId" : {
-            "type" : [ "integer", "null" ],
-            "format" : "int64",
-            "description" : "The G1 save of a CASCADE removal"
+            "type" : [ "string", "null" ],
+            "description" : "Opaque id of the G1 save of a CASCADE removal; equals saveId of that save's checklist correction when it recorded one"
           },
           "byUserId" : {
             "type" : "string"

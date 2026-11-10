@@ -119,6 +119,38 @@ class MediaRemovalApiPostgresTest extends MediaApiTestBase {
 		assertEquals(before + 1, media.setVersion(draft.id()));
 	}
 
+	/**
+	 * Pin (SV-244 spec AC-3, impact map U-5): a HOLDER removal answers when, who, how and a present null
+	 * {@code bySaveId}, in the removal answer and again in the list the UI reads.
+	 */
+	@Test
+	void holderRemoval_answerAndList_keepWhenWhoKindAndNullSave() throws Exception {
+		Draft draft = draft();
+		String id = photo(draft, sale, Row.READY);
+
+		Instant before = Instant.now();
+		JsonNode answer = ok(media.remove(sale, id, null));
+		Instant after = Instant.now();
+
+		JsonNode removed = answer.path("media").path("removed");
+		assertHolderRemovalBySale(removed);
+		Instant at = Instant.parse(removed.path("at").asString());
+		assertTrue(!at.isBefore(before.minusSeconds(5)) && !at.isAfter(after.plusSeconds(5)),
+				"at " + at + " not within " + before + " .. " + after);
+
+		JsonNode list = ok(media.list(sale, draft.id(), null));
+		JsonNode listed = null;
+		for (JsonNode item : list.path("removedItems")) {
+			if (id.equals(item.path("id").asString())) {
+				listed = item.path("removed");
+			}
+		}
+		assertNotNull(listed, list.toString());
+		assertHolderRemovalBySale(listed);
+		assertEquals(((Timestamp) media.row(id).get("removed_at")).toInstant(),
+				Instant.parse(listed.path("at").asString()));
+	}
+
 	@Test
 	void otherUploadersCommitted_400WithoutCorrection() throws Exception {
 		Draft draft = draft();
@@ -350,6 +382,15 @@ class MediaRemovalApiPostgresTest extends MediaApiTestBase {
 	private static Map<String, Object> correction(Draft draft) {
 		LocalDate on = draft.visit().arrivalDate();
 		return ChecklistApiTestSupport.correction("Ảnh chụp nhầm phòng", on, "Chủ nhà xác nhận qua điện thoại");
+	}
+
+	/** A missing key is a MissingNode, not null: {@code isNull()} also proves the key is present. */
+	private void assertHolderRemovalBySale(JsonNode removed) {
+		assertEquals("HOLDER", removed.path("kind").asString(), removed.toString());
+		assertEquals(sale.userId(), removed.path("byUserId").asString(), removed.toString());
+		assertEquals("Removal Sale", removed.path("byName").asString(), removed.toString());
+		assertTrue(removed.path("correction").isNull(), removed.toString());
+		assertTrue(removed.path("bySaveId").isNull(), removed.toString());
 	}
 
 	private boolean deletionDone(String id) {
