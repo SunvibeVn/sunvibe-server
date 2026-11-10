@@ -46,8 +46,11 @@ paths:
   Randomness comes from SecureRandom or UUID.randomUUID, never Random.
 - Keep rate-limit rules (app.security.rate-limit.rules) in sync when adding public endpoints. The limiter is in memory,
   per instance, and keys on getRemoteAddr(): never read X-Forwarded-For yourself, any client can spoof it.
-  server.forward-headers-strategy is not set in any profile: behind a proxy, getRemoteAddr() is the proxy until a setup
-  that trusts only known proxies is verified (SV-016, SV-017).
+  server.forward-headers-strategy is not set in any profile: behind a proxy, getRemoteAddr() is the proxy (SV-016, SV-017).
+  The one-VM test environment sets it in its env file (scripts/ops/env/test-env.env.example): `native`, with
+  server.tomcat.remoteip.internal-proxies matching only Caddy's fixed address, and Caddy replacing or dropping the
+  client's forwarding headers; scripts/ops/test-env/smoke.sh checks (c) and (d) prove it on a running stack. Never
+  `framework`, which trusts every client's headers. The start-up guard against a wrong setting is still pending (SV-016).
 - A new path filter matches like MVC and Security (PathPattern on RequestPath): UrlPathHelper decodes with the
   request's charset, which depends on Boot forcing UTF-8 (SV-019; not exploitable with the current config). Check a new
   filter's order against CORS, rate limit and JWT.
