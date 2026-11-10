@@ -1,0 +1,12 @@
+# The only public entry of the test environment (W35a plan D-3): HTTPS with a Let's Encrypt certificate for API_HOST,
+# plain http redirected to https, every answer proxied to the API.
+# No trusted_proxies: Caddy then replaces any X-Forwarded-For a client sends with the address it sees, and the API trusts
+# that header from this container's fixed address alone (compose.yaml).
+{$API_HOST} {
+	header {
+		# The test API is never indexed
+		X-Robots-Tag "noindex"
+		-Server
+	}
+	reverse_proxy api:8081
+}

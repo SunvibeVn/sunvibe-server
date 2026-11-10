@@ -1,0 +1,106 @@
+# The one-VM test environment (W35a plan Task S2; hosting options section 8): Caddy, the API and PostgreSQL 17 on one
+# host. Runbook: scripts/ops/README.md "Test environment on one VM". From the repo root:
+#   docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml up -d --build
+# The env file lives outside the checkout; scripts/ops/test-env/gen-secrets.sh fills it from
+# scripts/ops/env/test-env.env.example. Compose reads it twice: as --env-file for the values below (API_ENV_FILE, API_HOST,
+# the POSTGRES_* keys), and as the env file of the api service, which alone gets the whole file.
+# Caddy is the only public entry. The API and PostgreSQL publish no port.
+name: sunvibe-test
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    # Debian (glibc collation), the minor version the tests use
+    image: postgres:17.6-trixie@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
+    # Only its own three values, never the whole env file
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in the env file}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in the env file}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the env file}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging: *logging
+    networks:
+      - test-env
+
+  api:
+    build:
+      context: ../..
+      dockerfile: docker/api/Dockerfile
+    image: sunvibe-api:test-env
+    env_file:
+      - path: ${API_ENV_FILE:?set API_ENV_FILE to the absolute path of the env file}
+        required: true
+    environment:
+      # AppClock takes the system zone; the nightly auth jobs then run at night in Vietnam
+      TZ: Asia/Ho_Chi_Minh
+      # A fixed heap, touched at start: the VM's memory stays above Oracle's idle-reclaim line (W35a plan D-1)
+      JAVA_TOOL_OPTIONS: -Xms1536m -Xmx1536m -XX:+AlwaysPreTouch -XX:+ExitOnOutOfMemoryError
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 2560m
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging: *logging
+    networks:
+      - test-env
+
+  caddy:
+    image: caddy:2.11.9@sha256:0c2243efcf437ab7f7a978f1027fcf0d4f9be8a75df27b1b3fbc5dbe0ffa8cf0
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_HOST: ${API_HOST:?set API_HOST in the env file}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging: *logging
+    networks:
+      test-env:
+        # The API trusts forwarded headers from this address only: SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES in the env file
+        # names it. Change both together.
+        ipv4_address: 172.30.0.10
+
+volumes:
+  pgdata:
+  caddy-data:
+  caddy-config:
+
+networks:
+  test-env:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
