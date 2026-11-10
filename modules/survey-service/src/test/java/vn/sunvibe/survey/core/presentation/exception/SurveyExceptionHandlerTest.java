@@ -412,6 +412,7 @@ class SurveyExceptionHandlerTest {
         ResponseEntity<ErrorResponse<ValidationError>> response = handle(
                 new ClientAbortException(new IOException("Broken pipe")));
 
+        assertEquals(500, response.getStatusCode().value());
         assertNull(response.getBody(), "nobody reads it, and the response may already be committed");
     }
 

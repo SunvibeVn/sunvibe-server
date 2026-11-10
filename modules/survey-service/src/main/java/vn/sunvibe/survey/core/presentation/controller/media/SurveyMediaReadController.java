@@ -3,6 +3,7 @@ package vn.sunvibe.survey.core.presentation.controller.media;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.SocketTimeoutException;
 import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -35,6 +36,8 @@ import vn.sunvibe.survey.core.application.exception.media.MediaMethodNotAllowedE
 import vn.sunvibe.survey.core.application.query.media.MediaRead;
 import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaReadUseCase;
 import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
+
+import static vn.sunvibe.shared.exception.ApiErrorSupport.anyInChain;
 
 /**
  * The content reads of survey photos (survey-media spec 7.1, ADR-011 decision 2, A-24, A-25, A-30): GET only (HEAD
@@ -163,17 +166,30 @@ public class SurveyMediaReadController {
             InputStream in = read.content();
             byte[] buffer = new byte[CHUNK];
             for (int n = in.read(buffer); n != -1; n = in.read(buffer)) {
-                try { out.write(buffer, 0, n); } catch (IOException e) { clientWriteFailure = e; throw e; }
+                try {
+                    out.write(buffer, 0, n);
+                } catch (IOException e) {
+                    clientWriteFailure = e;
+                    throw e;
+                }
                 lastProgress.set(System.nanoTime());
                 if (Instant.now().isAfter(read.deadline())) {
                     throw new IOException("The survey photo stream passed its deadline.");
                 }
             }
-            try { out.flush(); } catch (IOException e) { clientWriteFailure = e; throw e; }
+            try {
+                out.flush();
+            } catch (IOException e) {
+                clientWriteFailure = e;
+                throw e;
+            }
         } catch (IOException e) {
             if (e == clientWriteFailure && !watchdogFired.get()
-                    && DisconnectedClientHelper.isClientDisconnectedException(e)) {
-                throw e; // SV-268: the client left before any watchdog stop; the survey handler logs it at DEBUG
+                    && DisconnectedClientHelper.isClientDisconnectedException(e)
+                    && !anyInChain(e, SocketTimeoutException.class::isInstance)) {
+                // SV-268: the client left before any watchdog stop; the survey handler logs it at DEBUG. A write that
+                // timed out (Tomcat's write timeout) is a stalled client held by the server: it stays an error (D-8).
+                throw e;
             }
             // ids only: the watchdog (a stalled client), the deadline or the store ended the stream; still an error
             throw new IOException("The survey photo stream of " + read.mediaId() + " stopped.");
