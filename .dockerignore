@@ -1,0 +1,8 @@
+# The build context of docker/api/Dockerfile (W35a plan Task S1): no history, build output, local scratch or env file.
+.git
+**/build
+**/.gradle
+docs/temp
+.superpowers
+**/*.env
+**/.env*
