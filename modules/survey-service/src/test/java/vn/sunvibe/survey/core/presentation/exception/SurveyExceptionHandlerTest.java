@@ -5,11 +5,16 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import jakarta.persistence.OptimisticLockException;
+import org.apache.catalina.connector.ClientAbortException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
@@ -71,11 +76,13 @@ import vn.sunvibe.survey.core.domain.model.checklist.Violation;
 import vn.sunvibe.survey.core.domain.policy.media.IdentityVerdict;
 
 import java.io.ByteArrayInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -362,6 +369,46 @@ class SurveyExceptionHandlerTest {
         assertEquals(Level.ERROR, event.getLevel());
         assertNull(event.getThrowableProxy());
         assertFalse(event.getFormattedMessage().contains("0905123456"));
+    }
+
+    /** SV-268: what Tomcat 11 and Spring 7 throw when the client closed the connection mid-request or mid-response. */
+    static Stream<Throwable> abandonedByTheClient() {
+        return Stream.of(
+                new ClientAbortException(new IOException("Broken pipe")),
+                new AsyncRequestNotUsableException("ServletOutputStream failed to write: java.io.IOException: "
+                        + "Connection reset by peer", new IOException("Connection reset by peer")),
+                new EOFException(),
+                new IOException("Broken pipe"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("abandonedByTheClient")
+    void clientAbort_isNotAnErrorAndHasNoStackTrace(Throwable abort) throws Exception {
+        handle((Exception) abort);
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.DEBUG, event.getLevel());
+        assertEquals("Client abandoned the request in survey: " + abort.getClass().getName() + " (correlationId="
+                + CORRELATION_ID + ")", event.getFormattedMessage());
+        assertNull(event.getThrowableProxy());
+    }
+
+    @Test
+    void databaseConnectionLoss_isStillAnErrorEvenWhenItsCauseSaysBrokenPipe() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new DataAccessResourceFailureException(
+                "could not execute statement", new IOException("Broken pipe")));
+
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+        assertEquals(Level.ERROR, onlyEvent().getLevel());
+    }
+
+    @Test
+    void clientAbort_answersWithoutABody() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(
+                new ClientAbortException(new IOException("Broken pipe")));
+
+        assertNull(response.getBody(), "nobody reads it, and the response may already be committed");
     }
 
     private ILoggingEvent onlyEvent() {

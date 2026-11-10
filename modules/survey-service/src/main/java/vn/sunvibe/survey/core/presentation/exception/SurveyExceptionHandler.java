@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.util.DisconnectedClientHelper;
 import tools.jackson.core.JacksonException;
 import vn.sunvibe.shared.constant.error.ErrorCode;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -364,7 +365,9 @@ public class SurveyExceptionHandler {
     /**
      * Spring Security exceptions are rethrown so its own 401/403 bodies are kept. An optimistic-lock failure wrapped
      * by the transaction commit is the 409 of {@link #handleOptimisticLock}. Another Spring MVC error keeps its status
-     * with {@code MALFORMED_REQUEST}. Anything else is a 500 whose details stay out of the response.
+     * with {@code MALFORMED_REQUEST}. A request the client abandoned (Spring's own check, see
+     * {@link DisconnectedClientHelper}) is logged at DEBUG and answered without a body (SV-268). Anything else is a 500
+     * whose details stay out of the response.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleUnexpected(Exception e) throws Exception {
@@ -379,6 +382,12 @@ public class SurveyExceptionHandler {
             return ResponseEntity.status(springError.getStatusCode())
                     .headers(springError.getHeaders())
                     .body(ErrorResponse.of(ErrorCode.MALFORMED_REQUEST, REQUEST_NOT_PROCESSED_MESSAGE, List.of()));
+        }
+        if (DisconnectedClientHelper.isClientDisconnectedException(e)) {
+            // The client closed the tab or the connection: nobody reads a body, and it is not a server fault
+            log.debug("Client abandoned the request in survey: {} (correlationId={})", e.getClass().getName(),
+                    CorrelationId.current());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
         if (anyInChain(e, SurveyExceptionHandler::quotesRequestData)) {
             // The message and the stack trace can quote submitted values, e.g. a SQL key
