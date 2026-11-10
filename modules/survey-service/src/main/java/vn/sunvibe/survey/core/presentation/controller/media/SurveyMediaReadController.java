@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.DisconnectedClientHelper;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.survey.core.application.exception.media.MediaMethodNotAllowedException;
 import vn.sunvibe.survey.core.application.query.media.MediaRead;
@@ -154,19 +155,34 @@ public class SurveyMediaReadController {
                 read.abortContent();
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
+        IOException clientWriteFailure = null;
         try {
             InputStream in = read.content();
             byte[] buffer = new byte[CHUNK];
             for (int n = in.read(buffer); n != -1; n = in.read(buffer)) {
-                out.write(buffer, 0, n);
+                try {
+                    out.write(buffer, 0, n);
+                } catch (IOException e) {
+                    clientWriteFailure = e;
+                    throw e;
+                }
                 lastProgress.set(System.nanoTime());
                 if (Instant.now().isAfter(read.deadline())) {
                     throw new IOException("The survey photo stream passed its deadline.");
                 }
             }
-            out.flush();
+            try {
+                out.flush();
+            } catch (IOException e) {
+                clientWriteFailure = e;
+                throw e;
+            }
         } catch (IOException e) {
-            // ids only: the client or the watchdog ended the stream; the answer stays incomplete
+            if (e == clientWriteFailure && DisconnectedClientHelper.isClientDisconnectedException(e)) {
+                // SV-268: the client left; unchanged, so the survey handler logs it at DEBUG (a store read never gets here)
+                throw e;
+            }
+            // ids only: the watchdog, the deadline or the store ended the stream; the answer stays incomplete
             throw new IOException("The survey photo stream of " + read.mediaId() + " stopped.");
         } finally {
             watchdog.cancel(false);
