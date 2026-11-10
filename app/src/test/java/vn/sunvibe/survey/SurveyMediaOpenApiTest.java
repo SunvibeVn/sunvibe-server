@@ -240,6 +240,20 @@ class SurveyMediaOpenApiTest {
 		}
 	}
 
+	/** ADR-006 ids are opaque strings in the API (SV-244 spec AC-4, D-3): no number type, no format, no pattern. */
+	@Test
+	void removal_bySaveIdIsAnOpaqueNullableString() {
+		JsonNode property = schema("SurveyMediaRemoval").path("properties").path("bySaveId");
+		assertFalse(property.isMissingNode(), "SurveyMediaRemoval.bySaveId");
+
+		Set<String> types = new LinkedHashSet<>();
+		property.path("type").forEach(type -> types.add(type.asString()));
+		assertEquals(Set.of("string", "null"), types, property.toString());
+		assertTrue(property.path("format").isMissingNode(), property.toString());
+		assertEquals("Opaque id of the G1 save of a CASCADE removal; equals saveId of that save's checklist correction"
+				+ " when it recorded one", property.path("description").asString());
+	}
+
 	private JsonNode schema(String name) {
 		JsonNode schema = contract.path("components").path("schemas").path(name);
 		assertFalse(schema.isMissingNode(), name);
