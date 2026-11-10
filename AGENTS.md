@@ -104,7 +104,7 @@ Each step is its own evidence; a passing compile (the Claude Stop hook) is not a
    .claude/rules/review-policy.md (Claude: code-reviewer, plus security-reviewer / migration-specialist when their
    triggers apply).
 5. Docs: run /update-docs <module>/<feature> in this session when the feature or fix is finished (it edits ../docs;
-   the hub is loaded via --add-dir), unless a flow run (hub scripts/flow) does it in its docs stage. A Stop hook
+   the hub is loaded via --add-dir), unless a flow run (hub scripts/flow, or Autoflow) does it in its docs stage. A Stop hook
    reminds you once per session on feature/*, fix/* and rebuild/* branches. Then remind the owner to commit the hub docs.
 CI runs the build, the contract freshness check, migration-history and the tooling tests; whether a red check blocks
 a merge depends on GitHub branch protection, which is not assumed here.
