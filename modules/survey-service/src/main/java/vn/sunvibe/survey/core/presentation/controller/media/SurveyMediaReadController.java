@@ -8,6 +8,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import io.swagger.v3.oas.annotations.Hidden;
@@ -149,9 +150,11 @@ public class SurveyMediaReadController {
     static void stream(MediaRead read, OutputStream out) throws IOException {
         AtomicLong lastProgress = new AtomicLong(System.nanoTime());
         long noProgressNanos = read.noProgressTimeout().toNanos();
+        AtomicBoolean watchdogFired = new AtomicBoolean();
         ScheduledFuture<?> watchdog = WATCHDOG.scheduleAtFixedRate(() -> {
             if (System.nanoTime() - lastProgress.get() > noProgressNanos || Instant.now().isAfter(read.deadline())) {
                 // survey-media spec A-25: end the store stream only; the request thread releases the slots when it returns
+                watchdogFired.set(true);
                 read.abortContent();
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
@@ -160,29 +163,19 @@ public class SurveyMediaReadController {
             InputStream in = read.content();
             byte[] buffer = new byte[CHUNK];
             for (int n = in.read(buffer); n != -1; n = in.read(buffer)) {
-                try {
-                    out.write(buffer, 0, n);
-                } catch (IOException e) {
-                    clientWriteFailure = e;
-                    throw e;
-                }
+                try { out.write(buffer, 0, n); } catch (IOException e) { clientWriteFailure = e; throw e; }
                 lastProgress.set(System.nanoTime());
                 if (Instant.now().isAfter(read.deadline())) {
                     throw new IOException("The survey photo stream passed its deadline.");
                 }
             }
-            try {
-                out.flush();
-            } catch (IOException e) {
-                clientWriteFailure = e;
-                throw e;
-            }
+            try { out.flush(); } catch (IOException e) { clientWriteFailure = e; throw e; }
         } catch (IOException e) {
-            if (e == clientWriteFailure && DisconnectedClientHelper.isClientDisconnectedException(e)) {
-                // SV-268: the client left; unchanged, so the survey handler logs it at DEBUG (a store read never gets here)
-                throw e;
+            if (e == clientWriteFailure && !watchdogFired.get()
+                    && DisconnectedClientHelper.isClientDisconnectedException(e)) {
+                throw e; // SV-268: the client left before any watchdog stop; the survey handler logs it at DEBUG
             }
-            // ids only: the watchdog, the deadline or the store ended the stream; the answer stays incomplete
+            // ids only: the watchdog (a stalled client), the deadline or the store ended the stream; still an error
             throw new IOException("The survey photo stream of " + read.mediaId() + " stopped.");
         } finally {
             watchdog.cancel(false);
