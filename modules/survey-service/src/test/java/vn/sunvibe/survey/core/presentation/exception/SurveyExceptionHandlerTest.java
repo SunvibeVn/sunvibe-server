@@ -11,7 +11,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.dao.DataAccessResourceFailureException;
@@ -19,8 +18,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpInputMessage;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -28,7 +29,9 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.TransactionSystemException;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.validation.method.MethodValidationResult;
@@ -81,6 +84,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -409,6 +413,62 @@ class SurveyExceptionHandlerTest {
                 new ClientAbortException(new IOException("Broken pipe")));
 
         assertNull(response.getBody(), "nobody reads it, and the response may already be committed");
+    }
+
+    /** Pin (SV-268 U-6): a Spring MVC error keeps its status and headers, with the MALFORMED_REQUEST body. */
+    @Test
+    void springWebError_keepsItsStatusAndHeadersWithMalformedRequest() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new HttpMediaTypeNotSupportedException(
+                MediaType.TEXT_PLAIN, List.of(MediaType.APPLICATION_JSON)));
+
+        assertEquals(415, response.getStatusCode().value());
+        assertEquals("MALFORMED_REQUEST", response.getBody().code());
+        assertEquals(SurveyExceptionHandler.REQUEST_NOT_PROCESSED_MESSAGE, response.getBody().message());
+        assertTrue(response.getBody().errors().isEmpty());
+        assertEquals(List.of(MediaType.APPLICATION_JSON), response.getHeaders().getAccept());
+        assertTrue(logs.list.isEmpty(), () -> "log events: " + logs.list);
+    }
+
+    /** Pin (SV-268 U-3, AC-3): a database outage whose chain ends in an EOF is a server fault, not a client leaving. */
+    @Test
+    void databaseOutageEndingInEof_isAnErrorWithoutTheStackTrace() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new DataAccessResourceFailureException("x",
+                new SQLException("An I/O error occurred while sending to the backend.", "08006", new EOFException())));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertEquals("Unexpected error in survey: org.springframework.dao.DataAccessResourceFailureException "
+                + "(correlationId=" + CORRELATION_ID + ")", event.getFormattedMessage());
+        assertNull(event.getThrowableProxy());
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+    }
+
+    /** Pin (SV-268 U-2, AC-3): only an I/O failure can be the client leaving, whatever another message says. */
+    @Test
+    void nonIoFailureSayingBrokenPipe_isStillAnErrorWithTheStackTrace() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new IllegalStateException("Broken pipe"));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertEquals("Unexpected error in survey: java.lang.IllegalStateException (correlationId=" + CORRELATION_ID
+                + ")", event.getFormattedMessage());
+        assertNotNull(event.getThrowableProxy());
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
+    }
+
+    /** Pin (SV-268 U-17, D-9): a client abort while a JSON answer is written stays with the catch-all as an ERROR. */
+    @Test
+    void jsonWriteAbort_isStillAnErrorWith500() throws Exception {
+        ResponseEntity<ErrorResponse<ValidationError>> response = handle(new HttpMessageNotWritableException(
+                "Could not write JSON", new ClientAbortException(new IOException("Broken pipe"))));
+
+        ILoggingEvent event = onlyEvent();
+        assertEquals(Level.ERROR, event.getLevel());
+        assertNotNull(event.getThrowableProxy());
+        assertEquals(500, response.getStatusCode().value());
+        assertEquals("INTERNAL_ERROR", response.getBody().code());
     }
 
     private ILoggingEvent onlyEvent() {

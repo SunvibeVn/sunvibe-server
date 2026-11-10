@@ -3,6 +3,7 @@ package vn.sunvibe.survey.core.presentation.controller.media;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -10,6 +11,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
@@ -140,6 +142,51 @@ class SurveyMediaReadControllerStreamTest {
 
 		assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
 		assertEquals(Level.ERROR, logs.list.get(0).getLevel());
+	}
+
+	/**
+	 * Pin (SV-268 U-11, D-8): a stalled client whose blocked write fails only after the watchdog ended the read is the
+	 * slow-read case of spec A-25, a server stop; it stays an ERROR as before SV-268.
+	 */
+	@Test
+	void stream_clientWriteBlockedUntilWatchdogThenAborted_staysAnError() throws Exception {
+		CountDownLatch storeClosed = new CountDownLatch(1);
+		InputStream content = new ByteArrayInputStream(new byte[1024 * 1024]) {
+			@Override
+			public void close() {
+				storeClosed.countDown();
+			}
+		};
+		OutputStream stalledClient = new OutputStream() {
+			@Override
+			public void write(int b) throws IOException {
+				write(new byte[] {(byte) b}, 0, 1);
+			}
+
+			@Override
+			public void write(byte[] buffer, int offset, int length) throws IOException {
+				try {
+					if (!storeClosed.await(5, TimeUnit.SECONDS)) {
+						throw new IllegalStateException("the watchdog did not end the store stream");
+					}
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+					throw new IllegalStateException("interrupted", e);
+				}
+				// Tomcat's write timeout, or the reset of the client, after the watchdog fired
+				throw new ClientAbortException(new SocketTimeoutException());
+			}
+		};
+		MediaRead read = read(content, Instant.now().plusMillis(300));
+
+		IOException thrown = assertTimeoutPreemptively(Duration.ofSeconds(10),
+				() -> assertThrows(IOException.class, () -> SurveyMediaReadController.stream(read, stalledClient)));
+		handle(thrown);
+
+		assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
+		assertEquals(Level.ERROR, logs.list.get(0).getLevel());
+		assertTrue(logs.list.get(0).getFormattedMessage().startsWith("Unexpected error in survey: java.io.IOException"),
+				logs.list.get(0).getFormattedMessage());
 	}
 
 	private void handle(Exception exception) throws Exception {
