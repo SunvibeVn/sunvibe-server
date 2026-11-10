@@ -68,9 +68,10 @@ services:
 
   caddy:
     image: caddy:2.11.9@sha256:0c2243efcf437ab7f7a978f1027fcf0d4f9be8a75df27b1b3fbc5dbe0ffa8cf0
+    # IPv4 only: on IPv6 every client would come through Docker's proxy with one address and share one rate-limit bucket
     ports:
-      - "80:80"
-      - "443:443"
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
     environment:
       API_HOST: ${API_HOST:?set API_HOST in the env file}
     volumes:
@@ -104,3 +105,6 @@ networks:
     ipam:
       config:
         - subnet: 172.30.0.0/24
+          # Docker gives the other containers addresses from this half only, so none can take Caddy's .10 when caddy
+          # restarts after them
+          ip_range: 172.30.0.128/25

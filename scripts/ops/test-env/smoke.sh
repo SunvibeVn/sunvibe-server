@@ -118,6 +118,14 @@ if has_header "$refused" 'HTTP/[0-9.]+ 403.*' && ! has_header "$refused" 'access
 else
   fail "c preflight from $REFUSED_ORIGIN is not refused"
 fi
+# A client's X-Forwarded-Port must not reach the API: Tomcat would take it as the server port, and an origin on that port
+# would pass as the API's own
+code=$(status "$base/api/v1/public/provinces" -H "Origin: https://$host:9999" -H 'X-Forwarded-Port: 9999')
+if [ "$code" = "403" ]; then
+  pass "c a forged X-Forwarded-Port does not make https://$host:9999 the API's own origin"
+else
+  fail "c a forged X-Forwarded-Port made https://$host:9999 pass as the API's own origin (answered $code, expected 403)"
+fi
 
 # (d) first client: failed logins until 429, each with a forged X-Forwarded-For
 codes=""

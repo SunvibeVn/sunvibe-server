@@ -117,6 +117,37 @@ test("genSecrets_secondRun_changesNothing", () => {
   }
 });
 
+test("genSecrets_keyMissingFromFile_addedFromExample", () => {
+  const { dir, cleanup } = tempDir("sv-gensecrets-");
+  try {
+    const file = join(dir, "test.env");
+    assert.equal(run(GEN_SECRETS, [file]).status, 0);
+    const before = parseEnv(readFileSync(file, "utf8"));
+    // A key the example gained after the file was made (a generated one, a plain one and an owner one)
+    const dropped = ["ACQUISITION_HASH_KEY", "AUTH_MAIL_MAX_PER_HOUR", "MAIL_USERNAME"];
+    const text = readFileSync(file, "utf8")
+      .split(/\r?\n/)
+      .filter((line) => !dropped.some((key) => line.startsWith(`${key}=`)))
+      .join("\n");
+    writeFileSync(file, text);
+    const result = run(GEN_SECRETS, [file]);
+    assert.equal(result.status, 0, result.output);
+    const after = parseEnv(readFileSync(file, "utf8"));
+    assert.deepEqual([...after.keys()].sort(), [...exampleKeys.keys()].sort(), "every key of the example is back");
+    assert.ok(base64Bytes(after.get("ACQUISITION_HASH_KEY")) >= 32, "the generated key is filled");
+    assert.notEqual(after.get("ACQUISITION_HASH_KEY"), before.get("ACQUISITION_HASH_KEY"), "a fresh value");
+    assert.equal(after.get("AUTH_MAIL_MAX_PER_HOUR"), exampleKeys.get("AUTH_MAIL_MAX_PER_HOUR"));
+    assert.equal(after.get("MAIL_USERNAME"), "<owner>", "left for the owner");
+    for (const [key, value] of before) {
+      if (!dropped.includes(key)) assert.equal(after.get(key), value, `${key} unchanged`);
+    }
+    for (const key of dropped) assert.match(result.stdout, new RegExp(`^added ${key}\\b`, "m"));
+    assert.doesNotMatch(result.stdout, /^filled MAIL_USERNAME$/m, "no claim of a value it did not write");
+  } finally {
+    cleanup();
+  }
+});
+
 test("genSecrets_output_hasNoValue", () => {
   const { dir, cleanup } = tempDir("sv-gensecrets-");
   try {
@@ -195,7 +226,10 @@ test("genSecrets_check_placeholderLeft_failsWithNamesOnly", () => {
   }
 });
 
-/** A stub `docker` that logs its arguments and writes a fake dump, or fails when DOCKER_STUB_FAIL is set. */
+/**
+ * A stub `docker` that logs its arguments and writes a fake dump, or, when DOCKER_STUB_FAIL is set, writes part of one
+ * and fails, as a pg_dump that dies mid-stream does: only the exit status tells that dump from a whole one.
+ */
 function withStubDocker(fn) {
   const { dir, cleanup } = tempDir("sv-backup-");
   try {
@@ -207,7 +241,7 @@ function withStubDocker(fn) {
       [
         "#!/usr/bin/env bash",
         `printf '%s\\n' "$@" > '${log.replace(/\\/g, "/")}'`,
-        'if [ -n "${DOCKER_STUB_FAIL:-}" ]; then echo "pg_dump: error: connection failed" >&2; exit 1; fi',
+        'if [ -n "${DOCKER_STUB_FAIL:-}" ]; then printf "PGDMP partial"; echo "pg_dump: error: connection lost" >&2; exit 1; fi',
         "printf 'PGDMP fake dump'",
         "",
       ].join("\n"),

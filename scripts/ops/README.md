@@ -358,20 +358,31 @@ a password hash, and its IP and user agent in the auth audit for 180 days, in Si
 `www`. Survey photo upload is off (no store, scanner or processor runs); direct property creation is on, so visitors can
 enter property data too. Production hosting and hardening Task A5 come before any real user.
 
-**Shape.** Caddy is the only public entry (80 and 443, a Let's Encrypt certificate, http redirected to https,
-`X-Robots-Tag: noindex` on every answer, no `Server` header). The API and PostgreSQL publish no port. Caddy has the fixed
-address `172.30.0.10` on the compose network, and the API trusts forwarded headers from that address only
-(`SERVER_FORWARD_HEADERS_STRATEGY` and `SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES` in the env file; change the address in both
-files together). Without those two lines every client shares Caddy's rate-limit bucket; `smoke.sh` check (d) shows it. The
-API runs with a fixed 1.5 GB heap touched at start and `TZ=Asia/Ho_Chi_Minh`, so the nightly auth jobs run at night in
+**Shape.** Caddy is the only public entry (80 and 443, a Let's Encrypt certificate, http redirected to https). Every answer
+of the API carries `X-Robots-Tag: noindex` and no `Server` header; Caddy's own answers (the redirect, a 502 while the API
+restarts) keep `Server: Caddy` and carry no `X-Robots-Tag`, and neither is indexed. The API and PostgreSQL publish no port.
+Caddy has the fixed address `172.30.0.10` on the compose network (the other containers get addresses from `.128/25` only),
+and the API trusts forwarded headers from that address only (`SERVER_FORWARD_HEADERS_STRATEGY=native` and
+`SERVER_TOMCAT_REMOTEIP_INTERNAL_PROXIES` in the env file; change the address in both files together; never `framework`,
+which trusts every client's headers). Caddy replaces a client's `X-Forwarded-For`, `-Proto` and `-Host` and drops its
+`X-Forwarded-Port`, `X-Forwarded-Prefix`, `Forwarded` and `X-Real-IP`. Without those two env lines every client shares
+Caddy's rate-limit bucket; `smoke.sh` checks (c) and (d) show both. Ports 80 and 443 are published on IPv4 only: on IPv6
+every client would come through Docker's proxy with one address and share one bucket, so give the VCN no IPv6 and add no
+AAAA record. The API runs with a fixed 1.5 GB heap touched at start and `TZ=Asia/Ho_Chi_Minh`, so the nightly auth jobs run at night in
 Vietnam.
 
 **Secrets (plan D-8).** One env file outside the checkout, `/opt/sunvibe/test.env`, owned by root, mode 600, made and
 filled by `gen-secrets.sh`. The owner types the Brevo login and key at its hidden prompt in their own SSH terminal; they
 never go into a chat, a file in the repo or a PR. `gen-secrets.sh --check` (key names with `filled` or `missing`) is the only
-way a session looks at the file. A session never runs, on the VM: `docker compose config`, `docker inspect`, `env` or
-`printenv` inside a container, `cat`, `grep`, `less` or an editor on the env file, or a read of `/proc/*/environ`. Each
-prints the values. Only the `postgres` service gets the `POSTGRES_*` values; the api service gets the whole file.
+way a session looks at the file. Only the `postgres` service gets the `POSTGRES_*` values; the api service gets the whole
+file, so the java process holds every value in its environment.
+
+A session on the VM runs only: `gen-secrets.sh` and `gen-secrets.sh --check` (never under `bash -x`, which traces the
+values), `docker compose up`, `ps`, `logs`, `restart`, `stop` and `down`, `backup-db.sh`, the restore and grant commands of
+this section, `smoke.sh`, `free -m`, `df -h`, `timedatectl`, and `git` in the checkout. Anything that reads the env file, a
+process environment or container configuration is the owner's alone, for example `docker compose config` or `convert`,
+`docker inspect` or `docker container inspect`, `env`, `printenv` or `echo $KEY` inside a container, `ps e`, `ps eww` or
+`ps -E` on the VM, `cat`, `grep`, `less` or an editor on the env file, and a read of `/proc/*/environ`. Each prints values.
 
 **Oracle.** An Always Free instance is reclaimed when its CPU, network and memory (95th percentile) all stay below 20% for
 7 days. Keep the Oracle Cloud Agent's Compute Instance Monitoring plugin on, so that Oracle sees the memory; the fixed heap
@@ -392,7 +403,9 @@ sudo netfilter-persistent save
 ```
 
 Never run `netfilter-persistent save` or `reload` once Docker runs: a save stores Docker's chains, a reload flushes them.
-The subnet's security list in the Oracle console must allow TCP 80 and 443 as well.
+The subnet's security list in the Oracle console must allow TCP 80 and 443 as well. Traffic to a port Docker publishes is
+forwarded by Docker's own chains, not through `INPUT`; what decides the exposure is those chains and the security list, so
+the proof is the outside port check of step 7.
 
 **First start.**
 
@@ -426,11 +439,12 @@ The subnet's security list in the Oracle console must allow TCP 80 and 443 as we
    outside, TCP 8081 and 5432 must not connect.
 8. The backup cron line below.
 
-**Update.** `cd /opt/sunvibe/server && sudo git pull --ff-only origin main`, then the `up -d --build` command of step 6.
-Flyway migrates at start. `sudo docker image prune -f` frees the old images.
+**Update.** `cd /opt/sunvibe/server && sudo git pull --ff-only origin main`, then steps 4 and 5 again: a key the example
+gained since is added to the env file and filled (an `<owner>` one waits for the owner's terminal). Then the `up -d --build`
+command of step 6. Flyway migrates at start. `sudo docker image prune -f` frees the old images.
 
-**Logs.** `sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml logs --since 1h api` (or
-`caddy`, `postgres`). Each service keeps at most five files of 10 MB.
+**Logs.** `cd /opt/sunvibe/server && sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml
+logs --since 1h api` (or `caddy`, `postgres`). Each service keeps at most five files of 10 MB.
 
 **Backup, nightly at 19:30 UTC (02:30 in Vietnam).** The VM clock is UTC (`timedatectl`). As root, in
 `/etc/cron.d/sunvibe-test-backup`:
@@ -470,8 +484,8 @@ production runbook is hardening F9.
 
 **Teardown.** The key `sunvibe_test_ed25519` (plan D-9) serves this VM only, so it goes with it.
 
-1. `sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml down -v` (containers, network,
-   the database and certificate volumes), then
+1. `cd /opt/sunvibe/server && sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml down -v`
+   (containers, network, the database and certificate volumes), then `cd /` and
    `sudo rm -rf /opt/sunvibe /var/backups/sunvibe-test /etc/cron.d/sunvibe-test-backup /var/log/sunvibe-test-backup.log`.
 2. Remove the key's line from `~/.ssh/authorized_keys` on the VM, then terminate the instance with its boot volume in the
    Oracle console.

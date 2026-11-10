@@ -56,16 +56,21 @@ generate() {
 
 # Writes the file again with one key's value replaced; a temporary file in the same folder, renamed over it
 set_value() {
-  local file="$1" key="$2" value="$3" tmp
+  local file="$1" key="$2" value="$3" tmp found=0
   tmp="$(mktemp "$file.XXXXXX")"
-  while IFS= read -r line || [ -n "$line" ]; do
-    line="${line%$'\r'}"
-    if [[ "$line" == "$key="* ]]; then
-      printf '%s=%s\n' "$key" "$value"
-    else
-      printf '%s\n' "$line"
-    fi
-  done < "$file" > "$tmp"
+  {
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%$'\r'}"
+      if [[ "$line" == "$key="* ]]; then
+        printf '%s=%s\n' "$key" "$value"
+        found=1
+      else
+        printf '%s\n' "$line"
+      fi
+    done < "$file"
+    # A key the file lacks goes at the end
+    [ "$found" -eq 1 ] || printf '%s=%s\n' "$key" "$value"
+  } > "$tmp"
   chmod 600 "$tmp"
   mv -f "$tmp" "$file"
 }
@@ -96,6 +101,14 @@ fill() {
     echo "created $file from the example"
   fi
   chmod 600 "$file"
+
+  # A key the example gained after the file was made comes in with the example's value (a placeholder is filled below)
+  local -a absent=()
+  mapfile -t absent < <(comm -23 <(entries "$EXAMPLE" | cut -d= -f1 | sort) <(entries "$file" | cut -d= -f1 | sort))
+  for key in "${absent[@]}"; do
+    set_value "$file" "$key" "$(value_of "$EXAMPLE" "$key")"
+    echo "added $key from the example"
+  done
 
   # One database password for the API and the database container; a filled one is copied to the other key
   for key in DB_PASSWORD POSTGRES_PASSWORD; do
