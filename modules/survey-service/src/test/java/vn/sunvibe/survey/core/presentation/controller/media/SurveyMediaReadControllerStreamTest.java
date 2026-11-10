@@ -189,6 +189,36 @@ class SurveyMediaReadControllerStreamTest {
 				logs.list.get(0).getFormattedMessage());
 	}
 
+	/**
+	 * SV-268 follow-up (security review Minor 1, D-8): a write that fails because Tomcat's own write timeout ran out is
+	 * a stalled client held by the server, not a client that left, even when the watchdog has not fired yet (a
+	 * connection timeout set below the no-progress timeout). It stays an ERROR.
+	 */
+	@Test
+	void stream_clientWriteTimesOutBeforeTheWatchdog_staysAnError() throws Exception {
+		OutputStream timedOutClient = new OutputStream() {
+			@Override
+			public void write(int b) throws IOException {
+				throw new ClientAbortException(new SocketTimeoutException());
+			}
+
+			@Override
+			public void write(byte[] buffer, int offset, int length) throws IOException {
+				write(0);
+			}
+		};
+		MediaRead read = read(new ByteArrayInputStream(new byte[1024]), Instant.now().plusSeconds(60));
+
+		IOException thrown = assertThrows(IOException.class, () -> SurveyMediaReadController.stream(read,
+				timedOutClient));
+		handle(thrown);
+
+		assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
+		assertEquals(Level.ERROR, logs.list.get(0).getLevel());
+		assertTrue(logs.list.get(0).getFormattedMessage().startsWith("Unexpected error in survey: java.io.IOException"),
+				logs.list.get(0).getFormattedMessage());
+	}
+
 	private void handle(Exception exception) throws Exception {
 		Method method = resolver.resolveMethod(exception);
 		try {
