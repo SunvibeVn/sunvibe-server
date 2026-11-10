@@ -443,8 +443,12 @@ the proof is the outside port check of step 7.
 **Update.** `cd /opt/sunvibe/server && sudo git pull --ff-only origin main`, then steps 4 and 5 again: a key the example
 gained since is added to the env file with the example's value (an `<owner>` one waits for the owner's terminal), and so
 is a key removed from the file by hand, so change a value instead of removing its line. A `<generated>` key the file
-lacks is refused (exit 1, nothing written), because a new value would not read the data stored with the old one: for a key
-the example gained, run `gen-secrets.sh --new <KEY> /opt/sunvibe/test.env`. Then the `up -d --build` command of step 6. Flyway migrates at start. `sudo docker image prune -f` frees the old images.
+lacks is refused (exit 1, nothing written), because a new value would not read the data stored with the old one. Check
+with `git log -p ORIG_HEAD..HEAD -- scripts/ops/env/test-env.env.example` that the pull added that key; only then run
+`sudo /opt/sunvibe/server/scripts/ops/test-env/gen-secrets.sh --new <KEY> /opt/sunvibe/test.env`. A key the pull did not
+add is a lost line: the owner puts back its old value (never the example's `<generated>` line, which the script would fill
+anew). Never empty the env file: an empty file is rebuilt from the example with new values. Then the `up -d --build`
+command of step 6. Flyway migrates at start. `sudo docker image prune -f` frees the old images.
 
 **Logs.** `cd /opt/sunvibe/server && sudo docker compose --env-file /opt/sunvibe/test.env -f docker/test-env/compose.yaml
 logs --since 1h api` (or `caddy`, `postgres`). Each service keeps at most five files of 10 MB.

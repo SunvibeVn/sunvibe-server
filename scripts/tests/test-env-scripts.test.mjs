@@ -169,12 +169,65 @@ test("genSecrets_existingFile_generatedKeyAbsent_refusedUnlessNew", () => {
     const added = run(GEN_SECRETS, ["--new", "ID_CARD_CRYPTO_KEY", file]);
     assert.equal(added.status, 0, added.output);
     const after = parseEnv(readFileSync(file, "utf8"));
+    for (const value of after.values()) {
+      if (value.length >= 16) {
+        assert.ok(!refused.output.includes(value) && !added.output.includes(value), "no value printed");
+      }
+    }
     assert.equal(base64Bytes(after.get("ID_CARD_CRYPTO_KEY")), 32);
     assert.notEqual(after.get("ID_CARD_CRYPTO_KEY"), after.get("ID_CARD_CRYPTO_INDEX_KEY"));
     assert.equal(after.get("AUTH_MAIL_MAX_PER_HOUR"), exampleKeys.get("AUTH_MAIL_MAX_PER_HOUR"));
     for (const [key, value] of before) {
       if (key !== "ID_CARD_CRYPTO_KEY" && key !== "AUTH_MAIL_MAX_PER_HOUR") assert.equal(after.get(key), value);
     }
+  } finally {
+    cleanup();
+  }
+});
+
+test("genSecrets_existingFile_dbPasswordAbsent_copiedFromPartner", () => {
+  const { dir, cleanup } = tempDir("sv-gensecrets-");
+  try {
+    const file = join(dir, "test.env");
+    assert.equal(run(GEN_SECRETS, [file]).status, 0);
+    const full = readFileSync(file, "utf8");
+    const password = parseEnv(full).get("POSTGRES_PASSWORD");
+    // One key of the pair lost: the other still holds the database's password, so it is copied, not made anew
+    writeFileSync(file, withoutKeys(full, ["DB_PASSWORD"]));
+    const copied = run(GEN_SECRETS, [file]);
+    assert.equal(copied.status, 0, copied.output);
+    assert.equal(parseEnv(readFileSync(file, "utf8")).get("DB_PASSWORD"), password);
+    // Both lost: no password is left to copy
+    const both = withoutKeys(full, ["DB_PASSWORD", "POSTGRES_PASSWORD"]);
+    writeFileSync(file, both);
+    const refused = run(GEN_SECRETS, [file]);
+    assert.equal(refused.status, 1, refused.output);
+    assert.match(refused.stderr, /DB_PASSWORD/);
+    assert.match(refused.stderr, /POSTGRES_PASSWORD/);
+    assert.equal(readFileSync(file, "utf8"), both, "nothing written");
+  } finally {
+    cleanup();
+  }
+});
+
+test("genSecrets_badArguments_exitTwo", () => {
+  const { dir, cleanup } = tempDir("sv-gensecrets-");
+  try {
+    const file = join(dir, "test.env");
+    for (const args of [
+      ["--check", "--new", "JWT_SECRET", file],
+      ["--new", "JWT_SECRET", "--check", file],
+      [file, "--new"],
+      ["--new", "jwt_secret", file],
+      // not a key of the example, and a key of the example that is not generated
+      ["--new", "ID_CARD_CRYPTO_KY", file],
+      ["--new", "AUTH_MAIL_MAX_PER_HOUR", file],
+      [file, file],
+    ]) {
+      const result = run(GEN_SECRETS, args);
+      assert.equal(result.status, 2, `${args.join(" ")}: ${result.output}`);
+    }
+    assert.ok(!existsSync(file), "no file made by a refused call");
   } finally {
     cleanup();
   }

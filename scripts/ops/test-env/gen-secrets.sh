@@ -20,6 +20,10 @@ EXAMPLE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../env" && pwd)/test-env.env.examp
 readonly EXAMPLE
 readonly OWNER_KEYS=(MAIL_USERNAME MAIL_PASSWORD)
 NEW_KEYS=()
+# The copy set_value is writing; an interrupted run removes it rather than leave values in a second file
+TMP_FILE=""
+trap 'rm -f "${TMP_FILE:-}"' EXIT
+trap 'exit 130' INT TERM
 
 usage() {
   sed -n '5,8p' "$0" | sed 's/^# \{0,1\}//' >&2
@@ -62,8 +66,8 @@ generate() {
 
 # Writes the file again with one key's value replaced; a temporary file in the same folder, renamed over it
 set_value() {
-  local file="$1" key="$2" value="$3" tmp found=0
-  tmp="$(mktemp "$file.XXXXXX")"
+  local file="$1" key="$2" value="$3" found=0
+  TMP_FILE="$(mktemp "$file.XXXXXX")"
   {
     while IFS= read -r line || [ -n "$line" ]; do
       line="${line%$'\r'}"
@@ -76,9 +80,10 @@ set_value() {
     done < "$file"
     # A key the file lacks goes at the end
     [ "$found" -eq 1 ] || printf '%s=%s\n' "$key" "$value"
-  } > "$tmp"
-  chmod 600 "$tmp"
-  mv -f "$tmp" "$file"
+  } > "$TMP_FILE"
+  chmod 600 "$TMP_FILE"
+  mv -f "$TMP_FILE" "$file"
+  TMP_FILE=""
 }
 
 check() {
@@ -133,7 +138,9 @@ fill() {
     exit 1
   fi
   for key in "${NEW_KEYS[@]}"; do
-    if [[ " ${absent[*]} " != *" $key "* ]]; then echo "--new $key changes nothing: the file has that key"; fi
+    if [ "$existed" -eq 1 ] && [[ " ${absent[*]} " != *" $key "* ]]; then
+      echo "--new $key changes nothing: the file has that key"
+    fi
   done
   for key in "${absent[@]}"; do
     set_value "$file" "$key" "$(value_of "$EXAMPLE" "$key")"
@@ -206,6 +213,10 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$target" ] || usage
+# --new names a <generated> key of the example, nothing else
+for named in "${NEW_KEYS[@]}"; do
+  [ "$(value_of "$EXAMPLE" "$named")" = "<generated>" ] || usage
+done
 if [ "$mode" = check ]; then
   [ "${#NEW_KEYS[@]}" -eq 0 ] || usage
   check "$target"
