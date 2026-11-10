@@ -8,14 +8,28 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.apache.catalina.connector.ClientAbortException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.web.method.annotation.ExceptionHandlerMethodResolver;
 
+import vn.sunvibe.shared.logging.CorrelationId;
 import vn.sunvibe.survey.core.application.query.media.MediaRead;
+import vn.sunvibe.survey.core.presentation.exception.SurveyExceptionHandler;
 
 /**
  * survey-media spec A-25: the read watchdog ends a content read's store stream at its deadline wherever the request
@@ -25,6 +39,117 @@ import vn.sunvibe.survey.core.application.query.media.MediaRead;
 class SurveyMediaReadControllerStreamTest {
 
 	private static final Duration NO_PROGRESS = Duration.ofHours(1);
+	private static final String CORRELATION_ID = "01J0000000000000000000TEST";
+
+	private final SurveyExceptionHandler handler = new SurveyExceptionHandler();
+	private final ExceptionHandlerMethodResolver resolver = new ExceptionHandlerMethodResolver(
+			SurveyExceptionHandler.class);
+	private final Logger logger = (Logger) LoggerFactory.getLogger(SurveyExceptionHandler.class);
+	private final ListAppender<ILoggingEvent> logs = new ListAppender<>();
+	private Level loggerLevel;
+
+	@BeforeEach
+	void captureHandlerLog() {
+		MDC.put(CorrelationId.MDC_KEY, CORRELATION_ID);
+		loggerLevel = logger.getLevel();
+		logger.setLevel(Level.DEBUG);
+		logs.start();
+		logger.addAppender(logs);
+	}
+
+	@AfterEach
+	void releaseHandlerLog() {
+		logger.detachAppender(logs);
+		logger.setLevel(loggerLevel);
+		MDC.clear();
+	}
+
+	/** SV-268: the client closed the tab while the photo was written; the survey catch-all logs it at DEBUG only. */
+	@Test
+	void stream_clientAbortOnWrite_reachesTheCatchAllAndIsLoggedAtDebug() throws Exception {
+		OutputStream closedClient = new OutputStream() {
+			@Override
+			public void write(int b) throws IOException {
+				throw new ClientAbortException(new IOException("Broken pipe"));
+			}
+
+			@Override
+			public void write(byte[] buffer, int offset, int length) throws IOException {
+				write(0);
+			}
+		};
+		MediaRead read = read(new ByteArrayInputStream(new byte[1024]), Instant.now().plusSeconds(60));
+
+		IOException thrown = assertThrows(IOException.class, () -> SurveyMediaReadController.stream(read,
+				closedClient));
+		handle(thrown);
+
+		assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
+		assertEquals(Level.DEBUG, logs.list.get(0).getLevel());
+	}
+
+	@Test
+	void stream_clientAbortOnFlush_reachesTheCatchAllAndIsLoggedAtDebug() throws Exception {
+		OutputStream closedClient = new OutputStream() {
+			@Override
+			public void write(int b) {
+			}
+
+			@Override
+			public void flush() throws IOException {
+				throw new ClientAbortException(new IOException("Broken pipe"));
+			}
+		};
+		MediaRead read = read(new ByteArrayInputStream(new byte[1024]), Instant.now().plusSeconds(60));
+
+		IOException thrown = assertThrows(IOException.class, () -> SurveyMediaReadController.stream(read,
+				closedClient));
+		handle(thrown);
+
+		assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
+		assertEquals(Level.DEBUG, logs.list.get(0).getLevel());
+	}
+
+	/** Pin: a store read that fails with the text of a closed client is a server fault and stays an ERROR. */
+	@Test
+	void stream_storeReadConnectionReset_staysAnError() throws Exception {
+		InputStream brokenStore = new InputStream() {
+			@Override
+			public int read() throws IOException {
+				throw new IOException("Connection reset by peer");
+			}
+		};
+		MediaRead read = read(brokenStore, Instant.now().plusSeconds(60));
+
+		IOException thrown = assertThrows(IOException.class, () -> SurveyMediaReadController.stream(read,
+				OutputStream.nullOutputStream()));
+		handle(thrown);
+
+		assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
+		assertEquals(Level.ERROR, logs.list.get(0).getLevel());
+	}
+
+	/** Pin: the deadline ended the answer, not the client: an ERROR. */
+	@Test
+	void stream_deadlinePassed_staysAnError() throws Exception {
+		MediaRead read = read(new ByteArrayInputStream(new byte[1024]), Instant.now().minusSeconds(1));
+
+		IOException thrown = assertThrows(IOException.class, () -> SurveyMediaReadController.stream(read,
+				OutputStream.nullOutputStream()));
+		handle(thrown);
+
+		assertEquals(1, logs.list.size(), () -> "log events: " + logs.list);
+		assertEquals(Level.ERROR, logs.list.get(0).getLevel());
+	}
+
+	private void handle(Exception exception) throws Exception {
+		Method method = resolver.resolveMethod(exception);
+		try {
+			method.invoke(handler, exception);
+		} catch (InvocationTargetException e) {
+			throw (Exception) e.getCause();
+		}
+	}
 
 	@Test
 	void stream_storeReadBlockedPastDeadline_watchdogEndsStoreStream() {
