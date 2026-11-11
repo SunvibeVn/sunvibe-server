@@ -246,6 +246,17 @@ class SurveyQueryServiceTest {
                         Optional.empty()));
     }
 
+    @Test
+    void overlaps_pastAndFarFutureStarts_areAnsweredNotRefused() {
+        leads.withLead(LEAD, "CONTACTED", "LONG_TERM_RENT", 1, SALE_A, 0L);
+        leads.withLead(LEAD_B, "SURVEY_SCHEDULED", "LONG_TERM_RENT", 1, SALE_A, 0L);
+        scheduled(LEAD_B, 1, SALE_A, start);
+
+        assertEquals(List.of(), service.overlaps(OWN_A, LEAD, start.minus(Duration.ofDays(10)), 60, Optional.empty()));
+        assertEquals(List.of(), service.overlaps(OWN_A, LEAD, start.plus(Duration.ofDays(200)), 60, Optional.empty()));
+        assertEquals(1, service.overlaps(OWN_A, LEAD, start, 60, Optional.empty()).size());
+    }
+
     // ==================== helpers ====================
 
     private BookingState booking(String status, String intent, String assignee) {
