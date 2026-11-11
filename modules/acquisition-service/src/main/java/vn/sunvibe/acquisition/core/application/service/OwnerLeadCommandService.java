@@ -57,7 +57,10 @@ import java.util.Optional;
  * <p>
  * Assigns leads, changes their status and records notes. Each command checks, in this order
  * (acquisition-owner-lead-queue spec 5.3): the request values (400), that the viewer can see the lead (404, the same
- * answer as an unknown lead), the version the caller saw (409), the lead's status (409), the assignee (422). The
+ * answer as an unknown lead), the version the caller saw (409), the lead's status (409), the assignee (422). A
+ * DUPLICATE close checks its target with the request values (400) and, at the status step, that no other lead names
+ * the lead as its original (409; acquisition-owner-lead-queue C-17, SV-003); every other refusal of a status change
+ * lists the statuses of the transition table, so it tells nothing about duplicates. The
  * lead and its history entry are saved in the same transaction, and every answer carries the version the saved lead
  * now has, and names the lead's assignee; a note answer also names the people of its history entry
  * (acquisition-owner-lead-queue-ui C-18, one lookup per answer). An optimistic locking failure on save is left to
@@ -194,6 +197,11 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
                 : null;
         OwnerLead lead = visibility.requireVisible(viewer, command.leadId());
         requireVersion(lead, command.expectedVersion());
+        // acquisition-owner-lead-queue C-17 on both ends of the link (SV-003): a lead that other leads name as their
+        // original is not closed as a duplicate. Asked only for a DUPLICATE close, so no other refusal depends on it
+        if (command.toStatus() == OwnerLeadStatus.DUPLICATE) {
+            lead.checkMayBecomeDuplicate(leads.hasDuplicates(lead.getId()));
+        }
         OwnerLeadStatus from = lead.getStatus();
         LeadChange change = lead.changeStatus(command.toStatus(), command.reason(), duplicateOf, command.note(),
                 command.nextActionAt());
@@ -278,7 +286,9 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
     /**
      * acquisition-owner-lead-queue C-17: a lead can only be closed as a duplicate of another lead the actor can see
      * and that is not a duplicate itself (no chains). Every failure has the same message as an unknown id, so the
-     * answer never tells whether a hidden lead exists. Checked with the request values, before the lead itself.
+     * answer never tells whether a hidden lead exists. Checked with the request values, before the lead itself. The
+     * other end of the link is checked at the status step (SV-003): a lead that other leads name as their original is
+     * not closed as a duplicate, a refusal that only a DUPLICATE close can get.
      */
     private OwnerLeadId duplicateTarget(LeadViewer viewer, String leadId, String duplicateOfLeadId) {
         if (duplicateOfLeadId.equals(leadId)) {

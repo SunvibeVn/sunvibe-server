@@ -1025,6 +1025,36 @@ class OwnerLeadCommandServiceTest {
         assertNull(reload(original).getDuplicateOfLeadId());
     }
 
+    /**
+     * acquisition-owner-lead-queue C-17 on both ends of the link, [DEL-8] SV003-D1, D2 (DC-1): a lead that another
+     * lead names as its original is not closed as a duplicate; the refusal lists its other statuses, names no other
+     * lead, and nothing is written.
+     */
+    @Test
+    void changeStatus_leadNamedAsOriginal_isRefusedWithTheOtherStatuses() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead other = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+        int saves = leads.saveCount;
+        int entries = activities.all().size();
+
+        InvalidLeadTransitionException ex = assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(ALL_LEADER, closeAsDuplicate(original, other, 0L)));
+
+        assertEquals(OwnerLeadStatus.ASSIGNED, ex.getFrom());
+        assertEquals(OwnerLeadStatus.DUPLICATE, ex.getTo());
+        assertEquals(List.of(OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD, OwnerLeadStatus.REJECTED,
+                OwnerLeadStatus.WITHDRAWN), ex.getAllowed());
+        assertFalse(ex.getMessage().contains(id(first)));
+        OwnerLead after = reload(original);
+        assertEquals(OwnerLeadStatus.ASSIGNED, after.getStatus());
+        assertNull(after.getDuplicateOfLeadId());
+        assertEquals(0L, after.getVersion());
+        assertEquals(saves, leads.saveCount);
+        assertEquals(entries, activities.all().size());
+    }
+
     // ==================== addNote ====================
 
     @Test

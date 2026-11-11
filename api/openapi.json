@@ -4489,7 +4489,7 @@
     },
     "/api/v1/staff/owner-leads/{leadId}/status-changes" : {
       "post" : {
-        "description" : "Closing (DUPLICATE, REJECTED, WITHDRAWN) needs a reason; DUPLICATE also needs duplicateOfLeadId, a lead the caller can see.",
+        "description" : "Closing (DUPLICATE, REJECTED, WITHDRAWN) needs a reason; DUPLICATE also needs duplicateOfLeadId, a lead the caller can see. A lead that another lead names as its original cannot become DUPLICATE (409 INVALID_STATE_TRANSITION).",
         "operationId" : "changeStatus",
         "parameters" : [ {
           "in" : "path",
@@ -4568,7 +4568,7 @@
                 }
               }
             },
-            "description" : "INVALID_STATE_TRANSITION (field toStatus, allowedValues lists the statuses allowed now) or CONCURRENT_MODIFICATION (field expectedVersion)"
+            "description" : "INVALID_STATE_TRANSITION (field toStatus; allowedValues lists the statuses the lead's status may move to, except that DUPLICATE may be listed for a lead that other leads name as their original and is still refused: closing such a lead as DUPLICATE answers this code without DUPLICATE in allowedValues) or CONCURRENT_MODIFICATION (field expectedVersion)"
           }
         },
         "summary" : "Change the status of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",

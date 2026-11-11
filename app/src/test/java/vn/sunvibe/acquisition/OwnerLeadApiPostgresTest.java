@@ -898,6 +898,75 @@ class OwnerLeadApiPostgresTest {
 		assertEquals(plainActivities, activityCount(plain));
 	}
 
+	/**
+	 * acquisition-owner-lead-queue C-17 on both ends of the link, [DEL-8] SV003-D1, D2 (DC-1, DC-3): after A is closed
+	 * as a duplicate of B, closing B as a duplicate of C is a 409 on toStatus listing B's other statuses, naming no
+	 * other lead, and stores no chain; B still takes another duplicate and still closes as REJECTED.
+	 */
+	@Test
+	void statusChange_closingAnOriginalAsDuplicate_returns409AndStoresNoChain() throws Exception {
+		String a = submit(SON_TRA);
+		String b = submit(SON_TRA);
+		String c = submit(SON_TRA);
+		String d = submit(SON_TRA);
+		Result aToB = api.post(saleLeader, LEADS + "/" + a + "/status-changes", Map.of("toStatus", "DUPLICATE",
+				"expectedVersion", version(a), "reason", "Trùng", "duplicateOfLeadId", b));
+		assertEquals(200, aToB.status(), aToB.rawBody());
+		long versionB = version(b);
+		int activitiesB = activityCount(b);
+
+		Result bToC = api.post(saleLeader, LEADS + "/" + b + "/status-changes", Map.of("toStatus", "DUPLICATE",
+				"expectedVersion", versionB, "reason", "Trùng", "duplicateOfLeadId", c));
+
+		assertTransitionError(bToC, "toStatus", Set.of("CONTACTED", "ON_HOLD", "REJECTED", "WITHDRAWN"));
+		assertFalse(bToC.rawBody().contains(a), "the duplicate is never named");
+		assertEquals("ASSIGNED", status(b));
+		assertEquals(versionB, version(b));
+		assertEquals(activitiesB, activityCount(b));
+		assertEquals(null, jdbc.queryForObject("select duplicate_of_lead_id from owner_leads where id = ?",
+				String.class, b));
+
+		Result dToB = api.post(saleLeader, LEADS + "/" + d + "/status-changes", Map.of("toStatus", "DUPLICATE",
+				"expectedVersion", version(d), "reason", "Trùng", "duplicateOfLeadId", b));
+		assertEquals(200, dToB.status(), dToB.rawBody());
+		Result rejected = api.post(saleLeader, LEADS + "/" + b + "/status-changes", Map.of("toStatus", "REJECTED",
+				"expectedVersion", version(b), "reason", "Không phù hợp"));
+		assertEquals(200, rejected.status(), rejected.rawBody());
+		assertEquals("REJECTED", status(b));
+	}
+
+	/**
+	 * [DEL-8] SV003-D3 (DC-4): the SALE who holds B and a leader get the same refusal when they close B as a
+	 * duplicate, also when the lead naming B is hidden from the SALE; the body names no other lead (no id, count or
+	 * status), only B's own other statuses.
+	 */
+	@Test
+	void statusChange_saleClosingTheOriginalOfAHiddenDuplicate_getsTheSame409AsALeader() throws Exception {
+		String b = submit(SON_TRA);
+		String c = submit(SON_TRA);
+		String hidden = submit(NGU_HANH_SON);
+		Result hiddenToB = api.post(saleLeader, LEADS + "/" + hidden + "/status-changes", Map.of("toStatus",
+				"DUPLICATE", "expectedVersion", version(hidden), "reason", "Trùng", "duplicateOfLeadId", b));
+		assertEquals(200, hiddenToB.status(), hiddenToB.rawBody());
+		long versionB = version(b);
+		int activitiesB = activityCount(b);
+		Map<String, Object> close = Map.of("toStatus", "DUPLICATE", "expectedVersion", versionB, "reason", "Trùng",
+				"duplicateOfLeadId", c);
+
+		Result forSale = api.post(sale1, LEADS + "/" + b + "/status-changes", close);
+		Result forLeader = api.post(saleLeader, LEADS + "/" + b + "/status-changes", close);
+
+		Set<String> otherStatuses = Set.of("CONTACTED", "ON_HOLD", "REJECTED", "WITHDRAWN");
+		assertTransitionError(forSale, "toStatus", otherStatuses);
+		assertTransitionError(forLeader, "toStatus", otherStatuses);
+		assertEquals(withoutCorrelationId(forLeader.body()), withoutCorrelationId(forSale.body()));
+		assertFalse(forSale.rawBody().contains(hidden), "the hidden duplicate is never named");
+		assertFalse(forLeader.rawBody().contains(hidden), "the duplicate is never named");
+		assertEquals("ASSIGNED", status(b));
+		assertEquals(versionB, version(b));
+		assertEquals(activitiesB, activityCount(b));
+	}
+
 	// ==================== Q9-9: notes ====================
 
 	/** Q9-9: a note alone adds a NOTE_ADDED entry and leaves the lead row, and its version, as they were. */
