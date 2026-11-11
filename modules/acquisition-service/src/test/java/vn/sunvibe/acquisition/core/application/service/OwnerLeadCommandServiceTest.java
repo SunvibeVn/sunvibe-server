@@ -5,11 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import vn.sunvibe.acquisition.core.application.command.AddLeadNoteCommand;
 import vn.sunvibe.acquisition.core.application.command.AssignLeadCommand;
+import vn.sunvibe.acquisition.core.application.command.AssignLeadsCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
 import vn.sunvibe.acquisition.core.application.exception.ConcurrentLeadModificationException;
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
 import vn.sunvibe.acquisition.core.application.exception.OwnerLeadNotFoundException;
+import vn.sunvibe.acquisition.core.application.query.AssignLeadsResult;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
@@ -42,6 +44,7 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -522,6 +525,170 @@ class OwnerLeadCommandServiceTest {
         assertNull(activity.getToStatus());
     }
 
+    // ==================== assignLeads (acquisition-owner-lead-bulk-assign spec 3.1) ====================
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-7: each lead gets one outcome, checked in this order: not found (unknown,
+     * not a ULID, or hidden), closed, already with this person (even with a wrong version), changed by someone else,
+     * assigned. The answer follows the request order and only the assigned lead changes; the assignee is asked once.
+     */
+    @Test
+    void assignLeads_outcomeOrder_closedThenSameAssigneeThenVersion() {
+        OwnerLead closedOfB = stored(OwnerLeadStatus.REJECTED, SALE_B);
+        OwnerLead heldByB = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead heldByA = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead fresh = stored(OwnerLeadStatus.NEW, null);
+        String unknown = OwnerLeadId.generate().getValue();
+
+        AssignLeadsResult result = service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_B, null, List.of(
+                new AssignLeadsCommand.LeadInput(unknown, 0L),
+                new AssignLeadsCommand.LeadInput("not-a-ulid", 0L),
+                input(closedOfB, 5L), input(heldByB, 5L), input(heldByA, 5L), input(fresh, 0L))));
+
+        assertEquals(List.of(new AssignLeadsResult.LeadOutcome(unknown, AssignLeadsResult.Outcome.NOT_FOUND),
+                new AssignLeadsResult.LeadOutcome("not-a-ulid", AssignLeadsResult.Outcome.NOT_FOUND),
+                new AssignLeadsResult.LeadOutcome(id(closedOfB), AssignLeadsResult.Outcome.CLOSED),
+                new AssignLeadsResult.LeadOutcome(id(heldByB), AssignLeadsResult.Outcome.ALREADY_ASSIGNED),
+                new AssignLeadsResult.LeadOutcome(id(heldByA), AssignLeadsResult.Outcome.STALE),
+                new AssignLeadsResult.LeadOutcome(id(fresh), AssignLeadsResult.Outcome.ASSIGNED)),
+                result.outcomes());
+        assertEquals(1, directory.calls);
+        OwnerLead assigned = reload(fresh);
+        assertEquals(OwnerLeadStatus.ASSIGNED, assigned.getStatus());
+        assertEquals(SALE_B, assigned.getAssignedUserId());
+        assertEquals(1L, assigned.getVersion());
+        assertEquals(List.of(fresh.getId()), activities.all().stream().map(OwnerLeadActivity::getLeadId).toList());
+        assertEquals(OwnerLeadActivityType.ASSIGNED, activities.all().get(0).getType());
+        for (OwnerLead unchanged : List.of(closedOfB, heldByB, heldByA)) {
+            assertEquals(0L, reload(unchanged).getVersion());
+            assertEquals(unchanged.getStatus(), reload(unchanged).getStatus());
+            assertEquals(unchanged.getAssignedUserId(), reload(unchanged).getAssignedUserId());
+        }
+
+        // acquisition-owner-lead-queue BR-2: a lead the viewer may not see is NOT_FOUND, like an unknown one
+        OwnerLead hidden = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        AssignLeadsResult hiddenResult = service.assignLeads(OWN_A,
+                new AssignLeadsCommand(SALE_A, null, List.of(input(hidden, 0L))));
+
+        assertEquals(List.of(new AssignLeadsResult.LeadOutcome(id(hidden), AssignLeadsResult.Outcome.NOT_FOUND)),
+                hiddenResult.outcomes());
+        assertEquals(SALE_B, reload(hidden).getAssignedUserId());
+        assertEquals(0L, reload(hidden).getVersion());
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-9: an ineligible assignee refuses the whole action, also when every lead is
+     * already theirs, and a note too long refuses it before the assignee is asked; no lead is read or locked.
+     */
+    @Test
+    void assignLeads_ineligibleAssignee_throwsBeforeAnyLeadIsRead() {
+        String nobody = "01JNOBODYAAAAAAAAAAAAAAAAA";
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, nobody);
+        OwnerLead second = stored(OwnerLeadStatus.CONTACTED, nobody);
+        int saves = leads.saveCount;
+
+        IneligibleAssigneeException refused = assertThrows(IneligibleAssigneeException.class,
+                () -> service.assignLeads(ALL_LEADER, new AssignLeadsCommand(nobody, null,
+                        List.of(input(first, 0L), input(second, 0L)))));
+
+        assertEquals("assigneeUserId", refused.getField());
+        assertEquals(List.of(), leads.updateLocks());
+        assertEquals(saves, leads.saveCount);
+        assertEquals(List.of(), activities.all());
+
+        int asked = directory.calls;
+        InvalidLeadCommandException tooLong = assertThrows(InvalidLeadCommandException.class,
+                () -> service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_B,
+                        "  " + "n".repeat(2001) + "  ", List.of(input(first, 0L)))));
+
+        assertEquals("note", tooLong.getField());
+        assertEquals(List.of(), leads.updateLocks());
+        assertEquals(asked, directory.calls);
+        assertEquals(saves, leads.saveCount);
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-4: a reassigned lead moves its scheduled survey through the hook after its
+     * row is written, and its History entry names the appointment; a first assignment calls no hook.
+     */
+    @Test
+    void assignLeads_reassignedLead_callsTheSurveyHookAndNamesTheAppointment() {
+        OwnerLead scheduled = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        OwnerLead fresh = stored(OwnerLeadStatus.NEW, null);
+        surveys.answering(APPOINTMENT, 2);
+
+        service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_B, null,
+                List.of(input(scheduled, 0L), input(fresh, 0L))));
+
+        assertEquals(1, surveys.calls().size());
+        RecordingLeadSurveyPort.Call call = surveys.calls().get(0);
+        assertEquals("reassigned", call.hook());
+        assertEquals(id(scheduled), call.leadId());
+        assertEquals(SALE_B, call.argument());
+        assertEquals(LEADER, call.actorUserId());
+        assertEquals(1L, call.storedVersion());
+        OwnerLeadActivity reassigned = activityOf(scheduled);
+        assertEquals(OwnerLeadActivityType.REASSIGNED, reassigned.getType());
+        assertEquals(SALE_A, reassigned.getFromAssigneeId());
+        assertEquals(SALE_B, reassigned.getToAssigneeId());
+        assertEquals(APPOINTMENT, reassigned.getReferenceId());
+        assertEquals(2, reassigned.getReferenceNo());
+        assertEquals(call.at(), reassigned.getOccurredAt());
+        OwnerLeadActivity assigned = activityOf(fresh);
+        assertEquals(OwnerLeadActivityType.ASSIGNED, assigned.getType());
+        assertNull(assigned.getReferenceId());
+        assertNull(assigned.getReferenceNo());
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign D-2: the leads are locked in ascending id order (Java String order) whatever the
+     * request order, so two bulk commands never wait on each other in a cycle; the answer keeps the request order.
+     */
+    @Test
+    void assignLeads_locksInAscendingIdOrder_answersInRequestOrder() {
+        List<OwnerLead> sorted = new ArrayList<>(List.of(stored(OwnerLeadStatus.NEW, null),
+                stored(OwnerLeadStatus.NEW, null), stored(OwnerLeadStatus.NEW, null)));
+        sorted.sort(Comparator.comparing(OwnerLeadCommandServiceTest::id));
+        List<OwnerLead> request = List.of(sorted.get(1), sorted.get(2), sorted.get(0));
+
+        AssignLeadsResult result = service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_A, null,
+                request.stream().map(lead -> input(lead, 0L)).toList()));
+
+        assertEquals(sorted.stream().map(OwnerLead::getId).toList(), leads.updateLocks());
+        assertEquals(request.stream().map(OwnerLeadCommandServiceTest::id).toList(),
+                result.outcomes().stream().map(AssignLeadsResult.LeadOutcome::leadId).toList());
+        assertEquals(List.of(AssignLeadsResult.Outcome.ASSIGNED, AssignLeadsResult.Outcome.ASSIGNED,
+                        AssignLeadsResult.Outcome.ASSIGNED),
+                result.outcomes().stream().map(AssignLeadsResult.LeadOutcome::outcome).toList());
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-6: the one note, cleaned like the note of one assignment, is on the History
+     * entry of every assigned lead; a lead that is unchanged or not assigned gets no entry; a blank note is no note.
+     */
+    @Test
+    void assignLeads_note_onEveryAssignedLeadOnly() {
+        OwnerLead fresh = stored(OwnerLeadStatus.NEW, null);
+        OwnerLead contacted = stored(OwnerLeadStatus.CONTACTED, SALE_A);
+        OwnerLead heldByB = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead changed = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        AssignLeadsResult result = service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_B, "  Chuyển lead  ",
+                List.of(input(fresh, 0L), input(contacted, 0L), input(heldByB, 0L), input(changed, 3L))));
+
+        assertEquals(List.of(AssignLeadsResult.Outcome.ASSIGNED, AssignLeadsResult.Outcome.ASSIGNED,
+                        AssignLeadsResult.Outcome.ALREADY_ASSIGNED, AssignLeadsResult.Outcome.STALE),
+                result.outcomes().stream().map(AssignLeadsResult.LeadOutcome::outcome).toList());
+        assertEquals(2, activities.all().size());
+        assertEquals("Chuyển lead", activityOf(fresh).getNote());
+        assertEquals("Chuyển lead", activityOf(contacted).getNote());
+
+        OwnerLead blank = stored(OwnerLeadStatus.NEW, null);
+        service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_A, "   ", List.of(input(blank, 0L))));
+
+        assertNull(activityOf(blank).getNote());
+    }
+
     // ==================== changeStatus ====================
 
     @Test
@@ -840,6 +1007,19 @@ class OwnerLeadCommandServiceTest {
 
     private static String id(OwnerLead lead) {
         return lead.getId().getValue();
+    }
+
+    private static AssignLeadsCommand.LeadInput input(OwnerLead lead, long expectedVersion) {
+        return new AssignLeadsCommand.LeadInput(id(lead), expectedVersion);
+    }
+
+    /** The one History entry of this lead. */
+    private OwnerLeadActivity activityOf(OwnerLead lead) {
+        List<OwnerLeadActivity> entries = activities.all().stream()
+                .filter(activity -> activity.getLeadId().equals(lead.getId()))
+                .toList();
+        assertEquals(1, entries.size(), "one History entry per lead");
+        return entries.get(0);
     }
 
     private static ChangeLeadStatusCommand statusChange(OwnerLead lead, OwnerLeadStatus to, long expectedVersion) {

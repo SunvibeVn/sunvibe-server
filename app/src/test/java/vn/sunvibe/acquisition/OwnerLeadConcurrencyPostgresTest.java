@@ -203,6 +203,55 @@ class OwnerLeadConcurrencyPostgresTest {
 		}
 	}
 
+	/**
+	 * acquisition-owner-lead-bulk-assign AC-10 (b): a bulk assignment to sale1 and a single assignment to sale2 of one NEW
+	 * lead, both on the version read before, started at one gate. Both orders are valid ends, so the order is not forced:
+	 * per round exactly one wins (bulk ASSIGNED or single 200); the loser is the bulk with 200 and STALE or the single
+	 * with 409 CONCURRENT_MODIFICATION on expectedVersion; never a 500; one assignment entry, the lead held by the winner.
+	 */
+	@Test
+	void assignLeads_vsSingleAssignOnTheSameVersion_oneWinnerPerRound() throws Exception {
+		for (int round = 1; round <= ROUNDS; round++) {
+			String lead = submit();
+			assertEquals("NEW", status(lead));
+			long version = version(lead);
+
+			List<Result> results = race(i -> i == 0
+					? api.post(saleLeader, LEADS + "/assignments", Map.of("assigneeUserId", sale1.userId(), "leads",
+							List.of(Map.of("leadId", lead, "expectedVersion", version))))
+					: api.post(saleLeader, LEADS + "/" + lead + "/assign",
+							Map.of("assigneeUserId", sale2.userId(), "expectedVersion", version)));
+
+			String context = "round " + round + ": " + statuses(results);
+			Result bulk = results.get(0);
+			Result single = results.get(1);
+			assertEquals(200, bulk.status(), context + ", " + bulk.rawBody());
+			assertEquals(lead, bulk.body().path("results").path(0).path("leadId").asString(), context);
+			String outcome = bulk.body().path("results").path(0).path("outcome").asString();
+			TestUser winner;
+			if (outcome.equals("ASSIGNED")) {
+				assertEquals(409, single.status(), context + ", " + single.rawBody());
+				assertEquals("CONCURRENT_MODIFICATION", single.body().path("code").asString(), single.rawBody());
+				assertEquals(1, single.body().path("errors").size(), single.rawBody());
+				assertEquals("expectedVersion", single.body().path("errors").get(0).path("field").asString(),
+						single.rawBody());
+				winner = sale1;
+			} else {
+				assertEquals("STALE", outcome, context + ", " + bulk.rawBody());
+				assertEquals(200, single.status(), context + ", " + single.rawBody());
+				winner = sale2;
+			}
+			assertEquals(1, count("select count(*) from owner_lead_activities where lead_id = ? "
+					+ "and type in ('ASSIGNED', 'REASSIGNED')", lead), context);
+			assertEquals(winner.userId(), jdbc.queryForObject(
+					"select to_assignee_id from owner_lead_activities where lead_id = ? and type = 'ASSIGNED'",
+					String.class, lead), context);
+			assertEquals(winner.userId(), assignee(lead), context);
+			assertEquals("ASSIGNED", status(lead), context);
+			assertEquals(version + 1, version(lead), context);
+		}
+	}
+
 	// ==================== Helpers ====================
 
 	@FunctionalInterface

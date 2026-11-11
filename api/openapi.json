@@ -2890,6 +2890,96 @@
         "tags" : [ "Owner leads (staff)" ]
       }
     },
+    "/api/v1/staff/owner-leads/assignments" : {
+      "post" : {
+        "description" : "Each lead is assigned like POST .../{leadId}/assign, independently of the others; results come back in request order. The assignee is checked once for the whole request. Writes no access-log row.",
+        "operationId" : "assignLeads",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignLeadsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AssignLeadsResponse"
+                }
+              }
+            },
+            "description" : "One outcome per lead of the request, in request order"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED on assigneeUserId, note, leads (missing, empty, more than 20, a lead twice, not an array) or an item (leads[<i>], leads[<i>].leadId, leads[<i>].expectedVersion; a value of the wrong JSON type on leads.<i>.leadId or leads.<i>.expectedVersion); MALFORMED_REQUEST. No lead changed"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not SALE_LEADER, SALES_MANAGER or ADMIN"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "CONCURRENT_MODIFICATION: the database refused the transaction; no lead changed. Clients read only the code"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INELIGIBLE_ASSIGNEE (field assigneeUserId): unknown user, deleted, cannot sign in, or neither SALE nor SALE_LEADER; checked once, also when every lead is already theirs. No lead changed"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR: no lead changed"
+          }
+        },
+        "summary" : "Assign several owner leads to one person (SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+        "tags" : [ "Owner leads (staff)" ]
+      }
+    },
     "/api/v1/staff/owner-leads/{leadId}" : {
       "get" : {
         "description" : "Contact data, consent, possible duplicates and history. Every call is recorded in the access log. A lead the caller may not see answers 404 like a lead that does not exist.",
@@ -8258,6 +8348,48 @@
           }
         },
         "required" : [ "assigneeUserId", "expectedVersion" ]
+      },
+      "AssignLeadsRequest" : {
+        "type" : "object",
+        "description" : "Give several owner leads to one SALE or SALE_LEADER",
+        "properties" : {
+          "assigneeUserId" : {
+            "type" : "string",
+            "description" : "User id (ULID) of the new assignee",
+            "maxLength" : 26,
+            "minLength" : 0
+          },
+          "leads" : {
+            "type" : "array",
+            "description" : "1 to 20 leads, none of them twice",
+            "items" : {
+              "$ref" : "#/components/schemas/LeadVersionInput"
+            },
+            "maxItems" : 20,
+            "minItems" : 1
+          },
+          "note" : {
+            "type" : "string",
+            "description" : "Optional; kept in the history entry of every lead that is assigned",
+            "maxLength" : 2000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "assigneeUserId", "leads" ]
+      },
+      "AssignLeadsResponse" : {
+        "type" : "object",
+        "description" : "One outcome per lead of the request, in request order",
+        "properties" : {
+          "results" : {
+            "type" : "array",
+            "description" : "One item per item of leads, same order and length",
+            "items" : {
+              "$ref" : "#/components/schemas/LeadAssignOutcomeResponse"
+            }
+          }
+        },
+        "required" : [ "results" ]
       },
       "AssignTerritoryRequest" : {
         "type" : "object",
@@ -14563,6 +14695,22 @@
           }
         }
       },
+      "LeadAssignOutcomeResponse" : {
+        "type" : "object",
+        "description" : "The outcome of one lead of a bulk assignment",
+        "properties" : {
+          "leadId" : {
+            "type" : "string",
+            "description" : "The leadId of that request item, as sent"
+          },
+          "outcome" : {
+            "type" : "string",
+            "description" : "ASSIGNED: given to the assignee; ALREADY_ASSIGNED: already theirs, nothing written; STALE: changed since the caller saw it, nothing written; CLOSED: the lead is closed; NOT_FOUND: no such lead, or the caller may not see it",
+            "enum" : [ "ASSIGNED", "ALREADY_ASSIGNED", "STALE", "CLOSED", "NOT_FOUND" ]
+          }
+        },
+        "required" : [ "leadId", "outcome" ]
+      },
       "LeadAssigneeResponse" : {
         "type" : "object",
         "description" : "A staff member an owner lead may be assigned to",
@@ -14705,6 +14853,25 @@
             "description" : "Leads over all pages that the caller can see"
           }
         }
+      },
+      "LeadVersionInput" : {
+        "type" : "object",
+        "description" : "One lead of a bulk assignment and the version the caller saw",
+        "properties" : {
+          "expectedVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The lead version the caller last saw (the version of the list item)",
+            "minimum" : 0
+          },
+          "leadId" : {
+            "type" : "string",
+            "description" : "Lead id (ULID)",
+            "maxLength" : 26,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "expectedVersion", "leadId" ]
       },
       "LoginRequest" : {
         "type" : "object",

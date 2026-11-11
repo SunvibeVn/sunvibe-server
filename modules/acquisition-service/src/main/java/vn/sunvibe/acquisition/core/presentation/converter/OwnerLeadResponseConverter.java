@@ -1,6 +1,7 @@
 package vn.sunvibe.acquisition.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.acquisition.core.application.query.AssignLeadsResult;
 import vn.sunvibe.acquisition.core.application.query.IntentChangeView;
 import vn.sunvibe.acquisition.core.application.query.LeadActivityView;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
@@ -8,6 +9,7 @@ import vn.sunvibe.acquisition.core.application.query.OwnerLeadDetail;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
 import vn.sunvibe.acquisition.core.application.query.SaleTerritoryView;
 import vn.sunvibe.acquisition.core.domain.repository.PageResult;
+import vn.sunvibe.acquisition.core.presentation.dto.response.AssignLeadsResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadActivityResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadNoteResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadPageResponse;
@@ -81,6 +83,13 @@ public class OwnerLeadResponseConverter {
 
     public LeadNoteResponse toNote(LeadNoteResult result) {
         return new LeadNoteResponse(toActivity(result.activity()), toSummary(result.lead()));
+    }
+
+    /** One item per outcome, in the order of the result (the request order). */
+    public AssignLeadsResponse toAssignLeads(AssignLeadsResult result) {
+        return new AssignLeadsResponse(result.outcomes().stream()
+                .map(outcome -> new AssignLeadsResponse.LeadAssignOutcomeResponse(outcome.leadId(), outcome.outcome()))
+                .toList());
     }
 
     public SaleTerritoryResponse toTerritory(SaleTerritoryView territory) {
