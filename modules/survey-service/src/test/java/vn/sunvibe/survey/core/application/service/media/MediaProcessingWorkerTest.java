@@ -193,6 +193,20 @@ class MediaProcessingWorkerTest {
         assertEquals(0, expensive());
     }
 
+    /** SV-122 pin: an applied retry is logged as a retry. */
+    @Test
+    void retryApplied_logsTheRetry() {
+        SurveyMedia photo = processing();
+        scanner.next(() -> {
+            throw new ScannerSilentException();
+        });
+
+        worker.runOnce();
+
+        assertEquals(1, messages("retries after attempt").size());
+        assertTrue(messages("retry was not applied").isEmpty());
+    }
+
     @Test
     void backWithinWindow_ready() {
         SurveyMedia photo = processing();
@@ -386,6 +400,10 @@ class MediaProcessingWorkerTest {
 
     private MediaJob job(SurveyMedia photo) {
         return h.jobs.findByMedia(photo.getId()).get(0);
+    }
+
+    private List<String> messages(String part) {
+        return logs.list.stream().map(ILoggingEvent::getFormattedMessage).filter(line -> line.contains(part)).toList();
     }
 
     private void later() {
