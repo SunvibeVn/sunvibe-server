@@ -1,5 +1,6 @@
 package vn.sunvibe.property.core.domain.repository;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -50,6 +51,12 @@ public interface InventoryReadRepository {
 
     /** An OWNER ownership row of this user, valid today, on this property (property-create intake spec 4.7; SV-034). */
     boolean ownsNow(String propertyId, String userId);
+
+    /**
+     * The distinct users with an OWNER ownership row valid on {@code today} on this property, sorted
+     * (brokerage-agreement BR-3 (e), SV-215). A CO_OWNER or AUTHORIZED_REPRESENTATIVE row does not count.
+     */
+    List<String> currentOwnerIds(String propertyId, LocalDate today);
 
     /** The next number of an intake property code (A-3). */
     long nextIntakeCodeNumber();

@@ -5,17 +5,24 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import tools.jackson.databind.JsonNode;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
+import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
+import vn.sunvibe.property.core.domain.repository.InventoryReadRepository;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
 import vn.sunvibe.survey.SurveyApiTestSupport;
 
@@ -26,6 +33,9 @@ import vn.sunvibe.survey.SurveyApiTestSupport;
  * Needs Docker.
  */
 class IntakeReadinessAcrossLeadsApiPostgresTest extends IntakeApiTestBase {
+
+	@Autowired
+	private InventoryReadRepository inventory;
 
 	@Override
 	String phonePrefix() {
@@ -368,6 +378,32 @@ class IntakeReadinessAcrossLeadsApiPostgresTest extends IntakeApiTestBase {
 		String anotherProperty = createdHouse(another, owner()).path("propertyId").asString();
 		jdbc.update("update properties set owner_id = ? where id = ?", owner().userId(), anotherProperty);
 		assertAllStopped(another.leadId(), "PROPERTY_STOP");
+	}
+
+	/** BR-3 (e): the distinct users with an OWNER row valid on the day, sorted; the day is the caller's. */
+	@Test
+	void currentOwnerIds_countsOwnerRowsValidOnTheDayOnly() {
+		LocalDate day = LocalDate.of(2026, 11, 12);
+		String street = unique("Holder Rows");
+		String a = ids.generateId();
+		String id = property(a, WARD, "Hải Châu", street, "HOUSE", AddressNormalizer.normalize(street));
+		ownership(id, a);
+		ownershipRow(id, ids.generateId(), "OWNER", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
+		ownershipRow(id, ids.generateId(), "OWNER", day.plusDays(30), null);
+		ownershipRow(id, ids.generateId(), "CO_OWNER", LocalDate.of(2026, 1, 1), null);
+		ownership(id, a);
+
+		assertEquals(List.of(a), inventory.currentOwnerIds(id, day));
+
+		String e = ids.generateId();
+		ownership(id, e);
+		assertEquals(Stream.of(a, e).sorted().toList(), inventory.currentOwnerIds(id, day));
+	}
+
+	private void ownershipRow(String propertyId, String userId, String relation, LocalDate from, LocalDate toOrNull) {
+		jdbc.update("insert into property_ownerships (id, property_id, user_id, relation_type, verification_state, valid_from,"
+						+ " valid_to, created_at) values (?, ?, ?, ?, 'UNVERIFIED', ?, ?, ?)", ids.generateId(), propertyId, userId,
+				relation, from, toOrNull, Timestamp.from(Instant.parse("2026-01-01T00:00:00Z")));
 	}
 
 	// ==================== BR-3 (f) a unit suspension, (g) a mark of another kind ====================
