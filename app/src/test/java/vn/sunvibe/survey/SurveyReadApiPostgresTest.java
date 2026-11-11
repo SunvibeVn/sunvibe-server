@@ -170,6 +170,19 @@ class SurveyReadApiPostgresTest {
 				+ "order by accessed_at desc, id desc limit 1", String.class, leadId));
 	}
 
+	@Test
+	void precheck_startFarOutsideTheRange_isAValidationErrorNotA500() throws Exception {
+		String leadId = survey.lead(leader, sale1, "CONTACTED");
+
+		for (String extreme : List.of("%2B1000000000-12-31T23:59:00Z", "-1000000000-01-01T00:00:00Z",
+				"%2B10000-01-01T00:00:00Z")) {
+			Result result = api.get(sale1, SurveyApiTestSupport.LEADS + "/" + leadId
+					+ "/survey-overlaps?startAt=" + extreme + "&durationMinutes=60");
+			assertEquals(400, result.status(), extreme + " " + result.rawBody());
+			assertEquals("VALIDATION_FAILED", result.body().path("code").asString(), result.rawBody());
+		}
+	}
+
 	// ==================== W15-25 ====================
 
 	@Test
