@@ -257,6 +257,18 @@ class SurveyQueryServiceTest {
         assertEquals(1, service.overlaps(OWN_A, LEAD, start, 60, Optional.empty()).size());
     }
 
+    @Test
+    void overlaps_startOutsideTheQueryRange_isRefusedOnStartAt() {
+        leads.withLead(LEAD, "CONTACTED", "LONG_TERM_RENT", 1, SALE_A, 0L);
+
+        for (Instant extreme : List.of(Instant.MAX.truncatedTo(ChronoUnit.MINUTES),
+                Instant.MIN.truncatedTo(ChronoUnit.MINUTES), Instant.parse("+10000-01-01T00:00:00Z"),
+                Instant.parse("1969-12-31T23:59:00Z"))) {
+            assertEquals("startAt", assertThrows(InvalidSurveyValueException.class,
+                    () -> service.overlaps(OWN_A, LEAD, extreme, 60, Optional.empty())).getField(), extreme.toString());
+        }
+    }
+
     // ==================== helpers ====================
 
     private BookingState booking(String status, String intent, String assignee) {
