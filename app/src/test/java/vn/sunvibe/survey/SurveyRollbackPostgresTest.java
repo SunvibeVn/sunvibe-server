@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -181,6 +183,64 @@ class SurveyRollbackPostgresTest {
 				String.class, appointmentId));
 		assertEquals(0, count("select count(*) from survey_appointment_events where appointment_id = ? and type = "
 				+ "'SURVEYOR_CHANGED'", appointmentId));
+	}
+
+	/**
+	 * acquisition-owner-lead-bulk-assign AC-11, BR-5: a bulk assignment whose survey hook fails on the lead written last
+	 * (the highest id), after the NEW lead was assigned and the other held lead was reassigned with its appointment
+	 * moved, answers 500 and leaves every lead and both appointments as they were. The ids are checked to sort in
+	 * creation order; a failed assumption fails the test, it never weakens it.
+	 */
+	@Test
+	void assignLeads_surveyHookFailsOnALaterLead_leavesEveryLeadUnchanged() throws Exception {
+		String fresh = survey.lead(leader, null, "NEW");
+		String held = survey.lead(leader, sale, "CONTACTED");
+		String heldAppointment = survey.booked(sale, held, SurveyApiTestSupport.startIn(24));
+		String failing = survey.lead(leader, sale, "CONTACTED");
+		String failingAppointment = survey.booked(sale, failing, SurveyApiTestSupport.startIn(30));
+		List<String> created = List.of(fresh, held, failing);
+		assertEquals(created.stream().sorted().toList(), created, "the lead ids sort in creation order");
+		Map<String, Map<String, Object>> leadsBefore = new LinkedHashMap<>();
+		for (String leadId : created) {
+			leadsBefore.put(leadId, leadRow(leadId));
+		}
+		Map<String, Map<String, Object>> appointmentsBefore = new LinkedHashMap<>();
+		for (String appointmentId : List.of(heldAppointment, failingAppointment)) {
+			appointmentsBefore.put(appointmentId, appointmentRow(appointmentId));
+		}
+		FAILING_HOOK_LEAD.set(failing);
+
+		Result result = api.post(leader, LEADS + "/assignments", Map.of("assigneeUserId", otherSale.userId(), "leads",
+				List.of(item(failing), item(fresh), item(held))));
+
+		assertEquals(500, result.status(), result.rawBody());
+		assertEquals("INTERNAL_ERROR", result.body().path("code").asString());
+		for (String leadId : created) {
+			assertEquals(leadsBefore.get(leadId), leadRow(leadId), leadId);
+		}
+		for (String appointmentId : List.of(heldAppointment, failingAppointment)) {
+			assertEquals(appointmentsBefore.get(appointmentId), appointmentRow(appointmentId), appointmentId);
+			assertEquals(0, count("select count(*) from survey_appointment_events where appointment_id = ? and type = "
+					+ "'SURVEYOR_CHANGED'", appointmentId));
+		}
+		assertEquals(0, count("select count(*) from owner_lead_access_logs where lead_id in (?, ?, ?)", fresh, held,
+				failing));
+	}
+
+	private Map<String, Object> item(String leadId) {
+		return Map.of("leadId", leadId, "expectedVersion", survey.version(leadId));
+	}
+
+	/** Status, assignee, version and History count of the lead. */
+	private Map<String, Object> leadRow(String leadId) {
+		return jdbc.queryForMap("select l.status, l.assigned_user_id, l.version, (select count(*) from "
+				+ "owner_lead_activities a where a.lead_id = l.id) as history from owner_leads l where l.id = ?", leadId);
+	}
+
+	/** Surveyor, status, confirmation and version of the appointment. */
+	private Map<String, Object> appointmentRow(String appointmentId) {
+		return jdbc.queryForMap("select surveyor_user_id, status, confirmation_state, version from survey_appointments "
+				+ "where id = ?", appointmentId);
 	}
 
 	/** Acquisition command → survey hook: the hold and the cancelled appointment are both undone. */

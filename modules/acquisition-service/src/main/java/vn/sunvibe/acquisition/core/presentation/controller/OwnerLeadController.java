@@ -38,8 +38,10 @@ import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadRequestConver
 import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseConverter;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AddLeadNoteRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadsRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadIntentRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadStatusRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.response.AssignLeadsResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadNoteResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadPageResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.OwnerLeadDetailResponse;
@@ -212,6 +214,46 @@ public class OwnerLeadController {
                                                            @Valid @RequestBody AssignLeadRequest request) {
         return ResponseEntity.ok(responseConverter.toSummary(
                 commandUseCase.assign(viewer(), requestConverter.toCommand(leadId, request))));
+    }
+
+    /**
+     * POST /api/v1/staff/owner-leads/assignments
+     * <p>
+     * Give several leads to one SALE or SALE_LEADER in one action, one outcome per lead
+     * (acquisition-owner-lead-bulk-assign spec 4.1). A lead that is unknown or hidden is an outcome, not a 404.
+     */
+    @PostMapping("/assignments")
+    @Operation(summary = "Assign several owner leads to one person (SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+            description = "Each lead is assigned like POST .../{leadId}/assign, independently of the others; results "
+                    + "come back in request order. The assignee is checked once for the whole request. Writes no "
+                    + "access-log row.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "One outcome per lead of the request, in request order",
+                    content = @Content(schema = @Schema(implementation = AssignLeadsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on assigneeUserId, note, leads (missing, "
+                    + "empty, more than 20, a lead twice, not an array) or an item (leads[<i>], leads[<i>].leadId, "
+                    + "leads[<i>].expectedVersion; a value of the wrong JSON type on leads.<i>.leadId or "
+                    + "leads.<i>.expectedVersion); MALFORMED_REQUEST. No lead changed",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not SALE_LEADER, SALES_MANAGER or ADMIN",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION: the database refused the "
+                    + "transaction; no lead changed. Clients read only the code",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "INELIGIBLE_ASSIGNEE (field assigneeUserId): unknown "
+                    + "user, deleted, cannot sign in, or neither SALE nor SALE_LEADER; checked once, also when every "
+                    + "lead is already theirs. No lead changed",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR: no lead changed",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    // acquisition-owner-lead-bulk-assign BR-1: the roles that assign one lead, checked on every call
+    @PreAuthorize("hasAnyRole('SALE_LEADER','SALES_MANAGER','ADMIN')")
+    public ResponseEntity<AssignLeadsResponse> assignLeads(@Valid @RequestBody AssignLeadsRequest request) {
+        return ResponseEntity.ok(responseConverter.toAssignLeads(
+                commandUseCase.assignLeads(viewer(), requestConverter.toCommand(request))));
     }
 
     /**
