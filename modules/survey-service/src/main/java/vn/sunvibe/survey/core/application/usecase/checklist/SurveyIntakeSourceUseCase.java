@@ -15,6 +15,9 @@ public interface SurveyIntakeSourceUseCase {
     /** The current unmarked PASSED of the cycle; empty when the cycle has none. */
     Optional<IntakeSourceView> currentSource(String leadId, int intentCycle);
 
-    /** Every marked revision of the lead, in any cycle, also when no PASSED is current (spec D5-12, 4.11). */
+    /**
+     * Every marked revision of the lead, in any cycle, also when no PASSED is current (spec D5-12, 4.11), with the kind and
+     * the time of its mark.
+     */
     List<IntakeSourceView.MarkedRevision> markedRevisions(String leadId);
 }

@@ -53,6 +53,7 @@ public class SurveyIntakeSourceAdapter implements IntakeSourcePort {
     }
 
     private static List<IntakeSource.MarkedRevision> marks(List<IntakeSourceView.MarkedRevision> marks) {
-        return marks.stream().map(mark -> new IntakeSource.MarkedRevision(mark.revisionId(), mark.kind())).toList();
+        return marks.stream().map(mark -> new IntakeSource.MarkedRevision(mark.revisionId(), mark.kind(), mark.markedAt()))
+                .toList();
     }
 }

@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -154,7 +156,8 @@ class SurveyIntakeSourcePostgresTest extends MediaApiTestBase {
 
 		IntakeSourceView source = current(first.leadId()).orElseThrow();
 		assertEquals(second.checklistId(), source.revisionId());
-		assertEquals(List.of(new IntakeSourceView.MarkedRevision(first.checklistId(), "WRONG_SCOPE")),
+		assertEquals(List.of(new IntakeSourceView.MarkedRevision(first.checklistId(), "WRONG_SCOPE",
+				requalifiedAt(first.checklistId()))),
 				source.markedRevisions());
 		assertEquals(source.markedRevisions(), marked(first.leadId()));
 	}
@@ -166,8 +169,22 @@ class SurveyIntakeSourcePostgresTest extends MediaApiTestBase {
 
 		fixture.requalify(leader, passed.checklistId(), "WRONG_ASSET");
 
-		assertEquals(List.of(new IntakeSourceView.MarkedRevision(passed.checklistId(), "WRONG_ASSET")),
+		assertEquals(List.of(new IntakeSourceView.MarkedRevision(passed.checklistId(), "WRONG_ASSET",
+				requalifiedAt(passed.checklistId()))),
 				marked(passed.leadId()));
+	}
+
+	/** SV-215: each marked revision carries the time of its mark, the revision's requalified_at. */
+	@Test
+	void markedRevisions_carryTheMarkTime() throws Exception {
+		Passed passed = fixture.whole(leader, sale, "HOUSE", "8 Nguyễn Văn Linh");
+
+		fixture.requalify(leader, passed.checklistId(), "PHOTO_PROBLEM");
+
+		List<IntakeSourceView.MarkedRevision> marks = marked(passed.leadId());
+		assertEquals(1, marks.size());
+		assertNotNull(marks.getFirst().markedAt());
+		assertEquals(requalifiedAt(passed.checklistId()), marks.getFirst().markedAt());
 	}
 
 	/** D5-20, example 3: P101's balcony reads on P101 and never on P102. */
@@ -233,5 +250,10 @@ class SurveyIntakeSourcePostgresTest extends MediaApiTestBase {
 
 	private List<IntakeSourceView.MarkedRevision> marked(String leadId) {
 		return new TransactionTemplate(transactionManager).execute(status -> sources.markedRevisions(leadId));
+	}
+
+	private Instant requalifiedAt(String checklistId) {
+		return jdbc.queryForObject("select requalified_at from survey_checklists where id = ?", Timestamp.class, checklistId)
+				.toInstant();
 	}
 }
