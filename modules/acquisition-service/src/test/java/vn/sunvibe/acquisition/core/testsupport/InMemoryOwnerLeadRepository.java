@@ -63,6 +63,11 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
         return leads.containsKey(id);
     }
 
+    @Override
+    public boolean hasDuplicates(OwnerLeadId id) {
+        return leads.values().stream().anyMatch(lead -> id.equals(lead.getDuplicateOfLeadId()));
+    }
+
     public List<OwnerLead> all() {
         return leads.values().stream().map(lead -> copy(lead, lead.getVersion())).toList();
     }
