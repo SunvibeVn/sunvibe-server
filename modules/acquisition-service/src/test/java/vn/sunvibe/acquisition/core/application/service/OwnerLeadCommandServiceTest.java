@@ -44,6 +44,7 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -637,6 +638,28 @@ class OwnerLeadCommandServiceTest {
         assertEquals(OwnerLeadActivityType.ASSIGNED, assigned.getType());
         assertNull(assigned.getReferenceId());
         assertNull(assigned.getReferenceNo());
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign D-2: the leads are locked in ascending id order (Java String order) whatever the
+     * request order, so two bulk commands never wait on each other in a cycle; the answer keeps the request order.
+     */
+    @Test
+    void assignLeads_locksInAscendingIdOrder_answersInRequestOrder() {
+        List<OwnerLead> sorted = new ArrayList<>(List.of(stored(OwnerLeadStatus.NEW, null),
+                stored(OwnerLeadStatus.NEW, null), stored(OwnerLeadStatus.NEW, null)));
+        sorted.sort(Comparator.comparing(OwnerLeadCommandServiceTest::id));
+        List<OwnerLead> request = List.of(sorted.get(1), sorted.get(2), sorted.get(0));
+
+        AssignLeadsResult result = service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_A, null,
+                request.stream().map(lead -> input(lead, 0L)).toList()));
+
+        assertEquals(sorted.stream().map(OwnerLead::getId).toList(), leads.updateLocks());
+        assertEquals(request.stream().map(OwnerLeadCommandServiceTest::id).toList(),
+                result.outcomes().stream().map(AssignLeadsResult.LeadOutcome::leadId).toList());
+        assertEquals(List.of(AssignLeadsResult.Outcome.ASSIGNED, AssignLeadsResult.Outcome.ASSIGNED,
+                        AssignLeadsResult.Outcome.ASSIGNED),
+                result.outcomes().stream().map(AssignLeadsResult.LeadOutcome::outcome).toList());
     }
 
     /**

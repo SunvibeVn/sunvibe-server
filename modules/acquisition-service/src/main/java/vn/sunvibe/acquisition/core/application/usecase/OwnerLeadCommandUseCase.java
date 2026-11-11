@@ -25,7 +25,8 @@ public interface OwnerLeadCommandUseCase {
     /**
      * Give several leads to one staff member in one action (acquisition-owner-lead-bulk-assign spec 3.1). Checks of the
      * whole action, in this order: the note (400), then the assignee, once, also when every lead is already theirs
-     * (422). Then each lead gets exactly one outcome, checked in this order (acquisition-owner-lead-bulk-assign BR-7):
+     * (422). Then the leads are locked in ascending id order (acquisition-owner-lead-bulk-assign D-2), and each gets
+     * exactly one outcome, decided under its lock and checked in this order (acquisition-owner-lead-bulk-assign BR-7):
      * NOT_FOUND (unknown, not a lead id, or not visible to the viewer), CLOSED, ALREADY_ASSIGNED (nothing written),
      * STALE (another version than the one sent; nothing written), else ASSIGNED with the effects of {@link #assign}.
      * One lead's outcome never stops the others; an exception rolls the whole action back. Returns one outcome per lead,

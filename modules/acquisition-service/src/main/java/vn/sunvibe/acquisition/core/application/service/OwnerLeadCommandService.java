@@ -46,6 +46,8 @@ import vn.sunvibe.shared.time.AppClock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -124,12 +126,18 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         if (!assigneeDirectory.isEligibleAssignee(command.assigneeUserId())) {
             throw new IneligibleAssigneeException("assigneeUserId");
         }
-        List<AssignLeadsResult.LeadOutcome> outcomes = new ArrayList<>();
-        for (AssignLeadsCommand.LeadInput item : command.leads()) {
-            outcomes.add(new AssignLeadsResult.LeadOutcome(item.leadId(),
-                    assignOne(viewer, item, command.assigneeUserId(), command.note())));
+        // acquisition-owner-lead-bulk-assign D-2: the leads are locked in ascending id order, so two bulk commands lock
+        // in the same order and never deadlock; the answer keeps the request order (the ids are distinct)
+        List<AssignLeadsCommand.LeadInput> lockOrder = command.leads().stream()
+                .sorted(Comparator.comparing(AssignLeadsCommand.LeadInput::leadId))
+                .toList();
+        Map<String, AssignLeadsResult.Outcome> decided = new HashMap<>();
+        for (AssignLeadsCommand.LeadInput item : lockOrder) {
+            decided.put(item.leadId(), assignOne(viewer, item, command.assigneeUserId(), command.note()));
         }
-        return new AssignLeadsResult(outcomes);
+        return new AssignLeadsResult(command.leads().stream()
+                .map(item -> new AssignLeadsResult.LeadOutcome(item.leadId(), decided.get(item.leadId())))
+                .toList());
     }
 
     /**

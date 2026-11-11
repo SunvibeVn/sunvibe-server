@@ -1,6 +1,7 @@
 package vn.sunvibe.survey;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static vn.sunvibe.survey.ChecklistApiTestSupport.set;
 import static vn.sunvibe.survey.SurveyApiTestSupport.assertError;
@@ -67,6 +68,9 @@ import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
  * {@code pg_stat_activity} before the first is released; races without a pause start both calls at one gate, five
  * rounds with fresh leads. Never a 500, a deadlock or a checklist write after the change that refuses it. Needs
  * Docker.
+ * <p>
+ * The lock order of the bulk assignment is forced the same way, with the survey hook's pause:
+ * {@code assignLeads_twoInOppositeOrders_lockInIdOrderAndNeverDeadlock} (acquisition-owner-lead-bulk-assign AC-10 (a)).
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -466,6 +470,100 @@ class ChecklistConcurrencyPostgresTest {
 					id), context);
 			assertEquals(1, checklists.activities(visit.leadId(), "CHECKLIST_TAKEN_OVER").size(), context);
 		}
+	}
+
+	// ==================== bulk assignment (acquisition-owner-lead-bulk-assign AC-10 (a)) ====================
+
+	/**
+	 * acquisition-owner-lead-bulk-assign AC-10 (a), D-2: two bulk assignments of the same two leads, listed in opposite
+	 * request orders, in a forced order. The first pauses in the survey hook of the lower id, which it has written: it
+	 * holds that row and not the higher one. The second, sent then, is proven waiting on a lock and still holds no higher
+	 * row. Released, both answer 200: the first ASSIGNED twice in its order, the second STALE twice (another person,
+	 * round 1) or ALREADY_ASSIGNED twice (the same person, round 2) in its order; one more REASSIGNED row per lead and
+	 * never a 409 or a 500. Locking in request order fails round 1 at the first check.
+	 */
+	@Test
+	void assignLeads_twoInOppositeOrders_lockInIdOrderAndNeverDeadlock() throws Exception {
+		for (int round = 1; round <= 2; round++) {
+			String context = "round " + round;
+			String one = survey.lead(leader, saleA, "ASSIGNED");
+			String two = survey.lead(leader, saleA, "ASSIGNED");
+			String low = one.compareTo(two) < 0 ? one : two;
+			String high = low.equals(one) ? two : one;
+			Map<String, Long> versions = Map.of(low, survey.version(low), high, survey.version(high));
+			Map<String, Integer> reassigned = Map.of(low, checklists.activities(low, "REASSIGNED").size(), high,
+					checklists.activities(high, "REASSIGNED").size());
+			List<String> orderA = round == 1 ? List.of(high, low) : List.of(low, high);
+			List<String> orderB = List.of(orderA.get(1), orderA.get(0));
+			TestUser assigneeB = round == 1 ? saleC : saleB;
+
+			Pause pause = arm(HOOK, low);
+			Future<Result> bulkA;
+			Future<Result> bulkB;
+			try {
+				bulkA = async(() -> bulkAssign(saleB, orderA, versions));
+				awaitReached(pause, context);
+				assertFalse(rowFree(low), context + ": the first command holds the lower lead");
+				assertTrue(rowFree(high), context + ": while paused on the lower lead, the first holds no higher one");
+				bulkB = async(() -> bulkAssign(assigneeB, orderB, versions));
+				awaitLockWaiter(context);
+				assertTrue(rowFree(high), context + ": the second, waiting on the lower lead, holds no higher one");
+			} finally {
+				pause.release.countDown();
+			}
+
+			Result a = bulkA.get(60, TimeUnit.SECONDS);
+			Result b = bulkB.get(60, TimeUnit.SECONDS);
+			assertEquals(200, a.status(), context + ": " + a.rawBody());
+			assertEquals(200, b.status(), context + ": " + b.rawBody());
+			assertEquals(orderA, bulkIds(a), context);
+			assertEquals(List.of("ASSIGNED", "ASSIGNED"), bulkOutcomes(a), context);
+			assertEquals(orderB, bulkIds(b), context);
+			String second = round == 1 ? "STALE" : "ALREADY_ASSIGNED";
+			assertEquals(List.of(second, second), bulkOutcomes(b), context);
+			for (String leadId : List.of(low, high)) {
+				assertEquals(saleB.userId(), jdbc.queryForObject("select assigned_user_id from owner_leads where id = ?",
+						String.class, leadId), context);
+				assertEquals(versions.get(leadId) + 1, survey.version(leadId), context);
+				assertEquals(reassigned.get(leadId) + 1, checklists.activities(leadId, "REASSIGNED").size(), context);
+				Map<String, Object> latest = jdbc.queryForMap("select to_assignee_id, actor_user_id from "
+						+ "owner_lead_activities where lead_id = ? and type = 'REASSIGNED' order by occurred_at desc, id desc "
+						+ "limit 1", leadId);
+				assertEquals(saleB.userId(), latest.get("to_assignee_id"), context);
+				assertEquals(leader.userId(), latest.get("actor_user_id"), context);
+			}
+		}
+	}
+
+	/** One bulk assignment by the leader of the leads, in this order, on the versions given. */
+	private Result bulkAssign(TestUser assignee, List<String> leadIds, Map<String, Long> versions) throws Exception {
+		List<Map<String, Object>> leads = new ArrayList<>();
+		for (String leadId : leadIds) {
+			leads.add(Map.of("leadId", leadId, "expectedVersion", versions.get(leadId)));
+		}
+		return api.post(leader, SurveyApiTestSupport.LEADS + "/assignments",
+				Map.of("assigneeUserId", assignee.userId(), "leads", leads));
+	}
+
+	/**
+	 * Whether no other transaction holds the lead row: the test's own connection (autocommit) takes and drops a
+	 * {@code FOR NO KEY UPDATE} lock, skipping the row when it is held.
+	 */
+	private boolean rowFree(String leadId) {
+		return jdbc.queryForList("select id from owner_leads where id = ? for no key update skip locked", String.class,
+				leadId).size() == 1;
+	}
+
+	private static List<String> bulkIds(Result result) {
+		List<String> ids = new ArrayList<>();
+		result.body().path("results").forEach(item -> ids.add(item.path("leadId").asString()));
+		return ids;
+	}
+
+	private static List<String> bulkOutcomes(Result result) {
+		List<String> outcomes = new ArrayList<>();
+		result.body().path("results").forEach(item -> outcomes.add(item.path("outcome").asString()));
+		return outcomes;
 	}
 
 	// ==================== helpers ====================
