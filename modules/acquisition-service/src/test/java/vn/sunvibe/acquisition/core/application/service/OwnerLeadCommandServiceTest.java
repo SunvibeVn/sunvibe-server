@@ -1055,6 +1055,33 @@ class OwnerLeadCommandServiceTest {
         assertEquals(entries, activities.all().size());
     }
 
+    /**
+     * [DEL-8] SV003-D4 (DC-9): a DUPLICATE close reads both leads with a row lock before it checks them, the lead for
+     * update and the original for share, in ascending id order like bulk assignment, each lead once.
+     */
+    @Test
+    void changeStatus_duplicate_locksTheLeadForUpdateAndTheOriginalForShareInIdOrder() {
+        List<OwnerLead> sorted = new ArrayList<>(List.of(stored(OwnerLeadStatus.ASSIGNED, SALE_A),
+                stored(OwnerLeadStatus.ASSIGNED, SALE_A), stored(OwnerLeadStatus.ASSIGNED, SALE_A),
+                stored(OwnerLeadStatus.ASSIGNED, SALE_A)));
+        sorted.sort(Comparator.comparing(OwnerLeadCommandServiceTest::id));
+        OwnerLead low = sorted.get(0);
+        OwnerLead mid1 = sorted.get(1);
+        OwnerLead mid2 = sorted.get(2);
+        OwnerLead high = sorted.get(3);
+
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(low, mid1, 0L));
+
+        assertEquals(List.of("update:" + id(low), "share:" + id(mid1)), leads.lockLog());
+
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(high, mid2, 0L));
+
+        assertEquals(List.of("update:" + id(low), "share:" + id(mid1), "share:" + id(mid2), "update:" + id(high)),
+                leads.lockLog());
+        assertEquals(mid1.getId(), reload(low).getDuplicateOfLeadId());
+        assertEquals(mid2.getId(), reload(high).getDuplicateOfLeadId());
+    }
+
     // ==================== addNote ====================
 
     @Test

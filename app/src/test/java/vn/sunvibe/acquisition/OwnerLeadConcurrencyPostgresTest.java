@@ -297,6 +297,128 @@ class OwnerLeadConcurrencyPostgresTest {
 				+ "and type = 'STATUS_CHANGED'", lead));
 	}
 
+	/**
+	 * [DEL-8] SV003-D4, DC-5: the link A→B is in flight (it waits on B, which the test holds) when B→C starts and waits
+	 * behind it; B→C then sees the link and gets the 409 of a lead another lead names as its original. No chain.
+	 */
+	@Test
+	void duplicate_linkBeforeItsOriginalCloses_refusesTheOriginalWithoutAChain() throws Exception {
+		String a = submit();
+		String b = submit();
+		String c = submit();
+		long versionA = version(a);
+		long versionB = version(b);
+
+		Result aToB;
+		Result bToC;
+		try (ExecutorService pool = Executors.newCachedThreadPool()) {
+			Future<Result> first;
+			Future<Result> second;
+			try (Hold hold = new Hold(pool, "select id from owner_leads where id = ? for no key update", b)) {
+				first = pool.submit(() -> closeAsDuplicate(a, b, versionA));
+				awaitWaiters(1);
+				second = pool.submit(() -> closeAsDuplicate(b, c, versionB));
+				awaitWaiters(2);
+			}
+			aToB = first.get(60, TimeUnit.SECONDS);
+			bToC = second.get(60, TimeUnit.SECONDS);
+		}
+
+		assertEquals(200, aToB.status(), aToB.rawBody());
+		assertEquals(409, bToC.status(), bToC.rawBody());
+		assertEquals("INVALID_STATE_TRANSITION", bToC.body().path("code").asString(), bToC.rawBody());
+		assertEquals(1, bToC.body().path("errors").size(), bToC.rawBody());
+		var error = bToC.body().path("errors").get(0);
+		assertEquals("toStatus", error.path("field").asString(), bToC.rawBody());
+		List<String> allowed = new ArrayList<>();
+		error.path("allowedValues").forEach(value -> allowed.add(value.asString()));
+		assertEquals(List.of("REJECTED", "WITHDRAWN"), allowed, bToC.rawBody());
+		assertEquals(b, duplicateOf(a));
+		assertEquals("NEW", status(b));
+		assertEquals(versionB, version(b));
+		assertEquals(0, storedChains(a, b, c));
+	}
+
+	/**
+	 * [DEL-8] SV003-D4, DC-6: the close B→C is in flight (it waits on B, which the test holds) when the link A→B
+	 * starts and waits behind it; A→B then reads B as DUPLICATE and gets the C-17 400 on duplicateOfLeadId. No chain.
+	 */
+	@Test
+	void duplicate_originalClosesBeforeTheLinkToIt_refusesTheLinkWithoutAChain() throws Exception {
+		String a = submit();
+		String b = submit();
+		String c = submit();
+		long versionA = version(a);
+		long versionB = version(b);
+
+		Result bToC;
+		Result aToB;
+		try (ExecutorService pool = Executors.newCachedThreadPool()) {
+			Future<Result> first;
+			Future<Result> second;
+			try (Hold hold = new Hold(pool, "select id from owner_leads where id = ? for no key update", b)) {
+				first = pool.submit(() -> closeAsDuplicate(b, c, versionB));
+				awaitWaiters(1);
+				second = pool.submit(() -> closeAsDuplicate(a, b, versionA));
+				awaitWaiters(2);
+			}
+			bToC = first.get(60, TimeUnit.SECONDS);
+			aToB = second.get(60, TimeUnit.SECONDS);
+		}
+
+		assertEquals(200, bToC.status(), bToC.rawBody());
+		assertEquals(c, duplicateOf(b));
+		assertEquals(400, aToB.status(), aToB.rawBody());
+		assertEquals("VALIDATION_FAILED", aToB.body().path("code").asString(), aToB.rawBody());
+		assertEquals(1, aToB.body().path("errors").size(), aToB.rawBody());
+		assertEquals("duplicateOfLeadId", aToB.body().path("errors").get(0).path("field").asString(),
+				aToB.rawBody());
+		assertEquals("NEW", status(a));
+		assertEquals(null, duplicateOf(a));
+		assertEquals(versionA, version(a));
+		assertEquals(0, storedChains(a, b, c));
+	}
+
+	/**
+	 * [DEL-8] SV003-D4, DC-7: A→B and B→A at once, both waiting on the two rows the test holds: the first waiter
+	 * closes A, the other then reads A as DUPLICATE and gets the C-17 400 on duplicateOfLeadId. No cycle.
+	 */
+	@Test
+	void duplicate_oppositeLinksAtOnce_keepOnlyTheFirst() throws Exception {
+		String a = submit();
+		String b = submit();
+		long versionA = version(a);
+		long versionB = version(b);
+
+		Result aToB;
+		Result bToA;
+		try (ExecutorService pool = Executors.newCachedThreadPool()) {
+			Future<Result> first;
+			Future<Result> second;
+			try (Hold hold = new Hold(pool, "select id from owner_leads where id in (?, ?) for no key update", a,
+					b)) {
+				first = pool.submit(() -> closeAsDuplicate(a, b, versionA));
+				awaitWaiters(1);
+				second = pool.submit(() -> closeAsDuplicate(b, a, versionB));
+				awaitWaiters(2);
+			}
+			aToB = first.get(60, TimeUnit.SECONDS);
+			bToA = second.get(60, TimeUnit.SECONDS);
+		}
+
+		assertEquals(200, aToB.status(), aToB.rawBody());
+		assertEquals(400, bToA.status(), bToA.rawBody());
+		assertEquals("VALIDATION_FAILED", bToA.body().path("code").asString(), bToA.rawBody());
+		assertEquals(1, bToA.body().path("errors").size(), bToA.rawBody());
+		assertEquals("duplicateOfLeadId", bToA.body().path("errors").get(0).path("field").asString(),
+				bToA.rawBody());
+		assertEquals(b, duplicateOf(a));
+		assertEquals("NEW", status(b));
+		assertEquals(null, duplicateOf(b));
+		assertEquals(versionB, version(b));
+		assertEquals(0, storedChains(a, b));
+	}
+
 	// ==================== Helpers ====================
 
 	/**
