@@ -6,10 +6,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.acquisition.core.application.command.AddLeadNoteCommand;
 import vn.sunvibe.acquisition.core.application.command.AssignLeadCommand;
+import vn.sunvibe.acquisition.core.application.command.AssignLeadsCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
 import vn.sunvibe.acquisition.core.application.exception.ConcurrentLeadModificationException;
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
+import vn.sunvibe.acquisition.core.application.query.AssignLeadsResult;
 import vn.sunvibe.acquisition.core.application.query.LeadActivityView;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
@@ -110,16 +112,67 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         if (!assigneeDirectory.isEligibleAssignee(command.assigneeUserId())) {
             throw new IneligibleAssigneeException("assigneeUserId");
         }
-        LeadChange change = lead.assignTo(command.assigneeUserId(), command.note()).orElseThrow();
+        writeAssignment(viewer, lead, command.assigneeUserId(), command.note());
+        return summary(viewer, lead, assigneeNames(lead));
+    }
+
+    @Override
+    public AssignLeadsResult assignLeads(LeadViewer viewer, AssignLeadsCommand command) {
+        OwnerLead.checkAssignValues(command.assigneeUserId(), command.note());
+        // acquisition-owner-lead-bulk-assign BR-9: the assignee is checked once for the whole action, before any lead
+        // is read, also when every lead already belongs to them
+        if (!assigneeDirectory.isEligibleAssignee(command.assigneeUserId())) {
+            throw new IneligibleAssigneeException("assigneeUserId");
+        }
+        List<AssignLeadsResult.LeadOutcome> outcomes = new ArrayList<>();
+        for (AssignLeadsCommand.LeadInput item : command.leads()) {
+            outcomes.add(new AssignLeadsResult.LeadOutcome(item.leadId(),
+                    assignOne(viewer, item, command.assigneeUserId(), command.note())));
+        }
+        return new AssignLeadsResult(outcomes);
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-5, BR-7: the outcome of one lead of a bulk assignment, decided on the row
+     * locked by its first load and never by an exception, so a lead that cannot be assigned does not stop the others.
+     * Unlike {@link #assign}, a lead already held by the assignee is ALREADY_ASSIGNED whatever version was sent, and the
+     * version is compared only when the lead is about to be written.
+     */
+    private AssignLeadsResult.Outcome assignOne(LeadViewer viewer, AssignLeadsCommand.LeadInput item,
+                                                String assigneeUserId, String note) {
+        Optional<OwnerLead> found = visibility.findVisibleForUpdate(viewer, item.leadId());
+        if (found.isEmpty()) {
+            return AssignLeadsResult.Outcome.NOT_FOUND;
+        }
+        OwnerLead lead = found.get();
+        if (!lead.getStatus().isOpen()) {
+            return AssignLeadsResult.Outcome.CLOSED;
+        }
+        if (assigneeUserId.equals(lead.getAssignedUserId())) {
+            return AssignLeadsResult.Outcome.ALREADY_ASSIGNED;
+        }
+        if (lead.getVersion() == null || lead.getVersion() != item.expectedVersion()) {
+            return AssignLeadsResult.Outcome.STALE;
+        }
+        writeAssignment(viewer, lead, assigneeUserId, note);
+        return AssignLeadsResult.Outcome.ASSIGNED;
+    }
+
+    /**
+     * The write steps of one assignment, shared by {@link #assign} and {@link #assignLeads} so both write the same rows
+     * (acquisition-owner-lead-bulk-assign BR-4): the lead row first, then, for a reassignment, the scheduled survey
+     * appointment, then the one History entry, which names that appointment.
+     */
+    private void writeAssignment(LeadViewer viewer, OwnerLead lead, String assigneeUserId, String note) {
+        LeadChange change = lead.assignTo(assigneeUserId, note).orElseThrow();
         Instant now = AppClock.currentUTC();
         leads.save(lead);
         // survey-schedule US-2 AC-3: the scheduled appointment follows the lead to its new assignee
         if (change.type() == OwnerLeadActivityType.REASSIGNED) {
-            change = withReference(change, surveys.onReassigned(lead.getId().getValue(), command.assigneeUserId(),
+            change = withReference(change, surveys.onReassigned(lead.getId().getValue(), assigneeUserId,
                     viewer.userId(), now));
         }
         activities.save(activity(viewer, lead, change, now));
-        return summary(viewer, lead, assigneeNames(lead));
     }
 
     @Override

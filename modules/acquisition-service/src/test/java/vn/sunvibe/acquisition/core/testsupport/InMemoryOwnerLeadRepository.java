@@ -29,11 +29,17 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
 
     private final Map<OwnerLeadId, OwnerLead> leads = new LinkedHashMap<>();
     private final List<OwnerLeadId> shareLocks = new ArrayList<>();
+    private final List<OwnerLeadId> updateLocks = new ArrayList<>();
     public int saveCount;
 
     /** The ids of each {@link #findByIdForShare} call, in call order. */
     public List<OwnerLeadId> shareLocks() {
         return new ArrayList<>(shareLocks);
+    }
+
+    /** The ids of each {@link #findByIdForUpdate} call, in call order. */
+    public List<OwnerLeadId> updateLocks() {
+        return new ArrayList<>(updateLocks);
     }
 
     @Override
@@ -74,6 +80,7 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
 
     @Override
     public Optional<OwnerLead> findByIdForUpdate(OwnerLeadId id) {
+        updateLocks.add(id);
         return findById(id);
     }
 
