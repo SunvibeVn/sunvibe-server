@@ -265,7 +265,8 @@ public class OwnerLeadController {
     @Operation(summary = "Change the status of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, "
             + "ADMIN, SUPER_ADMIN)",
             description = "Closing (DUPLICATE, REJECTED, WITHDRAWN) needs a reason; DUPLICATE also needs "
-                    + "duplicateOfLeadId, a lead the caller can see.")
+                    + "duplicateOfLeadId, a lead the caller can see. A lead that another lead names as its original "
+                    + "cannot become DUPLICATE (409 INVALID_STATE_TRANSITION).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "The lead after the change",
                     content = @Content(schema = @Schema(implementation = OwnerLeadSummaryResponse.class))),
@@ -278,9 +279,11 @@ public class OwnerLeadController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "409", description = "INVALID_STATE_TRANSITION (field toStatus, "
-                    + "allowedValues lists the statuses allowed now) or CONCURRENT_MODIFICATION (field "
-                    + "expectedVersion)",
+            @ApiResponse(responseCode = "409", description = "INVALID_STATE_TRANSITION (field toStatus; "
+                    + "allowedValues lists the statuses the lead's status may move to, except that DUPLICATE may be "
+                    + "listed for a lead that other leads name as their original and is still refused: closing such "
+                    + "a lead as DUPLICATE answers this code without DUPLICATE in allowedValues) or "
+                    + "CONCURRENT_MODIFICATION (field expectedVersion)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<OwnerLeadSummaryResponse> changeStatus(@PathVariable("leadId") String leadId,

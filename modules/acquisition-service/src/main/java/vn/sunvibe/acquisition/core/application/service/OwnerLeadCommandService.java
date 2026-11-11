@@ -11,6 +11,7 @@ import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
 import vn.sunvibe.acquisition.core.application.exception.ConcurrentLeadModificationException;
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
+import vn.sunvibe.acquisition.core.application.exception.OwnerLeadNotFoundException;
 import vn.sunvibe.acquisition.core.application.query.AssignLeadsResult;
 import vn.sunvibe.acquisition.core.application.query.LeadActivityView;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
@@ -57,11 +58,16 @@ import java.util.Optional;
  * <p>
  * Assigns leads, changes their status and records notes. Each command checks, in this order
  * (acquisition-owner-lead-queue spec 5.3): the request values (400), that the viewer can see the lead (404, the same
- * answer as an unknown lead), the version the caller saw (409), the lead's status (409), the assignee (422). The
- * lead and its history entry are saved in the same transaction, and every answer carries the version the saved lead
- * now has, and names the lead's assignee; a note answer also names the people of its history entry
- * (acquisition-owner-lead-queue-ui C-18, one lookup per answer). An optimistic locking failure on save is left to
- * the exception handler, except for a note, whose request has no version to name.
+ * answer as an unknown lead), the version the caller saw (409), the lead's status (409), the assignee (422). A
+ * DUPLICATE close checks its target with the request values (400) and, at the status step, that no other lead names
+ * the lead as its original (409; acquisition-owner-lead-queue C-17, SV-003); every other refusal of a status change
+ * lists the statuses of the transition table, so it tells nothing about duplicates. A DUPLICATE close reads both
+ * leads with a row lock before it checks them, the lead {@code FOR NO KEY UPDATE} and the original {@code FOR SHARE},
+ * in ascending id order; every other status change reads the lead without a lock. The lead and its history entry are
+ * saved in the same transaction, and every answer carries the version the saved lead now has, and names the lead's
+ * assignee; a note answer also names the people of its history entry (acquisition-owner-lead-queue-ui C-18, one
+ * lookup per answer). An optimistic locking failure on save is left to the exception handler, except for a note, whose
+ * request has no version to name.
  * <p>
  * A reassignment, a hold or a close of a SURVEY_SCHEDULED lead and a requirement change also move or cancel the
  * lead's scheduled survey appointment through {@link LeadSurveyPort}, in the same transaction and after the lead row
@@ -189,11 +195,20 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
                 ? null : command.duplicateOfLeadId();
         OwnerLead.checkStatusChangeValues(command.toStatus(), command.reason(), duplicateOfText != null,
                 command.note());
-        OwnerLeadId duplicateOf = command.toStatus() == OwnerLeadStatus.DUPLICATE
-                ? duplicateTarget(viewer, command.leadId(), duplicateOfText)
-                : null;
-        OwnerLead lead = visibility.requireVisible(viewer, command.leadId());
-        requireVersion(lead, command.expectedVersion());
+        OwnerLead lead;
+        OwnerLeadId duplicateOf = null;
+        if (command.toStatus() == OwnerLeadStatus.DUPLICATE) {
+            DuplicateClose close = lockDuplicateClose(viewer, command.leadId(), duplicateOfText);
+            lead = close.lead();
+            duplicateOf = close.originalId();
+            requireVersion(lead, command.expectedVersion());
+            // acquisition-owner-lead-queue C-17 on both ends of the link (SV-003): a lead that other leads name as
+            // their original is not closed as a duplicate. Asked only here, so no other refusal depends on it
+            lead.checkMayBecomeDuplicate(leads.hasDuplicates(lead.getId()));
+        } else {
+            lead = visibility.requireVisible(viewer, command.leadId());
+            requireVersion(lead, command.expectedVersion());
+        }
         OwnerLeadStatus from = lead.getStatus();
         LeadChange change = lead.changeStatus(command.toStatus(), command.reason(), duplicateOf, command.note(),
                 command.nextActionAt());
@@ -278,16 +293,39 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
     /**
      * acquisition-owner-lead-queue C-17: a lead can only be closed as a duplicate of another lead the actor can see
      * and that is not a duplicate itself (no chains). Every failure has the same message as an unknown id, so the
-     * answer never tells whether a hidden lead exists. Checked with the request values, before the lead itself.
+     * answer never tells whether a hidden lead exists. Checked before the lead itself: the same id before any read,
+     * the rest on the locked rows. The other end of the link is checked by the caller at the status step (SV-003): a
+     * lead that other leads name as their original is not closed as a duplicate, a refusal that only a DUPLICATE
+     * close can get.
+     * <p>
+     * Both rows are locked before they are checked, each read once: the lead {@code FOR NO KEY UPDATE} and the
+     * original {@code FOR SHARE}, in ascending id order like bulk assignment, so a concurrent close or link of either
+     * lead waits and then sees the committed result (acquisition-owner-lead-queue C-17, SV-003). Closing a lead and
+     * linking to it take conflicting locks on its row; links to one original do not wait on each other. An id that is
+     * not a lead id is neither read nor locked.
      */
-    private OwnerLeadId duplicateTarget(LeadViewer viewer, String leadId, String duplicateOfLeadId) {
-        if (duplicateOfLeadId.equals(leadId)) {
+    private DuplicateClose lockDuplicateClose(LeadViewer viewer, String leadId, String originalId) {
+        if (originalId.equals(leadId)) {
             throw invalidDuplicateOf();
         }
-        return visibility.findVisible(viewer, duplicateOfLeadId)
+        Optional<OwnerLead> lead;
+        Optional<OwnerLead> original;
+        if (leadId.compareTo(originalId) < 0) {
+            lead = visibility.findVisibleForUpdate(viewer, leadId);
+            original = visibility.findVisibleForShare(viewer, originalId);
+        } else {
+            original = visibility.findVisibleForShare(viewer, originalId);
+            lead = visibility.findVisibleForUpdate(viewer, leadId);
+        }
+        OwnerLeadId checkedOriginal = original
                 .filter(target -> target.getStatus() != OwnerLeadStatus.DUPLICATE)
                 .map(OwnerLead::getId)
                 .orElseThrow(OwnerLeadCommandService::invalidDuplicateOf);
+        return new DuplicateClose(lead.orElseThrow(OwnerLeadNotFoundException::new), checkedOriginal);
+    }
+
+    /** The lead of a DUPLICATE close, read with its row lock, and the id of the checked original it will name. */
+    private record DuplicateClose(OwnerLead lead, OwnerLeadId originalId) {
     }
 
     private static InvalidLeadCommandException invalidDuplicateOf() {

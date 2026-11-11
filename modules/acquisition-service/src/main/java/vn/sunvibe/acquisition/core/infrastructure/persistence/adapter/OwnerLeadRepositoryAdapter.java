@@ -78,6 +78,11 @@ public class OwnerLeadRepositoryAdapter implements OwnerLeadDomainRepository {
     }
 
     @Override
+    public boolean hasDuplicates(OwnerLeadId id) {
+        return jpaRepository.existsByDuplicateOfLeadId(id.getValue());
+    }
+
+    @Override
     public List<OwnerLead> findAllById(Collection<OwnerLeadId> ids) {
         if (ids.isEmpty()) {
             return List.of();

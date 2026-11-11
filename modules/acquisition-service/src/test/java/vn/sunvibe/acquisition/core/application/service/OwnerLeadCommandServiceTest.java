@@ -876,6 +876,212 @@ class OwnerLeadCommandServiceTest {
         assertEquals(rejected.getId(), reload(lead).getDuplicateOfLeadId());
     }
 
+    /**
+     * acquisition-owner-lead-queue BR-2, spec 5.3: a DUPLICATE close of a lead the viewer cannot see is the 404 of an
+     * unknown lead, also when the target is one the viewer sees; nothing is written.
+     */
+    @Test
+    void changeStatus_duplicateOfVisibleTargetOnInvisibleLead_isNotFound() {
+        OwnerLead others = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead target = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        assertThrows(OwnerLeadNotFoundException.class,
+                () -> service.changeStatus(OWN_A, closeAsDuplicate(others, target, 0L)));
+
+        assertEquals(OwnerLeadStatus.ASSIGNED, reload(others).getStatus());
+        assertEquals(0L, reload(others).getVersion());
+        assertTrue(activities.all().isEmpty());
+    }
+
+    /** acquisition-owner-lead-queue BR-9: a DUPLICATE close on an outdated version is refused on expectedVersion. */
+    @Test
+    void changeStatus_duplicateWithStaleVersion_isConflict() {
+        OwnerLead target = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        ConcurrentLeadModificationException ex = assertThrows(ConcurrentLeadModificationException.class,
+                () -> service.changeStatus(OWN_A, closeAsDuplicate(lead, target, 5L)));
+
+        assertEquals("expectedVersion", ex.getField());
+        assertEquals(OwnerLeadStatus.ASSIGNED, reload(lead).getStatus());
+        assertEquals(0L, reload(lead).getVersion());
+        assertTrue(activities.all().isEmpty());
+    }
+
+    /**
+     * survey-schedule BR-3: closing a SURVEY_SCHEDULED lead as a duplicate cancels its appointment through the hook,
+     * after the lead row is saved, with the close reason; the History entry names the appointment.
+     */
+    @Test
+    void changeStatus_duplicateFromSurveyScheduled_cancelsThroughTheHookWithTheReason() {
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        surveys.answering(APPOINTMENT, 1);
+
+        service.changeStatus(OWN_A, closeAsDuplicate(lead, original, 0L));
+
+        assertEquals(1, surveys.calls().size());
+        RecordingLeadSurveyPort.Call call = surveys.calls().get(0);
+        assertEquals("LEAD_CLOSED", call.hook());
+        assertEquals(id(lead), call.leadId());
+        assertEquals("Same owner", call.argument());
+        assertEquals(1L, call.storedVersion());
+        OwnerLeadActivity activity = activityOf(lead);
+        assertEquals(APPOINTMENT, activity.getReferenceId());
+        assertEquals(OwnerLeadStatus.DUPLICATE, activity.getToStatus());
+        assertEquals(original.getId(), reload(lead).getDuplicateOfLeadId());
+    }
+
+    /**
+     * acquisition-owner-lead-queue spec 5.3, C-17: a DUPLICATE close of a lead that another lead names as its
+     * original keeps the check order. Each close below has two faults (one of them the stale version 7): a bad
+     * target is answered before the lead, the lead before the version, and the version before the lead's state.
+     */
+    @Test
+    void changeStatus_leadNamedAsOriginal_answersTheTargetTheLeadAndTheVersionFirst() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead ownTarget = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead target = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+
+        InvalidLeadCommandException duplicateTarget = assertThrows(InvalidLeadCommandException.class,
+                () -> service.changeStatus(ALL_LEADER, closeAsDuplicate(original, first, 7L)));
+        assertThrows(OwnerLeadNotFoundException.class,
+                () -> service.changeStatus(OWN_A, closeAsDuplicate(original, ownTarget, 7L)));
+        ConcurrentLeadModificationException stale = assertThrows(ConcurrentLeadModificationException.class,
+                () -> service.changeStatus(ALL_LEADER, closeAsDuplicate(original, target, 7L)));
+
+        assertEquals("duplicateOfLeadId", duplicateTarget.getField());
+        assertEquals("expectedVersion", stale.getField());
+        assertEquals(OwnerLeadStatus.ASSIGNED, reload(original).getStatus());
+        assertEquals(0L, reload(original).getVersion());
+    }
+
+    /**
+     * acquisition-owner-lead-queue C-17, acquisition BR-3: a lead that other leads name as their original still takes
+     * more duplicates and still closes otherwise; closed as REJECTED it is still a valid original, because only a
+     * DUPLICATE target is refused.
+     */
+    @Test
+    void changeStatus_leadNamedAsOriginal_stillTakesDuplicatesAndOtherMoves() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead second = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(second, original, 0L));
+        OwnerLeadSummary rejected = service.changeStatus(ALL_LEADER, new ChangeLeadStatusCommand(id(original),
+                OwnerLeadStatus.REJECTED, 0L, "Not a fit", null, null, null));
+        OwnerLead third = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(third, original, 0L));
+
+        assertEquals(original.getId(), reload(first).getDuplicateOfLeadId());
+        assertEquals(original.getId(), reload(second).getDuplicateOfLeadId());
+        assertEquals(OwnerLeadStatus.REJECTED, rejected.status());
+        assertEquals(OwnerLeadStatus.DUPLICATE, reload(third).getStatus());
+        assertEquals(original.getId(), reload(third).getDuplicateOfLeadId());
+    }
+
+    /** SV-003: only a DUPLICATE close reads rows with a lock; every other status change takes none. */
+    @Test
+    void changeStatus_otherMoves_takeNoRowLock() {
+        OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        service.changeStatus(OWN_A, statusChange(lead, OwnerLeadStatus.CONTACTED, 0L));
+        service.changeStatus(OWN_A, statusChange(lead, OwnerLeadStatus.ON_HOLD, 1L));
+        service.changeStatus(OWN_A, new ChangeLeadStatusCommand(id(lead), OwnerLeadStatus.REJECTED, 2L, "Not a fit",
+                null, null, null));
+
+        assertEquals(OwnerLeadStatus.REJECTED, reload(lead).getStatus());
+        assertEquals(List.of(), leads.lockLog());
+    }
+
+    /**
+     * [DEL-8] SV003-D2, DC-12: a forbidden move of a lead that another lead names as its original lists what the same
+     * move of a lead nobody names lists, DUPLICATE included, so a refusal that changes nothing tells nothing about
+     * duplicates.
+     */
+    @Test
+    void changeStatus_forbiddenMoveOfAnOriginal_listsLikeAnyLead() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead plain = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+
+        InvalidLeadTransitionException onOriginal = assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(OWN_A, statusChange(original, OwnerLeadStatus.NEW, 0L)));
+        InvalidLeadTransitionException onPlain = assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(OWN_A, statusChange(plain, OwnerLeadStatus.NEW, 0L)));
+
+        List<OwnerLeadStatus> openMoves = List.of(OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD,
+                OwnerLeadStatus.DUPLICATE, OwnerLeadStatus.REJECTED, OwnerLeadStatus.WITHDRAWN);
+        assertEquals(OwnerLeadStatus.NEW, onOriginal.getTo());
+        assertEquals(openMoves, onOriginal.getAllowed());
+        assertEquals(OwnerLeadStatus.NEW, onPlain.getTo());
+        assertEquals(openMoves, onPlain.getAllowed());
+        assertEquals(OwnerLeadStatus.ASSIGNED, reload(original).getStatus());
+        assertEquals(0L, reload(original).getVersion());
+        assertNull(reload(original).getDuplicateOfLeadId());
+    }
+
+    /**
+     * acquisition-owner-lead-queue C-17 on both ends of the link, [DEL-8] SV003-D1, D2 (DC-1): a lead that another
+     * lead names as its original is not closed as a duplicate; the refusal lists its other statuses, names no other
+     * lead, and nothing is written.
+     */
+    @Test
+    void changeStatus_leadNamedAsOriginal_isRefusedWithTheOtherStatuses() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead other = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+        int saves = leads.saveCount;
+        int entries = activities.all().size();
+
+        InvalidLeadTransitionException ex = assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(ALL_LEADER, closeAsDuplicate(original, other, 0L)));
+
+        assertEquals(OwnerLeadStatus.ASSIGNED, ex.getFrom());
+        assertEquals(OwnerLeadStatus.DUPLICATE, ex.getTo());
+        assertEquals(List.of(OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD, OwnerLeadStatus.REJECTED,
+                OwnerLeadStatus.WITHDRAWN), ex.getAllowed());
+        assertFalse(ex.getMessage().contains(id(first)));
+        OwnerLead after = reload(original);
+        assertEquals(OwnerLeadStatus.ASSIGNED, after.getStatus());
+        assertNull(after.getDuplicateOfLeadId());
+        assertEquals(0L, after.getVersion());
+        assertEquals(saves, leads.saveCount);
+        assertEquals(entries, activities.all().size());
+    }
+
+    /**
+     * [DEL-8] SV003-D4 (DC-9): a DUPLICATE close reads both leads with a row lock before it checks them, the lead for
+     * update and the original for share, in ascending id order like bulk assignment, each lead once.
+     */
+    @Test
+    void changeStatus_duplicate_locksTheLeadForUpdateAndTheOriginalForShareInIdOrder() {
+        List<OwnerLead> sorted = new ArrayList<>(List.of(stored(OwnerLeadStatus.ASSIGNED, SALE_A),
+                stored(OwnerLeadStatus.ASSIGNED, SALE_A), stored(OwnerLeadStatus.ASSIGNED, SALE_A),
+                stored(OwnerLeadStatus.ASSIGNED, SALE_A)));
+        sorted.sort(Comparator.comparing(OwnerLeadCommandServiceTest::id));
+        OwnerLead low = sorted.get(0);
+        OwnerLead mid1 = sorted.get(1);
+        OwnerLead mid2 = sorted.get(2);
+        OwnerLead high = sorted.get(3);
+
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(low, mid1, 0L));
+
+        assertEquals(List.of("update:" + id(low), "share:" + id(mid1)), leads.lockLog());
+
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(high, mid2, 0L));
+
+        assertEquals(List.of("update:" + id(low), "share:" + id(mid1), "share:" + id(mid2), "update:" + id(high)),
+                leads.lockLog());
+        assertEquals(mid1.getId(), reload(low).getDuplicateOfLeadId());
+        assertEquals(mid2.getId(), reload(high).getDuplicateOfLeadId());
+    }
+
     // ==================== addNote ====================
 
     @Test
@@ -1024,6 +1230,12 @@ class OwnerLeadCommandServiceTest {
 
     private static ChangeLeadStatusCommand statusChange(OwnerLead lead, OwnerLeadStatus to, long expectedVersion) {
         return new ChangeLeadStatusCommand(id(lead), to, expectedVersion, null, null, null, null);
+    }
+
+    /** Close the lead as a duplicate of the original, with the reason "Same owner". */
+    private static ChangeLeadStatusCommand closeAsDuplicate(OwnerLead lead, OwnerLead original, long expectedVersion) {
+        return new ChangeLeadStatusCommand(id(lead), OwnerLeadStatus.DUPLICATE, expectedVersion, "Same owner",
+                id(original), null, null);
     }
 
     /** The lead fake, able to lose the next save to a change made at the same time. */
