@@ -30,6 +30,7 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
     private final Map<OwnerLeadId, OwnerLead> leads = new LinkedHashMap<>();
     private final List<OwnerLeadId> shareLocks = new ArrayList<>();
     private final List<OwnerLeadId> updateLocks = new ArrayList<>();
+    private final List<String> lockLog = new ArrayList<>();
     public int saveCount;
 
     /** The ids of each {@link #findByIdForShare} call, in call order. */
@@ -42,9 +43,18 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
         return new ArrayList<>(updateLocks);
     }
 
+    /**
+     * Every locking read in call order: {@code "share:" + id} for {@link #findByIdForShare}, {@code "update:" + id}
+     * for {@link #findByIdForUpdate}.
+     */
+    public List<String> lockLog() {
+        return new ArrayList<>(lockLog);
+    }
+
     @Override
     public Optional<OwnerLead> findByIdForShare(OwnerLeadId id) {
         shareLocks.add(id);
+        lockLog.add("share:" + id.getValue());
         return findById(id);
     }
 
@@ -81,6 +91,7 @@ public class InMemoryOwnerLeadRepository implements OwnerLeadDomainRepository {
     @Override
     public Optional<OwnerLead> findByIdForUpdate(OwnerLeadId id) {
         updateLocks.add(id);
+        lockLog.add("update:" + id.getValue());
         return findById(id);
     }
 
