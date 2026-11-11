@@ -193,6 +193,50 @@ class MediaProcessingWorkerTest {
         assertEquals(0, expensive());
     }
 
+    /** SV-122: a retry the fence refuses changes no row, says so in the log and does not claim a retry. */
+    @Test
+    void retryRefusedByTheFence_logsItAndNotARetry() {
+        SurveyMedia photo = processing();
+        scanner.next(() -> {
+            h.jobs.stealLease(job(photo).id(), "01JOTHERWORKERLEASE0000001");
+            throw new ScannerSilentException();
+        });
+
+        worker.runOnce();
+
+        MediaJob job = job(photo);
+        assertEquals("01JOTHERWORKERLEASE0000001", job.leaseTokenOrNull(), "the other worker's lease is untouched");
+        assertEquals(1, messages("retry was not applied").size());
+        assertTrue(messages("retries after attempt").isEmpty());
+    }
+
+    /** SV-122: a defer the fence refuses changes no row and says so in the log. */
+    @Test
+    void deferRefusedByTheFence_logsIt() {
+        SurveyMedia photo = processing();
+        h.health.row = scanBlockedHealth();
+        normalizer.beforeDetect = () -> h.jobs.stealLease(job(photo).id(), "01JOTHERWORKERLEASE0000001");
+
+        worker.runOnce();
+
+        assertEquals("01JOTHERWORKERLEASE0000001", job(photo).leaseTokenOrNull());
+        assertEquals(1, messages("defer was not applied").size());
+    }
+
+    /** SV-122 pin: an applied retry is logged as a retry. */
+    @Test
+    void retryApplied_logsTheRetry() {
+        SurveyMedia photo = processing();
+        scanner.next(() -> {
+            throw new ScannerSilentException();
+        });
+
+        worker.runOnce();
+
+        assertEquals(1, messages("retries after attempt").size());
+        assertTrue(messages("retry was not applied").isEmpty());
+    }
+
     @Test
     void backWithinWindow_ready() {
         SurveyMedia photo = processing();
@@ -329,9 +373,7 @@ class MediaProcessingWorkerTest {
     @Test
     void scanBlocked_scansNothing() {
         SurveyMedia photo = processing();
-        IntakeHealth row = h.health.row;
-        h.health.row = new IntakeHealth(row.failureSeq(), row.stateEpoch(), row.lastSweepOkAt(), row.lastProbeOkAt(),
-                now, null, null, now, now, vn.sunvibe.survey.core.domain.model.media.PauseReason.SCANNER);
+        h.health.row = scanBlockedHealth();
 
         worker.runOnce();
 
@@ -388,6 +430,16 @@ class MediaProcessingWorkerTest {
         return h.jobs.findByMedia(photo.getId()).get(0);
     }
 
+    private IntakeHealth scanBlockedHealth() {
+        IntakeHealth row = h.health.row;
+        return new IntakeHealth(row.failureSeq(), row.stateEpoch(), row.lastSweepOkAt(), row.lastProbeOkAt(),
+                now, null, null, now, now, vn.sunvibe.survey.core.domain.model.media.PauseReason.SCANNER);
+    }
+
+    private List<String> messages(String part) {
+        return logs.list.stream().map(ILoggingEvent::getFormattedMessage).filter(line -> line.contains(part)).toList();
+    }
+
     private void later() {
         now = now.plus(Duration.ofMinutes(11));
     }
@@ -424,6 +476,7 @@ class MediaProcessingWorkerTest {
         private final Deque<Supplier<NormalizeResult>> answers = new ArrayDeque<>();
         Optional<SourceFormat> format = Optional.of(SourceFormat.JPEG);
         Runnable beforeAnswer = () -> { };
+        Runnable beforeDetect = () -> { };
         int normalized;
 
         void next(Supplier<NormalizeResult> answer) {
@@ -432,6 +485,7 @@ class MediaProcessingWorkerTest {
 
         @Override
         public Optional<SourceFormat> detect(InputStream source, long length) {
+            beforeDetect.run();
             return format;
         }
 

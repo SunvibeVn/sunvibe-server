@@ -11,6 +11,11 @@ import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 import vn.sunvibe.survey.core.application.shared.external.media.MediaObjectStore.Bucket;
 import vn.sunvibe.survey.core.domain.model.media.HoldReason;
@@ -101,6 +106,29 @@ class MediaContentDeletionJobTest {
         assertEquals("STORE_UNAVAILABLE", retried.lastErrorCodeOrNull());
         assertTrue(retried.dueAt().isAfter(Instant.now()));
         assertNull(h.media.stored(photo.getId()).orElseThrow().getContentDeletedAt());
+    }
+
+    /** SV-122: a retry the fence refuses changes no row and says so in the log. */
+    @Test
+    void retryRefusedByTheFence_logsIt() {
+        SurveyMedia photo = removedReady();
+        put("media/" + photo.getId() + "/1/FULL");
+        h.store.failLists = true;
+        h.store.beforeList = () -> h.jobs.stealLease(deletionJob(photo).id(), "01JOTHERWORKERLEASE0000001");
+        ListAppender<ILoggingEvent> logs = new ListAppender<>();
+        Logger jobLog = (Logger) LoggerFactory.getLogger(MediaContentDeletionJob.class);
+        logs.start();
+        jobLog.addAppender(logs);
+        try {
+            assertTrue(job.runOnce());
+        } finally {
+            jobLog.detachAppender(logs);
+        }
+
+        MediaJob stolen = deletionJob(photo);
+        assertEquals("01JOTHERWORKERLEASE0000001", stolen.leaseTokenOrNull(), "the other worker's lease is untouched");
+        assertEquals(1, logs.list.stream().filter(e -> e.getFormattedMessage().contains("retry was not applied"))
+                .count());
     }
 
     @Test
