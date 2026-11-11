@@ -821,6 +821,83 @@ class OwnerLeadApiPostgresTest {
 		assertTrue(last.path("nextActionAt").isNull());
 	}
 
+	/**
+	 * acquisition-owner-lead-queue BR-2, spec 5.3: a DUPLICATE close of another person's lead, with a target the caller
+	 * sees, gets exactly the answer of an id that does not exist (status and body, but the correlation id).
+	 */
+	@Test
+	void statusChange_duplicateOnAnotherSalesLead_returns404WithTheMissingIdBody() throws Exception {
+		String hidden = submit(SON_TRA);
+		String own = submit(NGU_HANH_SON);
+		String missing = ulidGenerator.generateId();
+		Map<String, Object> close = Map.of("toStatus", "DUPLICATE", "expectedVersion", 0, "reason", "Trùng",
+				"duplicateOfLeadId", own);
+
+		Result onHidden = api.post(sale2, LEADS + "/" + hidden + "/status-changes", close);
+		Result onMissing = api.post(sale2, LEADS + "/" + missing + "/status-changes", close);
+
+		assertEquals(404, onHidden.status(), onHidden.rawBody());
+		assertEquals(404, onMissing.status(), onMissing.rawBody());
+		assertEquals("NOT_FOUND", onHidden.body().path("code").asString());
+		assertEquals(0, onHidden.body().path("errors").size());
+		assertEquals(withoutCorrelationId(onMissing.body()), withoutCorrelationId(onHidden.body()));
+		assertFalse(onHidden.rawBody().contains(hidden), "the hidden id is never echoed");
+		assertEquals("ASSIGNED", status(hidden));
+		assertEquals(0L, version(hidden));
+	}
+
+	/** acquisition-owner-lead-queue BR-9: a DUPLICATE close on an outdated version is refused; nothing changes. */
+	@Test
+	void statusChange_duplicateWithStaleExpectedVersion_returns409ConcurrentModification() throws Exception {
+		String original = submit(SON_TRA);
+		String lead = submit(SON_TRA);
+		long version = version(lead);
+
+		Result result = api.post(sale1, LEADS + "/" + lead + "/status-changes", Map.of("toStatus", "DUPLICATE",
+				"expectedVersion", version + 5, "reason", "Trùng", "duplicateOfLeadId", original));
+
+		assertEquals(409, result.status(), result.rawBody());
+		assertEquals("CONCURRENT_MODIFICATION", result.body().path("code").asString());
+		assertEquals(List.of("expectedVersion"), errorFields(result));
+		assertEquals("ASSIGNED", status(lead));
+		assertEquals(version, version(lead));
+	}
+
+	/**
+	 * [DEL-8] SV003-D2, DC-12: a forbidden move (toStatus NEW) of a lead that another lead names as its original gets
+	 * the body the same move of a lead nobody names gets, DUPLICATE listed in both, so a refusal that changes nothing
+	 * tells nothing about duplicates and never names one.
+	 */
+	@Test
+	void statusChange_forbiddenMoveOfAnOriginal_answersLikeAnyLead() throws Exception {
+		String original = submit(SON_TRA);
+		String plain = submit(SON_TRA);
+		String dup = submit(SON_TRA);
+		Result closed = api.post(saleLeader, LEADS + "/" + dup + "/status-changes", Map.of("toStatus", "DUPLICATE",
+				"expectedVersion", version(dup), "reason", "Trùng", "duplicateOfLeadId", original));
+		assertEquals(200, closed.status(), closed.rawBody());
+		long originalVersion = version(original);
+		long plainVersion = version(plain);
+		int originalActivities = activityCount(original);
+		int plainActivities = activityCount(plain);
+
+		Result onOriginal = api.post(sale1, LEADS + "/" + original + "/status-changes",
+				Map.of("toStatus", "NEW", "expectedVersion", originalVersion));
+		Result onPlain = api.post(sale1, LEADS + "/" + plain + "/status-changes",
+				Map.of("toStatus", "NEW", "expectedVersion", plainVersion));
+
+		assertTransitionError(onOriginal, "toStatus", OPEN_MOVES_OF_ASSIGNED);
+		assertTransitionError(onPlain, "toStatus", OPEN_MOVES_OF_ASSIGNED);
+		assertEquals(withoutCorrelationId(onPlain.body()), withoutCorrelationId(onOriginal.body()));
+		assertFalse(onOriginal.rawBody().contains(dup), "the duplicate is never named");
+		assertEquals("ASSIGNED", status(original));
+		assertEquals(originalVersion, version(original));
+		assertEquals(originalActivities, activityCount(original));
+		assertEquals("ASSIGNED", status(plain));
+		assertEquals(plainVersion, version(plain));
+		assertEquals(plainActivities, activityCount(plain));
+	}
+
 	// ==================== Q9-9: notes ====================
 
 	/** Q9-9: a note alone adds a NOTE_ADDED entry and leaves the lead row, and its version, as they were. */
