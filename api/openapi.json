@@ -14315,9 +14315,10 @@
         "properties" : {
           "reasons" : {
             "type" : "array",
+            "description" : "PROPERTY_STOP: a whole-asset stop of brokerage-agreement BR-3 from another lead or from the property; UNIT_STOP: a stop of this unit from another lead. Neither names the lead.",
             "items" : {
               "type" : "string",
-              "enum" : [ "RESTRICTED", "AVAILABILITY_DIFFERS" ]
+              "enum" : [ "RESTRICTED", "AVAILABILITY_DIFFERS", "PROPERTY_STOP", "UNIT_STOP" ]
             }
           },
           "unitCode" : {

@@ -45,8 +45,12 @@ public record IntakeSource(String revisionId, Instant decidedAt, String performe
         }
     }
 
-    /** A revision a manager withdrew from use, with the kind of its mark. */
-    public record MarkedRevision(String revisionId, String kind) {
+    /**
+     * A revision a manager withdrew from use, with the kind of its mark and the time the manager marked it.
+     *
+     * @param markedAt the time of the mark, never null for a marked revision (SV-215)
+     */
+    public record MarkedRevision(String revisionId, String kind, Instant markedAt) {
     }
 
     @Override

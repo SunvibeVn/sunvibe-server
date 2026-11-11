@@ -10,6 +10,7 @@ import vn.sunvibe.property.core.application.shared.external.lead.IntakeLeadPort;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeBlockView;
 import vn.sunvibe.property.core.application.usecase.intake.InventoryIntakeReadinessUseCase;
 
+import java.time.Instant;
 import java.util.List;
 
 /** Use Case Implementation - readiness (property-create intake spec 4.11). Nothing here is stored, so a change shows at once. */
@@ -28,6 +29,7 @@ public class InventoryIntakeReadinessService implements InventoryIntakeReadiness
         if (lead == null) {
             throw new IntakeRefusedException(IntakeError.NOT_FOUND);
         }
-        return readiness.view(evaluator.read(lead, IntakeCommandSupport.now()));
+        Instant now = IntakeCommandSupport.now();
+        return readiness.view(evaluator.read(lead, now), now);
     }
 }

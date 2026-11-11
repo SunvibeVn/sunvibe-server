@@ -131,6 +131,13 @@ public class InventoryReadRepositoryAdapter implements InventoryReadRepository {
     }
 
     @Override
+    public List<String> currentOwnerIds(String propertyId, LocalDate today) {
+        return jdbc.queryForList("select distinct user_id from property_ownerships where property_id = ?"
+                        + " and relation_type = 'OWNER' and valid_from <= ? and (valid_to is null or valid_to >= ?) order by user_id",
+                String.class, propertyId, Date.valueOf(today), Date.valueOf(today));
+    }
+
+    @Override
     public long nextIntakeCodeNumber() {
         return jdbc.queryForObject("select nextval('property_intake_code_seq')", Long.class);
     }
