@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -11,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,8 +26,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
@@ -39,8 +44,10 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
  * on the same version both pass the version check, then race on the row version of the update; the loser is a 409
  * {@code CONCURRENT_MODIFICATION}, never a 500, and leaves neither the lead nor a history entry behind. Two
  * assignments of a new ward race on the primary key, which the native upsert absorbs. Each case starts both HTTP calls
- * at one gate, 5 rounds with fresh leads (or a ward emptied again). Real logins; the ward Bà Nà has nobody, Hòa Vang
- * is used by no other test class. Every lead, territory and user made here is removed afterwards. Needs Docker.
+ * at one gate, 5 rounds with fresh leads (or a ward emptied again). The DUPLICATE closes (SV-003) force their order
+ * instead: the test holds a row lock and sees each command wait on it in pg_stat_activity before it starts the next,
+ * and the lock queue then runs them in that order. Real logins; the ward Bà Nà has nobody, Hòa Vang is used by no other
+ * test class. Every lead, territory and user made here is removed afterwards. Needs Docker.
  */
 @SpringBootTest(
 		webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
@@ -76,6 +83,9 @@ class OwnerLeadConcurrencyPostgresTest {
 
 	@Autowired
 	private JdbcTemplate jdbc;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
 
 	private AcquisitionApiTestSupport api;
 	private ExecutorService executor;
@@ -252,7 +262,105 @@ class OwnerLeadConcurrencyPostgresTest {
 		}
 	}
 
+	/**
+	 * acquisition-owner-lead-queue BR-9, SV-003 DC-8: two DUPLICATE closes of one lead on the same version, forced to
+	 * wait in this order on a row lock the test holds: the first waiter closes the lead, the second is a 409
+	 * CONCURRENT_MODIFICATION on expectedVersion (never a 500), and the lead names the first original.
+	 */
+	@Test
+	void statusChange_twoDuplicateClosesWaitingOnOneLead_oneOkOneConflict() throws Exception {
+		String lead = submit();
+		String first = submit();
+		String second = submit();
+		long version = version(lead);
+
+		List<Result> results = new ArrayList<>();
+		try (ExecutorService pool = Executors.newCachedThreadPool()) {
+			Future<Result> toFirst;
+			Future<Result> toSecond;
+			try (Hold hold = new Hold(pool, "select id from owner_leads where id = ? for no key update", lead)) {
+				toFirst = pool.submit(() -> closeAsDuplicate(lead, first, version));
+				awaitWaiters(1);
+				toSecond = pool.submit(() -> closeAsDuplicate(lead, second, version));
+				awaitWaiters(2);
+			}
+			results.add(toFirst.get(60, TimeUnit.SECONDS));
+			results.add(toSecond.get(60, TimeUnit.SECONDS));
+		}
+
+		String context = statuses(results).toString();
+		assertEquals(0, assertOneOkOneConflict(results, context), context);
+		assertEquals("DUPLICATE", status(lead));
+		assertEquals(first, duplicateOf(lead));
+		assertEquals(version + 1, version(lead));
+		assertEquals(1, count("select count(*) from owner_lead_activities where lead_id = ? "
+				+ "and type = 'STATUS_CHANGED'", lead));
+	}
+
 	// ==================== Helpers ====================
+
+	/**
+	 * A row lock a test transaction takes on the pool and holds until it is closed (the Hold of
+	 * IntakeConcurrencyPostgresTest, on the executor the test passes in).
+	 */
+	private final class Hold implements AutoCloseable {
+
+		private final CountDownLatch held = new CountDownLatch(1);
+		private final CountDownLatch release = new CountDownLatch(1);
+		private final Future<?> owner;
+
+		Hold(ExecutorService pool, String sql, Object... arguments) throws Exception {
+			owner = pool.submit(() -> new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+				jdbc.query(sql, (RowCallbackHandler) row -> { }, arguments);
+				held.countDown();
+				try {
+					release.await(120, TimeUnit.SECONDS);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+			}));
+			assertTrue(held.await(30, TimeUnit.SECONDS), "the test never took its lock");
+		}
+
+		@Override
+		public void close() throws Exception {
+			release.countDown();
+			owner.get(30, TimeUnit.SECONDS);
+		}
+	}
+
+	/**
+	 * Waits until at least this many sessions of this test's database wait on a lock (pg_stat_activity), polling every
+	 * 20 ms for at most 30 s; the wait proves the order, no sleep decides it.
+	 */
+	private void awaitWaiters(int count) throws InterruptedException {
+		long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+		while (System.nanoTime() < deadline) {
+			if (count("select count(*) from pg_stat_activity where wait_event_type = 'Lock' "
+					+ "and datname = current_database()") >= count) {
+				return;
+			}
+			Thread.sleep(20);
+		}
+		throw new AssertionError(count + " commands never waited on a lock");
+	}
+
+	/** The leader closes the lead as a duplicate of the original on the version given. */
+	private Result closeAsDuplicate(String leadId, String originalId, long expectedVersion) throws Exception {
+		return api.post(saleLeader, LEADS + "/" + leadId + "/status-changes", Map.of("toStatus", "DUPLICATE",
+				"expectedVersion", expectedVersion, "reason", "Trùng", "duplicateOfLeadId", originalId));
+	}
+
+	private String duplicateOf(String leadId) {
+		return jdbc.queryForObject("select duplicate_of_lead_id from owner_leads where id = ?", String.class, leadId);
+	}
+
+	/** How many of these leads name, as their original, a lead that is itself DUPLICATE: the links of a chain. */
+	private int storedChains(String... leadIds) {
+		String placeholders = String.join(", ", Collections.nCopies(leadIds.length, "?"));
+		return count("select count(*) from owner_leads d join owner_leads o on o.id = d.duplicate_of_lead_id "
+				+ "where o.status = 'DUPLICATE' and d.id in (" + placeholders + ")", (Object[]) leadIds);
+	}
 
 	@FunctionalInterface
 	private interface Call {
