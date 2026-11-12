@@ -181,6 +181,33 @@ class InventoryIntakeLifecycleTest {
         assertFalse(SELECTION.getFirst().toString().contains("Floor"));
     }
 
+    /** property-create SV-202: the same space ids in any order are the scope a proof binds (intake spec I-3). */
+    @Test
+    void sameScope_sameSpacesInAnyOrder_true() {
+        InventoryIntake intake = InventoryIntake.create("01INTAKE", 1, "01LEAD", 1, new IntakeSourceRef("01CHECKLIST",
+                "a".repeat(64), RentalLayout.PARTS, AssetType.WHOLE_BUILDING, "20242", "1 bach dang", 16.07, 108.22),
+                List.of(new SelectedSpace("01S1", "P101", "Floor 1"), new SelectedSpace("01S2", "P102", "Floor 2")), NOW);
+
+        assertTrue(intake.sameScope(List.of(new SelectedSpace("01S1", "P101", "Floor 1"),
+                new SelectedSpace("01S2", "P102", "Floor 2"))));
+        assertTrue(intake.sameScope(List.of(new SelectedSpace("01S2", "X2", "Somewhere"),
+                new SelectedSpace("01S1", "X1", "Elsewhere"))));
+    }
+
+    /** property-create SV-202: one space less, one more, or another one instead is another scope. */
+    @Test
+    void sameScope_otherSpaces_false() {
+        InventoryIntake intake = InventoryIntake.create("01INTAKE", 1, "01LEAD", 1, new IntakeSourceRef("01CHECKLIST",
+                "a".repeat(64), RentalLayout.PARTS, AssetType.WHOLE_BUILDING, "20242", "1 bach dang", 16.07, 108.22),
+                List.of(new SelectedSpace("01S1", "P101", "Floor 1"), new SelectedSpace("01S2", "P102", "Floor 2")), NOW);
+
+        assertFalse(intake.sameScope(List.of(new SelectedSpace("01S1", "P101", "Floor 1"))));
+        assertFalse(intake.sameScope(List.of(new SelectedSpace("01S1", "P101", "Floor 1"),
+                new SelectedSpace("01S2", "P102", "Floor 2"), new SelectedSpace("01S3", "P103", "Floor 3"))));
+        assertFalse(intake.sameScope(List.of(new SelectedSpace("01S1", "P101", "Floor 1"),
+                new SelectedSpace("01S3", "P103", "Floor 3"))));
+    }
+
     private static InventoryIntake draft() {
         return InventoryIntake.create("01INTAKE", 1, "01LEAD", 1, new IntakeSourceRef("01CHECKLIST", "a".repeat(64),
                 RentalLayout.PARTS, AssetType.WHOLE_BUILDING, "20242", "1 bach dang", 16.07, 108.22), SELECTION, NOW);

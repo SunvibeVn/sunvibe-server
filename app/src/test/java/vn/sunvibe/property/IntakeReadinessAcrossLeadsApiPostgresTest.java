@@ -276,7 +276,7 @@ class IntakeReadinessAcrossLeadsApiPostgresTest extends IntakeApiTestBase {
 		TestUser owner = owner();
 		String propertyId = createdHouse(first, owner).path("propertyId").asString();
 		Passed rival = house(street);
-		checked(rival, owner);
+		Issued rivalIssued = checked(rival, owner);
 		SurveyApiTestSupport.ok(createTarget(rival.leadId(), null));
 		assertEquals("CASE_OPEN", blockOk(sale, rival.leadId()).path("status").asString());
 		String caseId = jdbc.queryForObject("select id from inventory_duplicate_cases where candidate_property_id = ?"
@@ -285,7 +285,8 @@ class IntakeReadinessAcrossLeadsApiPostgresTest extends IntakeApiTestBase {
 		assertFalse(blockOk(sale, rival.leadId()).path("forcedPropertyCode").isNull());
 		assertAllUsable(first.leadId());
 
-		selected(rival.leadId(), rival.spaceIds());
+		Result withdrawal = withdraw(owner, rivalIssued.requestId(), passwordOf(owner));
+		assertEquals(204, withdrawal.status(), withdrawal.rawBody());
 		reproved(rival.leadId(), owner());
 
 		assertEquals("WAITING", blockOk(sale, rival.leadId()).path("caseState").asString());
