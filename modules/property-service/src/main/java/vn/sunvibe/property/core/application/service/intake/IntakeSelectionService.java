@@ -26,8 +26,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Use Case Implementation - the selection (property-create intake spec 4.5, S-2): the first one creates the row, a later one
- * goes back to DRAFT and voids the request, the proof, the undecided cases, the target and the availability.
+ * Use Case Implementation - the selection (property-create intake spec 4.5, S-2): the first one creates the row, a different
+ * one goes back to DRAFT and voids the request, the proof, the undecided cases, the target and the availability. Saving the
+ * same parts again (any order) changes nothing and writes no trail row, after the same checks and the settle step
+ * (property-create SV-202).
  */
 @Service
 @RequiredArgsConstructor
@@ -57,6 +59,10 @@ public class IntakeSelectionService implements IntakeSelectionUseCase {
         List<SelectedSpace> selection = selection(source, spaceIds);
 
         InventoryIntake row = support.settle(state, now);
+        if (row != null && row.sameScope(selection)) {
+            // property-create SV-202: the same parts again change nothing; the checks and the settle above ran as for any command
+            return assembler.block(evaluator.read(lead, now), actor, now);
+        }
         InventoryIntake saved = row == null ? create(lead, source, selection, now) : change(row, selection, now);
         support.event(saved.getId(), actor, IntakeEventAction.SELECTION, now);
         return assembler.block(evaluator.read(lead, now), actor, now);
