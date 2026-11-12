@@ -254,7 +254,11 @@ class IntakeReadinessUnchangedApiPostgresTest extends IntakeApiTestBase {
 		assertState(lead.leadId(), "USABLE");
 	}
 
-	/** The correction sequence (spec SR-4 last clause, SV215-D3 (c), U-28): a proof that died before the decision shows nothing. */
+	/**
+	 * The correction sequence (spec SR-4 last clause, SV215-D3 (c), U-28): a proof that died before the decision shows nothing.
+	 * The other account's proof was withdrawn before the decision (the correction sequence of SV215-D3 (c) on a WHOLE intake
+	 * since property-create SV-202).
+	 */
 	@Test
 	void sameAssetAfterAnotherAccountsProofWasReplaced_unitsStayUsable() throws Exception {
 		String street = unique("Corrected Owner");
@@ -265,15 +269,17 @@ class IntakeReadinessUnchangedApiPostgresTest extends IntakeApiTestBase {
 		String unit = result.path("units").path(0).path("unitId").asString();
 		Passed rival = house(street);
 		TestUser other = owner();
-		checked(rival, other);
+		Issued replaced = checked(rival, other);
 		SurveyApiTestSupport.ok(createTarget(rival.leadId(), null));
 		assertEquals("CASE_OPEN", blockOk(sale, rival.leadId()).path("status").asString());
 
-		assertEquals("DRAFT", selected(rival.leadId(), rival.spaceIds()).path("status").asString());
-		Map<String, Object> voided = jdbc.queryForMap("select owner_check, voided_at from inventory_owner_proofs"
+		Result withdrawal = withdraw(other, replaced.requestId(), passwordOf(other));
+		assertEquals(204, withdrawal.status(), withdrawal.rawBody());
+		assertEquals("DRAFT", blockOk(sale, rival.leadId()).path("status").asString());
+		Map<String, Object> withdrawn = jdbc.queryForMap("select owner_check, withdrawn_at from inventory_owner_proofs"
 				+ " where lead_id = ? and user_id = ?", rival.leadId(), other.userId());
-		assertEquals("DONE", voided.get("owner_check"));
-		assertNotNull(voided.get("voided_at"));
+		assertEquals("DONE", withdrawn.get("owner_check"));
+		assertNotNull(withdrawn.get("withdrawn_at"));
 		Issued again = issued(rival.leadId(), address(owner));
 		confirmed(owner, again);
 		assertEquals(204, enter(owner, again.requestId(), started(manager, rival.leadId())).status());
@@ -287,10 +293,10 @@ class IntakeReadinessUnchangedApiPostgresTest extends IntakeApiTestBase {
 		JsonNode block = blockOk(sale, rival.leadId());
 		assertEquals(propertyCode(propertyId), block.path("forcedPropertyCode").asString());
 		assertEquals("DECIDED", block.path("caseState").asString());
-		Instant voidedAt = ((Timestamp) voided.get("voided_at")).toInstant();
+		Instant withdrawnAt = ((Timestamp) withdrawn.get("withdrawn_at")).toInstant();
 		Instant decidedAt = jdbc.queryForObject("select decided_at from inventory_duplicate_cases where id = ?",
 				Timestamp.class, caseId).toInstant();
-		assertTrue(voidedAt.isBefore(decidedAt), voidedAt + " " + decidedAt);
+		assertTrue(withdrawnAt.isBefore(decidedAt), withdrawnAt + " " + decidedAt);
 		assertAllUsable(first.leadId());
 		assertState(first.leadId(), "USABLE");
 
