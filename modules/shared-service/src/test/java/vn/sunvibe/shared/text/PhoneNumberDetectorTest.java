@@ -50,4 +50,20 @@ class PhoneNumberDetectorTest {
     void containsVietnamesePhoneNumber_longerDigitRun_isNotAPhone() {
         assertFalse(PhoneNumberDetector.containsVietnamesePhoneNumber("mã 1090512345678"));
     }
+
+    /**
+     * Pin rows P-1 to P-10 of the SV-212 vector table (survey-schedule phone detector spec 2026-11-15, section 5):
+     * amounts, space codes, times and dates that are not numbers, and the numbers that are, keep their answer.
+     */
+    @Test
+    void containsVietnamesePhoneNumber_amountsCodesAndTimes_keepTodaysAnswer() {
+        for (String text : new String[]{"giá 15.000.000 đồng", "1.250.000", "T3-01.05", "từ 08:30 đến 17:00",
+                "06.11.2026-07.11.2026", "2026-11-06 09:00"}) {
+            assertFalse(PhoneNumberDetector.containsVietnamesePhoneNumber(text), text);
+        }
+        for (String text : new String[]{"84.000.000.000", "Owner mobile 0905 123 456",
+                "Call the owner on 0901 234 567", "0901234567"}) {
+            assertTrue(PhoneNumberDetector.containsVietnamesePhoneNumber(text), text);
+        }
+    }
 }
