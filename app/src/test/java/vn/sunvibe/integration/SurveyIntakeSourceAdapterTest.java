@@ -19,6 +19,7 @@ class SurveyIntakeSourceAdapterTest {
 
 	private static final Instant DECIDED = Instant.parse("2026-11-05T03:00:00Z");
 	private static final LocalDate DAY = LocalDate.of(2026, 11, 4);
+	private static final Instant MARKED = Instant.parse("2026-11-05T04:00:00Z");
 
 	private final IntakeSourceView.Space space = new IntakeSourceView.Space("01SPACE", "P101", "Floor 1", "ENTERED_ALL",
 			DAY, new BigDecimal("25.5"), 1, 2, "VACANT", List.of("BALCONY"),
@@ -27,7 +28,7 @@ class SurveyIntakeSourceAdapterTest {
 			"WHOLE_BUILDING", "12 Bạch Đằng", "48", "Đà Nẵng", "20242", "Hải Châu", new BigDecimal("16.0678"),
 			new BigDecimal("108.2208"), DAY, List.of(space),
 			List.of(new IntakeSourceView.Term("monthlyRent", "P101", 5_000_000L, "VND", "MONTH", "text", "OWNER_STATED", DAY)),
-			false, "EVIDENCE_HELD", List.of(new IntakeSourceView.MarkedRevision("01OLD", "WRONG_SCOPE")));
+			false, "EVIDENCE_HELD", List.of(new IntakeSourceView.MarkedRevision("01OLD", "WRONG_SCOPE", MARKED)));
 
 	private final SurveyIntakeSourceAdapter adapter = new SurveyIntakeSourceAdapter(new SurveyIntakeSourceUseCase() {
 		@Override
@@ -62,7 +63,7 @@ class SurveyIntakeSourceAdapterTest {
 		assertEquals(DAY, source.sourceDate());
 		assertEquals(false, source.usable());
 		assertEquals("EVIDENCE_HELD", source.reasonOrNull());
-		assertEquals(List.of(new IntakeSource.MarkedRevision("01OLD", "WRONG_SCOPE")), source.markedRevisions());
+		assertEquals(List.of(new IntakeSource.MarkedRevision("01OLD", "WRONG_SCOPE", MARKED)), source.markedRevisions());
 		IntakeSource.Space mapped = source.spaces().getFirst();
 		assertEquals(new IntakeSource.Space("01SPACE", "P101", "Floor 1", "ENTERED_ALL", DAY, new BigDecimal("25.5"), 1, 2,
 				"VACANT", List.of("BALCONY"), List.of(new IntakeSource.FieldSource("area", "MEASURED", DAY))), mapped);
@@ -77,6 +78,6 @@ class SurveyIntakeSourceAdapterTest {
 
 	@Test
 	void adapter_markedRevisions_mapped() {
-		assertEquals(List.of(new IntakeSource.MarkedRevision("01OLD", "WRONG_SCOPE")), adapter.markedRevisions("01LEAD"));
+		assertEquals(List.of(new IntakeSource.MarkedRevision("01OLD", "WRONG_SCOPE", MARKED)), adapter.markedRevisions("01LEAD"));
 	}
 }

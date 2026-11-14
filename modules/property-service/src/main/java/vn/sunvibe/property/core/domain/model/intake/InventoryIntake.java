@@ -220,6 +220,14 @@ public final class InventoryIntake {
         return ScopeHash.of(selection.stream().map(SelectedSpace::spaceId).toList());
     }
 
+    /**
+     * Whether a candidate names the same spaces as the stored selection, in any order: the scope a proof binds
+     * (property-create intake spec I-3), so saving it again changes nothing (property-create SV-202).
+     */
+    public boolean sameScope(List<SelectedSpace> candidate) {
+        return scopeHash().equals(ScopeHash.of(candidate.stream().map(SelectedSpace::spaceId).toList()));
+    }
+
     public String getId() {
         return id;
     }

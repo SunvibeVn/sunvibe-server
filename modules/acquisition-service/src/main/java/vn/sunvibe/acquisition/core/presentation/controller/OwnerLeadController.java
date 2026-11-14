@@ -38,8 +38,10 @@ import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadRequestConver
 import vn.sunvibe.acquisition.core.presentation.converter.OwnerLeadResponseConverter;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AddLeadNoteRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadsRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadIntentRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadStatusRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.response.AssignLeadsResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadNoteResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.LeadPageResponse;
 import vn.sunvibe.acquisition.core.presentation.dto.response.OwnerLeadDetailResponse;
@@ -215,6 +217,46 @@ public class OwnerLeadController {
     }
 
     /**
+     * POST /api/v1/staff/owner-leads/assignments
+     * <p>
+     * Give several leads to one SALE or SALE_LEADER in one action, one outcome per lead
+     * (acquisition-owner-lead-bulk-assign spec 4.1). A lead that is unknown or hidden is an outcome, not a 404.
+     */
+    @PostMapping("/assignments")
+    @Operation(summary = "Assign several owner leads to one person (SALE_LEADER, SALES_MANAGER, ADMIN, SUPER_ADMIN)",
+            description = "Each lead is assigned like POST .../{leadId}/assign, independently of the others; results "
+                    + "come back in request order. The assignee is checked once for the whole request. Writes no "
+                    + "access-log row.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "One outcome per lead of the request, in request order",
+                    content = @Content(schema = @Schema(implementation = AssignLeadsResponse.class))),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED on assigneeUserId, note, leads (missing, "
+                    + "empty, more than 20, a lead twice, not an array) or an item (leads[<i>], leads[<i>].leadId, "
+                    + "leads[<i>].expectedVersion; a value of the wrong JSON type on leads.<i>.leadId or "
+                    + "leads.<i>.expectedVersion); MALFORMED_REQUEST. No lead changed",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Caller is not SALE_LEADER, SALES_MANAGER or ADMIN",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "CONCURRENT_MODIFICATION: the database refused the "
+                    + "transaction; no lead changed. Clients read only the code",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "422", description = "INELIGIBLE_ASSIGNEE (field assigneeUserId): unknown "
+                    + "user, deleted, cannot sign in, or neither SALE nor SALE_LEADER; checked once, also when every "
+                    + "lead is already theirs. No lead changed",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR: no lead changed",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    // acquisition-owner-lead-bulk-assign BR-1: the roles that assign one lead, checked on every call
+    @PreAuthorize("hasAnyRole('SALE_LEADER','SALES_MANAGER','ADMIN')")
+    public ResponseEntity<AssignLeadsResponse> assignLeads(@Valid @RequestBody AssignLeadsRequest request) {
+        return ResponseEntity.ok(responseConverter.toAssignLeads(
+                commandUseCase.assignLeads(viewer(), requestConverter.toCommand(request))));
+    }
+
+    /**
      * POST /api/v1/staff/owner-leads/{leadId}/status-changes
      * <p>
      * Move the lead along the pipeline (acquisition module brief BR-3).
@@ -223,7 +265,8 @@ public class OwnerLeadController {
     @Operation(summary = "Change the status of an owner lead (SALE: own leads only; SALE_LEADER, SALES_MANAGER, "
             + "ADMIN, SUPER_ADMIN)",
             description = "Closing (DUPLICATE, REJECTED, WITHDRAWN) needs a reason; DUPLICATE also needs "
-                    + "duplicateOfLeadId, a lead the caller can see.")
+                    + "duplicateOfLeadId, a lead the caller can see. A lead that another lead names as its original "
+                    + "cannot become DUPLICATE (409 INVALID_STATE_TRANSITION).")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "The lead after the change",
                     content = @Content(schema = @Schema(implementation = OwnerLeadSummaryResponse.class))),
@@ -236,9 +279,11 @@ public class OwnerLeadController {
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "404", description = "NOT_FOUND: no such lead, or the caller may not see it",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "409", description = "INVALID_STATE_TRANSITION (field toStatus, "
-                    + "allowedValues lists the statuses allowed now) or CONCURRENT_MODIFICATION (field "
-                    + "expectedVersion)",
+            @ApiResponse(responseCode = "409", description = "INVALID_STATE_TRANSITION (field toStatus; "
+                    + "allowedValues lists the statuses the lead's status may move to, except that DUPLICATE may be "
+                    + "listed for a lead that other leads name as their original and is still refused: closing such "
+                    + "a lead as DUPLICATE answers this code without DUPLICATE in allowedValues) or "
+                    + "CONCURRENT_MODIFICATION (field expectedVersion)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<OwnerLeadSummaryResponse> changeStatus(@PathVariable("leadId") String leadId,

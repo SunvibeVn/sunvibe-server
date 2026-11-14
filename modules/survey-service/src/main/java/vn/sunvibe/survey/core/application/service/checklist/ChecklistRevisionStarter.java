@@ -32,6 +32,7 @@ import vn.sunvibe.survey.core.domain.model.media.MediaSelection;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
 import vn.sunvibe.survey.core.domain.policy.checklist.ChecklistDateRules;
 import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
+import vn.sunvibe.survey.core.domain.policy.media.RevisionSelection;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistGroupDomainRepository;
 import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistTakeoverDomainRepository;
@@ -91,7 +92,9 @@ public class ChecklistRevisionStarter {
      * Start revision check order (survey-checklist submission spec 5.5): body (400) → visible (404, event) → assignee (403, event) → state (409
      * CHECKLIST_NOT_ALLOWED on status) → a later revision (409 CHECKLIST_ALREADY_STARTED) → eligible (422) → intake
      * needed or absent (400). Locks (survey-checklist submission spec 5.4): lead and previous revision FOR SHARE, the new rows, then the origin sets
-     * and photos. Groups keep content and per-unit metadata, so a copied value keeps who entered it (S-12).
+     * and photos. Groups keep content and per-unit metadata, so a copied value keeps who entered it (S-12). The photos a
+     * decision on a revision of this visit marked not accepted stay behind (survey-checklist SV-211): they are locked
+     * with the others, then left out of the carry.
      */
     ChecklistRevisionResult startRevision(SurveyViewer viewer, StartRevisionCommand command) {
         List<Violation> violations = new ArrayList<>();
@@ -144,8 +147,10 @@ public class ChecklistRevisionStarter {
         }
         String nextId = next.getId().getValue();
         mediaSets.insertIgnoringExisting(nextId, now);
-        List<MediaSelection> carried = steps.lockSelectedPhotos(previous.getId().getValue()).stream()
-                .filter(SurveyMedia::isServable)
+        List<SurveyMedia> selectedInPrevious = steps.lockSelectedPhotos(previous.getId().getValue());
+        List<SurveyMedia> toCarry = RevisionSelection.photosToCarry(selectedInPrevious,
+                record.rejectedOnVisit(previous.getVisitAppointmentId()));
+        List<MediaSelection> carried = toCarry.stream()
                 .map(photo -> MediaSelection.carried(nextId, photo.getId(), photo.getChecklistId(), now)).toList();
         if (!carried.isEmpty()) {
             selections.insertAll(carried);

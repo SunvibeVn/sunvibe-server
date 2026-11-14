@@ -206,6 +206,14 @@ public class IntakeEvaluator {
         return suspensions.stream().anyMatch(item -> item.isActive() && item.onWholeLead());
     }
 
+    /**
+     * D5-12, property-create BR-20: a WRONG_ASSET or WRONG_OWNER mark needs reconciliation. A missing or unknown kind does
+     * not, and reads without a throw (SV-215).
+     */
+    public static boolean reconciliationKind(String kindOrNull) {
+        return kindOrNull != null && RECONCILIATION_KINDS.contains(kindOrNull);
+    }
+
     public static AssetType assetType(IntakeSource source) {
         return source.assetTypeOrNull() == null ? null : AssetType.valueOf(source.assetTypeOrNull());
     }
@@ -224,7 +232,7 @@ public class IntakeEvaluator {
             return false;
         }
         boolean wrongSource = marks.stream().anyMatch(mark -> mark.revisionId().equals(latestCompleted.getSourceChecklistId())
-                && RECONCILIATION_KINDS.contains(mark.kind()));
+                && reconciliationKind(mark.kind()));
         if (wrongSource) {
             return true;
         }

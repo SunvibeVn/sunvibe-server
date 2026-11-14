@@ -21,6 +21,8 @@ public final class InMemoryMediaStore implements MediaObjectStore {
     public boolean failPuts;
     /** Listings fail like a store that does not answer. */
     public boolean failLists;
+    /** Runs at the start of every listing, so a test can act while a job is between its claim and its answer. */
+    public Runnable beforeList = () -> { };
     /** Probes fail like a store that does not answer (spec A-18). */
     public volatile boolean failProbe;
     /** The buckets probed, in order. */
@@ -79,6 +81,7 @@ public final class InMemoryMediaStore implements MediaObjectStore {
 
     @Override
     public ObjectPage list(Bucket bucket, String prefix, String startAfterOrNull, int maxKeys) {
+        beforeList.run();
         if (failLists) {
             throw new StoreUnavailableException("STORE_5XX");
         }

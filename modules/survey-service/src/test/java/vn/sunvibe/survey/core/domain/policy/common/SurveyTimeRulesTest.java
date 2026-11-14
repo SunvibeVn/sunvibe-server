@@ -28,6 +28,17 @@ class SurveyTimeRulesTest {
     }
 
     @Test
+    void requireQueryRange_from1970ToTheEndOf9999() {
+        assertDoesNotThrow(() -> SurveyTimeRules.requireQueryRange("startAt", Instant.EPOCH));
+        assertDoesNotThrow(() -> SurveyTimeRules.requireQueryRange("startAt", CURRENT_MINUTE));
+        assertDoesNotThrow(() -> SurveyTimeRules.requireQueryRange("startAt", Instant.parse("9999-12-31T23:59:00Z")));
+        assertField("startAt", () -> SurveyTimeRules.requireQueryRange("startAt", Instant.EPOCH.minusSeconds(60)));
+        assertField("startAt", () -> SurveyTimeRules.requireQueryRange("startAt", Instant.parse("+10000-01-01T00:00:00Z")));
+        assertField("startAt", () -> SurveyTimeRules.requireQueryRange("startAt", Instant.MAX));
+        assertField("startAt", () -> SurveyTimeRules.requireQueryRange("startAt", Instant.MIN));
+    }
+
+    @Test
     void requireWholeMinute_secondsOrFractions_areRefused() {
         assertDoesNotThrow(() -> SurveyTimeRules.requireWholeMinute("startAt", CURRENT_MINUTE));
         assertField("startAt", () -> SurveyTimeRules.requireWholeMinute("startAt", CURRENT_MINUTE.plusSeconds(30)));

@@ -62,7 +62,7 @@ public class MediaResponseConverter {
                 view.contentReceivedAtOrNull(), view.readyAtOrNull(), view.widthOrNull(), view.heightOrNull(),
                 removed == null ? null : new SurveyMediaRemoval(removed.at(), removed.byUserId(),
                         removed.byNameOrNull(), removed.kind(), correction(removed.correctionOrNull()),
-                        removed.bySaveIdOrNull()),
+                        removed.bySaveIdOrNull() == null ? null : String.valueOf(removed.bySaveIdOrNull())),
                 held == null ? null : new SurveyMediaHold(held.at(), held.byUserIdOrNull(), held.byNameOrNull(),
                         held.reasonOrNull()),
                 view.contentAvailable(), view.unavailableReasonOrNull(), view.carriedFromChecklistNoOrNull());

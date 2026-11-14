@@ -6,8 +6,12 @@ import vn.sunvibe.survey.core.application.query.appointment.BookingState;
 import vn.sunvibe.survey.core.application.shared.appointment.SurveyBlockAssembler;
 import vn.sunvibe.survey.core.application.shared.checklist.ChecklistViewAssembler;
 import vn.sunvibe.survey.core.application.shared.common.SurveyRecordReader.CycleRecord;
+import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
+import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.DecisionOutcome;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
+import vn.sunvibe.survey.core.domain.model.checklist.EvidenceRejection;
+import vn.sunvibe.survey.core.domain.model.checklist.NeedsChangesKind;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
@@ -21,8 +25,12 @@ import vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness;
 import vn.sunvibe.survey.core.testsupport.MediaFixture;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -36,6 +44,10 @@ import static vn.sunvibe.survey.core.testsupport.ChecklistServiceHarness.SALE_A;
  * S-7): every guard reads the one unmarked PASSED of the cycle, so booking and resume behave as before a PASSED.
  */
 class SurveyRecordReaderTest {
+
+    private static final Instant T0 = Instant.parse("2026-11-04T02:00:00Z");
+    private static final SurveyAppointmentId V1 = SurveyAppointmentId.of("01JV1S1T000000000000000001");
+    private static final SurveyAppointmentId V2 = SurveyAppointmentId.of("01JV1S1T000000000000000002");
 
     private final ChecklistServiceHarness h = new ChecklistServiceHarness();
 
@@ -155,5 +167,66 @@ class SurveyRecordReaderTest {
 
         assertTrue(ChecklistViewAssembler.hazards(h.checklists.findById(id).orElseThrow(), h.groups.findAll(id))
                 .requalified());
+    }
+
+    // ==================== the marks of a visit (survey-checklist SV-211) ====================
+
+    private static SurveyChecklist draft(int number, SurveyAppointmentId visit) {
+        return SurveyChecklist.start(SurveyChecklistId.of(String.format("01JCHECK%018d", number)), LEAD, number, visit,
+                1, SALE_A, T0);
+    }
+
+    /** Revision {@code number} of the visit, submitted and returned for documents. */
+    private static SurveyChecklist returned(int number, SurveyAppointmentId visit) {
+        SurveyChecklist checklist = draft(number, visit);
+        checklist.submit(SALE_A, T0);
+        checklist.decide(DecisionOutcome.NEEDS_CHANGES, T0);
+        return checklist;
+    }
+
+    /** The return for documents of the revision, marking these photos not accepted. */
+    private static ChecklistDecision documentsOnly(SurveyChecklist revision, String... rejectedMediaIds) {
+        return new ChecklistDecision(revision.getId(), DecisionOutcome.NEEDS_CHANGES, NeedsChangesKind.DOCUMENTS_ONLY,
+                null, "x", null, null, LEADER, T0, "SURVEY_SCHEDULED", "SURVEY_SCHEDULED",
+                Arrays.stream(rejectedMediaIds).map(mediaId -> new EvidenceRejection(mediaId, "Blurred")).toList());
+    }
+
+    private static Map<SurveyChecklistId, ChecklistDecision> byRevision(ChecklistDecision... decisions) {
+        return Arrays.stream(decisions).collect(Collectors.toMap(ChecklistDecision::checklistId, decision -> decision));
+    }
+
+    @Test
+    void rejectedOnVisit_marksOfThatVisitOnly() {
+        SurveyChecklist r1 = returned(1, V1);
+        SurveyChecklist r2 = returned(2, V1);
+        SurveyChecklist r3 = returned(3, V2);
+        CycleRecord record = new CycleRecord(List.of(r1, r2, r3), byRevision(documentsOnly(r1, "M1"),
+                documentsOnly(r2, "M2"), documentsOnly(r3, "M3")), Optional.empty());
+
+        assertEquals(Set.of("M1", "M2"), record.rejectedOnVisit(V1));
+    }
+
+    @Test
+    void rejectedOnVisit_withoutMarks_empty() {
+        SurveyChecklist decided = returned(1, V1);
+        SurveyChecklist next = draft(2, V1);
+        CycleRecord record = new CycleRecord(List.of(decided, next), byRevision(documentsOnly(decided)),
+                Optional.empty());
+
+        assertEquals(Set.of(), record.rejectedOnVisit(V1));
+    }
+
+    /**
+     * survey-checklist SV-211 RC-4: a revision started before the fix froze M1 again and its reviewer marked it again;
+     * the photo is listed once and the read does not fail.
+     */
+    @Test
+    void rejectedOnVisit_samePhotoMarkedTwice_listedOnce() {
+        SurveyChecklist r1 = returned(1, V1);
+        SurveyChecklist r2 = returned(2, V1);
+        CycleRecord record = new CycleRecord(List.of(r1, r2), byRevision(documentsOnly(r1, "M1"),
+                documentsOnly(r2, "M1")), Optional.empty());
+
+        assertEquals(Set.of("M1"), record.rejectedOnVisit(V1));
     }
 }

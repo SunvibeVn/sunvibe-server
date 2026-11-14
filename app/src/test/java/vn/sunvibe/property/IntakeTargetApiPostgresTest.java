@@ -355,8 +355,11 @@ class IntakeTargetApiPostgresTest extends IntakeApiTestBase {
 		String id = ownedProperty(ready, "HOUSE");
 		String unit = unit(id, "U1", "AVAILABLE");
 		linkTarget(ready.leadId(), id, ready.passed().spaceIds(), List.of(unit));
+		String request = jdbc.queryForObject("select request_id from inventory_owner_proofs where id = ?", String.class,
+				proofIdOf(ready.leadId()));
 
-		selected(ready.leadId(), ready.passed().spaceIds());
+		Result withdrawal = withdraw(ready.owner(), request, passwordOf(ready.owner()));
+		assertEquals(204, withdrawal.status(), withdrawal.rawBody());
 
 		Map<String, Object> row = intakeRow(ready.leadId());
 		assertEquals(null, row.get("target_mode"));

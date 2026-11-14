@@ -317,6 +317,22 @@ class ChecklistReviewLeadRulesPostgresTest extends MediaApiTestBase {
 		assertEquals(200, toStatus(ready.leadId(), "WITHDRAWN").status());
 	}
 
+	/** acquisition-owner-lead-bulk-assign AC-3, BR-2: a QUALIFIED lead is reassigned in a bulk action and stays QUALIFIED. */
+	@Test
+	void assignLeads_qualifiedLead_staysQualified() throws Exception {
+		Ready ready = passed();
+
+		Result result = checklists.api().post(leader, SurveyApiTestSupport.LEADS + "/assignments", Map.of(
+				"assigneeUserId", otherSale.userId(), "leads", List.of(Map.of("leadId", ready.leadId(),
+						"expectedVersion", survey.version(ready.leadId())))));
+
+		SurveyApiTestSupport.ok(result);
+		assertEquals("ASSIGNED", result.body().path("results").path(0).path("outcome").asString());
+		assertEquals("QUALIFIED", survey.leadStatus(ready.leadId()));
+		assertEquals(otherSale.userId(), jdbc.queryForObject("select assigned_user_id from owner_leads where id = ?",
+				String.class, ready.leadId()));
+	}
+
 	@Test
 	void qualified_noManualMoveTo() throws Exception {
 		Ready ready = review.ready(leader, sale);

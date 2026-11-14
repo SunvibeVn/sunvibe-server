@@ -440,6 +440,22 @@ public final class OwnerLead {
     }
 
     /**
+     * acquisition-owner-lead-queue C-17 on both ends of the link (SV-003): a lead that other leads name as their
+     * original is not made a duplicate itself, so no chain of duplicates forms. The caller says whether any lead names
+     * this one. Changes nothing.
+     *
+     * @throws InvalidLeadTransitionException {@code hasDuplicates} is true; carries the statuses this lead may move to
+     *                                        now without DUPLICATE, in table order (none for a closed lead)
+     */
+    public void checkMayBecomeDuplicate(boolean hasDuplicates) {
+        if (hasDuplicates) {
+            throw new InvalidLeadTransitionException(status, OwnerLeadStatus.DUPLICATE, allowedNextStatuses().stream()
+                    .filter(next -> next != OwnerLeadStatus.DUPLICATE)
+                    .toList());
+        }
+    }
+
+    /**
      * Give the lead to a staff member. A NEW lead becomes ASSIGNED; an open lead in any other state keeps its status,
      * next action and notes and only changes hands. Returns empty, and changes nothing, when the person already holds
      * the lead. The caller has checked that the person may hold leads. The optional note (cleaned like every staff

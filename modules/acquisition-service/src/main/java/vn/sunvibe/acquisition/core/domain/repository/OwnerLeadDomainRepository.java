@@ -49,6 +49,13 @@ public interface OwnerLeadDomainRepository {
     /** Whether a lead with this id exists, whoever may see it. */
     boolean existsById(OwnerLeadId id);
 
+    /**
+     * Whether any lead names this lead in {@code duplicate_of_lead_id}, whoever may see it (acquisition-owner-lead-queue
+     * C-17, SV-003). Loads no lead. A fresh statement, so inside a transaction that holds this lead's row lock it sees
+     * every link committed before the lock was granted.
+     */
+    boolean hasDuplicates(OwnerLeadId id);
+
     /** The leads with these ids, in one query, in no particular order; unknown ids are skipped. */
     List<OwnerLead> findAllById(Collection<OwnerLeadId> ids);
 

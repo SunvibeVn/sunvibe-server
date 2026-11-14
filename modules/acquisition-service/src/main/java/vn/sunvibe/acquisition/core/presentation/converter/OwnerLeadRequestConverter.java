@@ -3,6 +3,7 @@ package vn.sunvibe.acquisition.core.presentation.converter;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.acquisition.core.application.command.AddLeadNoteCommand;
 import vn.sunvibe.acquisition.core.application.command.AssignLeadCommand;
+import vn.sunvibe.acquisition.core.application.command.AssignLeadsCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
 import vn.sunvibe.acquisition.core.domain.exception.InvalidIntakeValueException;
@@ -10,6 +11,7 @@ import vn.sunvibe.acquisition.core.domain.model.lead.AskingPrice;
 import vn.sunvibe.acquisition.core.domain.model.lead.ConfirmationBasis;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AddLeadNoteRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadsRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadIntentRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadStatusRequest;
 
@@ -25,6 +27,16 @@ public class OwnerLeadRequestConverter {
 
     public AssignLeadCommand toCommand(String leadId, AssignLeadRequest request) {
         return new AssignLeadCommand(leadId, request.assigneeUserId(), request.expectedVersion(), request.note());
+    }
+
+    /**
+     * The items were validated as present with a version, so the version is unboxed here; the command refuses a lead
+     * that is sent twice (acquisition-owner-lead-bulk-assign D-4).
+     */
+    public AssignLeadsCommand toCommand(AssignLeadsRequest request) {
+        return new AssignLeadsCommand(request.assigneeUserId(), request.note(), request.leads().stream()
+                .map(lead -> new AssignLeadsCommand.LeadInput(lead.leadId(), lead.expectedVersion()))
+                .toList());
     }
 
     public ChangeLeadStatusCommand toCommand(String leadId, ChangeLeadStatusRequest request) {

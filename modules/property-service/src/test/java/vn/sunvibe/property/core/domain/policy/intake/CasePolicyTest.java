@@ -5,6 +5,9 @@ import vn.sunvibe.property.core.domain.model.intake.CaseOutcome;
 import vn.sunvibe.property.core.domain.model.intake.CaseSignal;
 import vn.sunvibe.property.core.domain.model.intake.CaseStatus;
 import vn.sunvibe.property.core.domain.model.intake.DuplicateCase;
+import vn.sunvibe.property.core.domain.model.intake.OwnerCheckState;
+import vn.sunvibe.property.core.domain.model.intake.OwnerProof;
+import vn.sunvibe.property.core.domain.model.intake.ProofBinding;
 import vn.sunvibe.property.core.domain.policy.intake.CasePolicy.CaseFacts;
 import vn.sunvibe.property.core.domain.policy.intake.CasePolicy.Reading;
 import vn.sunvibe.property.core.domain.policy.intake.CasePolicy.Side;
@@ -19,6 +22,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class CasePolicyTest {
 
     private static final Instant T0 = Instant.parse("2026-11-06T02:00:00Z");
+    private static final Instant T1 = T0.plusSeconds(60);
+    private static final Instant T2 = T0.plusSeconds(120);
+    private static final Instant T3 = T0.plusSeconds(180);
     private static final String ME = "01INTAKEME";
     private static final String OTHER = "01INTAKEOTHER";
     private static final String OWNER = "01OWNER";
@@ -163,6 +169,77 @@ class CasePolicyTest {
         assertEquals("L:01PROP:01INTAKE:" + "a".repeat(16), PairKey.linkPlace("01PROP", "01INTAKE", scope));
         assertEquals("I:01A:01B:" + "a".repeat(16) + ":" + "b".repeat(16), PairKey.intakes("01A", scope, "01B", other));
         assertEquals("I:01A:01B:" + "a".repeat(16) + ":" + "b".repeat(16), PairKey.intakes("01B", other, "01A", scope));
+    }
+
+    // ==================== showsAnotherOwner: brokerage-agreement BR-3 (c), E-15 (SV-215) ====================
+
+    @Test
+    void showsAnotherOwner_proofDeadBeforeTheDecision_false() {
+        DuplicateCase same = decided(propertyCase("01C"), CaseOutcome.SAME_ASSET, null, T2);
+
+        assertFalse(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T0, null, T1)), OWNER));
+        assertFalse(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T0, T1, null)), OWNER));
+    }
+
+    @Test
+    void showsAnotherOwner_proofInForceAtTheDecision_trueAlsoAfterItDies() {
+        DuplicateCase same = decided(propertyCase("01C"), CaseOutcome.SAME_ASSET, null, T2);
+
+        assertTrue(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T0, null, null)), OWNER));
+        assertTrue(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T0, null, T3)), OWNER));
+        assertTrue(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T0, T3, null)), OWNER));
+        assertTrue(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T0, null, T2)), OWNER));
+    }
+
+    @Test
+    void showsAnotherOwner_proofCheckedAfterTheDecision_true() {
+        DuplicateCase same = decided(propertyCase("01C"), CaseOutcome.SAME_ASSET, null, T2);
+
+        assertTrue(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T3, null, null)), OWNER));
+    }
+
+    @Test
+    void showsAnotherOwner_ownersOrUncheckedOrOtherIntakeProof_false() {
+        DuplicateCase same = decided(propertyCase("01C"), CaseOutcome.SAME_ASSET, null, T2);
+
+        assertFalse(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, OWNER, OwnerCheckState.DONE, T0, null, null)), OWNER));
+        assertFalse(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.REQUIRED, T0, null, null)),
+                OWNER));
+        assertFalse(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.REFUSED, T0, null, null)),
+                OWNER));
+        assertFalse(CasePolicy.showsAnotherOwner(same, List.of(proof(OTHER, STRANGER, OwnerCheckState.DONE, T0, null, null)),
+                OWNER));
+    }
+
+    @Test
+    void showsAnotherOwner_notADecidedSameAsset_false() {
+        List<OwnerProof> live = List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T0, null, null));
+
+        assertFalse(CasePolicy.showsAnotherOwner(propertyCase("01C"), live, OWNER));
+        assertFalse(CasePolicy.showsAnotherOwner(closed(propertyCase("01C")), live, OWNER));
+        assertFalse(CasePolicy.showsAnotherOwner(decided(propertyCase("01C"), CaseOutcome.DIFFERENT_ASSET, null, T2), live, OWNER));
+    }
+
+    @Test
+    void showsAnotherOwner_noOwner_anyCheckedProofCounts() {
+        DuplicateCase same = decided(propertyCase("01C"), CaseOutcome.SAME_ASSET, null, T2);
+
+        assertTrue(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, OWNER, OwnerCheckState.DONE, T0, null, null)), null));
+    }
+
+    @Test
+    void showsAnotherOwner_intakePair_readsTheWaitingIntakeOnly() {
+        DuplicateCase same = decided(intakeCase("01C"), CaseOutcome.SAME_ASSET, OTHER, T2);
+
+        assertTrue(CasePolicy.showsAnotherOwner(same, List.of(proof(ME, STRANGER, OwnerCheckState.DONE, T0, null, null)), OWNER));
+        assertFalse(CasePolicy.showsAnotherOwner(same, List.of(proof(OTHER, STRANGER, OwnerCheckState.DONE, T0, null, null)),
+                OWNER));
+    }
+
+    private static OwnerProof proof(String intakeId, String userId, OwnerCheckState check, Instant confirmedAt,
+                                    Instant withdrawnAt, Instant voidedAt) {
+        return OwnerProof.load("01PROOF", intakeId, "01REQUEST", new ProofBinding("01LEAD", 1, "01CHECKLIST", "scope"), userId,
+                "owner-link-2026-11", confirmedAt, withdrawnAt, voidedAt, check, 0, null, null, 0, null, null, null);
     }
 
     private static DuplicateCase decided(DuplicateCase row, CaseOutcome outcome, String proceeding, Instant at) {

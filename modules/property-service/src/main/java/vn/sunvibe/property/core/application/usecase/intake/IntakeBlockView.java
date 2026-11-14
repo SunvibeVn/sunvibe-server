@@ -100,7 +100,11 @@ public record IntakeBlockView(
 
     @Schema(name = "IntakeReadinessUnit")
     public record ReadinessUnit(String unitId, @Schema(nullable = true) String unitCode, boolean usable,
-                                @ArraySchema(schema = @Schema(allowableValues = {"RESTRICTED", "AVAILABILITY_DIFFERS"}))
+                                @ArraySchema(arraySchema = @Schema(description = "PROPERTY_STOP: a whole-asset stop of"
+                                        + " brokerage-agreement BR-3 from another lead or from the property; UNIT_STOP: a stop"
+                                        + " of this unit from another lead. Neither names the lead."),
+                                        schema = @Schema(allowableValues = {"RESTRICTED", "AVAILABILITY_DIFFERS",
+                                                "PROPERTY_STOP", "UNIT_STOP"}))
                                 List<String> reasons) {
     }
 

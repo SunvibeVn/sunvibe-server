@@ -295,6 +295,53 @@ class OwnerLeadStatusChangeTest {
         assertFalse(ex.getMessage().contains("secret-reason"));
     }
 
+    /**
+     * acquisition-owner-lead-queue C-17, SV-003: a lead that other leads name as their original does not become a
+     * duplicate itself; the refusal lists the lead's other next statuses and leaves the lead as it was.
+     */
+    @Test
+    void checkMayBecomeDuplicate_withDuplicates_refusesDuplicateAndListsTheOtherStatuses() {
+        for (OwnerLeadStatus from : List.of(NEW, ASSIGNED, CONTACTED, ON_HOLD, SURVEY_SCHEDULED, QUALIFIED)) {
+            OwnerLead lead = lead(from, ASSIGNEE);
+
+            InvalidLeadTransitionException ex = assertThrows(InvalidLeadTransitionException.class,
+                    () -> lead.checkMayBecomeDuplicate(true), from.name());
+
+            assertEquals(from, ex.getFrom(), from.name());
+            assertEquals(DUPLICATE, ex.getTo(), from.name());
+            assertEquals(tableFor(from).stream().filter(status -> status != DUPLICATE).toList(), ex.getAllowed(),
+                    from.name());
+            assertEquals(from, lead.getStatus(), from.name());
+            assertNull(lead.getDuplicateOfLeadId(), from.name());
+        }
+        InvalidLeadTransitionException assigned = assertThrows(InvalidLeadTransitionException.class,
+                () -> lead(ASSIGNED, ASSIGNEE).checkMayBecomeDuplicate(true));
+        assertEquals(List.of(CONTACTED, ON_HOLD, REJECTED, WITHDRAWN), assigned.getAllowed());
+    }
+
+    /** SV-003: a lead nobody names as its original is closed as a duplicate by the table, as before. */
+    @Test
+    void checkMayBecomeDuplicate_withoutDuplicates_leavesTheCloseToTheTable() {
+        OwnerLead lead = lead(ASSIGNED, ASSIGNEE);
+
+        lead.checkMayBecomeDuplicate(false);
+        lead.changeStatus(DUPLICATE, "reason", OwnerLeadId.generate(), null, null);
+
+        assertEquals(DUPLICATE, lead.getStatus());
+    }
+
+    /** SV-003: a closed lead that other leads name as their original may move nowhere, as changeStatus would say. */
+    @Test
+    void checkMayBecomeDuplicate_closedLeadWithDuplicates_allowsNothing() {
+        for (OwnerLeadStatus closed : List.of(REJECTED, WITHDRAWN)) {
+            InvalidLeadTransitionException ex = assertThrows(InvalidLeadTransitionException.class,
+                    () -> lead(closed, ASSIGNEE).checkMayBecomeDuplicate(true), closed.name());
+
+            assertEquals(DUPLICATE, ex.getTo(), closed.name());
+            assertEquals(List.of(), ex.getAllowed(), closed.name());
+        }
+    }
+
     /** checklist submission spec 4.8, S-15: from QUALIFIED only hold and the closing statuses. */
     @Test
     void qualified_manualTargets_onlyHoldAndClosing() {

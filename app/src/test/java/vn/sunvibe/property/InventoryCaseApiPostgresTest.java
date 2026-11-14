@@ -127,8 +127,15 @@ class InventoryCaseApiPostgresTest extends IntakeApiTestBase {
 		assertEquals(204, enter(owner, issued.requestId(), started(manager, ready.leadId())).status());
 	}
 
+	/**
+	 * The owner withdraws the proof in force (property-create intake spec 4.2: DRAFT, target and availability cleared, undecided
+	 * cases closed); saving the same parts is no exit since property-create SV-202.
+	 */
 	private void exitToDraft(Ready ready) throws Exception {
-		selected(ready.leadId(), ready.passed().spaceIds());
+		String request = jdbc.queryForObject("select request_id from inventory_owner_proofs where id = ?", String.class,
+				proofIdOf(ready.leadId()));
+		Result answer = withdraw(ready.owner(), request, passwordOf(ready.owner()));
+		assertEquals(204, answer.status(), answer.rawBody());
 	}
 
 	// ==================== the signal (S-21) ====================
@@ -425,7 +432,7 @@ class InventoryCaseApiPostgresTest extends IntakeApiTestBase {
 	}
 
 	@Test
-	void differentAsset_survivesReselectAndNewProof() throws Exception {
+	void differentAsset_survivesExitAndNewProof() throws Exception {
 		String address = unique("Survives Street");
 		Ready ready = ready(address);
 		seeded(address, owner().userId());

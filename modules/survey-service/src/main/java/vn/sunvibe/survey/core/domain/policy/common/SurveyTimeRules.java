@@ -25,6 +25,9 @@ public final class SurveyTimeRules {
     /** survey-schedule spec A-5: the duration of a booking that leaves it out. */
     public static final int DEFAULT_DURATION = 60;
 
+    private static final Instant QUERY_RANGE_FROM = Instant.EPOCH;
+    private static final Instant QUERY_RANGE_BEFORE = Instant.parse("+10000-01-01T00:00:00Z");
+
     private SurveyTimeRules() {
     }
 
@@ -47,6 +50,18 @@ public final class SurveyTimeRules {
         if (start.isAfter(currentMinute.plus(Duration.ofDays(MAX_DAYS_AHEAD)))) {
             throw new InvalidSurveyValueException("startAt",
                     "startAt must be at most " + MAX_DAYS_AHEAD + " days ahead.");
+        }
+    }
+
+    /**
+     * A technical bound for a time that only reads (the overlap pre-check, SV-033): from 1970 to the end of year 9999.
+     * Outside it the {@code Instant} arithmetic overflows or PostgreSQL refuses the timestamp, so the request would
+     * answer 500. Inside it every time is answered as before; the booking window of {@link #requireStartWindow} is
+     * not applied to a read.
+     */
+    public static void requireQueryRange(String field, Instant instant) {
+        if (instant.isBefore(QUERY_RANGE_FROM) || !instant.isBefore(QUERY_RANGE_BEFORE)) {
+            throw new InvalidSurveyValueException(field, field + " is out of the supported range.");
         }
     }
 

@@ -13,7 +13,7 @@ import java.util.List;
  * @param assetTypeOrNull  G1's asset type, null when the type was recorded as not applicable
  * @param sourceDate       the day the visit took place, in Vietnam
  * @param reasonOrNull     why the revision cannot be used; null when it can
- * @param markedRevisions  every marked revision of the lead, with its kind
+ * @param markedRevisions  every marked revision of the lead, with its kind and the time the manager marked it
  */
 public record IntakeSourceView(String revisionId, Instant decidedAt, String performedBy, String recordedBy,
                                String contentSha256, String rentalScope, String assetTypeOrNull, String addressText,
@@ -53,8 +53,12 @@ public record IntakeSourceView(String revisionId, Instant decidedAt, String perf
         }
     }
 
-    /** A revision a manager withdrew from use, with the kind of its mark. */
-    public record MarkedRevision(String revisionId, String kind) {
+    /**
+     * A revision a manager withdrew from use, with the kind of its mark and the time the manager marked it.
+     *
+     * @param markedAt the revision's requalified_at, written with the mark
+     */
+    public record MarkedRevision(String revisionId, String kind, Instant markedAt) {
     }
 
     @Override

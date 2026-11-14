@@ -264,8 +264,12 @@ public class MediaProcessingWorker {
                 return;
             }
             if (health.read().scanBlockedSince() != null) {
-                transaction.executeWithoutResult(status -> jobs.defer(job.id(), token,
+                Boolean deferred = transaction.execute(status -> jobs.defer(job.id(), token,
                         clock.now().plus(SCAN_BLOCKED_WAIT), clock.now()));
+                if (!Boolean.TRUE.equals(deferred)) {
+                    log.warn("Survey media job {} of photo {} lost its lease; the defer was not applied", job.id(),
+                            mediaId);
+                }
                 return;
             }
             ScanVerdict verdict;
@@ -369,7 +373,13 @@ public class MediaProcessingWorker {
             }
             Instant now = clock.now();
             Instant due = now.plus(BACKOFF.get(job.attempts() - 1));
-            transaction.executeWithoutResult(status -> jobs.retry(job.id(), token, due, code, limitHits, now));
+            Boolean retried = transaction.execute(status -> jobs.retry(job.id(), token, due, code, limitHits, now));
+            if (!Boolean.TRUE.equals(retried)) {
+                // the lease is gone: the job row belongs to another run, so nothing changed here
+                log.warn("Survey media job {} of photo {} lost its lease; the retry was not applied ({})", job.id(),
+                        mediaId, code);
+                return;
+            }
             log.warn("Survey media job {} of photo {} retries after attempt {} ({})", job.id(), mediaId,
                     job.attempts(), code);
         }

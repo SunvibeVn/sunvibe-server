@@ -94,7 +94,8 @@ public class SurveyIntakeSourceService implements SurveyIntakeSourceUseCase {
         return checklists.findByLeadId(leadId).stream().filter(SurveyChecklist::isRequalified)
                 .map(checklist -> new IntakeSourceView.MarkedRevision(checklist.getId().getValue(),
                         requalifications.findByChecklistId(checklist.getId())
-                                .map(ChecklistRequalification::kind).map(Enum::name).orElse(null)))
+                                .map(ChecklistRequalification::kind).map(Enum::name).orElse(null),
+                        checklist.getRequalifiedAt()))
                 .toList();
     }
 

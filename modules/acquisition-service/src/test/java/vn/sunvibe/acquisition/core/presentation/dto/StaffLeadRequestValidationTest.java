@@ -14,8 +14,10 @@ import vn.sunvibe.acquisition.core.presentation.controller.OwnerLeadController;
 import vn.sunvibe.acquisition.core.presentation.controller.SaleTerritoryController;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AddLeadNoteRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.request.AssignLeadsRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.AssignTerritoryRequest;
 import vn.sunvibe.acquisition.core.presentation.dto.request.ChangeLeadStatusRequest;
+import vn.sunvibe.acquisition.core.presentation.dto.request.LeadVersionInput;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -173,7 +175,63 @@ class StaffLeadRequestValidationTest {
         assertTrue(messages.stream().allMatch(message -> message.endsWith(".")), messages.toString());
     }
 
+    // ==================== bulk assignment (acquisition-owner-lead-bulk-assign D-4) ====================
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-3, D-4: 1 to 20 items, each with a lead id of 1 to 26 characters and a
+     * version of 0 or more; the assignee and note limits of one assignment. Spring reports the null item as
+     * {@code leads[0]}; Hibernate Validator writes a container element node after it, so only the prefix is checked here.
+     */
+    @Test
+    void validate_assignLeadsRequest_boundsOfLeadsAndItems() {
+        String value = "SECRETVALUE";
+        String longId = (value + "X".repeat(26)).substring(0, 27);
+        String longNote = value + "n".repeat(2001 - value.length());
+
+        assertEquals(List.of("leads"), paths(bulk(ULID, null, null)));
+        assertEquals(List.of("leads"), paths(bulk(ULID, null, List.of())));
+        assertEquals(List.of("leads"), paths(bulk(ULID, null, items(21))));
+        assertEquals(List.of("leads[0].leadId"), paths(bulk(ULID, null, List.of(item(" ", 0L)))));
+        assertEquals(List.of("leads[0].leadId"), paths(bulk(ULID, null, List.of(item(longId, 0L)))));
+        assertEquals(List.of("leads[0].expectedVersion"), paths(bulk(ULID, null, List.of(item(ULID, null)))));
+        assertEquals(List.of("leads[0].expectedVersion"), paths(bulk(ULID, null, List.of(item(ULID, -1L)))));
+        assertEquals(List.of("assigneeUserId"), paths(bulk(" ", null, items(1))));
+        assertEquals(List.of("assigneeUserId"), paths(bulk(longId, null, items(1))));
+        assertEquals(List.of("note"), paths(bulk(ULID, longNote, items(1))));
+        List<LeadVersionInput> withNull = new java.util.ArrayList<>();
+        withNull.add(null);
+        List<String> nullItem = paths(bulk(ULID, null, withNull));
+        assertEquals(1, nullItem.size(), nullItem.toString());
+        assertTrue(nullItem.get(0).startsWith("leads[0]"), nullItem.toString());
+
+        assertEquals(List.of(), paths(bulk(ULID, "n".repeat(2000), items(20))));
+
+        List<AssignLeadsRequest> refused = List.of(bulk(longId, longNote, List.of(item(longId, -1L))),
+                bulk(value, null, List.of(item(value + " ".repeat(26), 0L))));
+        refused.forEach(request -> VALIDATOR.validate(request)
+                .forEach(v -> assertFalse(v.getMessage().contains(value), v.getMessage())));
+    }
+
     // ==================== helpers ====================
+
+    private static AssignLeadsRequest bulk(String assigneeUserId, String note, List<LeadVersionInput> leads) {
+        return new AssignLeadsRequest(assigneeUserId, note, leads);
+    }
+
+    private static LeadVersionInput item(String leadId, Long expectedVersion) {
+        return new LeadVersionInput(leadId, expectedVersion);
+    }
+
+    /** Distinct lead ids of 26 characters, version 0. */
+    private static List<LeadVersionInput> items(int count) {
+        return java.util.stream.IntStream.range(0, count)
+                .mapToObj(i -> item(String.format("01JLEAD%019d", i), 0L))
+                .toList();
+    }
+
+    private static <T> List<String> paths(T request) {
+        return VALIDATOR.validate(request).stream().map(v -> v.getPropertyPath().toString()).sorted().toList();
+    }
 
     private static ChangeLeadStatusRequest statusChange(Long expectedVersion, String duplicateOf, Instant next) {
         return new ChangeLeadStatusRequest(OwnerLeadStatus.CONTACTED, expectedVersion, null, duplicateOf, null, next);

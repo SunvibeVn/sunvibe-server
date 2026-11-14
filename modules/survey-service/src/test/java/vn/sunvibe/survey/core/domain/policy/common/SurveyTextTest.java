@@ -55,6 +55,18 @@ class SurveyTextTest {
         assertEquals("K12/5 Lê Duẩn", SurveyText.require("meetingLocation.addressText", "K12/5 Lê Duẩn", 255));
     }
 
+    /** SV-212, spec AC-1 (owner 2026-11-14): a note with a valid date and time is kept. */
+    @Test
+    void require_noteWithDateAndTime_keepsTheText() {
+        assertEquals("Gặp chủ 06.11.2026 09:00", SurveyText.require("note", "Gặp chủ 06.11.2026 09:00", 2000));
+    }
+
+    /** SV-212, spec AC-2 (owner 2026-11-14): a mobile number right after a floor number is refused on the field. */
+    @Test
+    void require_mobileAfterFloorNumber_isRefusedOnTheField() {
+        assertField("note", () -> SurveyText.require("note", "Tầng 3 0905 123 456", 2000));
+    }
+
     @Test
     void refusal_messageNeverQuotesTheText() {
         InvalidSurveyValueException ex = assertThrows(InvalidSurveyValueException.class,

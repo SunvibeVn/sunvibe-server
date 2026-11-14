@@ -198,6 +198,37 @@ class ChecklistG1MediaCascadeApiPostgresTest extends MediaApiTestBase {
 		assertTrue(stored.contains("media/" + others), stored);
 	}
 
+	/**
+	 * SV-244 spec AC-1: ids are opaque strings in the API (ADR-006), so a listed CASCADE removal names its G1 save by
+	 * the exact decimal text of the stored id, the same text as that save's correction {@code saveId}.
+	 */
+	@Test
+	void cascadeRemoval_listed_bySaveIdIsTheSaveIdAsAString() throws Exception {
+		Draft draft = parts();
+		String own = photo(draft, sale, Row.READY, draft.space2(), "KITCHEN");
+		String others = photo(draft, previous, Row.READY, draft.space2(), "BATHROOM");
+
+		JsonNode saved = checklists.saved(sale, draft.id(), "identification", ChecklistApiTestSupport.correction(
+				"Phòng P102 không cho thuê", draft.visit().arrivalDate(), "Chủ nhà xác nhận"),
+				c -> keepOnlySpace1(c, draft));
+		String saveId = saved.path("corrections").path(saved.path("corrections").size() - 1).path("saveId")
+				.asString();
+
+		String stored = String.valueOf(((Number) media.row(others).get("removed_by_save_id")).longValue());
+		assertEquals(stored, String.valueOf(((Number) media.row(own).get("removed_by_save_id")).longValue()),
+				"one save removed both");
+
+		JsonNode list = ok(media.list(sale, draft.id(), null));
+		for (String id : List.of(own, others)) {
+			JsonNode removed = removedEntry(list, id);
+			assertEquals("CASCADE", removed.path("kind").asString(), id);
+			assertTrue(removed.path("correction").isNull(), id);
+			assertTrue(removed.path("bySaveId").isString(), removed.toString());
+			assertEquals(stored, removed.path("bySaveId").asString(), id);
+			assertEquals(saveId, removed.path("bySaveId").asString(), id);
+		}
+	}
+
 	@Test
 	void removedFiles_uploadAgainOnOtherSpace() throws Exception {
 		Draft draft = parts();
@@ -315,6 +346,16 @@ class ChecklistG1MediaCascadeApiPostgresTest extends MediaApiTestBase {
 			Thread.sleep(50);
 		}
 		assertEquals(status, media.row(id).get("status"));
+	}
+
+	/** The {@code removed} of the photo's entry in the list's {@code removedItems}. */
+	private static JsonNode removedEntry(JsonNode list, String id) {
+		for (JsonNode item : list.path("removedItems")) {
+			if (id.equals(item.path("id").asString())) {
+				return item.path("removed");
+			}
+		}
+		throw new AssertionError(id + " not in removedItems: " + list);
 	}
 
 	private static JsonNode ok(Result result) {

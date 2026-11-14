@@ -26,6 +26,9 @@ public interface OwnerLeadJpaRepository
 
     boolean existsByRequestCode(String requestCode);
 
+    /** Whether any lead names this one as its original (index idx_owner_leads_duplicate_of). */
+    boolean existsByDuplicateOfLeadId(String duplicateOfLeadId);
+
     /** The lead with a PostgreSQL {@code FOR SHARE} row lock (survey-checklist spec 5.3). */
     @Lock(LockModeType.PESSIMISTIC_READ)
     @Query("select l from OwnerLeadEntity l where l.id = :id")

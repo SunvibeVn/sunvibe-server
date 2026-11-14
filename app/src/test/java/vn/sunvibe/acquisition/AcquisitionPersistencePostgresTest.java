@@ -404,6 +404,26 @@ class AcquisitionPersistencePostgresTest {
 		assertTrue(leads.findOpenIdsByPhone("+84900000000").isEmpty());
 	}
 
+	/**
+	 * acquisition-owner-lead-queue C-17, SV-003: whether any lead names this one in duplicate_of_lead_id, whoever may
+	 * see it, read without loading a lead.
+	 */
+	@Test
+	void hasDuplicates_leadNamedByADuplicate_isTrueAndNoOtherLeadIs() {
+		OwnerLead original = saveLead(plainLead("0901234567", "a", OwnerLeadStatus.ASSIGNED, T0));
+		OwnerLead duplicate = saveLead(plainLead("0901234568", "b", OwnerLeadStatus.ASSIGNED, T0));
+		duplicate.changeStatus(OwnerLeadStatus.DUPLICATE, "Same owner", original.getId(), null, null);
+		leads.save(duplicate);
+		OwnerLead other = saveLead(plainLead("0901234569", "c", OwnerLeadStatus.NEW, T0));
+		Statistics statistics = statistics();
+
+		assertTrue(leads.hasDuplicates(original.getId()));
+		assertFalse(leads.hasDuplicates(duplicate.getId()));
+		assertFalse(leads.hasDuplicates(other.getId()));
+		assertFalse(leads.hasDuplicates(OwnerLeadId.generate()));
+		assertEquals(0, statistics.getEntityLoadCount(), "no lead entity is loaded");
+	}
+
 	@Test
 	void saveAll_candidates_insertsEachRowWithoutReadingItFirst() {
 		OwnerLead lead = saveLead(plainLead("0901234567", "a", OwnerLeadStatus.NEW, T0));

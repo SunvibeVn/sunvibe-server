@@ -3,11 +3,13 @@ package vn.sunvibe.survey.core.presentation.controller.media;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.SocketTimeoutException;
 import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import io.swagger.v3.oas.annotations.Hidden;
@@ -28,11 +30,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.util.DisconnectedClientHelper;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.survey.core.application.exception.media.MediaMethodNotAllowedException;
 import vn.sunvibe.survey.core.application.query.media.MediaRead;
 import vn.sunvibe.survey.core.application.usecase.media.SurveyMediaReadUseCase;
 import vn.sunvibe.survey.core.presentation.resolver.SurveyViewerResolver;
+
+import static vn.sunvibe.shared.exception.ApiErrorSupport.anyInChain;
 
 /**
  * The content reads of survey photos (survey-media spec 7.1, ADR-011 decision 2, A-24, A-25, A-30): GET only (HEAD
@@ -148,25 +153,45 @@ public class SurveyMediaReadController {
     static void stream(MediaRead read, OutputStream out) throws IOException {
         AtomicLong lastProgress = new AtomicLong(System.nanoTime());
         long noProgressNanos = read.noProgressTimeout().toNanos();
+        AtomicBoolean watchdogFired = new AtomicBoolean();
         ScheduledFuture<?> watchdog = WATCHDOG.scheduleAtFixedRate(() -> {
             if (System.nanoTime() - lastProgress.get() > noProgressNanos || Instant.now().isAfter(read.deadline())) {
                 // survey-media spec A-25: end the store stream only; the request thread releases the slots when it returns
+                watchdogFired.set(true);
                 read.abortContent();
             }
         }, 200, 200, TimeUnit.MILLISECONDS);
+        IOException clientWriteFailure = null;
         try {
             InputStream in = read.content();
             byte[] buffer = new byte[CHUNK];
             for (int n = in.read(buffer); n != -1; n = in.read(buffer)) {
-                out.write(buffer, 0, n);
+                try {
+                    out.write(buffer, 0, n);
+                } catch (IOException e) {
+                    clientWriteFailure = e;
+                    throw e;
+                }
                 lastProgress.set(System.nanoTime());
                 if (Instant.now().isAfter(read.deadline())) {
                     throw new IOException("The survey photo stream passed its deadline.");
                 }
             }
-            out.flush();
+            try {
+                out.flush();
+            } catch (IOException e) {
+                clientWriteFailure = e;
+                throw e;
+            }
         } catch (IOException e) {
-            // ids only: the client or the watchdog ended the stream; the answer stays incomplete
+            if (e == clientWriteFailure && !watchdogFired.get()
+                    && DisconnectedClientHelper.isClientDisconnectedException(e)
+                    && !anyInChain(e, SocketTimeoutException.class::isInstance)) {
+                // SV-268: the client left before any watchdog stop; the survey handler logs it at DEBUG. A write that
+                // timed out (Tomcat's write timeout) is a stalled client held by the server: it stays an error (D-8).
+                throw e;
+            }
+            // ids only: the watchdog (a stalled client), the deadline or the store ended the stream; still an error
             throw new IOException("The survey photo stream of " + read.mediaId() + " stopped.");
         } finally {
             watchdog.cancel(false);

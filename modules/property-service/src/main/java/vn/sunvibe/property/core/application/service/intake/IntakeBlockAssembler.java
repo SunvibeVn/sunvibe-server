@@ -48,7 +48,7 @@ public class IntakeBlockAssembler {
                 work ? state.forcedPropertyId().map(this::code).orElse(null) : null,
                 work ? availability(row) : List.of(),
                 work ? CasePolicy.caseState(state.readings()).name() : CaseState.NONE.name(), result(state),
-                readiness.view(state), suspensions(state, actor));
+                readiness.view(state, now), suspensions(state, actor));
     }
 
     private static IntakeBlockView.Gate gate(IntakeState state) {

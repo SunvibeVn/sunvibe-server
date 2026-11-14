@@ -138,6 +138,7 @@ public class SurveyQueryService implements SurveyQueryUseCase {
     public List<OverlapView> overlaps(SurveyViewer viewer, String leadId, Instant startAt, Integer durationMinutes,
                                       Optional<String> excludeAppointmentId) {
         SurveyTimeRules.requireWholeMinute("startAt", startAt);
+        SurveyTimeRules.requireQueryRange("startAt", startAt);
         if (durationMinutes == null) {
             throw new InvalidSurveyValueException("durationMinutes", "durationMinutes is required.");
         }

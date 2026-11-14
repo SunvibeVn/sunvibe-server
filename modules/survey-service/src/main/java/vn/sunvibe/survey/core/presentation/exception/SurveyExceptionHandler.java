@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.util.DisconnectedClientHelper;
 import tools.jackson.core.JacksonException;
 import vn.sunvibe.shared.constant.error.ErrorCode;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -64,6 +65,7 @@ import vn.sunvibe.survey.core.domain.exception.checklist.ChecklistValidationExce
 import vn.sunvibe.survey.core.domain.exception.common.InvalidSurveyValueException;
 import vn.sunvibe.survey.core.domain.exception.appointment.PerformerMismatchException;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -364,7 +366,8 @@ public class SurveyExceptionHandler {
     /**
      * Spring Security exceptions are rethrown so its own 401/403 bodies are kept. An optimistic-lock failure wrapped
      * by the transaction commit is the 409 of {@link #handleOptimisticLock}. Another Spring MVC error keeps its status
-     * with {@code MALFORMED_REQUEST}. Anything else is a 500 whose details stay out of the response.
+     * with {@code MALFORMED_REQUEST}. An I/O failure that Spring recognizes as the client leaving is logged at DEBUG
+     * without a body (SV-268). Anything else is a 500 whose details stay out of the response.
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleUnexpected(Exception e) throws Exception {
@@ -379,6 +382,12 @@ public class SurveyExceptionHandler {
             return ResponseEntity.status(springError.getStatusCode())
                     .headers(springError.getHeaders())
                     .body(ErrorResponse.of(ErrorCode.MALFORMED_REQUEST, REQUEST_NOT_PROCESSED_MESSAGE, List.of()));
+        }
+        if (e instanceof IOException && DisconnectedClientHelper.isClientDisconnectedException(e)) {
+            // Only an I/O failure can be the client leaving (the helper also matches causes and messages); no body
+            log.debug("Client abandoned the request in survey: {} (correlationId={})", e.getClass().getName(),
+                    CorrelationId.current());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
         if (anyInChain(e, SurveyExceptionHandler::quotesRequestData)) {
             // The message and the stack trace can quote submitted values, e.g. a SQL key

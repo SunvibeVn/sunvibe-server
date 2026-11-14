@@ -175,8 +175,12 @@ public class MediaContentDeletionJob {
 
     private void retry(MediaJob job, String token, String code) {
         Instant now = clock.now();
-        transaction.executeWithoutResult(status -> jobs.retry(job.id(), token, now.plus(RETRY_AFTER), code,
+        Boolean retried = transaction.execute(status -> jobs.retry(job.id(), token, now.plus(RETRY_AFTER), code,
                 job.limitHits(), now));
+        if (!Boolean.TRUE.equals(retried)) {
+            log.warn("Survey media deletion job {} of photo {} lost its lease; the retry was not applied ({})",
+                    job.id(), job.mediaId(), code);
+        }
     }
 
     /** The locks of spec 5.4 for a path without a lead lock; null when the photo is gone or the lease was lost. */

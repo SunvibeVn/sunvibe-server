@@ -6,10 +6,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.acquisition.core.application.command.AddLeadNoteCommand;
 import vn.sunvibe.acquisition.core.application.command.AssignLeadCommand;
+import vn.sunvibe.acquisition.core.application.command.AssignLeadsCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
 import vn.sunvibe.acquisition.core.application.exception.ConcurrentLeadModificationException;
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
+import vn.sunvibe.acquisition.core.application.exception.OwnerLeadNotFoundException;
+import vn.sunvibe.acquisition.core.application.query.AssignLeadsResult;
 import vn.sunvibe.acquisition.core.application.query.LeadActivityView;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
@@ -44,6 +47,8 @@ import vn.sunvibe.shared.time.AppClock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -53,11 +58,16 @@ import java.util.Optional;
  * <p>
  * Assigns leads, changes their status and records notes. Each command checks, in this order
  * (acquisition-owner-lead-queue spec 5.3): the request values (400), that the viewer can see the lead (404, the same
- * answer as an unknown lead), the version the caller saw (409), the lead's status (409), the assignee (422). The
- * lead and its history entry are saved in the same transaction, and every answer carries the version the saved lead
- * now has, and names the lead's assignee; a note answer also names the people of its history entry
- * (acquisition-owner-lead-queue-ui C-18, one lookup per answer). An optimistic locking failure on save is left to
- * the exception handler, except for a note, whose request has no version to name.
+ * answer as an unknown lead), the version the caller saw (409), the lead's status (409), the assignee (422). A
+ * DUPLICATE close checks its target with the request values (400) and, at the status step, that no other lead names
+ * the lead as its original (409; acquisition-owner-lead-queue C-17, SV-003); every other refusal of a status change
+ * lists the statuses of the transition table, so it tells nothing about duplicates. A DUPLICATE close reads both
+ * leads with a row lock before it checks them, the lead {@code FOR NO KEY UPDATE} and the original {@code FOR SHARE},
+ * in ascending id order; every other status change reads the lead without a lock. The lead and its history entry are
+ * saved in the same transaction, and every answer carries the version the saved lead now has, and names the lead's
+ * assignee; a note answer also names the people of its history entry (acquisition-owner-lead-queue-ui C-18, one
+ * lookup per answer). An optimistic locking failure on save is left to the exception handler, except for a note, whose
+ * request has no version to name.
  * <p>
  * A reassignment, a hold or a close of a SURVEY_SCHEDULED lead and a requirement change also move or cancel the
  * lead's scheduled survey appointment through {@link LeadSurveyPort}, in the same transaction and after the lead row
@@ -110,16 +120,73 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
         if (!assigneeDirectory.isEligibleAssignee(command.assigneeUserId())) {
             throw new IneligibleAssigneeException("assigneeUserId");
         }
-        LeadChange change = lead.assignTo(command.assigneeUserId(), command.note()).orElseThrow();
+        writeAssignment(viewer, lead, command.assigneeUserId(), command.note());
+        return summary(viewer, lead, assigneeNames(lead));
+    }
+
+    @Override
+    public AssignLeadsResult assignLeads(LeadViewer viewer, AssignLeadsCommand command) {
+        OwnerLead.checkAssignValues(command.assigneeUserId(), command.note());
+        // acquisition-owner-lead-bulk-assign BR-9: the assignee is checked once for the whole action, before any lead
+        // is read, also when every lead already belongs to them
+        if (!assigneeDirectory.isEligibleAssignee(command.assigneeUserId())) {
+            throw new IneligibleAssigneeException("assigneeUserId");
+        }
+        // acquisition-owner-lead-bulk-assign D-2: the leads are locked in ascending id order, so two bulk commands lock
+        // in the same order and never deadlock; the answer keeps the request order (the ids are distinct)
+        List<AssignLeadsCommand.LeadInput> lockOrder = command.leads().stream()
+                .sorted(Comparator.comparing(AssignLeadsCommand.LeadInput::leadId))
+                .toList();
+        Map<String, AssignLeadsResult.Outcome> decided = new HashMap<>();
+        for (AssignLeadsCommand.LeadInput item : lockOrder) {
+            decided.put(item.leadId(), assignOne(viewer, item, command.assigneeUserId(), command.note()));
+        }
+        return new AssignLeadsResult(command.leads().stream()
+                .map(item -> new AssignLeadsResult.LeadOutcome(item.leadId(), decided.get(item.leadId())))
+                .toList());
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-5, BR-7: the outcome of one lead of a bulk assignment, decided on the row
+     * locked by its first load and never by an exception, so a lead that cannot be assigned does not stop the others.
+     * Unlike {@link #assign}, a lead already held by the assignee is ALREADY_ASSIGNED whatever version was sent, and the
+     * version is compared only when the lead is about to be written.
+     */
+    private AssignLeadsResult.Outcome assignOne(LeadViewer viewer, AssignLeadsCommand.LeadInput item,
+                                                String assigneeUserId, String note) {
+        Optional<OwnerLead> found = visibility.findVisibleForUpdate(viewer, item.leadId());
+        if (found.isEmpty()) {
+            return AssignLeadsResult.Outcome.NOT_FOUND;
+        }
+        OwnerLead lead = found.get();
+        if (!lead.getStatus().isOpen()) {
+            return AssignLeadsResult.Outcome.CLOSED;
+        }
+        if (assigneeUserId.equals(lead.getAssignedUserId())) {
+            return AssignLeadsResult.Outcome.ALREADY_ASSIGNED;
+        }
+        if (lead.getVersion() == null || lead.getVersion() != item.expectedVersion()) {
+            return AssignLeadsResult.Outcome.STALE;
+        }
+        writeAssignment(viewer, lead, assigneeUserId, note);
+        return AssignLeadsResult.Outcome.ASSIGNED;
+    }
+
+    /**
+     * The write steps of one assignment, shared by {@link #assign} and {@link #assignLeads} so both write the same rows
+     * (acquisition-owner-lead-bulk-assign BR-4): the lead row first, then, for a reassignment, the scheduled survey
+     * appointment, then the one History entry, which names that appointment.
+     */
+    private void writeAssignment(LeadViewer viewer, OwnerLead lead, String assigneeUserId, String note) {
+        LeadChange change = lead.assignTo(assigneeUserId, note).orElseThrow();
         Instant now = AppClock.currentUTC();
         leads.save(lead);
         // survey-schedule US-2 AC-3: the scheduled appointment follows the lead to its new assignee
         if (change.type() == OwnerLeadActivityType.REASSIGNED) {
-            change = withReference(change, surveys.onReassigned(lead.getId().getValue(), command.assigneeUserId(),
+            change = withReference(change, surveys.onReassigned(lead.getId().getValue(), assigneeUserId,
                     viewer.userId(), now));
         }
         activities.save(activity(viewer, lead, change, now));
-        return summary(viewer, lead, assigneeNames(lead));
     }
 
     @Override
@@ -128,11 +195,20 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
                 ? null : command.duplicateOfLeadId();
         OwnerLead.checkStatusChangeValues(command.toStatus(), command.reason(), duplicateOfText != null,
                 command.note());
-        OwnerLeadId duplicateOf = command.toStatus() == OwnerLeadStatus.DUPLICATE
-                ? duplicateTarget(viewer, command.leadId(), duplicateOfText)
-                : null;
-        OwnerLead lead = visibility.requireVisible(viewer, command.leadId());
-        requireVersion(lead, command.expectedVersion());
+        OwnerLead lead;
+        OwnerLeadId duplicateOf = null;
+        if (command.toStatus() == OwnerLeadStatus.DUPLICATE) {
+            DuplicateClose close = lockDuplicateClose(viewer, command.leadId(), duplicateOfText);
+            lead = close.lead();
+            duplicateOf = close.originalId();
+            requireVersion(lead, command.expectedVersion());
+            // acquisition-owner-lead-queue C-17 on both ends of the link (SV-003): a lead that other leads name as
+            // their original is not closed as a duplicate. Asked only here, so no other refusal depends on it
+            lead.checkMayBecomeDuplicate(leads.hasDuplicates(lead.getId()));
+        } else {
+            lead = visibility.requireVisible(viewer, command.leadId());
+            requireVersion(lead, command.expectedVersion());
+        }
         OwnerLeadStatus from = lead.getStatus();
         LeadChange change = lead.changeStatus(command.toStatus(), command.reason(), duplicateOf, command.note(),
                 command.nextActionAt());
@@ -217,16 +293,39 @@ public class OwnerLeadCommandService implements OwnerLeadCommandUseCase {
     /**
      * acquisition-owner-lead-queue C-17: a lead can only be closed as a duplicate of another lead the actor can see
      * and that is not a duplicate itself (no chains). Every failure has the same message as an unknown id, so the
-     * answer never tells whether a hidden lead exists. Checked with the request values, before the lead itself.
+     * answer never tells whether a hidden lead exists. Checked before the lead itself: the same id before any read,
+     * the rest on the locked rows. The other end of the link is checked by the caller at the status step (SV-003): a
+     * lead that other leads name as their original is not closed as a duplicate, a refusal that only a DUPLICATE
+     * close can get.
+     * <p>
+     * Both rows are locked before they are checked, each read once: the lead {@code FOR NO KEY UPDATE} and the
+     * original {@code FOR SHARE}, in ascending id order like bulk assignment, so a concurrent close or link of either
+     * lead waits and then sees the committed result (acquisition-owner-lead-queue C-17, SV-003). Closing a lead and
+     * linking to it take conflicting locks on its row; links to one original do not wait on each other. An id that is
+     * not a lead id is neither read nor locked.
      */
-    private OwnerLeadId duplicateTarget(LeadViewer viewer, String leadId, String duplicateOfLeadId) {
-        if (duplicateOfLeadId.equals(leadId)) {
+    private DuplicateClose lockDuplicateClose(LeadViewer viewer, String leadId, String originalId) {
+        if (originalId.equals(leadId)) {
             throw invalidDuplicateOf();
         }
-        return visibility.findVisible(viewer, duplicateOfLeadId)
+        Optional<OwnerLead> lead;
+        Optional<OwnerLead> original;
+        if (leadId.compareTo(originalId) < 0) {
+            lead = visibility.findVisibleForUpdate(viewer, leadId);
+            original = visibility.findVisibleForShare(viewer, originalId);
+        } else {
+            original = visibility.findVisibleForShare(viewer, originalId);
+            lead = visibility.findVisibleForUpdate(viewer, leadId);
+        }
+        OwnerLeadId checkedOriginal = original
                 .filter(target -> target.getStatus() != OwnerLeadStatus.DUPLICATE)
                 .map(OwnerLead::getId)
                 .orElseThrow(OwnerLeadCommandService::invalidDuplicateOf);
+        return new DuplicateClose(lead.orElseThrow(OwnerLeadNotFoundException::new), checkedOriginal);
+    }
+
+    /** The lead of a DUPLICATE close, read with its row lock, and the id of the checked original it will name. */
+    private record DuplicateClose(OwnerLead lead, OwnerLeadId originalId) {
     }
 
     private static InvalidLeadCommandException invalidDuplicateOf() {

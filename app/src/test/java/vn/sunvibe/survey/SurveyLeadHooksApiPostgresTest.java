@@ -122,6 +122,31 @@ class SurveyLeadHooksApiPostgresTest {
 		assertTrue(listedIds(saleB).contains(booked.id()));
 	}
 
+	/**
+	 * acquisition-owner-lead-bulk-assign AC-3, BR-4: a lead reassigned by a bulk assignment moves its scheduled appointment
+	 * to the new assignee, unconfirmed because of the reassignment, and its History row names the appointment, as one
+	 * reassignment does.
+	 */
+	@Test
+	void assignLeads_scheduledAppointment_followsTheNewAssigneeUnconfirmed() throws Exception {
+		Booked booked = booked(saleA, true);
+
+		Result result = api.post(leader, LEADS + "/assignments", Map.of("assigneeUserId", saleB.userId(), "leads",
+				List.of(Map.of("leadId", booked.leadId(), "expectedVersion", survey.version(booked.leadId())))));
+
+		ok(result);
+		assertEquals("ASSIGNED", result.body().path("results").path(0).path("outcome").asString());
+		JsonNode appointment = appointmentOf(block(saleB, booked.leadId()), booked.id());
+		assertEquals(saleB.userId(), appointment.path("surveyorUserId").asString());
+		assertEquals("UNCONFIRMED", appointment.path("confirmation").path("state").asString());
+		assertEquals("REASSIGNED", appointment.path("confirmation").path("cause").asString());
+		JsonNode surveyorChanged = lastEvent(appointment);
+		assertEquals("SURVEYOR_CHANGED", surveyorChanged.path("type").asString());
+		assertEquals(saleA.userId(), surveyorChanged.path("fromSurveyorUserId").asString());
+		assertEquals(saleB.userId(), surveyorChanged.path("toSurveyorUserId").asString());
+		assertHistoryNames(booked, "REASSIGNED");
+	}
+
 	@Test
 	void reassign_overdueAppointment_followsTheNewAssignee() throws Exception {
 		Booked booked = booked(saleA, false);

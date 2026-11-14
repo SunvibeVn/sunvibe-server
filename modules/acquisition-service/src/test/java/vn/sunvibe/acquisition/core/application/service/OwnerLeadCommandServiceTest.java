@@ -5,11 +5,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import vn.sunvibe.acquisition.core.application.command.AddLeadNoteCommand;
 import vn.sunvibe.acquisition.core.application.command.AssignLeadCommand;
+import vn.sunvibe.acquisition.core.application.command.AssignLeadsCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadIntentCommand;
 import vn.sunvibe.acquisition.core.application.command.ChangeLeadStatusCommand;
 import vn.sunvibe.acquisition.core.application.exception.ConcurrentLeadModificationException;
 import vn.sunvibe.acquisition.core.application.exception.IneligibleAssigneeException;
 import vn.sunvibe.acquisition.core.application.exception.OwnerLeadNotFoundException;
+import vn.sunvibe.acquisition.core.application.query.AssignLeadsResult;
 import vn.sunvibe.acquisition.core.application.query.LeadNoteResult;
 import vn.sunvibe.acquisition.core.application.query.OwnerLeadSummary;
 import vn.sunvibe.acquisition.core.application.shared.LeadVisibility;
@@ -42,6 +44,7 @@ import vn.sunvibe.shared.generator.id.IdGenerator;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -522,6 +525,170 @@ class OwnerLeadCommandServiceTest {
         assertNull(activity.getToStatus());
     }
 
+    // ==================== assignLeads (acquisition-owner-lead-bulk-assign spec 3.1) ====================
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-7: each lead gets one outcome, checked in this order: not found (unknown,
+     * not a ULID, or hidden), closed, already with this person (even with a wrong version), changed by someone else,
+     * assigned. The answer follows the request order and only the assigned lead changes; the assignee is asked once.
+     */
+    @Test
+    void assignLeads_outcomeOrder_closedThenSameAssigneeThenVersion() {
+        OwnerLead closedOfB = stored(OwnerLeadStatus.REJECTED, SALE_B);
+        OwnerLead heldByB = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead heldByA = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead fresh = stored(OwnerLeadStatus.NEW, null);
+        String unknown = OwnerLeadId.generate().getValue();
+
+        AssignLeadsResult result = service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_B, null, List.of(
+                new AssignLeadsCommand.LeadInput(unknown, 0L),
+                new AssignLeadsCommand.LeadInput("not-a-ulid", 0L),
+                input(closedOfB, 5L), input(heldByB, 5L), input(heldByA, 5L), input(fresh, 0L))));
+
+        assertEquals(List.of(new AssignLeadsResult.LeadOutcome(unknown, AssignLeadsResult.Outcome.NOT_FOUND),
+                new AssignLeadsResult.LeadOutcome("not-a-ulid", AssignLeadsResult.Outcome.NOT_FOUND),
+                new AssignLeadsResult.LeadOutcome(id(closedOfB), AssignLeadsResult.Outcome.CLOSED),
+                new AssignLeadsResult.LeadOutcome(id(heldByB), AssignLeadsResult.Outcome.ALREADY_ASSIGNED),
+                new AssignLeadsResult.LeadOutcome(id(heldByA), AssignLeadsResult.Outcome.STALE),
+                new AssignLeadsResult.LeadOutcome(id(fresh), AssignLeadsResult.Outcome.ASSIGNED)),
+                result.outcomes());
+        assertEquals(1, directory.calls);
+        OwnerLead assigned = reload(fresh);
+        assertEquals(OwnerLeadStatus.ASSIGNED, assigned.getStatus());
+        assertEquals(SALE_B, assigned.getAssignedUserId());
+        assertEquals(1L, assigned.getVersion());
+        assertEquals(List.of(fresh.getId()), activities.all().stream().map(OwnerLeadActivity::getLeadId).toList());
+        assertEquals(OwnerLeadActivityType.ASSIGNED, activities.all().get(0).getType());
+        for (OwnerLead unchanged : List.of(closedOfB, heldByB, heldByA)) {
+            assertEquals(0L, reload(unchanged).getVersion());
+            assertEquals(unchanged.getStatus(), reload(unchanged).getStatus());
+            assertEquals(unchanged.getAssignedUserId(), reload(unchanged).getAssignedUserId());
+        }
+
+        // acquisition-owner-lead-queue BR-2: a lead the viewer may not see is NOT_FOUND, like an unknown one
+        OwnerLead hidden = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        AssignLeadsResult hiddenResult = service.assignLeads(OWN_A,
+                new AssignLeadsCommand(SALE_A, null, List.of(input(hidden, 0L))));
+
+        assertEquals(List.of(new AssignLeadsResult.LeadOutcome(id(hidden), AssignLeadsResult.Outcome.NOT_FOUND)),
+                hiddenResult.outcomes());
+        assertEquals(SALE_B, reload(hidden).getAssignedUserId());
+        assertEquals(0L, reload(hidden).getVersion());
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-9: an ineligible assignee refuses the whole action, also when every lead is
+     * already theirs, and a note too long refuses it before the assignee is asked; no lead is read or locked.
+     */
+    @Test
+    void assignLeads_ineligibleAssignee_throwsBeforeAnyLeadIsRead() {
+        String nobody = "01JNOBODYAAAAAAAAAAAAAAAAA";
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, nobody);
+        OwnerLead second = stored(OwnerLeadStatus.CONTACTED, nobody);
+        int saves = leads.saveCount;
+
+        IneligibleAssigneeException refused = assertThrows(IneligibleAssigneeException.class,
+                () -> service.assignLeads(ALL_LEADER, new AssignLeadsCommand(nobody, null,
+                        List.of(input(first, 0L), input(second, 0L)))));
+
+        assertEquals("assigneeUserId", refused.getField());
+        assertEquals(List.of(), leads.updateLocks());
+        assertEquals(saves, leads.saveCount);
+        assertEquals(List.of(), activities.all());
+
+        int asked = directory.calls;
+        InvalidLeadCommandException tooLong = assertThrows(InvalidLeadCommandException.class,
+                () -> service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_B,
+                        "  " + "n".repeat(2001) + "  ", List.of(input(first, 0L)))));
+
+        assertEquals("note", tooLong.getField());
+        assertEquals(List.of(), leads.updateLocks());
+        assertEquals(asked, directory.calls);
+        assertEquals(saves, leads.saveCount);
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-4: a reassigned lead moves its scheduled survey through the hook after its
+     * row is written, and its History entry names the appointment; a first assignment calls no hook.
+     */
+    @Test
+    void assignLeads_reassignedLead_callsTheSurveyHookAndNamesTheAppointment() {
+        OwnerLead scheduled = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        OwnerLead fresh = stored(OwnerLeadStatus.NEW, null);
+        surveys.answering(APPOINTMENT, 2);
+
+        service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_B, null,
+                List.of(input(scheduled, 0L), input(fresh, 0L))));
+
+        assertEquals(1, surveys.calls().size());
+        RecordingLeadSurveyPort.Call call = surveys.calls().get(0);
+        assertEquals("reassigned", call.hook());
+        assertEquals(id(scheduled), call.leadId());
+        assertEquals(SALE_B, call.argument());
+        assertEquals(LEADER, call.actorUserId());
+        assertEquals(1L, call.storedVersion());
+        OwnerLeadActivity reassigned = activityOf(scheduled);
+        assertEquals(OwnerLeadActivityType.REASSIGNED, reassigned.getType());
+        assertEquals(SALE_A, reassigned.getFromAssigneeId());
+        assertEquals(SALE_B, reassigned.getToAssigneeId());
+        assertEquals(APPOINTMENT, reassigned.getReferenceId());
+        assertEquals(2, reassigned.getReferenceNo());
+        assertEquals(call.at(), reassigned.getOccurredAt());
+        OwnerLeadActivity assigned = activityOf(fresh);
+        assertEquals(OwnerLeadActivityType.ASSIGNED, assigned.getType());
+        assertNull(assigned.getReferenceId());
+        assertNull(assigned.getReferenceNo());
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign D-2: the leads are locked in ascending id order (Java String order) whatever the
+     * request order, so two bulk commands never wait on each other in a cycle; the answer keeps the request order.
+     */
+    @Test
+    void assignLeads_locksInAscendingIdOrder_answersInRequestOrder() {
+        List<OwnerLead> sorted = new ArrayList<>(List.of(stored(OwnerLeadStatus.NEW, null),
+                stored(OwnerLeadStatus.NEW, null), stored(OwnerLeadStatus.NEW, null)));
+        sorted.sort(Comparator.comparing(OwnerLeadCommandServiceTest::id));
+        List<OwnerLead> request = List.of(sorted.get(1), sorted.get(2), sorted.get(0));
+
+        AssignLeadsResult result = service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_A, null,
+                request.stream().map(lead -> input(lead, 0L)).toList()));
+
+        assertEquals(sorted.stream().map(OwnerLead::getId).toList(), leads.updateLocks());
+        assertEquals(request.stream().map(OwnerLeadCommandServiceTest::id).toList(),
+                result.outcomes().stream().map(AssignLeadsResult.LeadOutcome::leadId).toList());
+        assertEquals(List.of(AssignLeadsResult.Outcome.ASSIGNED, AssignLeadsResult.Outcome.ASSIGNED,
+                        AssignLeadsResult.Outcome.ASSIGNED),
+                result.outcomes().stream().map(AssignLeadsResult.LeadOutcome::outcome).toList());
+    }
+
+    /**
+     * acquisition-owner-lead-bulk-assign BR-6: the one note, cleaned like the note of one assignment, is on the History
+     * entry of every assigned lead; a lead that is unchanged or not assigned gets no entry; a blank note is no note.
+     */
+    @Test
+    void assignLeads_note_onEveryAssignedLeadOnly() {
+        OwnerLead fresh = stored(OwnerLeadStatus.NEW, null);
+        OwnerLead contacted = stored(OwnerLeadStatus.CONTACTED, SALE_A);
+        OwnerLead heldByB = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead changed = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        AssignLeadsResult result = service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_B, "  Chuyển lead  ",
+                List.of(input(fresh, 0L), input(contacted, 0L), input(heldByB, 0L), input(changed, 3L))));
+
+        assertEquals(List.of(AssignLeadsResult.Outcome.ASSIGNED, AssignLeadsResult.Outcome.ASSIGNED,
+                        AssignLeadsResult.Outcome.ALREADY_ASSIGNED, AssignLeadsResult.Outcome.STALE),
+                result.outcomes().stream().map(AssignLeadsResult.LeadOutcome::outcome).toList());
+        assertEquals(2, activities.all().size());
+        assertEquals("Chuyển lead", activityOf(fresh).getNote());
+        assertEquals("Chuyển lead", activityOf(contacted).getNote());
+
+        OwnerLead blank = stored(OwnerLeadStatus.NEW, null);
+        service.assignLeads(ALL_LEADER, new AssignLeadsCommand(SALE_A, "   ", List.of(input(blank, 0L))));
+
+        assertNull(activityOf(blank).getNote());
+    }
+
     // ==================== changeStatus ====================
 
     @Test
@@ -709,6 +876,212 @@ class OwnerLeadCommandServiceTest {
         assertEquals(rejected.getId(), reload(lead).getDuplicateOfLeadId());
     }
 
+    /**
+     * acquisition-owner-lead-queue BR-2, spec 5.3: a DUPLICATE close of a lead the viewer cannot see is the 404 of an
+     * unknown lead, also when the target is one the viewer sees; nothing is written.
+     */
+    @Test
+    void changeStatus_duplicateOfVisibleTargetOnInvisibleLead_isNotFound() {
+        OwnerLead others = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead target = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        assertThrows(OwnerLeadNotFoundException.class,
+                () -> service.changeStatus(OWN_A, closeAsDuplicate(others, target, 0L)));
+
+        assertEquals(OwnerLeadStatus.ASSIGNED, reload(others).getStatus());
+        assertEquals(0L, reload(others).getVersion());
+        assertTrue(activities.all().isEmpty());
+    }
+
+    /** acquisition-owner-lead-queue BR-9: a DUPLICATE close on an outdated version is refused on expectedVersion. */
+    @Test
+    void changeStatus_duplicateWithStaleVersion_isConflict() {
+        OwnerLead target = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        ConcurrentLeadModificationException ex = assertThrows(ConcurrentLeadModificationException.class,
+                () -> service.changeStatus(OWN_A, closeAsDuplicate(lead, target, 5L)));
+
+        assertEquals("expectedVersion", ex.getField());
+        assertEquals(OwnerLeadStatus.ASSIGNED, reload(lead).getStatus());
+        assertEquals(0L, reload(lead).getVersion());
+        assertTrue(activities.all().isEmpty());
+    }
+
+    /**
+     * survey-schedule BR-3: closing a SURVEY_SCHEDULED lead as a duplicate cancels its appointment through the hook,
+     * after the lead row is saved, with the close reason; the History entry names the appointment.
+     */
+    @Test
+    void changeStatus_duplicateFromSurveyScheduled_cancelsThroughTheHookWithTheReason() {
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead lead = stored(OwnerLeadStatus.SURVEY_SCHEDULED, SALE_A);
+        surveys.answering(APPOINTMENT, 1);
+
+        service.changeStatus(OWN_A, closeAsDuplicate(lead, original, 0L));
+
+        assertEquals(1, surveys.calls().size());
+        RecordingLeadSurveyPort.Call call = surveys.calls().get(0);
+        assertEquals("LEAD_CLOSED", call.hook());
+        assertEquals(id(lead), call.leadId());
+        assertEquals("Same owner", call.argument());
+        assertEquals(1L, call.storedVersion());
+        OwnerLeadActivity activity = activityOf(lead);
+        assertEquals(APPOINTMENT, activity.getReferenceId());
+        assertEquals(OwnerLeadStatus.DUPLICATE, activity.getToStatus());
+        assertEquals(original.getId(), reload(lead).getDuplicateOfLeadId());
+    }
+
+    /**
+     * acquisition-owner-lead-queue spec 5.3, C-17: a DUPLICATE close of a lead that another lead names as its
+     * original keeps the check order. Each close below has two faults (one of them the stale version 7): a bad
+     * target is answered before the lead, the lead before the version, and the version before the lead's state.
+     */
+    @Test
+    void changeStatus_leadNamedAsOriginal_answersTheTargetTheLeadAndTheVersionFirst() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        OwnerLead ownTarget = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead target = stored(OwnerLeadStatus.ASSIGNED, SALE_B);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+
+        InvalidLeadCommandException duplicateTarget = assertThrows(InvalidLeadCommandException.class,
+                () -> service.changeStatus(ALL_LEADER, closeAsDuplicate(original, first, 7L)));
+        assertThrows(OwnerLeadNotFoundException.class,
+                () -> service.changeStatus(OWN_A, closeAsDuplicate(original, ownTarget, 7L)));
+        ConcurrentLeadModificationException stale = assertThrows(ConcurrentLeadModificationException.class,
+                () -> service.changeStatus(ALL_LEADER, closeAsDuplicate(original, target, 7L)));
+
+        assertEquals("duplicateOfLeadId", duplicateTarget.getField());
+        assertEquals("expectedVersion", stale.getField());
+        assertEquals(OwnerLeadStatus.ASSIGNED, reload(original).getStatus());
+        assertEquals(0L, reload(original).getVersion());
+    }
+
+    /**
+     * acquisition-owner-lead-queue C-17, acquisition BR-3: a lead that other leads name as their original still takes
+     * more duplicates and still closes otherwise; closed as REJECTED it is still a valid original, because only a
+     * DUPLICATE target is refused.
+     */
+    @Test
+    void changeStatus_leadNamedAsOriginal_stillTakesDuplicatesAndOtherMoves() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead second = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(second, original, 0L));
+        OwnerLeadSummary rejected = service.changeStatus(ALL_LEADER, new ChangeLeadStatusCommand(id(original),
+                OwnerLeadStatus.REJECTED, 0L, "Not a fit", null, null, null));
+        OwnerLead third = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(third, original, 0L));
+
+        assertEquals(original.getId(), reload(first).getDuplicateOfLeadId());
+        assertEquals(original.getId(), reload(second).getDuplicateOfLeadId());
+        assertEquals(OwnerLeadStatus.REJECTED, rejected.status());
+        assertEquals(OwnerLeadStatus.DUPLICATE, reload(third).getStatus());
+        assertEquals(original.getId(), reload(third).getDuplicateOfLeadId());
+    }
+
+    /** SV-003: only a DUPLICATE close reads rows with a lock; every other status change takes none. */
+    @Test
+    void changeStatus_otherMoves_takeNoRowLock() {
+        OwnerLead lead = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+
+        service.changeStatus(OWN_A, statusChange(lead, OwnerLeadStatus.CONTACTED, 0L));
+        service.changeStatus(OWN_A, statusChange(lead, OwnerLeadStatus.ON_HOLD, 1L));
+        service.changeStatus(OWN_A, new ChangeLeadStatusCommand(id(lead), OwnerLeadStatus.REJECTED, 2L, "Not a fit",
+                null, null, null));
+
+        assertEquals(OwnerLeadStatus.REJECTED, reload(lead).getStatus());
+        assertEquals(List.of(), leads.lockLog());
+    }
+
+    /**
+     * [DEL-8] SV003-D2, DC-12: a forbidden move of a lead that another lead names as its original lists what the same
+     * move of a lead nobody names lists, DUPLICATE included, so a refusal that changes nothing tells nothing about
+     * duplicates.
+     */
+    @Test
+    void changeStatus_forbiddenMoveOfAnOriginal_listsLikeAnyLead() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead plain = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+
+        InvalidLeadTransitionException onOriginal = assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(OWN_A, statusChange(original, OwnerLeadStatus.NEW, 0L)));
+        InvalidLeadTransitionException onPlain = assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(OWN_A, statusChange(plain, OwnerLeadStatus.NEW, 0L)));
+
+        List<OwnerLeadStatus> openMoves = List.of(OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD,
+                OwnerLeadStatus.DUPLICATE, OwnerLeadStatus.REJECTED, OwnerLeadStatus.WITHDRAWN);
+        assertEquals(OwnerLeadStatus.NEW, onOriginal.getTo());
+        assertEquals(openMoves, onOriginal.getAllowed());
+        assertEquals(OwnerLeadStatus.NEW, onPlain.getTo());
+        assertEquals(openMoves, onPlain.getAllowed());
+        assertEquals(OwnerLeadStatus.ASSIGNED, reload(original).getStatus());
+        assertEquals(0L, reload(original).getVersion());
+        assertNull(reload(original).getDuplicateOfLeadId());
+    }
+
+    /**
+     * acquisition-owner-lead-queue C-17 on both ends of the link, [DEL-8] SV003-D1, D2 (DC-1): a lead that another
+     * lead names as its original is not closed as a duplicate; the refusal lists its other statuses, names no other
+     * lead, and nothing is written.
+     */
+    @Test
+    void changeStatus_leadNamedAsOriginal_isRefusedWithTheOtherStatuses() {
+        OwnerLead first = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead original = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        OwnerLead other = stored(OwnerLeadStatus.ASSIGNED, SALE_A);
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(first, original, 0L));
+        int saves = leads.saveCount;
+        int entries = activities.all().size();
+
+        InvalidLeadTransitionException ex = assertThrows(InvalidLeadTransitionException.class,
+                () -> service.changeStatus(ALL_LEADER, closeAsDuplicate(original, other, 0L)));
+
+        assertEquals(OwnerLeadStatus.ASSIGNED, ex.getFrom());
+        assertEquals(OwnerLeadStatus.DUPLICATE, ex.getTo());
+        assertEquals(List.of(OwnerLeadStatus.CONTACTED, OwnerLeadStatus.ON_HOLD, OwnerLeadStatus.REJECTED,
+                OwnerLeadStatus.WITHDRAWN), ex.getAllowed());
+        assertFalse(ex.getMessage().contains(id(first)));
+        OwnerLead after = reload(original);
+        assertEquals(OwnerLeadStatus.ASSIGNED, after.getStatus());
+        assertNull(after.getDuplicateOfLeadId());
+        assertEquals(0L, after.getVersion());
+        assertEquals(saves, leads.saveCount);
+        assertEquals(entries, activities.all().size());
+    }
+
+    /**
+     * [DEL-8] SV003-D4 (DC-9): a DUPLICATE close reads both leads with a row lock before it checks them, the lead for
+     * update and the original for share, in ascending id order like bulk assignment, each lead once.
+     */
+    @Test
+    void changeStatus_duplicate_locksTheLeadForUpdateAndTheOriginalForShareInIdOrder() {
+        List<OwnerLead> sorted = new ArrayList<>(List.of(stored(OwnerLeadStatus.ASSIGNED, SALE_A),
+                stored(OwnerLeadStatus.ASSIGNED, SALE_A), stored(OwnerLeadStatus.ASSIGNED, SALE_A),
+                stored(OwnerLeadStatus.ASSIGNED, SALE_A)));
+        sorted.sort(Comparator.comparing(OwnerLeadCommandServiceTest::id));
+        OwnerLead low = sorted.get(0);
+        OwnerLead mid1 = sorted.get(1);
+        OwnerLead mid2 = sorted.get(2);
+        OwnerLead high = sorted.get(3);
+
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(low, mid1, 0L));
+
+        assertEquals(List.of("update:" + id(low), "share:" + id(mid1)), leads.lockLog());
+
+        service.changeStatus(ALL_LEADER, closeAsDuplicate(high, mid2, 0L));
+
+        assertEquals(List.of("update:" + id(low), "share:" + id(mid1), "share:" + id(mid2), "update:" + id(high)),
+                leads.lockLog());
+        assertEquals(mid1.getId(), reload(low).getDuplicateOfLeadId());
+        assertEquals(mid2.getId(), reload(high).getDuplicateOfLeadId());
+    }
+
     // ==================== addNote ====================
 
     @Test
@@ -842,8 +1215,27 @@ class OwnerLeadCommandServiceTest {
         return lead.getId().getValue();
     }
 
+    private static AssignLeadsCommand.LeadInput input(OwnerLead lead, long expectedVersion) {
+        return new AssignLeadsCommand.LeadInput(id(lead), expectedVersion);
+    }
+
+    /** The one History entry of this lead. */
+    private OwnerLeadActivity activityOf(OwnerLead lead) {
+        List<OwnerLeadActivity> entries = activities.all().stream()
+                .filter(activity -> activity.getLeadId().equals(lead.getId()))
+                .toList();
+        assertEquals(1, entries.size(), "one History entry per lead");
+        return entries.get(0);
+    }
+
     private static ChangeLeadStatusCommand statusChange(OwnerLead lead, OwnerLeadStatus to, long expectedVersion) {
         return new ChangeLeadStatusCommand(id(lead), to, expectedVersion, null, null, null, null);
+    }
+
+    /** Close the lead as a duplicate of the original, with the reason "Same owner". */
+    private static ChangeLeadStatusCommand closeAsDuplicate(OwnerLead lead, OwnerLead original, long expectedVersion) {
+        return new ChangeLeadStatusCommand(id(lead), OwnerLeadStatus.DUPLICATE, expectedVersion, "Same owner",
+                id(original), null, null);
     }
 
     /** The lead fake, able to lose the next save to a change made at the same time. */
