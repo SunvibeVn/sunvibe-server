@@ -55,7 +55,7 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   and the requirement change of a lead.
 - modules/survey-service: survey appointments of owner leads (booking, change, confirmation, cancellation, visit,
   re-survey, resume) and the staff survey list; it moves leads only through the use case acquisition publishes.
-- modules/listing-service, modules/notification-service: empty placeholders (target names, ADR-003). A new module must be added to settings.gradle.kts and app/build.gradle.kts.
+- modules/brokerage-service, modules/listing-service, modules/notification-service: empty placeholders (target names, ADR-003). A new module must be added to settings.gradle.kts and app/build.gradle.kts.
 
 ## Architecture
 - DDD + Hexagonal + CQRS. Package root per module: vn.sunvibe.<module>.core.{domain,application,infrastructure,presentation,shared}.

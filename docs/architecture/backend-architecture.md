@@ -9,8 +9,9 @@ This project follows a **Modular Monolith** architecture with **DDD + Hexagonal 
 
 - **Root module**: `app` (Spring Boot application, `vn.sunvibe.SunvibeServerApplication`, global `config/SecurityConfig`)
 - **Shared module**: `modules/shared-service`, package `vn.sunvibe.shared` (exceptions, error DTOs, crypto, ID generators, `AppClock`)
-- **Domain modules**: `modules/<name>-service`. With code today: `auth-service`, `property-service`.
-  Empty placeholders: listing, notification.
+- **Domain modules**: `modules/<name>-service`. With code today: `auth-service`, `property-service`,
+  `acquisition-service`, `survey-service`. Empty placeholders: `brokerage-service`, `listing-service`,
+  `notification-service`.
 
 Each module should follow the same architectural principles described in this document.
 
