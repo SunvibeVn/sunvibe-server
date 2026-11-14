@@ -66,4 +66,33 @@ class PhoneNumberDetectorTest {
             assertTrue(PhoneNumberDetector.containsVietnamesePhoneNumber(text), text);
         }
     }
+
+    /** SV-212 rows R-1 to R-4: a valid date and a clock time in a note are not a phone number (owner 2026-11-14). */
+    @Test
+    void containsVietnamesePhoneNumber_dateWithTime_isNotAPhone() {
+        for (String text : new String[]{"Gặp chủ 06.11.2026 09:00", "Gặp chủ 06.11.2026 09h00",
+                "Gặp chủ 06-11-2026 10 giờ", "Gặp chủ 06. 11. 2026 09:00"}) {
+            assertFalse(PhoneNumberDetector.containsVietnamesePhoneNumber(text), text);
+        }
+    }
+
+    /**
+     * SV-212 rows R-5 to R-8: a number written right after a floor number, before a duration or after a date is
+     * still found, and a date does not hide a number (owner 2026-11-14).
+     */
+    @Test
+    void containsVietnamesePhoneNumber_numberRightAfterAnotherNumber_isDetected() {
+        for (String text : new String[]{"Tầng 3 0905 123 456", "0905 123 456 15 phút", "06.11.2026 0905 123 456",
+                "Gặp chủ 06.11.2026 09:00, gọi 0905123456"}) {
+            assertTrue(PhoneNumberDetector.containsVietnamesePhoneNumber(text), text);
+        }
+    }
+
+    /** SV-212 rows R-9 and R-10: a colon is an edge, and the clock time mask does not hide a number next to it. */
+    @Test
+    void containsVietnamesePhoneNumber_numberNextToAColon_isDetected() {
+        for (String text : new String[]{"SĐT1:0905123456", "0905123456:15"}) {
+            assertTrue(PhoneNumberDetector.containsVietnamesePhoneNumber(text), text);
+        }
+    }
 }
