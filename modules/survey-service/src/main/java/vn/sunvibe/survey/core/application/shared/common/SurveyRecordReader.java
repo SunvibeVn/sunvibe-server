@@ -2,9 +2,11 @@ package vn.sunvibe.survey.core.application.shared.common;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointment;
+import vn.sunvibe.survey.core.domain.model.appointment.SurveyAppointmentId;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistStatus;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
+import vn.sunvibe.survey.core.domain.model.checklist.EvidenceRejection;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklist;
 import vn.sunvibe.survey.core.domain.model.checklist.SurveyChecklistId;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMediaId;
@@ -23,7 +25,10 @@ import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepositor
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The survey record of one intent cycle, read fresh from stored rows on every question (survey-checklist submission
@@ -94,6 +99,18 @@ public class SurveyRecordReader {
         /** spec 4.8: cancel keeps SURVEY_SCHEDULED and resume returns to it only with this record. */
         public boolean completable() {
             return CompletableRecord.completable(currentVisit.isPresent(), latestMark());
+        }
+
+        /**
+         * survey-checklist SV-211: the ids of the photos that a decision on a revision of the visit marked not accepted.
+         * Every revision before the latest of a visit is decided (survey-checklist submission spec 4.1), so its marks are
+         * here. A photo marked by two decisions is listed once.
+         */
+        public Set<String> rejectedOnVisit(SurveyAppointmentId visitAppointmentId) {
+            return ofCycle.stream().filter(checklist -> checklist.getVisitAppointmentId().equals(visitAppointmentId))
+                    .map(checklist -> decisions.get(checklist.getId())).filter(Objects::nonNull)
+                    .flatMap(decision -> decision.rejections().stream()).map(EvidenceRejection::mediaId)
+                    .collect(Collectors.toUnmodifiableSet());
         }
     }
 

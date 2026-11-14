@@ -1,6 +1,7 @@
 package vn.sunvibe.survey.core.domain.policy.media;
 
 import org.junit.jupiter.api.Test;
+import vn.sunvibe.survey.core.domain.model.media.HoldReason;
 import vn.sunvibe.survey.core.domain.model.media.MediaSelection;
 import vn.sunvibe.survey.core.domain.model.media.RemovalKind;
 import vn.sunvibe.survey.core.domain.model.media.SurveyMedia;
@@ -10,6 +11,7 @@ import vn.sunvibe.survey.core.testsupport.MediaFixture;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -67,5 +69,31 @@ class RevisionSelectionTest {
 
         assertThrows(IllegalStateException.class,
                 () -> left.deselected("01JSA1E0000000000000000001", RemovalKind.HOLDER, null, null, AT));
+    }
+
+    /** survey-checklist SV-211: a photo a reviewer of the visit did not accept stays in the earlier revision. */
+    @Test
+    void photosToCarry_leavesOutRejectedPhotos() {
+        SurveyMedia a = MediaFixture.ready();
+        SurveyMedia b = MediaFixture.ready();
+
+        assertEquals(List.of(a), RevisionSelection.photosToCarry(List.of(a, b), Set.of(b.getId().getValue())));
+    }
+
+    @Test
+    void photosToCarry_leavesOutPhotosThatCannotBeServed() {
+        SurveyMedia held = MediaFixture.held(MediaFixture.ready(), HoldReason.SECURITY_INCIDENT);
+        SurveyMedia kept = MediaFixture.ready();
+        SurveyMedia processing = MediaFixture.processing();
+
+        assertEquals(List.of(kept), RevisionSelection.photosToCarry(List.of(held, kept, processing), Set.of()));
+    }
+
+    @Test
+    void photosToCarry_keepsTheOrderOfTheSelection() {
+        SurveyMedia a = MediaFixture.ready();
+        SurveyMedia b = MediaFixture.ready();
+
+        assertEquals(List.of(b, a), RevisionSelection.photosToCarry(List.of(b, a), Set.of()));
     }
 }
