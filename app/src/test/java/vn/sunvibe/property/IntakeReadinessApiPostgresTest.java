@@ -179,6 +179,37 @@ class IntakeReadinessApiPostgresTest extends IntakeApiTestBase {
 		assertEquals(done.passed().checklistId(), readinessOf(leader, done.leadId()).path("sourceRevisionId").asString());
 	}
 
+	/** Pin (E05-S6b): a frozen photo of the basis's source lost its content, so the result has ended (spec 4.11). */
+	@Test
+	void readiness_evidenceGone_ended() throws Exception {
+		Done done = done();
+
+		jdbc.update("update survey_media set content_missing_at = ? where id = ?", java.sql.Timestamp.from(Instant.now()),
+				done.passed().photoIds().getFirst());
+
+		JsonNode read = readinessOf(leader, done.leadId());
+		assertEquals("ENDED", read.path("state").asString(), read.toString());
+		assertEquals("[\"EVIDENCE_GONE\"]", read.path("reasons").toString());
+		IntakeBlockView.Readiness published = readiness.readiness(done.leadId());
+		assertEquals("ENDED", published.state());
+		assertEquals(List.of("EVIDENCE_GONE"), published.reasons());
+	}
+
+	/** Pin (E05-S6b): the lead's intent changed after the completion, so the result has ended (spec 4.11). */
+	@Test
+	void readiness_intentChanged_ended() throws Exception {
+		Done done = done();
+
+		jdbc.update("update owner_leads set intent_cycle = intent_cycle + 1 where id = ?", done.leadId());
+
+		JsonNode read = readinessOf(leader, done.leadId());
+		assertEquals("ENDED", read.path("state").asString(), read.toString());
+		assertEquals("[\"INTENT_CHANGED\"]", read.path("reasons").toString());
+		IntakeBlockView.Readiness published = readiness.readiness(done.leadId());
+		assertEquals("ENDED", published.state());
+		assertEquals(List.of("INTENT_CHANGED"), published.reasons());
+	}
+
 	@Test
 	void complete_writesNoVerified() throws Exception {
 		Done done = done();
