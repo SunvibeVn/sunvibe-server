@@ -43,7 +43,8 @@ class AcquisitionBasisLeadAdapterTest {
 
 		@Override
 		public Optional<LeadIntakeFacts> findVisibleForUpdate(String leadId, SurveyLeadViewer viewer) {
-			throw new UnsupportedOperationException("brokerage never locks a lead");
+			calls.add("forUpdate " + leadId + " " + viewer.userId() + " " + viewer.access());
+			return visible;
 		}
 
 		@Override
@@ -80,5 +81,21 @@ class AcquisitionBasisLeadAdapterTest {
 		visible = Optional.empty();
 
 		assertTrue(adapter.findVisible("01LEAD", "01OTHER", Set.of("ROLE_SALE")).isEmpty());
+	}
+
+	/** E05-S2 spec S2-D2, AD-14: the create command reads the lead under acquisition's row lock. */
+	@Test
+	void findVisibleForUpdate_forwardsViewerAndMapsFacts() {
+		BasisLeadFacts lead = adapter.findVisibleForUpdate("01LEAD", "01SALE", Set.of("ROLE_SALE")).orElseThrow();
+
+		assertEquals(new BasisLeadFacts("01LEAD", "01SALE"), lead);
+		assertEquals(List.of("viewerFor 01SALE [ROLE_SALE]", "forUpdate 01LEAD 01SALE OWN"), calls);
+	}
+
+	@Test
+	void findVisibleForUpdate_notVisible_empty() {
+		visible = Optional.empty();
+
+		assertTrue(adapter.findVisibleForUpdate("01LEAD", "01OTHER", Set.of("ROLE_SALE")).isEmpty());
 	}
 }

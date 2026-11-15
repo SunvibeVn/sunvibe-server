@@ -43,9 +43,17 @@ class EligibilityQueryServiceTest {
     private final List<String> calls = new ArrayList<>();
 
     private BasisLeadPort lead(String assigneeOrNull) {
-        return (leadId, userId, authorities) -> {
-            calls.add("lead " + leadId + " " + userId + " " + authorities);
-            return Optional.of(new BasisLeadFacts(leadId, assigneeOrNull));
+        return new BasisLeadPort() {
+            @Override
+            public Optional<BasisLeadFacts> findVisible(String leadId, String userId, Set<String> authorities) {
+                calls.add("lead " + leadId + " " + userId + " " + authorities);
+                return Optional.of(new BasisLeadFacts(leadId, assigneeOrNull));
+            }
+
+            @Override
+            public Optional<BasisLeadFacts> findVisibleForUpdate(String leadId, String userId, Set<String> authorities) {
+                throw new UnsupportedOperationException("the eligibility read never locks a lead");
+            }
         };
     }
 
@@ -69,9 +77,17 @@ class EligibilityQueryServiceTest {
 
     @Test
     void forLead_notVisible_notFound() {
-        BasisLeadPort hidden = (leadId, userId, authorities) -> {
-            calls.add("lead " + leadId);
-            return Optional.empty();
+        BasisLeadPort hidden = new BasisLeadPort() {
+            @Override
+            public Optional<BasisLeadFacts> findVisible(String leadId, String userId, Set<String> authorities) {
+                calls.add("lead " + leadId);
+                return Optional.empty();
+            }
+
+            @Override
+            public Optional<BasisLeadFacts> findVisibleForUpdate(String leadId, String userId, Set<String> authorities) {
+                throw new UnsupportedOperationException("the eligibility read never locks a lead");
+            }
         };
         EligibilityQueryService service = new EligibilityQueryService(hidden, basis(BASIS), account(true));
 
