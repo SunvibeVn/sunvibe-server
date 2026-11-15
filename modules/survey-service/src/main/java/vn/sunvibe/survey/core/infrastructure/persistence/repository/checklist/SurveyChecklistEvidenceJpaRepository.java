@@ -16,6 +16,9 @@ public interface SurveyChecklistEvidenceJpaRepository
 
     List<SurveyChecklistEvidenceEntity> findByIdChecklistIdOrderByIdMediaIdAsc(String checklistId);
 
+    List<SurveyChecklistEvidenceEntity> findByIdChecklistIdInOrderByIdChecklistIdAscIdMediaIdAsc(
+            Collection<String> checklistIds);
+
     @Query("select distinct e.id.mediaId from SurveyChecklistEvidenceEntity e where e.id.mediaId in :mediaIds")
     List<String> findMediaIdsReferenced(@Param("mediaIds") Collection<String> mediaIds);
 }

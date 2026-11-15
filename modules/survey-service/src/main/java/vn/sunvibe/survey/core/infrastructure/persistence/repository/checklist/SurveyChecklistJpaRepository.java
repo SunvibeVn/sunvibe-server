@@ -21,6 +21,8 @@ public interface SurveyChecklistJpaRepository extends JpaRepository<SurveyCheckl
 
     List<SurveyChecklistEntity> findByLeadIdOrderByChecklistNoAsc(String leadId);
 
+    List<SurveyChecklistEntity> findByLeadIdInOrderByLeadIdAscChecklistNoAsc(Collection<String> leadIds);
+
     List<SurveyChecklistEntity> findByVisitAppointmentIdInOrderByChecklistNoAsc(Collection<String> visitIds);
 
     /** The row with a PostgreSQL {@code FOR SHARE} lock (survey-media spec 5.4). */

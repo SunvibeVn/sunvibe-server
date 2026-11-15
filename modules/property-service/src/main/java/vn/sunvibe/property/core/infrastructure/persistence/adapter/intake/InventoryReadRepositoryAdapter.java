@@ -14,7 +14,10 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -144,6 +147,61 @@ public class InventoryReadRepositoryAdapter implements InventoryReadRepository {
                 (row, number) -> new HoldingFacts(row.getString("user_id"), row.getString("relation_type"),
                         row.getString("verification_state")),
                 propertyId, Date.valueOf(today), Date.valueOf(today));
+    }
+
+    @Override
+    public List<PropertyFacts> properties(Collection<String> propertyIds) {
+        if (propertyIds.isEmpty()) {
+            return List.of();
+        }
+        List<String> ids = List.copyOf(new LinkedHashSet<>(propertyIds));
+        return jdbc.query(PROPERTY_COLUMNS + " where p.id in (" + marks(ids) + ") order by p.id", PROPERTY, ids.toArray());
+    }
+
+    @Override
+    public Map<String, List<String>> currentOwnerIdsOf(Collection<String> propertyIds, LocalDate today) {
+        if (propertyIds.isEmpty()) {
+            return Map.of();
+        }
+        List<String> ids = List.copyOf(new LinkedHashSet<>(propertyIds));
+        Map<String, List<String>> owners = new HashMap<>();
+        jdbc.query("select distinct property_id, user_id from property_ownerships where property_id in (" + marks(ids) + ")"
+                        + " and relation_type = 'OWNER' and valid_from <= ? and (valid_to is null or valid_to >= ?)"
+                        + " order by property_id, user_id",
+                row -> {
+                    owners.computeIfAbsent(row.getString("property_id"), id -> new ArrayList<>()).add(row.getString("user_id"));
+                }, withDay(ids, today));
+        return owners;
+    }
+
+    @Override
+    public Map<String, List<HoldingFacts>> holdingsOf(Collection<String> propertyIds, LocalDate today) {
+        if (propertyIds.isEmpty()) {
+            return Map.of();
+        }
+        List<String> ids = List.copyOf(new LinkedHashSet<>(propertyIds));
+        Map<String, List<HoldingFacts>> holdings = new HashMap<>();
+        jdbc.query("select property_id, user_id, relation_type, verification_state from property_ownerships"
+                        + " where property_id in (" + marks(ids) + ") and valid_from <= ? and (valid_to is null or valid_to >= ?)"
+                        + " order by property_id, user_id, relation_type",
+                row -> {
+                    holdings.computeIfAbsent(row.getString("property_id"), id -> new ArrayList<>())
+                            .add(new HoldingFacts(row.getString("user_id"), row.getString("relation_type"),
+                                    row.getString("verification_state")));
+                }, withDay(ids, today));
+        return holdings;
+    }
+
+    private static String marks(List<String> ids) {
+        return String.join(",", Collections.nCopies(ids.size(), "?"));
+    }
+
+    /** The ids, then the day twice, in the order of a statement that ends with the validity of a row on that day. */
+    private static Object[] withDay(List<String> ids, LocalDate today) {
+        List<Object> arguments = new ArrayList<>(ids);
+        arguments.add(Date.valueOf(today));
+        arguments.add(Date.valueOf(today));
+        return arguments.toArray();
     }
 
     @Override

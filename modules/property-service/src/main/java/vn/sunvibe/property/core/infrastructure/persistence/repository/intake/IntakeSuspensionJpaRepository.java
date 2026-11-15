@@ -13,5 +13,7 @@ public interface IntakeSuspensionJpaRepository extends JpaRepository<IntakeSuspe
 
     List<IntakeSuspensionEntity> findByLeadIdOrderByCreatedAtAscIdAsc(String leadId);
 
+    List<IntakeSuspensionEntity> findByLeadIdInOrderByLeadIdAscCreatedAtAscIdAsc(Collection<String> leadIds);
+
     boolean existsByUnitIdInAndReleasedAtIsNull(Collection<String> unitIds);
 }

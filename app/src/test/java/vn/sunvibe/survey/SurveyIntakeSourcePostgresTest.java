@@ -9,8 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -31,6 +34,8 @@ import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
 import vn.sunvibe.survey.core.application.usecase.checklist.IntakeSourceView;
+import vn.sunvibe.survey.core.application.usecase.checklist.SourceStandingUseCase;
+import vn.sunvibe.survey.core.application.usecase.checklist.SourceStandingView;
 import vn.sunvibe.survey.core.application.usecase.checklist.SurveyIntakeSourceUseCase;
 
 /**
@@ -63,6 +68,9 @@ class SurveyIntakeSourcePostgresTest extends MediaApiTestBase {
 
 	@Autowired
 	private SurveyIntakeSourceUseCase sources;
+
+	@Autowired
+	private SourceStandingUseCase sourceStandings;
 
 	@Autowired
 	private PlatformTransactionManager transactionManager;
@@ -241,6 +249,127 @@ class SurveyIntakeSourcePostgresTest extends MediaApiTestBase {
 		Passed passed = fixture.whole(leader, sale, "HOUSE", "7 Nguyễn Văn Linh");
 
 		assertFalse(current(passed.leadId()).orElseThrow().toString().contains("Nguyễn"));
+	}
+
+	// ==================== read 2 of E05-S6b: parity with currentSource and markedRevisions (SR-6) ====================
+
+	@Test
+	void source_currentPassed_allFields_standingsMatch() throws Exception {
+		Passed passed = fixture.parts(leader, sale, "WHOLE_BUILDING", "12 Bạch Đằng", "P101", "P102");
+
+		assertStandingsMatch(passed.leadId());
+	}
+
+	@Test
+	void source_marked_eachRevisionWithKind_standingsMatch() throws Exception {
+		Passed first = fixture.whole(leader, sale, "HOUSE", "2 Nguyễn Văn Linh");
+		fixture.requalify(leader, first.checklistId(), "WRONG_SCOPE");
+		assertStandingsMatch(first.leadId());
+
+		fixture.revisit(leader, sale, first.leadId(), "WHOLE", "HOUSE", "2 Nguyễn Văn Linh", "A1");
+
+		assertStandingsMatch(first.leadId());
+	}
+
+	@Test
+	void source_marks_readableWithNoCurrentPassed_standingsMatch() throws Exception {
+		Passed passed = fixture.whole(leader, sale, "HOUSE", "3 Nguyễn Văn Linh");
+
+		fixture.requalify(leader, passed.checklistId(), "WRONG_ASSET");
+
+		assertStandingsMatch(passed.leadId());
+	}
+
+	@Test
+	void markedRevisions_carryTheMarkTime_standingsMatch() throws Exception {
+		Passed passed = fixture.whole(leader, sale, "HOUSE", "8 Nguyễn Văn Linh");
+
+		fixture.requalify(leader, passed.checklistId(), "PHOTO_PROBLEM");
+
+		assertStandingsMatch(passed.leadId());
+	}
+
+	@Test
+	void source_noPassed_empty_standingsMatch() throws Exception {
+		String lead = fixture.survey().lead(leader, sale, "CONTACTED");
+
+		assertStandingsMatch(lead);
+	}
+
+	@Test
+	void source_evidenceHeld_notUsable_standingsMatch() throws Exception {
+		Passed passed = fixture.whole(leader, sale, "HOUSE", "6 Nguyễn Văn Linh");
+		jdbc.update("update survey_media set held_at = now(), held_by_user_id = ?, hold_reason = 'SECURITY_INCIDENT' where id = ?",
+				leader.userId(), passed.photoIds().getFirst());
+
+		assertStandingsMatch(passed.leadId());
+	}
+
+	@Test
+	void standings_evidenceGone_matchesCurrentSource() throws Exception {
+		Passed passed = fixture.whole(leader, sale, "HOUSE", "9 Nguyễn Văn Linh");
+		jdbc.update("update survey_media set content_missing_at = ? where id = ?", Timestamp.from(Instant.now()),
+				passed.photoIds().getFirst());
+
+		assertStandingsMatch(passed.leadId());
+		assertEquals("EVIDENCE_GONE", standingOf(passed.leadId()).reasonOrNull());
+	}
+
+	@Test
+	void standings_twoScenariosInOneCall_eachAsAlone() throws Exception {
+		Passed marked = fixture.whole(leader, sale, "HOUSE", "10 Nguyễn Văn Linh");
+		fixture.requalify(leader, marked.checklistId(), "WRONG_SCOPE");
+		fixture.revisit(leader, sale, marked.leadId(), "WHOLE", "HOUSE", "10 Nguyễn Văn Linh", "A1");
+		Passed held = fixture.whole(leader, sale, "HOUSE", "11 Nguyễn Văn Linh");
+		jdbc.update("update survey_media set held_at = now(), held_by_user_id = ?, hold_reason = 'SECURITY_INCIDENT' where id = ?",
+				leader.userId(), held.photoIds().getFirst());
+		Map<String, Integer> cycles = new LinkedHashMap<>();
+		cycles.put(marked.leadId(), cycleOf(marked.leadId()));
+		cycles.put(held.leadId(), cycleOf(held.leadId()));
+
+		Map<String, SourceStandingView> both = standings(cycles);
+
+		assertEquals(cycles.keySet(), both.keySet());
+		assertEquals(standingOf(marked.leadId()), both.get(marked.leadId()));
+		assertEquals(standingOf(held.leadId()), both.get(held.leadId()));
+	}
+
+	@Test
+	void standings_unknownLead_noSourceNoMarks() {
+		String unknown = "01LEAD0000000000000000000A";
+
+		assertEquals(Map.of(unknown, new SourceStandingView(null, false, null, List.of())), standings(Map.of(unknown, 1)));
+	}
+
+	@Test
+	void standings_noTransaction_refused() {
+		assertThrows(IllegalTransactionStateException.class,
+				() -> sourceStandings.standings(Map.of("01LEAD0000000000000000000A", 1)));
+	}
+
+	/** Read 2 for the lead and its current cycle answers what currentSource and markedRevisions answer. */
+	private void assertStandingsMatch(String leadId) {
+		SourceStandingView standing = standingOf(leadId);
+		Optional<IntakeSourceView> current = current(leadId);
+
+		assertEquals(current.map(IntakeSourceView::revisionId).orElse(null), standing.revisionIdOrNull());
+		assertEquals(current.map(IntakeSourceView::usable).orElse(false), standing.usable());
+		assertEquals(current.map(IntakeSourceView::reasonOrNull).orElse(null), standing.reasonOrNull());
+		assertEquals(marked(leadId), standing.markedRevisions());
+	}
+
+	private SourceStandingView standingOf(String leadId) {
+		Map<String, SourceStandingView> answered = standings(Map.of(leadId, cycleOf(leadId)));
+		assertEquals(Set.of(leadId), answered.keySet());
+		return answered.get(leadId);
+	}
+
+	private Map<String, SourceStandingView> standings(Map<String, Integer> intentCycleByLead) {
+		return new TransactionTemplate(transactionManager).execute(status -> sourceStandings.standings(intentCycleByLead));
+	}
+
+	private int cycleOf(String leadId) {
+		return jdbc.queryForObject("select intent_cycle from owner_leads where id = ?", Integer.class, leadId);
 	}
 
 	private Optional<IntakeSourceView> current(String leadId) {

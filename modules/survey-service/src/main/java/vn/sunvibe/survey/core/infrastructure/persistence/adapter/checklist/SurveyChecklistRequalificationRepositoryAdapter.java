@@ -35,8 +35,12 @@ public class SurveyChecklistRequalificationRepositoryAdapter implements SurveyCh
 
     @Override
     public Optional<ChecklistRequalification> findByChecklistId(SurveyChecklistId checklistId) {
-        return requalifications.findById(checklistId.getValue()).map(row -> new ChecklistRequalification(checklistId,
-                row.getReasonKind(), row.getReason(), row.getEventSource(), row.getScope(), row.getBasisDate(),
-                row.getMarkedByUserId(), row.getMarkedAt(), row.getLeadStatusBefore(), row.getLeadStatusAfter()));
+        return requalifications.findById(checklistId.getValue()).map(row -> toDomain(checklistId, row));
+    }
+
+    static ChecklistRequalification toDomain(SurveyChecklistId checklistId, SurveyChecklistRequalificationEntity row) {
+        return new ChecklistRequalification(checklistId, row.getReasonKind(), row.getReason(), row.getEventSource(),
+                row.getScope(), row.getBasisDate(), row.getMarkedByUserId(), row.getMarkedAt(), row.getLeadStatusBefore(),
+                row.getLeadStatusAfter());
     }
 }

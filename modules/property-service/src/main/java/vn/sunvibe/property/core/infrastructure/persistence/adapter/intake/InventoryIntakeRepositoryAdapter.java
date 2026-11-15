@@ -13,6 +13,7 @@ import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.Invento
 import vn.sunvibe.property.core.infrastructure.persistence.mapper.manual.IntakeEntityMapper;
 import vn.sunvibe.property.core.infrastructure.persistence.repository.intake.InventoryIntakeJpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -64,6 +65,24 @@ public class InventoryIntakeRepositoryAdapter implements InventoryIntakeDomainRe
     @Override
     public List<InventoryIntake> findCompletedByResult(String propertyId) {
         return jpaRepository.findByResultPropertyIdAndStatus(propertyId, IntakeStatus.COMPLETED).stream().map(this::read).toList();
+    }
+
+    @Override
+    public List<InventoryIntake> findByIds(Collection<String> ids) {
+        return ids.isEmpty() ? List.of() : jpaRepository.findByIdIn(ids).stream().map(this::read).toList();
+    }
+
+    @Override
+    public List<InventoryIntake> findByLeadIds(Collection<String> leadIds) {
+        return leadIds.isEmpty() ? List.of()
+                : jpaRepository.findByLeadIdInOrderByLeadIdAscIntakeNoAsc(leadIds).stream().map(this::read).toList();
+    }
+
+    @Override
+    public List<InventoryIntake> findCompletedByResults(Collection<String> propertyIds) {
+        return propertyIds.isEmpty() ? List.of()
+                : jpaRepository.findByResultPropertyIdInAndStatus(propertyIds, IntakeStatus.COMPLETED).stream().map(this::read)
+                .toList();
     }
 
     @Override

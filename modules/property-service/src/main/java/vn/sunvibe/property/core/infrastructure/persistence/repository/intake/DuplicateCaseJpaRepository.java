@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import vn.sunvibe.property.core.domain.model.intake.CaseStatus;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.DuplicateCaseEntity;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +25,12 @@ public interface DuplicateCaseJpaRepository extends JpaRepository<DuplicateCaseE
     List<DuplicateCaseEntity> findForIntake(@Param("intakeId") String intakeId);
 
     List<DuplicateCaseEntity> findByCandidatePropertyIdOrderByCreatedAtAscIdAsc(String propertyId);
+
+    @Query("select c from DuplicateCaseEntity c where c.intakeId in :ids or c.candidateIntakeId in :ids"
+            + " order by c.createdAt, c.id")
+    List<DuplicateCaseEntity> findForIntakes(@Param("ids") Collection<String> ids);
+
+    List<DuplicateCaseEntity> findByCandidatePropertyIdInOrderByCreatedAtAscIdAsc(Collection<String> propertyIds);
 
     List<DuplicateCaseEntity> findByStatusOrderByCreatedAtAscIdAsc(CaseStatus status);
 }

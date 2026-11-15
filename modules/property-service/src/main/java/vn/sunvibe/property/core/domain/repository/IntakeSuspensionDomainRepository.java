@@ -17,6 +17,9 @@ public interface IntakeSuspensionDomainRepository {
     /** The suspensions of the lead, oldest first, released ones included. */
     List<IntakeSuspension> findByLeadId(String leadId);
 
+    /** {@link #findByLeadId} of each lead in one statement, by lead, then oldest first; an empty input reads nothing. */
+    List<IntakeSuspension> findByLeadIds(Collection<String> leadIds);
+
     /** Whether an unreleased suspension names any of these units, on any lead (property-create intake spec 4.7). */
     boolean anyActiveOnUnits(Collection<String> unitIds);
 }

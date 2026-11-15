@@ -2,6 +2,7 @@ package vn.sunvibe.property.core.domain.repository;
 
 import vn.sunvibe.property.core.domain.model.intake.InventoryIntake;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -31,6 +32,15 @@ public interface InventoryIntakeDomainRepository {
 
     /** The COMPLETED rows whose result is this property: a winner of a case can name it that way (property-create intake spec 4.11). */
     List<InventoryIntake> findCompletedByResult(String propertyId);
+
+    /** The rows of these ids that exist, in one statement; an empty input reads nothing. */
+    List<InventoryIntake> findByIds(Collection<String> ids);
+
+    /** The rows of these leads, by lead, then intake number, in one statement; an empty input reads nothing. */
+    List<InventoryIntake> findByLeadIds(Collection<String> leadIds);
+
+    /** {@link #findCompletedByResult} of each property in one statement; an empty input reads nothing. */
+    List<InventoryIntake> findCompletedByResults(Collection<String> propertyIds);
 
     /** The open rows of a ward: the competing intakes of the signal (property-create intake spec 4.10). */
     List<InventoryIntake> findOpenOfWard(String wardCode);

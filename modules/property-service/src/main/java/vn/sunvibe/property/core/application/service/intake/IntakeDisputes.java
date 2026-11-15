@@ -18,6 +18,8 @@ import vn.sunvibe.property.core.domain.repository.OwnerProofDomainRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Whether a property is in dispute (property-create intake spec 4.11, property-create BR-19): a candidate in a live OPEN case other than
@@ -46,17 +48,7 @@ public class IntakeDisputes {
      * counted keeps counting after it dies, until a separate flow exists. Read from the stored cases and proofs.
      */
     public boolean ownerDisputed(String propertyId, String ownerIdOrNull) {
-        for (DuplicateCase row : casesNaming(propertyId)) {
-            if (row.getStatus() != CaseStatus.DECIDED || row.getOutcome() != CaseOutcome.SAME_ASSET) {
-                continue;
-            }
-            List<OwnerProof> ofWaitingLead = intakes.findById(CasePolicy.waitingIntake(row))
-                    .map(waiting -> proofs.findByLeadId(waiting.getLeadId())).orElse(List.of());
-            if (CasePolicy.showsAnotherOwner(row, ofWaitingLead, ownerIdOrNull)) {
-                return true;
-            }
-        }
-        return false;
+        return ownerDisputedOf(casesNaming(propertyId), intakes::findById, proofs::findByLeadId, ownerIdOrNull);
     }
 
     /**
@@ -65,15 +57,67 @@ public class IntakeDisputes {
      * stands on an asset only reconciliation can put right. Read from the stored cases and rows, whatever that lead's status.
      */
     public boolean resultRuledOut(String propertyId, String exceptLeadId) {
-        List<DuplicateCase> rulings = cases.findNamingProperty(propertyId).stream()
+        return resultRuledOutOf(cases.findNamingProperty(propertyId), () -> intakes.findCompletedByResult(propertyId),
+                intakes::findById, exceptLeadId);
+    }
+
+    private List<DuplicateCase> casesNaming(String propertyId) {
+        return casesNamingOf(cases.findNamingProperty(propertyId), intakes.findCompletedByResult(propertyId),
+                cases::findForIntake);
+    }
+
+    // ==================== the decisions, fed by loaded rows (E05-S6b, S6b-D6) ====================
+
+    /**
+     * The cases that name a property: those naming it as their candidate, then, for each COMPLETED result on it, the cases
+     * of that result that it won (the property did not exist when they were decided, so they do not name it).
+     *
+     * @param casesOfIntake the cases of an intake on either side of a pair
+     */
+    static List<DuplicateCase> casesNamingOf(List<DuplicateCase> namingProperty, List<InventoryIntake> completedOnProperty,
+                                             Function<String, List<DuplicateCase>> casesOfIntake) {
+        List<DuplicateCase> found = new ArrayList<>(namingProperty);
+        for (InventoryIntake winner : completedOnProperty) {
+            casesOfIntake.apply(winner.getId()).stream()
+                    .filter(item -> winner.getId().equals(item.getProceedingIntakeId())).forEach(found::add);
+        }
+        return found;
+    }
+
+    /**
+     * {@link #ownerDisputed} over the cases that name the property; the waiting intake and its lead's proofs are asked for a
+     * decided SAME_ASSET case only.
+     */
+    static boolean ownerDisputedOf(List<DuplicateCase> casesNaming, Function<String, Optional<InventoryIntake>> intakeById,
+                                   Function<String, List<OwnerProof>> proofsOfLead, String ownerIdOrNull) {
+        for (DuplicateCase row : casesNaming) {
+            if (row.getStatus() != CaseStatus.DECIDED || row.getOutcome() != CaseOutcome.SAME_ASSET) {
+                continue;
+            }
+            List<OwnerProof> ofWaitingLead = intakeById.apply(CasePolicy.waitingIntake(row))
+                    .map(waiting -> proofsOfLead.apply(waiting.getLeadId())).orElse(List.of());
+            if (CasePolicy.showsAnotherOwner(row, ofWaitingLead, ownerIdOrNull)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * {@link #resultRuledOut} over the cases naming the property as their candidate; its COMPLETED results and the ruled
+     * intakes are asked only when a DIFFERENT_ASSET ruling stands.
+     */
+    static boolean resultRuledOutOf(List<DuplicateCase> namingProperty, Supplier<List<InventoryIntake>> completedOnProperty,
+                                    Function<String, Optional<InventoryIntake>> intakeById, String exceptLeadId) {
+        List<DuplicateCase> rulings = namingProperty.stream()
                 .filter(row -> row.getStatus() == CaseStatus.DECIDED && row.getOutcome() == CaseOutcome.DIFFERENT_ASSET)
                 .toList();
         if (rulings.isEmpty()) {
             return false;
         }
-        List<InventoryIntake> onProperty = intakes.findCompletedByResult(propertyId);
+        List<InventoryIntake> onProperty = completedOnProperty.get();
         for (DuplicateCase row : rulings) {
-            Optional<String> lead = intakes.findById(row.getIntakeId()).map(InventoryIntake::getLeadId)
+            Optional<String> lead = intakeById.apply(row.getIntakeId()).map(InventoryIntake::getLeadId)
                     .filter(leadId -> !leadId.equals(exceptLeadId));
             if (lead.isPresent() && onProperty.stream().anyMatch(result -> result.getLeadId().equals(lead.get())
                     && !result.getId().equals(row.getIntakeId()))) {
@@ -81,15 +125,6 @@ public class IntakeDisputes {
             }
         }
         return false;
-    }
-
-    private List<DuplicateCase> casesNaming(String propertyId) {
-        List<DuplicateCase> found = new ArrayList<>(cases.findNamingProperty(propertyId));
-        for (InventoryIntake winner : intakes.findCompletedByResult(propertyId)) {
-            cases.findForIntake(winner.getId()).stream()
-                    .filter(item -> winner.getId().equals(item.getProceedingIntakeId())).forEach(found::add);
-        }
-        return found;
     }
 
     private static boolean holds(CaseFacts facts, String propertyId) {
