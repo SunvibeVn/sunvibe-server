@@ -119,6 +119,14 @@ class OwnerAccountPostgresTest {
 		assertFalse(owners.ownerStanding(user).eligible());
 	}
 
+	/** Pin (E05-S6b): auth-roles BR-8, a status that blocks sign-in is not eligible; PENDING may still sign in. */
+	@Test
+	void standing_signInBlockedStatus_notEligible() {
+		assertEquals(new OwnerStanding(false, 0), owners.ownerStanding(account("LOCK", "standing.lock", true)));
+		assertEquals(new OwnerStanding(false, 0), owners.ownerStanding(account("TERMINATED", "standing.terminated", true)));
+		assertEquals(new OwnerStanding(true, 0), owners.ownerStanding(account("PENDING", "standing.pending", true)));
+	}
+
 	@Test
 	void context_ageFromCreationDate() {
 		String user = account("ACTIVE", "context.age", true);
