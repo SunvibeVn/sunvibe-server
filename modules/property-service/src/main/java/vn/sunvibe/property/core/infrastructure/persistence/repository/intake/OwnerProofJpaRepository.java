@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.OwnerProofEntity;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +22,10 @@ public interface OwnerProofJpaRepository extends JpaRepository<OwnerProofEntity,
     Optional<OwnerProofEntity> findByRequestId(String requestId);
 
     List<OwnerProofEntity> findByLeadIdOrderByConfirmedAtAscIdAsc(String leadId);
+
+    List<OwnerProofEntity> findByIdIn(Collection<String> ids);
+
+    List<OwnerProofEntity> findByLeadIdInOrderByLeadIdAscConfirmedAtAscIdAsc(Collection<String> leadIds);
 
     List<OwnerProofEntity> findByUserIdOrderByConfirmedAtAscIdAsc(String userId);
 

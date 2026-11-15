@@ -24,6 +24,8 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeBlockView;
 import vn.sunvibe.property.core.application.usecase.intake.InventoryIntakeReadinessUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.UnitIntakeUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.UnitIntakeView;
 import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
 import vn.sunvibe.survey.SurveyApiTestSupport;
@@ -38,6 +40,9 @@ class IntakeCompletionApiPostgresTest extends IntakeApiTestBase {
 
 	@Autowired
 	private InventoryIntakeReadinessUseCase publishedReadiness;
+
+	@Autowired
+	private UnitIntakeUseCase unitIntakes;
 
 	@Override
 	String phonePrefix() {
@@ -844,6 +849,33 @@ class IntakeCompletionApiPostgresTest extends IntakeApiTestBase {
 		assertFalse(published.units().isEmpty());
 		for (IntakeBlockView.ReadinessUnit unit : published.units()) {
 			assertEquals(List.of("PROPERTY_STOP"), unit.reasons(), unit.unitId());
+		}
+		assertEquals("CASE_OPEN", blockOk(sale, second.leadId()).path("status").asString(), "another user's checked proof holds");
+	}
+
+	/** The read-1 sibling of the pin above (E05-S6b, E05S6b-P9): the same setup, parity in place of the readiness asserts. */
+	@Test
+	void readiness_completedWinnerWithAnotherOwnerWaiting_stopsEveryUnit_forUnitsMatches() throws Exception {
+		String address = unique("Disputed Winner");
+		Passed first = house(address);
+		TestUser owner = owner();
+		checked(first, owner);
+		Passed second = house(address);
+		checked(second, owner());
+		SurveyApiTestSupport.ok(createTarget(first.leadId(), null));
+		decided(caseOf(first.leadId()), "SAME_ASSET", (String) intakeRow(first.leadId()).get("id"));
+		available(first.leadId(), first.spaceIds(), "VACANT");
+
+		completed(first.leadId());
+
+		new UnitIntakeParity(unitIntakes, publishedReadiness, jdbc).check(first.leadId(), second.leadId());
+		String row = (String) intakeRow(first.leadId()).get("id");
+		List<UnitIntakeView> units = unitIntakes.forUnits(jdbc.queryForList(
+				"select unit_id from inventory_unit_mappings where intake_id = ?", String.class, row));
+		assertFalse(units.isEmpty());
+		for (UnitIntakeView unit : units) {
+			assertEquals(List.of(new UnitIntakeView.IntakeEntry(row, "USABLE", first.checklistId(), List.of("PROPERTY_STOP"))),
+					unit.intakes(), unit.unitId());
 		}
 		assertEquals("CASE_OPEN", blockOk(sale, second.leadId()).path("status").asString(), "another user's checked proof holds");
 	}

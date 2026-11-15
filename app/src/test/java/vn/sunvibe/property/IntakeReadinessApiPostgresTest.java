@@ -2,12 +2,16 @@ package vn.sunvibe.property;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +21,8 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeBlockView;
 import vn.sunvibe.property.core.application.usecase.intake.InventoryIntakeReadinessUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.UnitIntakeUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.UnitIntakeView;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
 import vn.sunvibe.survey.SurveyApiTestSupport;
 
@@ -28,6 +34,9 @@ class IntakeReadinessApiPostgresTest extends IntakeApiTestBase {
 
 	@Autowired
 	private InventoryIntakeReadinessUseCase readiness;
+
+	@Autowired
+	private UnitIntakeUseCase unitIntakes;
 
 	@Override
 	String phonePrefix() {
@@ -575,5 +584,238 @@ class IntakeReadinessApiPostgresTest extends IntakeApiTestBase {
 		SurveyApiTestSupport.ok(api.post(manager, CASES + "/" + caseId + "/decision", body));
 
 		assertTrue(reasons(blockOk(sale, done.leadId())).contains("RECONCILIATION_REQUIRED"));
+	}
+
+	// ==================== read 1 of E05-S6b: parity with the per-lead readiness (SR-1, SR-2) ====================
+
+	private UnitIntakeParity parity() {
+		return new UnitIntakeParity(unitIntakes, readiness, jdbc);
+	}
+
+	@Test
+	void readiness_noResult_none_forUnitsMatches() throws Exception {
+		Passed passed = house(unique("Pasteur"));
+
+		parity().check(passed.leadId());
+	}
+
+	@Test
+	void readiness_usable_carriesSourceRevision_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void readiness_leadOnHold_suspended_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		hold(done.leadId());
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void readiness_evidenceHeld_suspended_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		jdbc.update("update survey_media set held_at = now(), held_by_user_id = ?, hold_reason = 'SECURITY_INCIDENT' where id = ?",
+				admin.userId(), done.passed().photoIds().getFirst());
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void readiness_ownerNotEligible_suspended_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		jdbc.update("insert into user_roles (user_id, role_id) select ?, id from roles where name = 'SALE'", done.owner().userId());
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void readiness_managerSuspension_restricted_noFreeText_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		suspend(manager, done.leadId(), null, "Between managers", versionOf(manager, done.leadId()));
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void readiness_leadClosed_ended_overSuspended_forUnitsMatches() throws Exception {
+		Done done = done();
+		suspend(manager, done.leadId(), null, "A reason", versionOf(manager, done.leadId()));
+
+		close(done.leadId());
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void readiness_afterMark_latestCompleted_endedRequalified_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		fixture.requalify(leader, done.passed().checklistId(), "OTHER");
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void readiness_evidenceGone_ended_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		jdbc.update("update survey_media set content_missing_at = ? where id = ?", java.sql.Timestamp.from(Instant.now()),
+				done.passed().photoIds().getFirst());
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void readiness_intentChanged_ended_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		jdbc.update("update owner_leads set intent_cycle = intent_cycle + 1 where id = ?", done.leadId());
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void withdraw_afterCompletion_suspended_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		withdrawn(done);
+
+		assertEquals("COMPLETED", blockOk(sale, done.leadId()).path("status").asString());
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void lockUnlock_completed_ownerNotConfirmed_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		lockAndUnlock(done.owner());
+
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void restore_ok_proofInForce_history_forUnitsMatches() throws Exception {
+		Done done = done();
+		withdrawn(done);
+		reproved(done);
+
+		Result answer = restore(sale, done.leadId());
+
+		assertEquals(200, answer.status(), answer.rawBody());
+		parity().check(done.leadId());
+	}
+
+	@Test
+	void afterMark_blockReadsNoneWithEarlierResult_forUnitsMatches() throws Exception {
+		Done done = done();
+
+		fixture.requalify(leader, done.passed().checklistId(), "OTHER");
+
+		parity().check(done.leadId());
+	}
+
+	/** Also SR-2 (b): the unit both completed rows of the lead map has one entry, the latest row. */
+	@Test
+	void linkToEarlier_ok_forUnitsMatches() throws Exception {
+		Done done = done();
+		fixture.requalify(leader, done.passed().checklistId(), "OTHER");
+		Passed again = revisited(done, "WHOLE", "HOUSE", "A1");
+		checked(again, done.owner());
+		String property = done.result().path("propertyId").asString();
+		String unit = done.result().path("units").path(0).path("unitId").asString();
+
+		Result linked = linkTarget(done.leadId(), property, again.spaceIds(), List.of(unit));
+
+		assertEquals(200, linked.status(), linked.rawBody());
+		available(done.leadId(), again.spaceIds(), "VACANT");
+		assertEquals(property, completed(done.leadId()).path("propertyId").asString());
+		parity().check(done.leadId());
+		assertEquals(2, count("select count(*) from inventory_unit_mappings m join inventory_intakes i on i.id = m.intake_id"
+				+ " where m.unit_id = ? and i.status = 'COMPLETED'", unit));
+		List<UnitIntakeView> answered = unitIntakes.forUnits(List.of(unit));
+		assertEquals(1, answered.size());
+		assertEquals(List.of(latestCompletedRow(done.leadId())),
+				answered.getFirst().intakes().stream().map(UnitIntakeView.IntakeEntry::intakeId).toList());
+	}
+
+	/** SR-2 (a): a unit only the lead's earlier COMPLETED row maps has no entry; the unit both map has the latest row only. */
+	@Test
+	void forUnits_unitOnlyAnEarlierRowMaps_noEntry() throws Exception {
+		String street = unique("Earlier Rows");
+		Passed passed = fixture.parts(leader, sale, "WHOLE_BUILDING", street, "P101", "P102");
+		TestUser owner = owner();
+		checked(passed, owner);
+		SurveyApiTestSupport.ok(createTarget(passed.leadId(), passed.spaceIds().get(0)));
+		available(passed.leadId(), passed.spaceIds(), "VACANT");
+		String propertyId = completed(passed.leadId()).path("propertyId").asString();
+		String earlierRow = latestCompletedRow(passed.leadId());
+		Map<String, String> unitBySpaceCode = new LinkedHashMap<>();
+		jdbc.query("select space_code, unit_id from inventory_unit_mappings where intake_id = ?",
+				row -> {
+					unitBySpaceCode.put(row.getString("space_code"), row.getString("unit_id"));
+				}, earlierRow);
+		String p101 = unitBySpaceCode.get("P101");
+		String p102 = unitBySpaceCode.get("P102");
+		fixture.requalify(leader, passed.checklistId(), "OTHER");
+		Passed again = fixture.revisit(leader, sale, passed.leadId(), "PARTS", "WHOLE_BUILDING", street, "P101");
+		checked(again, owner);
+		SurveyApiTestSupport.ok(linkTarget(passed.leadId(), propertyId, again.spaceIds(), List.of(p101)));
+		available(passed.leadId(), again.spaceIds(), "VACANT");
+		completed(passed.leadId());
+		String latestRow = latestCompletedRow(passed.leadId());
+		assertNotEquals(earlierRow, latestRow);
+
+		List<UnitIntakeView> answered = unitIntakes.forUnits(List.of(p101, p102));
+
+		IntakeBlockView.Readiness read = readiness.readiness(passed.leadId());
+		assertEquals(List.of(p101), read.units().stream().map(IntakeBlockView.ReadinessUnit::unitId).toList());
+		Map<String, UnitIntakeView> byUnit = new LinkedHashMap<>();
+		answered.forEach(view -> byUnit.put(view.unitId(), view));
+		assertEquals(Set.of(p101, p102), byUnit.keySet());
+		assertEquals(List.of(), byUnit.get(p102).intakes());
+		assertEquals(jdbc.queryForObject("select availability_state from units where id = ?", String.class, p102),
+				byUnit.get(p102).availabilityState());
+		assertEquals(List.of(new UnitIntakeView.IntakeEntry(latestRow, read.state(), read.sourceRevisionId(),
+				read.units().getFirst().reasons())), byUnit.get(p101).intakes());
+	}
+
+	/** SR-2 (c): a unit no intake maps, an unknown, malformed, repeated or null id, and an empty input. */
+	@Test
+	void forUnits_legacyUnknownMalformedRepeatedOrEmpty_asStored() throws Exception {
+		String street = unique("Legacy Unit");
+		String propertyId = property(owner().userId(), WARD, "Hải Châu", street, "HOUSE", "x");
+		String unit = unit(propertyId, "U1", "OCCUPIED");
+
+		List<UnitIntakeView> answered = unitIntakes.forUnits(Arrays.asList(unit, unit, "01JUNKNOWN0000000000000000",
+				"not-a-ulid", null));
+
+		assertEquals(List.of(new UnitIntakeView(unit, "U1", propertyId, "OCCUPIED", List.of())), answered);
+		assertEquals(List.of(), unitIntakes.forUnits(List.of()));
+	}
+
+	/** S6b-D11: an intake whose lead acquisition does not return fails the whole read, with a message naming no id. */
+	@Test
+	void forUnits_intakeOfAMissingLead_failsWithoutAnId() throws Exception {
+		Done done = done();
+		String unit = done.result().path("units").path(0).path("unitId").asString();
+		String missing = "01JMISSINGLEAD000000000000";
+		jdbc.update("update inventory_intakes set lead_id = ? where id = ?", missing, intakeRow(done.leadId()).get("id"));
+
+		IllegalStateException thrown = assertThrows(IllegalStateException.class, () -> unitIntakes.forUnits(List.of(unit)));
+
+		assertFalse(String.valueOf(thrown.getMessage()).contains(missing), thrown.getMessage());
+		assertFalse(String.valueOf(thrown.getMessage()).contains(unit), thrown.getMessage());
+	}
+
+	private String latestCompletedRow(String leadId) {
+		return jdbc.queryForObject("select id from inventory_intakes where lead_id = ? and status = 'COMPLETED'"
+				+ " order by intake_no desc limit 1", String.class, leadId);
 	}
 }

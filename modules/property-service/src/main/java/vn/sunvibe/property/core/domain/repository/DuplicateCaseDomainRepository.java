@@ -3,6 +3,7 @@ package vn.sunvibe.property.core.domain.repository;
 import vn.sunvibe.property.core.domain.model.intake.CaseStatus;
 import vn.sunvibe.property.core.domain.model.intake.DuplicateCase;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +33,15 @@ public interface DuplicateCaseDomainRepository {
 
     /** The cases that name this property as their candidate. */
     List<DuplicateCase> findNamingProperty(String propertyId);
+
+    /**
+     * {@link #findForIntake} of each intake in one statement: the cases with any of them on either side, by creation time
+     * and id. An empty input reads nothing.
+     */
+    List<DuplicateCase> findForIntakes(Collection<String> intakeIds);
+
+    /** {@link #findNamingProperty} of each property in one statement, by creation time and id; an empty input reads nothing. */
+    List<DuplicateCase> findNamingProperties(Collection<String> propertyIds);
 
     /** The cases of a status in the order of the list: created_at, then id (property-create intake spec 7.2). */
     List<DuplicateCase> findByStatus(CaseStatus status);

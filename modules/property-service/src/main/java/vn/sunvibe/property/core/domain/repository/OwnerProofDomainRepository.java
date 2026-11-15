@@ -2,6 +2,7 @@ package vn.sunvibe.property.core.domain.repository;
 
 import vn.sunvibe.property.core.domain.model.intake.OwnerProof;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,12 @@ public interface OwnerProofDomainRepository {
     Optional<OwnerProof> findByRequestId(String requestId);
 
     List<OwnerProof> findByLeadId(String leadId);
+
+    /** The proofs of these ids that exist, in one statement; an empty input reads nothing. */
+    List<OwnerProof> findByIds(Collection<String> ids);
+
+    /** {@link #findByLeadId} of each lead in one statement, by lead, confirmation time and id; an empty input reads nothing. */
+    List<OwnerProof> findByLeadIds(Collection<String> leadIds);
 
     /** Every proof of the account, for the signals of the owner check (property-create intake spec 7.1). */
     List<OwnerProof> findByUserId(String userId);
