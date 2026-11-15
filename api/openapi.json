@@ -3224,6 +3224,63 @@
         "tags" : [ "Owner leads (staff)" ]
       }
     },
+    "/api/v1/staff/owner-leads/{leadId}/brokerage-eligibility" : {
+      "get" : {
+        "operationId" : "getBrokerageEligibility",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "leadId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerageEligibility"
+                }
+              }
+            },
+            "description" : "The eligibility of every unit"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not staff"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The lead does not exist or is not visible"
+          }
+        },
+        "summary" : "Whether each unit of the lead's latest completed intake can get a brokerage agreement, and the reason groups when not",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/owner-leads/{leadId}/intent-changes" : {
       "post" : {
         "description" : "Allowed in ASSIGNED, CONTACTED, ON_HOLD and SURVEY_SCHEDULED, unless the cycle has a current PASSED checklist revision (one that was not requalified); ASSIGNED and SURVEY_SCHEDULED move to CONTACTED. Starts a new intent cycle and cancels the scheduled survey appointment, if any. askingPrice must be sent: a price or null.",
@@ -8503,6 +8560,50 @@
           }
         },
         "required" : [ "expectedLeadVersion", "startAt" ]
+      },
+      "BrokerageEligibility" : {
+        "type" : "object",
+        "properties" : {
+          "basisState" : {
+            "type" : "string",
+            "description" : "The readiness state of the lead's latest completed intake; NONE without one",
+            "enum" : [ "NONE", "USABLE", "SUSPENDED", "ENDED" ]
+          },
+          "units" : {
+            "type" : "array",
+            "description" : "One per unit the intake maps, in the readiness order; empty with NONE",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageEligibilityUnit"
+            }
+          },
+          "viewerIsAssignedSale" : {
+            "type" : "boolean",
+            "description" : "The caller is the lead's current assignee and holds SALE or SALE_LEADER"
+          }
+        }
+      },
+      "BrokerageEligibilityUnit" : {
+        "type" : "object",
+        "properties" : {
+          "eligible" : {
+            "type" : "boolean"
+          },
+          "reasonGroups" : {
+            "type" : "array",
+            "description" : "BASIS: the lead's intake result is not usable now; PROPERTY: a stop for the whole property; UNIT: a stop of this unit; OWNER: the owner on record does not meet brokerage-agreement BR-4. No group names a lead.",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "BASIS", "PROPERTY", "UNIT", "OWNER" ]
+            }
+          },
+          "unitCode" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null when the unit row is missing"
+          },
+          "unitId" : {
+            "type" : "string"
+          }
+        }
       },
       "CancelAppointmentRequest" : {
         "type" : "object",

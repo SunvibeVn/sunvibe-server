@@ -41,6 +41,23 @@ class OpenInViewExceptMediaContentConfigTest {
 		}
 	}
 
+	@Test
+	void intakeBlock_keepsOpenInView() {
+		MappedInterceptor openInView = openInView();
+
+		assertTrue(openInView.matches(request("GET",
+				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake")));
+	}
+
+	/** E05-S1 spec S1-D8, ADR-012 decision 8: the brokerage eligibility read runs without open-in-view. */
+	@Test
+	void eligibilityPath_hasNoEntityManagerBound() {
+		MappedInterceptor openInView = openInView();
+
+		assertFalse(openInView.matches(request("GET",
+				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/brokerage-eligibility")));
+	}
+
 	private MappedInterceptor openInView() {
 		assertEquals(1, interceptors.size());
 		MappedInterceptor mapped = assertInstanceOf(MappedInterceptor.class, interceptors.get(0));

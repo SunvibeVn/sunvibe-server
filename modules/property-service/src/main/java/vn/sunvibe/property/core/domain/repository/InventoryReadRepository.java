@@ -22,6 +22,10 @@ public interface InventoryReadRepository {
         }
     }
 
+    /** One ownership row of a property, its values as stored (brokerage-agreement BR-4, E05-S1). */
+    record HoldingFacts(String userId, String relationType, String verificationState) {
+    }
+
     /** One unit as the intake reads it. */
     record UnitFacts(String id, String propertyId, String code, String locationLabelOrNull, long version,
                      String availabilityState) {
@@ -57,6 +61,12 @@ public interface InventoryReadRepository {
      * (brokerage-agreement BR-3 (e), SV-215). A CO_OWNER or AUTHORIZED_REPRESENTATIVE row does not count.
      */
     List<String> currentOwnerIds(String propertyId, LocalDate today);
+
+    /**
+     * Every {@code property_ownerships} row of this property valid on {@code today}, any relation and verification,
+     * ordered by user and relation (brokerage-agreement BR-4, E05-S1).
+     */
+    List<HoldingFacts> holdingsOn(String propertyId, LocalDate today);
 
     /** The next number of an intake property code (A-3). */
     long nextIntakeCodeNumber();
