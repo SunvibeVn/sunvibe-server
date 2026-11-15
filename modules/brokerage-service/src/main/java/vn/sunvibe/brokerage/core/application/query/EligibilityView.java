@@ -21,10 +21,14 @@ public record EligibilityView(String basisState, boolean viewerIsAssignedSale, L
     /**
      * One unit of the basis.
      *
-     * @param unitCodeOrNull its code; null when the unit row is missing
-     * @param reasonGroups   the groups that stop an agreement, in the order of {@link ReasonGroup}; empty when eligible
+     * @param unitCodeOrNull      its code; null when the unit row is missing
+     * @param reasonGroups        the groups that stop an agreement, in the order of {@link ReasonGroup}; empty when
+     *                            eligible
+     * @param unfinishedAgreement the unit has an unfinished long-term rental agreement (brokerage-agreement BR-1)
+     * @param agreementIdOrNull   that agreement's id when it rests on the lead read; null otherwise
      */
-    public record UnitEligibility(String unitId, String unitCodeOrNull, List<ReasonGroup> reasonGroups) {
+    public record UnitEligibility(String unitId, String unitCodeOrNull, List<ReasonGroup> reasonGroups,
+                                  boolean unfinishedAgreement, String agreementIdOrNull) {
 
         public UnitEligibility {
             reasonGroups = List.copyOf(reasonGroups);

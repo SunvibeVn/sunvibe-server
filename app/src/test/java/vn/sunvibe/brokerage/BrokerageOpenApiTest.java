@@ -158,6 +158,14 @@ class BrokerageOpenApiTest {
 		assertEquals(List.of("agreementId"), names(schemas.path("BrokerageAgreementCreated").path("properties")));
 	}
 
+	/** E05-S2 spec S2-D11, AD-12: the unit of the eligibility answer says when it has an agreement in progress. */
+	@Test
+	void openApi_eligibilityUnit_agreementFields() {
+		JsonNode unit = contract.path("components").path("schemas").path("BrokerageEligibilityUnit").path("properties");
+		assertEquals("boolean", unit.path("unfinishedAgreement").path("type").asString(), unit.toString());
+		assertEquals("[\"string\",\"null\"]", unit.path("agreementId").path("type").toString(), unit.toString());
+	}
+
 	private static List<String> names(JsonNode node) {
 		List<String> names = new ArrayList<>();
 		node.properties().forEach(entry -> names.add(entry.getKey()));

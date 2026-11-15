@@ -8825,6 +8825,10 @@
       "BrokerageEligibilityUnit" : {
         "type" : "object",
         "properties" : {
+          "agreementId" : {
+            "type" : [ "string", "null" ],
+            "description" : "Set only when the agreement rests on this lead"
+          },
           "eligible" : {
             "type" : "boolean"
           },
@@ -8835,6 +8839,10 @@
               "type" : "string",
               "enum" : [ "BASIS", "PROPERTY", "UNIT", "OWNER" ]
             }
+          },
+          "unfinishedAgreement" : {
+            "type" : "boolean",
+            "description" : "The unit already has a long-term rental agreement in progress (drafting, awaiting confirmation, active or suspended)"
           },
           "unitCode" : {
             "type" : [ "string", "null" ],

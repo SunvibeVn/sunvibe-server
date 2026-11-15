@@ -420,6 +420,60 @@ class AgreementCreateApiPostgresTest extends IntakeApiTestBase {
 		assertEquals(0, agreementsOfUnit(unit));
 	}
 
+	// ==================== AD-10: the eligibility answer after a draft ====================
+
+	private JsonNode eligibility(String leadId) throws Exception {
+		Result answer = api.get(sale, LEADS + "/" + leadId + "/brokerage-eligibility");
+		assertEquals(200, answer.status(), answer.rawBody());
+		return answer.body();
+	}
+
+	private static JsonNode unitIn(JsonNode answer, String unitId) {
+		for (JsonNode unit : answer.path("units")) {
+			if (unitId.equals(unit.path("unitId").asString())) {
+				return unit;
+			}
+		}
+		throw new AssertionError(unitId + " not in " + answer);
+	}
+
+	/** The parts of a unit's answer E05-S1 defined: its eligibility and its groups. */
+	private static String eligibilityOf(JsonNode answer, String unitId) {
+		JsonNode unit = unitIn(answer, unitId);
+		return unit.path("eligible").asBoolean() + " " + unit.path("reasonGroups");
+	}
+
+	@Test
+	void eligibility_afterCreate_unfinishedFlagAndIdOnlyFromItsLead() throws Exception {
+		Pair pair = buildingPair("P101");
+		String first = pair.first().leadId();
+		String second = pair.second().leadId();
+		String p101 = pair.unitBySpaceCode().get("P101");
+		String p102 = pair.unitBySpaceCode().get("P102");
+		JsonNode firstBefore = eligibility(first);
+		JsonNode secondBefore = eligibility(second);
+		assertFalse(unitIn(firstBefore, p101).path("unfinishedAgreement").asBoolean(), firstBefore.toString());
+
+		Result created = post(sale, body(first, p101));
+		assertEquals(201, created.status(), created.rawBody());
+		String agreementId = created.body().path("agreementId").asString();
+		JsonNode firstAfter = eligibility(first);
+		JsonNode secondAfter = eligibility(second);
+
+		assertEquals(true, unitIn(firstAfter, p101).path("unfinishedAgreement").asBoolean(), firstAfter.toString());
+		assertEquals(agreementId, unitIn(firstAfter, p101).path("agreementId").asString(), firstAfter.toString());
+		assertEquals(false, unitIn(firstAfter, p102).path("unfinishedAgreement").asBoolean(), firstAfter.toString());
+		assertEquals(true, unitIn(firstAfter, p102).path("agreementId").isNull(), firstAfter.toString());
+		assertEquals(true, unitIn(secondAfter, p101).path("unfinishedAgreement").asBoolean(), secondAfter.toString());
+		assertEquals(true, unitIn(secondAfter, p101).path("agreementId").isNull(), secondAfter.toString());
+		for (String unit : List.of(p101, p102)) {
+			assertEquals(eligibilityOf(firstBefore, unit), eligibilityOf(firstAfter, unit), unit);
+		}
+		assertEquals(eligibilityOf(secondBefore, p101), eligibilityOf(secondAfter, p101));
+		assertEquals(0, AgreementFixture.rows(jdbc, "brokerage_agreement_access_logs", agreementId));
+		assertEquals(1, AgreementFixture.rows(jdbc, "brokerage_agreement_events", agreementId));
+	}
+
 	// ==================== AD-9: nothing outside brokerage ====================
 
 	private record Snapshot(String leadStatus, long leadVersion, int activities, int leadAccessLogs, int intakes,
