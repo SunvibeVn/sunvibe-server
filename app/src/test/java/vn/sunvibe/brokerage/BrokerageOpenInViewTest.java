@@ -17,6 +17,7 @@ import org.springframework.web.servlet.handler.WebRequestHandlerInterceptorAdapt
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.util.ServletRequestPathUtils;
 
+import vn.sunvibe.brokerage.core.presentation.controller.BrokerageAgreementController;
 import vn.sunvibe.brokerage.core.presentation.controller.BrokerageEligibilityController;
 
 /**
@@ -44,6 +45,34 @@ class BrokerageOpenInViewTest {
 
 		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
 		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S2 spec S2-D13, AD-11: the agreement create and detail run without open-in-view. */
+	@Test
+	void handlerChain_agreementPaths_noOpenInView() throws Exception {
+		HandlerExecutionChain create = chain("POST", "/api/v1/staff/brokerage-agreements");
+		HandlerMethod createHandler = assertInstanceOf(HandlerMethod.class, create.getHandler());
+		assertEquals(BrokerageAgreementController.class, createHandler.getBeanType());
+		assertEquals("create", createHandler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(create));
+
+		HandlerExecutionChain detail = chain("GET", "/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000");
+		HandlerMethod detailHandler = assertInstanceOf(HandlerMethod.class, detail.getHandler());
+		assertEquals(BrokerageAgreementController.class, detailHandler.getBeanType());
+		assertEquals("detail", detailHandler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(detail));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	private HandlerExecutionChain chain(String method, String path) throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest(method, path);
+		request.setRequestURI(path);
+		ServletRequestPathUtils.parseAndCache(request);
+		HandlerExecutionChain chain = handlerMapping.getHandler(request);
+		assertNotNull(chain, method + " " + path);
+		return chain;
 	}
 
 	private HandlerExecutionChain chain(String path) throws Exception {

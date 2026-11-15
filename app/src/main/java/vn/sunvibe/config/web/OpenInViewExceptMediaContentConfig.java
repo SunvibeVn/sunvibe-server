@@ -23,6 +23,12 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	/** The brokerage agreement eligibility read of a lead (E05-S1 spec S1-D8). */
 	static final String BROKERAGE_ELIGIBILITY_PATTERN = "/api/v1/staff/owner-leads/*/brokerage-eligibility";
 
+	/** The brokerage agreement create (E05-S2 spec S2-D13). */
+	static final String BROKERAGE_AGREEMENTS_PATTERN = "/api/v1/staff/brokerage-agreements";
+
+	/** The brokerage agreement detail read (E05-S2 spec S2-D13). */
+	static final String BROKERAGE_AGREEMENT_PATTERN = "/api/v1/staff/brokerage-agreements/*";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -37,6 +43,6 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 		}
 		registry.addWebRequestInterceptor(openInView)
 				.excludePathPatterns(MediaContentPaths.UPLOAD_PATTERN, MediaContentPaths.READ_PATTERN,
-						BROKERAGE_ELIGIBILITY_PATTERN);
+						BROKERAGE_ELIGIBILITY_PATTERN, BROKERAGE_AGREEMENTS_PATTERN, BROKERAGE_AGREEMENT_PATTERN);
 	}
 }

@@ -58,6 +58,17 @@ class OpenInViewExceptMediaContentConfigTest {
 				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/brokerage-eligibility")));
 	}
 
+	/** E05-S2 spec S2-D13, ADR-012 decision 8: the agreement create and detail run without open-in-view. */
+	@Test
+	void agreementPaths_haveNoEntityManagerBound() {
+		MappedInterceptor openInView = openInView();
+
+		assertFalse(openInView.matches(request("POST", "/api/v1/staff/brokerage-agreements")));
+		assertFalse(openInView.matches(request("GET", "/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000")));
+		assertFalse(openInView.matches(request("GET",
+				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/brokerage-eligibility")));
+	}
+
 	private MappedInterceptor openInView() {
 		assertEquals(1, interceptors.size());
 		MappedInterceptor mapped = assertInstanceOf(MappedInterceptor.class, interceptors.get(0));
