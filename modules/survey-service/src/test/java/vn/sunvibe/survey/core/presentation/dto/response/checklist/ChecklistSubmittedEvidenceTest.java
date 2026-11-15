@@ -3,6 +3,8 @@ package vn.sunvibe.survey.core.presentation.dto.response.checklist;
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.survey.core.domain.model.media.EvidenceCategory;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -17,7 +19,20 @@ class ChecklistSubmittedEvidenceTest {
     @Test
     void toString_hidesTheReason() {
         String text = new ChecklistSubmittedEvidence("M1", EvidenceCategory.KITCHEN, "S1", "P1", "full-sha", false,
-                REASON).toString();
+                REASON, List.of()).toString();
+
+        assertEquals("ChecklistSubmittedEvidence[M1]", text);
+        assertFalse(text.contains(REASON));
+    }
+
+    /** survey-checklist SV-310 RC-6: the reasons of the refused photos with the same content are hidden too. */
+    @Test
+    void toString_hidesTheRefusedReasons() {
+        ChecklistRefusedPhoto refused = new ChecklistRefusedPhoto("X", "R1", 1, EvidenceCategory.KITCHEN, "S1", "P1",
+                REASON);
+
+        String text = new ChecklistSubmittedEvidence("M1", EvidenceCategory.KITCHEN, "S1", "P1", "full-sha", null, null,
+                List.of(refused)).toString();
 
         assertEquals("ChecklistSubmittedEvidence[M1]", text);
         assertFalse(text.contains(REASON));
