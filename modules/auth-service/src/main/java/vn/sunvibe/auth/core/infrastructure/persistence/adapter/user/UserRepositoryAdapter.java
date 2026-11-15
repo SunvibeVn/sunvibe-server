@@ -134,7 +134,7 @@ public class UserRepositoryAdapter implements UserDomainRepository {
         return names;
     }
 
-    private static Instant toInstant(Object value) {
+    static Instant toInstant(Object value) {
         return switch (value) {
             case null -> null;
             case Instant instant -> instant;

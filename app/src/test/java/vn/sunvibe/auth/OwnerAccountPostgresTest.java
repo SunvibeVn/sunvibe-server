@@ -8,6 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,6 +31,7 @@ import vn.sunvibe.auth.core.application.usecase.role.OwnerAccountUseCase;
 import vn.sunvibe.auth.core.application.usecase.role.OwnerLookup;
 import vn.sunvibe.auth.core.application.usecase.role.OwnerNoticeKind;
 import vn.sunvibe.auth.core.application.usecase.role.OwnerStanding;
+import vn.sunvibe.auth.core.application.usecase.role.OwnerStandingUseCase;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
 
@@ -54,6 +57,9 @@ class OwnerAccountPostgresTest {
 
 	@Autowired
 	private UserDomainRepository users;
+
+	@Autowired
+	private OwnerStandingUseCase standings;
 
 	@Autowired
 	private JdbcTemplate jdbc;
@@ -125,6 +131,72 @@ class OwnerAccountPostgresTest {
 		assertEquals(new OwnerStanding(false, 0), owners.ownerStanding(account("LOCK", "standing.lock", true)));
 		assertEquals(new OwnerStanding(false, 0), owners.ownerStanding(account("TERMINATED", "standing.terminated", true)));
 		assertEquals(new OwnerStanding(true, 0), owners.ownerStanding(account("PENDING", "standing.pending", true)));
+	}
+
+	// ==================== read 4 of E05-S6b: parity with ownerStanding (SR-7) ====================
+
+	@Test
+	void standing_readsCount_ownerStandingsMatch() {
+		String user = account("ACTIVE", "standing.count", true);
+		jdbc.update("UPDATE users SET user_status = 'LOCK' WHERE id = ?", user);
+		jdbc.update("UPDATE users SET user_status = 'ACTIVE' WHERE id = ?", user);
+
+		assertOwnerStandingsMatch(user);
+	}
+
+	@Test
+	void standing_deletedAtNotEligible_ownerStandingsMatch() {
+		String user = account("ACTIVE", "standing.deleted", true);
+
+		jdbc.update("UPDATE users SET deleted_at = ? WHERE id = ?", NOW, user);
+
+		assertOwnerStandingsMatch(user);
+	}
+
+	@Test
+	void standing_staffRole_notEligible_ownerStandingsMatch() {
+		String user = account("ACTIVE", "standing.staff", true);
+		grant(user, "SALE");
+
+		assertOwnerStandingsMatch(user);
+	}
+
+	@Test
+	void standing_signInBlockedStatus_notEligible_ownerStandingsMatch() {
+		assertOwnerStandingsMatch(account("LOCK", "standing.lock", true));
+		assertOwnerStandingsMatch(account("TERMINATED", "standing.terminated", true));
+		assertOwnerStandingsMatch(account("PENDING", "standing.pending", true));
+	}
+
+	@Test
+	void ownerStandings_everyScenarioAndUnknownInOneCall_eachAsAlone() {
+		String counted = account("ACTIVE", "standing.count", true);
+		jdbc.update("UPDATE users SET user_status = 'LOCK' WHERE id = ?", counted);
+		jdbc.update("UPDATE users SET user_status = 'ACTIVE' WHERE id = ?", counted);
+		String deleted = account("ACTIVE", "standing.deleted", true);
+		jdbc.update("UPDATE users SET deleted_at = ? WHERE id = ?", NOW, deleted);
+		String staff = account("ACTIVE", "standing.staff", true);
+		grant(staff, "SALE");
+		String locked = account("LOCK", "standing.lock", true);
+		String terminated = account("TERMINATED", "standing.terminated", true);
+		String pending = account("PENDING", "standing.pending", true);
+		String unknown = "01UNKNOWN00000000000000000";
+		List<String> users = List.of(counted, deleted, staff, locked, terminated, pending, unknown);
+
+		Map<String, OwnerStanding> answered = standings.ownerStandings(users);
+
+		assertEquals(Set.copyOf(users), answered.keySet());
+		for (String user : users) {
+			assertEquals(owners.ownerStanding(user), answered.get(user), user);
+		}
+		assertEquals(new OwnerStanding(false, -1), answered.get(unknown));
+	}
+
+	private void assertOwnerStandingsMatch(String user) {
+		Map<String, OwnerStanding> answered = standings.ownerStandings(List.of(user));
+
+		assertEquals(Set.of(user), answered.keySet());
+		assertEquals(owners.ownerStanding(user), answered.get(user));
 	}
 
 	@Test
