@@ -107,8 +107,12 @@ class FlywayPostgresMigrationTest {
 						"V202611061013__create_inventory_access_logs.sql",
 						"V202611061014__add_users_sign_in_losses.sql",
 						"V202611061015__index_inventory_suspensions_unit_id.sql",
+						"V202611151000__create_brokerage_agreements.sql",
+						"V202611151001__create_brokerage_agreement_versions.sql",
+						"V202611151002__create_brokerage_agreement_events.sql",
+						"V202611151003__create_brokerage_agreement_access_logs.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 62, applied.size()));
+				applied.subList(applied.size() - 66, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */
