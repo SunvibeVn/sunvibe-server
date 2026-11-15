@@ -41,6 +41,14 @@ class OpenInViewExceptMediaContentConfigTest {
 		}
 	}
 
+	@Test
+	void intakeBlock_keepsOpenInView() {
+		MappedInterceptor openInView = openInView();
+
+		assertTrue(openInView.matches(request("GET",
+				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake")));
+	}
+
 	private MappedInterceptor openInView() {
 		assertEquals(1, interceptors.size());
 		MappedInterceptor mapped = assertInstanceOf(MappedInterceptor.class, interceptors.get(0));
