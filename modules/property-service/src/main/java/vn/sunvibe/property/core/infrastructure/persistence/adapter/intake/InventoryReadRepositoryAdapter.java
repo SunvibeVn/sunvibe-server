@@ -138,6 +138,15 @@ public class InventoryReadRepositoryAdapter implements InventoryReadRepository {
     }
 
     @Override
+    public List<HoldingFacts> holdingsOn(String propertyId, LocalDate today) {
+        return jdbc.query("select user_id, relation_type, verification_state from property_ownerships where property_id = ?"
+                        + " and valid_from <= ? and (valid_to is null or valid_to >= ?) order by user_id, relation_type",
+                (row, number) -> new HoldingFacts(row.getString("user_id"), row.getString("relation_type"),
+                        row.getString("verification_state")),
+                propertyId, Date.valueOf(today), Date.valueOf(today));
+    }
+
+    @Override
     public long nextIntakeCodeNumber() {
         return jdbc.queryForObject("select nextval('property_intake_code_seq')", Long.class);
     }
