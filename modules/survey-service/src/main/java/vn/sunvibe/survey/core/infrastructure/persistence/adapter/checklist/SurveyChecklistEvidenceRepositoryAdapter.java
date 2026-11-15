@@ -35,9 +35,13 @@ public class SurveyChecklistEvidenceRepositoryAdapter implements SurveyChecklist
     @Override
     public List<EvidenceEntry> findByChecklistId(SurveyChecklistId checklistId) {
         return jpaRepository.findByIdChecklistIdOrderByIdMediaIdAsc(checklistId.getValue()).stream()
-                .map(row -> new EvidenceEntry(row.getId().getMediaId(), row.getCategory(), row.getSpaceId(),
-                        row.getSpaceCode(), row.getFullSha256()))
+                .map(SurveyChecklistEvidenceRepositoryAdapter::toDomain)
                 .toList();
+    }
+
+    static EvidenceEntry toDomain(SurveyChecklistEvidenceEntity row) {
+        return new EvidenceEntry(row.getId().getMediaId(), row.getCategory(), row.getSpaceId(), row.getSpaceCode(),
+                row.getFullSha256());
     }
 
     @Override
