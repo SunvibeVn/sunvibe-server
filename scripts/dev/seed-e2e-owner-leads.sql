@@ -237,6 +237,19 @@ BEGIN
 END
 $$;
 
+-- What a brokerage-agreement run left on the fixture leads (brokerage-agreement E05-S2 spec S2-D16): every agreement
+-- whose row or any of whose versions names a fixture lead as its basis lead, so the agreement E2E test can run again.
+-- The agreement ids are captured first, then their rows go, children first. An agreement whose basis leads are all
+-- outside the fixture is kept.
+CREATE TEMP TABLE seed_agreement_rows ON COMMIT DROP AS
+    SELECT id FROM brokerage_agreements WHERE basis_lead_id IN (SELECT id FROM seed_leads)
+    UNION
+    SELECT agreement_id FROM brokerage_agreement_versions WHERE basis_lead_id IN (SELECT id FROM seed_leads);
+DELETE FROM brokerage_agreement_access_logs WHERE agreement_id IN (SELECT id FROM seed_agreement_rows);
+DELETE FROM brokerage_agreement_events WHERE agreement_id IN (SELECT id FROM seed_agreement_rows);
+DELETE FROM brokerage_agreement_versions WHERE agreement_id IN (SELECT id FROM seed_agreement_rows);
+DELETE FROM brokerage_agreements WHERE id IN (SELECT id FROM seed_agreement_rows);
+
 -- What an inventory-intake run left on the fixture leads (property-create intake plan Task A17): the properties it
 -- created go too, because a leftover would open a case on the next CREATE. The rows of the result are captured first,
 -- then the intake rows go, children first; a COMPLETED row must name a proof, so it is abandoned before its proof goes.
