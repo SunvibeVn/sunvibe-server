@@ -140,6 +140,33 @@ class EmailServiceTest {
         }
     }
 
+    /**
+     * brokerage-agreement E05-S4 pin (U-16): the three property notices keep their exact subjects and bodies when a
+     * kind with its own closing line is added.
+     */
+    @Test
+    void notify_existingKinds_exactTexts() throws Exception {
+        java.time.Instant at = java.time.Instant.parse("2026-11-06T02:30:00Z");
+        String closing = " Time: 2026-11-06 09:30 (Vietnam time). If this was not you, contact Sunvibe and change your"
+                + " password.";
+        List<List<String>> expected = List.of(
+                List.of("OWNER_CONFIRMED", "You confirmed a property link",
+                        "Your Sunvibe account confirmed that you own a property." + closing),
+                List.of("OWNER_WITHDRAWN", "You withdrew a property link",
+                        "Your Sunvibe account withdrew a property confirmation." + closing),
+                List.of("OWNER_CHECK_REFUSED", "A property link could not be confirmed",
+                        "Sunvibe could not confirm a property link for your account." + closing));
+        for (List<String> kind : expected) {
+            outbox.sent.clear();
+
+            service.sendOwnerNotice(ADDRESS, kind.get(0), at);
+
+            MimeMessage message = outbox.sent.getFirst();
+            assertEquals(kind.get(1), message.getSubject(), kind.get(0));
+            assertEquals(kind.get(2), message.getContent(), kind.get(0));
+        }
+    }
+
     /** D5-7: a refusal is neutral; the account never reads it as a withdrawal of its own. */
     @Test
     void notify_refusalIsNeverAWithdrawal() throws Exception {
