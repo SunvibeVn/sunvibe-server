@@ -86,6 +86,20 @@ class BrokerageOpenInViewTest {
 		assertEquals(1, openInViewInterceptors(intakeBlock));
 	}
 
+	/** E05-S4 spec S4-D12, SD-10: the draft submission runs without open-in-view. */
+	@Test
+	void submission_noOpenInViewInterceptor() throws Exception {
+		HandlerExecutionChain submission = chain("POST",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft/submission");
+		HandlerMethod handler = assertInstanceOf(HandlerMethod.class, submission.getHandler());
+		assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+		assertEquals("submitDraft", handler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(submission));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
 	private HandlerExecutionChain chain(String method, String path) throws Exception {
 		MockHttpServletRequest request = new MockHttpServletRequest(method, path);
 		request.setRequestURI(path);
