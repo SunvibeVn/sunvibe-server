@@ -69,7 +69,7 @@ class OutboxWorkerPostgresTest extends OutboxPostgresTestBase {
 	@Test
 	void deliverConsumer_success_marksDone() {
 		TestConsumer x = new TestConsumer("x");
-		MDC.put(CorrelationId.MDC_KEY, "corr-12345678");
+		MDC.put(CorrelationId.MDC_KEY, "corr-00000001");
 		try {
 			inTransaction(status -> adapter(subscriptions("x")).append(UnitAdvertisingChangedEvent.now(UNIT_ID)));
 		} finally {
@@ -87,7 +87,7 @@ class OutboxWorkerPostgresTest extends OutboxPostgresTestBase {
 		assertThat(row.get("lease_token")).isNull();
 		assertThat(row.get("last_error_code")).isNull();
 		assertThat(x.deliveries).containsExactly(new OutboxConsumer.Delivery(eventId, UnitAdvertisingChangedEvent.TYPE,
-				1, "unit", UNIT_ID, Map.of("unitId", UNIT_ID), START, "corr-12345678", 1));
+				1, "unit", UNIT_ID, Map.of("unitId", UNIT_ID), START, "corr-00000001", 1));
 		assertThat(worker.deliveredCount()).isEqualTo(1);
 	}
 

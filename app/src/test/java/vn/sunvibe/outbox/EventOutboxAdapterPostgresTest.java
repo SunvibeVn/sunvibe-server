@@ -76,7 +76,7 @@ class EventOutboxAdapterPostgresTest extends OutboxPostgresTestBase {
 	void append_twoSubscribers_oneRowPerConsumerOneEventId() {
 		Instant withNanos = START.plusNanos(789);
 		clock.set(withNanos);
-		MDC.put(CorrelationId.MDC_KEY, "corr-12345678");
+		MDC.put(CorrelationId.MDC_KEY, "corr-00000001");
 		try {
 			inTransaction(status -> twoConsumers.append(UnitAdvertisingChangedEvent.now(UNIT_ID)));
 		} finally {
@@ -96,7 +96,7 @@ class EventOutboxAdapterPostgresTest extends OutboxPostgresTestBase {
 			assertThat(row.get("last_error_code")).isNull();
 			assertThat(instant(row, "occurred_at")).isEqualTo(withNanos.truncatedTo(ChronoUnit.MICROS));
 			assertThat(instant(row, "next_attempt_at")).isEqualTo(withNanos.truncatedTo(ChronoUnit.MICROS));
-			assertThat(row.get("correlation_id")).isEqualTo("corr-12345678");
+			assertThat(row.get("correlation_id")).isEqualTo("corr-00000001");
 		}
 
 		jdbc.update("DELETE FROM outbox_events");
