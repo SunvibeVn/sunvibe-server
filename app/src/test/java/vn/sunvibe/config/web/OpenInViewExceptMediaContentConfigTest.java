@@ -69,6 +69,16 @@ class OpenInViewExceptMediaContentConfigTest {
 				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/brokerage-eligibility")));
 	}
 
+	/** E05-S3 spec S3-D16, ADR-012 decision 8: the draft write and the survey reference run without open-in-view. */
+	@Test
+	void draftAndSurveyTermsPaths_haveNoEntityManagerBound() {
+		MappedInterceptor openInView = openInView();
+
+		assertFalse(openInView.matches(request("PUT", "/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft")));
+		assertFalse(openInView.matches(request("GET",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/survey-terms")));
+	}
+
 	private MappedInterceptor openInView() {
 		assertEquals(1, interceptors.size());
 		MappedInterceptor mapped = assertInstanceOf(MappedInterceptor.class, interceptors.get(0));
