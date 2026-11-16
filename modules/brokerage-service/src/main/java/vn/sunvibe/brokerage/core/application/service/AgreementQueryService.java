@@ -27,8 +27,11 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class AgreementQueryService implements AgreementQueryUseCase {
 
-    /** An agreement id is a ULID: 26 characters of upper-case Crockford base 32 digits and letters. */
-    private static final Pattern AGREEMENT_ID = Pattern.compile("^[0-9A-Z]{26}$");
+    /**
+     * An agreement id is a ULID: 26 characters of upper-case Crockford base 32 digits and letters. The commands check
+     * it too, so a malformed id answers as an unknown one everywhere.
+     */
+    static final Pattern AGREEMENT_ID = Pattern.compile("^[0-9A-Z]{26}$");
 
     private final AgreementDomainRepository agreements;
     private final BasisLeadPort leads;

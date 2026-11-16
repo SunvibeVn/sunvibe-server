@@ -22,6 +22,7 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
 
     private final Map<String, BrokerageAgreement> agreements = new LinkedHashMap<>();
     private final List<String> calls = new ArrayList<>();
+    private boolean moveAfterNextRead;
 
     /** Stores an agreement as if an earlier transaction had written it; not recorded as a call. */
     public InMemoryAgreementRepository store(BrokerageAgreement agreement) {
@@ -44,7 +45,18 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
     @Override
     public Optional<BrokerageAgreement> findById(String id) {
         calls.add("findById");
-        return Optional.ofNullable(agreements.get(id));
+        BrokerageAgreement read = agreements.get(id);
+        if (read != null && moveAfterNextRead) {
+            moveAfterNextRead = false;
+            agreements.put(id, withRowVersion(read, read.getRowVersionOrNull() + 1));
+        }
+        return Optional.ofNullable(read);
+    }
+
+    /** After the next read, the stored row version moves on, as a concurrent command that commits in between does. */
+    public InMemoryAgreementRepository moveAfterNextRead() {
+        moveAfterNextRead = true;
+        return this;
     }
 
     /**
@@ -58,11 +70,14 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
         if (stored == null || !Objects.equals(stored.getRowVersionOrNull(), agreement.getRowVersionOrNull())) {
             throw new OptimisticLockingFailureException("The agreement changed since it was read.");
         }
-        agreements.put(agreement.getId(), BrokerageAgreement.load(agreement.getId(), agreement.getUnitId(),
-                agreement.getUnitCodeOrNull(), agreement.getPropertyId(), agreement.getTransactionType(),
-                agreement.getOwnerUserId(), agreement.getBasisLeadId(), agreement.getStatus(),
-                agreement.getCreatedByUserId(), agreement.getCreatedAt(), agreement.getUpdatedAt(),
-                agreement.getRowVersionOrNull() + 1, agreement.getVersions()));
+        agreements.put(agreement.getId(), withRowVersion(agreement, agreement.getRowVersionOrNull() + 1));
+    }
+
+    private static BrokerageAgreement withRowVersion(BrokerageAgreement agreement, long rowVersion) {
+        return BrokerageAgreement.load(agreement.getId(), agreement.getUnitId(), agreement.getUnitCodeOrNull(),
+                agreement.getPropertyId(), agreement.getTransactionType(), agreement.getOwnerUserId(),
+                agreement.getBasisLeadId(), agreement.getStatus(), agreement.getCreatedByUserId(),
+                agreement.getCreatedAt(), agreement.getUpdatedAt(), rowVersion, agreement.getVersions());
     }
 
     @Override

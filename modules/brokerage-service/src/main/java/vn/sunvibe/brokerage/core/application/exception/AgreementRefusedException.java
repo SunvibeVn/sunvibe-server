@@ -16,7 +16,9 @@ public final class AgreementRefusedException extends RuntimeException {
         VALIDATION_FAILED(400, "Validation failed.", "This value is not accepted."),
         AGREEMENT_NOT_ASSIGNEE(403, "Only the lead's assigned Sale may draft an agreement.", null),
         AGREEMENT_NOT_ELIGIBLE(409, "This unit cannot get an agreement now.", "This group stops the agreement."),
-        AGREEMENT_EXISTS(409, "This unit already has an agreement in progress.", null);
+        AGREEMENT_EXISTS(409, "This unit already has an agreement in progress.", null),
+        AGREEMENT_NOT_DRAFT(409, "This agreement has no draft to edit.", null),
+        CONCURRENT_MODIFICATION(409, "Something changed at the same time. Try again.", "This value is out of date.");
 
         private final int status;
         private final String message;
@@ -77,6 +79,23 @@ public final class AgreementRefusedException extends RuntimeException {
     /** brokerage-agreement BR-1: the unit already has an unfinished agreement of the type; it names none. */
     public static AgreementRefusedException exists() {
         return new AgreementRefusedException(Reason.AGREEMENT_EXISTS, List.of());
+    }
+
+    /**
+     * brokerage-agreement BR-5: only the pending version of a drafting agreement, while it is a draft, changes (E05-S3
+     * spec S3-D2).
+     */
+    public static AgreementRefusedException notDraft() {
+        return new AgreementRefusedException(Reason.AGREEMENT_NOT_DRAFT, List.of());
+    }
+
+    /**
+     * brokerage-agreement BR-5: a change checks the data version the caller read; this one is out of date (E05-S3 spec
+     * S3-D4).
+     */
+    public static AgreementRefusedException stale() {
+        return new AgreementRefusedException(Reason.CONCURRENT_MODIFICATION,
+                List.of(new Entry("expectedDataVersion", null)));
     }
 
     public Reason reason() {
