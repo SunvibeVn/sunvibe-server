@@ -53,6 +53,48 @@ final class OutboxSql {
             RETURNING id
             """;
 
+    /**
+     * Moves due rows of consumers this instance does not know to {@code DEAD} once they waited past the queue-age
+     * threshold (S5b-D7), at most 1,000 a run; the locking subquery in {@code ARRAY(...)} as in {@link #CLAIM_DUE}. An
+     * empty list of known names is valid: every such row is then unknown. Parameters: stale before, known names
+     * (varchar array), stale before, known names.
+     */
+    static final String DEAD_UNKNOWN_CONSUMERS = """
+            UPDATE outbox_events SET status = 'DEAD', last_error_code = 'NO_CONSUMER', lease_token = NULL
+            WHERE id = ANY(ARRAY(SELECT id FROM outbox_events
+                                 WHERE status = 'PENDING' AND next_attempt_at <= ? AND NOT (consumer = ANY(?))
+                                 ORDER BY next_attempt_at, id LIMIT 1000 FOR UPDATE SKIP LOCKED))
+              AND status = 'PENDING' AND next_attempt_at <= ? AND NOT (consumer = ANY(?))
+            RETURNING id, event_id, event_type, consumer, attempts
+            """;
+
+    /** Due rows and the oldest due time; a row due later or under a live lease is not due. Parameter: now. */
+    static final String COUNT_DUE = """
+            SELECT count(*) AS due, min(next_attempt_at) AS oldest FROM outbox_events
+            WHERE status = 'PENDING' AND next_attempt_at <= ?
+            """;
+
+    static final String COUNT_RETRYING = """
+            SELECT count(*) FROM outbox_events WHERE status = 'PENDING' AND last_error_code IS NOT NULL
+            """;
+
+    /** Parameter: consumer names (varchar array). */
+    static final String COUNT_RETRYING_OF = """
+            SELECT count(*) FROM outbox_events
+            WHERE status = 'PENDING' AND last_error_code IS NOT NULL AND consumer = ANY(?)
+            """;
+
+    static final String COUNT_DEAD = """
+            SELECT count(*) FROM outbox_events WHERE status = 'DEAD'
+            """;
+
+    /** Deletes at most 1,000 {@code DONE} rows published before the cutoff. Parameter: cutoff. */
+    static final String DELETE_DONE_BEFORE = """
+            DELETE FROM outbox_events
+            WHERE id IN (SELECT id FROM outbox_events WHERE status = 'DONE' AND published_at < ?
+                         ORDER BY published_at LIMIT 1000)
+            """;
+
     private OutboxSql() {
     }
 }

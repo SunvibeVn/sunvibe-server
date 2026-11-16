@@ -44,6 +44,8 @@ public class OutboxWorker {
     private static final Logger log = LoggerFactory.getLogger(OutboxWorker.class);
     private static final TypeReference<Map<String, String>> PAYLOAD = new TypeReference<>() {
     };
+    private static final int CLEANUP_ROWS_PER_STATEMENT = 1_000;
+    private static final int CLEANUP_STATEMENTS_PER_RUN = 20;
 
     private final JdbcTemplate jdbc;
     private final ObjectMapper objectMapper;
@@ -79,6 +81,9 @@ public class OutboxWorker {
         public Duration lease() {
             return timeout.multipliedBy(batchSize).plus(leaseMargin);
         }
+    }
+
+    private record DueRows(long count, OffsetDateTime oldest) {
     }
 
     /** One claimed row as the claim's {@code RETURNING} gives it; {@code attempts} after the claim's increment. */
@@ -164,6 +169,52 @@ public class OutboxWorker {
         }
     }
 
+    /**
+     * The status run (spec 4.7): first moves stale rows of unknown consumers to {@code DEAD}, then logs one
+     * {@code OUTBOX_STATUS} line with the database counts, the counters since start and the consumers whose delivery
+     * outlived its timeout; {@code OUTBOX_DEAD_ROWS} while {@code DEAD} rows exist and {@code OUTBOX_QUEUE_STALE} while
+     * the oldest due row waited longer than the queue-age threshold.
+     */
+    public void report() {
+        Instant now = now();
+        deadUnknownConsumers(now);
+        DueRows due = jdbc.queryForObject(OutboxSql.COUNT_DUE, (rs, n) -> new DueRows(rs.getLong("due"),
+                rs.getObject("oldest", OffsetDateTime.class)), time(now));
+        Duration oldestAge = due.oldest() == null ? Duration.ZERO : Duration.between(due.oldest().toInstant(), now);
+        long retrying = jdbc.queryForObject(OutboxSql.COUNT_RETRYING, Long.class);
+        String[] removalConsumers = consumers.values().stream()
+                .filter(consumer -> consumer.retryPolicy() == OutboxRetryPolicy.REMOVAL)
+                .map(OutboxConsumer::name).sorted().toArray(String[]::new);
+        long retryingRemoval = removalConsumers.length == 0 ? 0 : jdbc.query(connection -> {
+            var statement = connection.prepareStatement(OutboxSql.COUNT_RETRYING_OF);
+            statement.setArray(1, connection.createArrayOf("varchar", removalConsumers));
+            return statement;
+        }, (rs, n) -> rs.getLong(1)).get(0);
+        long deadRows = jdbc.queryForObject(OutboxSql.COUNT_DEAD, Long.class);
+        log.info("OUTBOX_STATUS due={} oldestDueAgeSeconds={} retrying={} retryingRemoval={} dead={} delivered={}"
+                        + " retried={} deadTotal={} lostLeases={} timeouts={} released={} removalFailures={}"
+                        + " deliveryOutlivedTimeout=[{}]",
+                due.count(), oldestAge.getSeconds(), retrying, retryingRemoval, deadRows, delivered.sum(),
+                retried.sum(), dead.sum(), lostLeases.sum(), timeouts.sum(), released.sum(), removalFailures.sum(),
+                String.join(",", scheduling.deliveriesOutlivingTheirRun()));
+        if (deadRows > 0) {
+            log.error("OUTBOX_DEAD_ROWS dead={}", deadRows);
+        }
+        if (oldestAge.compareTo(limits.queueAgeAlert()) > 0) {
+            log.error("OUTBOX_QUEUE_STALE oldestDueAgeSeconds={} due={}", oldestAge.getSeconds(), due.count());
+        }
+    }
+
+    /** Deletes {@code DONE} rows older than the retention, 1,000 a statement, at most 20 statements a run (spec 4.8). */
+    public void cleanUp() {
+        OffsetDateTime cutoff = time(now().minus(limits.doneRetention()));
+        for (int statement = 0; statement < CLEANUP_STATEMENTS_PER_RUN; statement++) {
+            if (jdbc.update(OutboxSql.DELETE_DONE_BEFORE, cutoff) < CLEANUP_ROWS_PER_STATEMENT) {
+                return;
+            }
+        }
+    }
+
     /** Claims at most a batch of the consumer's rows due at {@code now}, oldest first, under one fresh token. */
     List<ClaimedRow> claim(String consumer, Instant now) {
         Instant at = now.truncatedTo(ChronoUnit.MICROS);
@@ -199,6 +250,26 @@ public class OutboxWorker {
 
     long removalFailureCount() {
         return removalFailures.sum();
+    }
+
+    /** A row of a consumer this instance does not know: no policy here, {@code DEAD} once stale (S5b-D7). */
+    private void deadUnknownConsumers(Instant now) {
+        OffsetDateTime staleBefore = time(now.minus(limits.queueAgeAlert()));
+        String[] known = subscriptions.consumers().toArray(String[]::new);
+        jdbc.query(connection -> {
+            var statement = connection.prepareStatement(OutboxSql.DEAD_UNKNOWN_CONSUMERS);
+            statement.setObject(1, staleBefore);
+            statement.setArray(2, connection.createArrayOf("varchar", known));
+            statement.setObject(3, staleBefore);
+            statement.setArray(4, connection.createArrayOf("varchar", known));
+            return statement;
+        }, (rs, n) -> {
+            dead.increment();
+            log.error("OUTBOX_DEAD rowId={} eventId={} eventType={} consumer={} attempt={} errorCode={}",
+                    rs.getLong("id"), rs.getLong("event_id"), rs.getString("event_type"), rs.getString("consumer"),
+                    rs.getInt("attempts"), OutboxErrorCode.NO_CONSUMER);
+            return null;
+        });
     }
 
     /** A run that throws (a database error, say) leaves its unmarked rows under their lease; the next poll goes on. */
