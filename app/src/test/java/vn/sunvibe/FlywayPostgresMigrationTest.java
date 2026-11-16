@@ -111,7 +111,7 @@ class FlywayPostgresMigrationTest {
 						"V202611151001__create_brokerage_agreement_versions.sql",
 						"V202611151002__create_brokerage_agreement_events.sql",
 						"V202611151003__create_brokerage_agreement_access_logs.sql",
-						"V202611161435__create_outbox_events.sql",
+						"V202611171500__create_outbox_events.sql",
 						"R__property_master_data.sql"),
 				applied.subList(applied.size() - 67, applied.size()));
 	}
