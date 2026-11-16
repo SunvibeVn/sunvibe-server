@@ -2,12 +2,16 @@
 paths:
   - "modules/*/src/main/resources/db/migration/**"
   - "modules/*/src/main/java/db/migration/**"
+  - "app/src/main/resources/db/migration/**"
 ---
 # Flyway rules
 - Folder: modules/<module>/src/main/resources/db/migration/ of the owning module (auth-service, property-service,
-  acquisition-service and survey-service have migrations today).
+  acquisition-service and survey-service have migrations today); the one cross-cutting table `outbox_events` lives in
+  app/src/main/resources/db/migration/ (ADR-003 amendment A003-2, ADR-014 decision 1); a further table owned by `app`
+  needs a new amendment.
 - File name: V<yyyyMMddHHmm>__<snake_case_desc>.sql, e.g. V202610121100__drop_generated_enum_check_constraints.sql.
-  The timestamp must be later than the latest migration in ANY module (versions are global).
+  The timestamp must be later than the latest migration in any module or in app/src/main/resources/db/migration
+  (versions are global).
 - A backfill that needs a policy only Java has is a Java migration: modules/<module>/src/main/java/db/migration/
   V<yyyyMMddHHmm>__Pascal_or_snake_desc.java, a plain no-arg BaseJavaMigration with a constant getChecksum(), using only
   context.getConnection() (never closed or committed), so it stays in Flyway's transaction. The logic goes in a class the
