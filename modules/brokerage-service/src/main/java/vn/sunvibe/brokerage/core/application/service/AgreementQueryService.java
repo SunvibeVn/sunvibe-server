@@ -3,13 +3,21 @@ package vn.sunvibe.brokerage.core.application.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException;
 import vn.sunvibe.brokerage.core.application.query.AgreementDetailView;
+import vn.sunvibe.brokerage.core.application.query.SurveyTermsView;
+import vn.sunvibe.brokerage.core.application.shared.external.lead.BasisLeadFacts;
 import vn.sunvibe.brokerage.core.application.shared.external.lead.BasisLeadPort;
+import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeOriginFacts;
+import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeOriginPort;
+import vn.sunvibe.brokerage.core.application.shared.external.survey.SourceTermsPort;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementQueryUseCase;
 import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementAccessType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.policy.eligibility.EligibilityPolicy;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementTrailDomainRepository;
 import vn.sunvibe.shared.time.AppClock;
@@ -36,18 +44,16 @@ public class AgreementQueryService implements AgreementQueryUseCase {
     private final AgreementDomainRepository agreements;
     private final BasisLeadPort leads;
     private final AgreementTrailDomainRepository trail;
+    private final IntakeOriginPort origins;
+    private final SourceTermsPort sourceTerms;
 
     @Override
     @Transactional
     public AgreementDetailView detail(String agreementId, StaffViewer viewer) {
-        if (agreementId == null || !AGREEMENT_ID.matcher(agreementId).matches()) {
-            throw new BrokerageNotFoundException();
-        }
-        BrokerageAgreement agreement = agreements.findById(agreementId).orElseThrow(BrokerageNotFoundException::new);
+        BrokerageAgreement agreement = find(agreementId);
         // brokerage-agreement BR-16: staff who may see the agreement's basis lead read it; any other caller gets the
         // answer of an unknown id, and a refused read opens nothing, so it is not logged.
-        leads.findVisible(agreement.getBasisLeadId(), viewer.userId(), viewer.expandedAuthorities())
-                .orElseThrow(BrokerageNotFoundException::new);
+        BasisLeadFacts lead = visibleLead(agreement, viewer);
         // brokerage-agreement BR-17: opening the detail of an agreement is logged; no detail without its row.
         trail.recordAccess(viewer.userId(), agreement.getId(), AgreementAccessType.DETAIL_READ,
                 AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS));
@@ -55,7 +61,52 @@ public class AgreementQueryService implements AgreementQueryUseCase {
                 agreement.getUnitId(), agreement.getUnitCodeOrNull(), agreement.getBasisLeadId(),
                 agreement.getCreatedAt(), agreement.getVersions().stream()
                 .map(version -> new AgreementDetailView.VersionView(version.getVersionNo(), version.getStatus(),
-                        version.getPeriod().startDate(), version.getPeriod().endDate(), version.getCreatedAt()))
-                .toList());
+                        version.getPeriod().startDate(), version.getPeriod().endDate(), version.getCreatedAt(),
+                        version.getAdvertisingScope(), version.getPhotoConsent(), version.getTerms()))
+                .toList(),
+                agreement.getRowVersionOrNull(),
+                EligibilityPolicy.assignedSale(lead.assignedUserIdOrNull(), viewer.userId(),
+                        viewer.expandedAuthorities()));
+    }
+
+    /**
+     * One read-only transaction (survey's published read needs one): the agreement, the basis lead's visibility (no
+     * lock), the origin of the draft's basis intake, then the current survey source of that lead and cycle, used only
+     * when it is still the revision the intake rests on (E05-S3 spec S3-D11). It writes nothing: it opens no agreement
+     * detail, so no access log (brokerage-agreement BR-17).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public SurveyTermsView surveyTerms(String agreementId, StaffViewer viewer) {
+        BrokerageAgreement agreement = find(agreementId);
+        visibleLead(agreement, viewer);
+        AgreementVersion draft = agreement.draft().orElseThrow(AgreementRefusedException::notDraft);
+        IntakeOriginFacts origin = origins.originOf(draft.getBasisIntakeId()).orElse(null);
+        // The viewer-less survey read reaches only the lead whose visibility was checked above.
+        if (origin == null || !origin.leadId().equals(draft.getBasisLeadId())) {
+            return SurveyTermsView.EMPTY;
+        }
+        String spaceId = origin.spaceIdByUnitId().get(agreement.getUnitId());
+        if (spaceId == null) {
+            return SurveyTermsView.EMPTY;
+        }
+        // brokerage-agreement BR-2: a revision marked or replaced since the intake no longer stands as its source.
+        return sourceTerms.currentTerms(origin.leadId(), origin.intentCycle())
+                .filter(source -> source.revisionId().equals(origin.sourceRevisionId()))
+                .map(source -> TermsProposalAssembler.proposal(source, spaceId))
+                .orElse(SurveyTermsView.EMPTY);
+    }
+
+    /** The agreement of a well-formed id; a malformed or unknown one answers as not found, before any other read. */
+    private BrokerageAgreement find(String agreementId) {
+        if (agreementId == null || !AGREEMENT_ID.matcher(agreementId).matches()) {
+            throw new BrokerageNotFoundException();
+        }
+        return agreements.findById(agreementId).orElseThrow(BrokerageNotFoundException::new);
+    }
+
+    private BasisLeadFacts visibleLead(BrokerageAgreement agreement, StaffViewer viewer) {
+        return leads.findVisible(agreement.getBasisLeadId(), viewer.userId(), viewer.expandedAuthorities())
+                .orElseThrow(BrokerageNotFoundException::new);
     }
 }
