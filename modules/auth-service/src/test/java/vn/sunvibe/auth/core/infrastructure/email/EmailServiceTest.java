@@ -167,6 +167,30 @@ class EmailServiceTest {
         }
     }
 
+    /**
+     * brokerage-agreement BR-17 (E05-S4 spec S4-D7, SD-8): a version waiting for the owner gets a neutral notice that only
+     * invites a sign-in: no term, code, address, amount, agreement id or link, and its own closing line.
+     */
+    @Test
+    void notify_agreementPending_neutralTextAndOwnClosing() throws Exception {
+        service.sendOwnerNotice(ADDRESS, "AGREEMENT_PENDING", java.time.Instant.parse("2026-11-06T02:30:00Z"));
+
+        MimeMessage message = outbox.sent.getFirst();
+        String body = (String) message.getContent();
+        assertEquals("A brokerage agreement is waiting for you", message.getSubject());
+        assertEquals("Sunvibe sent you a brokerage agreement to read and answer. Sign in to your Sunvibe account to read"
+                + " it. Time: 2026-11-06 09:30 (Vietnam time). If you did not expect this, contact Sunvibe.", body);
+        assertTrue(body.contains("Sign in"), body);
+        assertEquals(List.of("2026", "11", "06", "09", "30"),
+                java.util.regex.Pattern.compile("\\d+").matcher(body).results().map(java.util.regex.MatchResult::group)
+                        .toList(), body);
+        String folded = (message.getSubject() + " " + body).toLowerCase(java.util.Locale.ROOT);
+        for (String word : List.of("code", "lead", "address", "unit", "vnd", "%", "http")) {
+            assertFalse(folded.contains(word), word + " in " + body);
+        }
+        assertFalse(body.contains(ADDRESS), body);
+    }
+
     /** D5-7: a refusal is neutral; the account never reads it as a withdrawal of its own. */
     @Test
     void notify_refusalIsNeverAWithdrawal() throws Exception {
