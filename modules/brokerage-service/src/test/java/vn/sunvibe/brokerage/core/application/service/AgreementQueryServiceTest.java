@@ -15,6 +15,11 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndRefund;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
@@ -68,7 +73,8 @@ class AgreementQueryServiceTest {
 
         assertEquals(new AgreementDetailView(AGREEMENT, AgreementStatus.DRAFTING, TransactionType.LONG_TERM_RENT, "U1",
                 "P101", LEAD, CREATED, List.of(new VersionView(1, VersionStatus.DRAFT, PERIOD.startDate(),
-                PERIOD.endDate(), CREATED, AdvertisingScope.SUNVIBE_CHANNELS, PhotoConsent.NONE, VersionTerms.NONE)),
+                PERIOD.endDate(), CREATED, AdvertisingScope.SUNVIBE_CHANNELS, PhotoConsent.NONE, VersionTerms.NONE,
+                BrokerageFee.NONE, null)),
                 0L, true), view);
         assertEquals(1, trail.accesses().size());
         RecordingAgreementTrail.Access access = trail.accesses().get(0);
@@ -78,6 +84,26 @@ class AgreementQueryServiceTest {
         service.detail(AGREEMENT, VIEWER);
 
         assertEquals(2, trail.accesses().size());
+    }
+
+    /** brokerage-agreement BR-7 (E05-S4 spec S4-D10): each version's fee policy and sending time reach the view. */
+    @Test
+    void detail_versionFeePolicyAndSentAt_inTheView() {
+        Instant sent = Instant.parse("2026-11-22T05:30:00.987654Z");
+        BrokerageFee fee = new BrokerageFee(FeeFormula.of(FeeFormulaType.FIXED_AMOUNT, null, 2_000_000L, null), 7,
+                FeeFormula.of(FeeFormulaType.NOT_CHARGED, null, null, null),
+                new EarlyLeaseEndRefund(EarlyLeaseEndType.NO_REFUND, null, null), 90);
+        PhotoConsent consent = new PhotoConsent(true, false);
+        VersionTerms terms = new VersionTerms(8_000_000L, null, 12, 1, List.of());
+        agreements.store(BrokerageAgreement.load(AGREEMENT, "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, "O", LEAD,
+                AgreementStatus.AWAITING_CONFIRMATION, SALE, CREATED, sent, 1L, List.of(AgreementVersion.load("V1", 1,
+                        VersionStatus.AWAITING_OWNER, PERIOD, LEAD, "I1", SALE, CREATED, sent, consent, terms, fee,
+                        sent))));
+
+        VersionView version = service.detail(AGREEMENT, VIEWER).versions().getFirst();
+
+        assertEquals(new VersionView(1, VersionStatus.AWAITING_OWNER, PERIOD.startDate(), PERIOD.endDate(), CREATED,
+                AdvertisingScope.SUNVIBE_CHANNELS, consent, terms, fee, sent), version);
     }
 
     @Test

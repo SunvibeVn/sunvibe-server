@@ -62,7 +62,8 @@ public class AgreementQueryService implements AgreementQueryUseCase {
                 agreement.getCreatedAt(), agreement.getVersions().stream()
                 .map(version -> new AgreementDetailView.VersionView(version.getVersionNo(), version.getStatus(),
                         version.getPeriod().startDate(), version.getPeriod().endDate(), version.getCreatedAt(),
-                        version.getAdvertisingScope(), version.getPhotoConsent(), version.getTerms()))
+                        version.getAdvertisingScope(), version.getPhotoConsent(), version.getTerms(), version.getFee(),
+                        version.getSentAtOrNull()))
                 .toList(),
                 agreement.getRowVersionOrNull(),
                 EligibilityPolicy.assignedSale(lead.assignedUserIdOrNull(), viewer.userId(),

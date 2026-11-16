@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ChargeUnit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeBasis;
@@ -49,7 +50,7 @@ public class AgreementRequestConverter {
                 input.monthlyRent() == null ? null : input.monthlyRent().amount(), deposit, input.minimumTermMonths(),
                 input.paymentPeriodMonths(), fees));
         return new AgreementDraftCommand(agreementId, request.expectedDataVersion(), request.transactionType(),
-                request.startDate(), request.endDate(), consent, terms);
+                request.startDate(), request.endDate(), consent, terms, BrokerageFee.NONE);
     }
 
     private static TermsDeposit deposit(BrokerageAgreementDepositInput input) {

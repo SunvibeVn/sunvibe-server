@@ -19,7 +19,6 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
-import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.eligibility.ReasonGroup;
 import vn.sunvibe.brokerage.core.domain.policy.eligibility.EligibilityPolicy;
@@ -140,7 +139,7 @@ public class AgreementCommandService implements AgreementCommandUseCase {
             throw AgreementRefusedException.notEligible(groups);
         }
         Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
-        agreements.update(agreement.editDraft(period, command.photoConsent(), command.terms(), BrokerageFee.NONE, now));
+        agreements.update(agreement.editDraft(period, command.photoConsent(), command.terms(), command.fee(), now));
         trail.recordEvent(agreement.getId(), draft.getVersionNo(), AgreementEventType.DRAFT_EDITED, actor.userId(), now);
     }
 

@@ -18,9 +18,15 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ChargeUnit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndRefund;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeBasis;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
@@ -293,13 +299,13 @@ class AgreementCommandServiceTest {
         storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
 
         AgreementRefusedException type = assertThrows(AgreementRefusedException.class, () -> service().editDraft(
-                new AgreementDraftCommand(AGREEMENT, 0L, "SALE", START, END, CONSENT, TERMS), VIEWER));
+                new AgreementDraftCommand(AGREEMENT, 0L, "SALE", START, END, CONSENT, TERMS, BrokerageFee.NONE), VIEWER));
         assertEquals(Reason.VALIDATION_FAILED, type.reason());
         assertEquals(List.of(new Entry("transactionType", List.of("LONG_TERM_RENT"))), type.entries());
 
         AgreementPeriodException period = assertThrows(AgreementPeriodException.class, () -> service().editDraft(
                 new AgreementDraftCommand(AGREEMENT, 0L, "LONG_TERM_RENT", START, LocalDate.parse("2028-01-02"),
-                        CONSENT, TERMS), VIEWER));
+                        CONSENT, TERMS, BrokerageFee.NONE), VIEWER));
         assertEquals("endDate", period.field());
 
         assertEquals(List.of(), calls);
@@ -313,7 +319,8 @@ class AgreementCommandServiceTest {
 
         for (String id : List.of("a1", "01jagre0000000000000000001", "01JAGRE0000000000000000009")) {
             assertThrows(BrokerageNotFoundException.class, () -> service().editDraft(
-                    new AgreementDraftCommand(id, 0L, "LONG_TERM_RENT", START, END, CONSENT, TERMS), VIEWER), id);
+                    new AgreementDraftCommand(id, 0L, "LONG_TERM_RENT", START, END, CONSENT, TERMS, BrokerageFee.NONE),
+                    VIEWER), id);
         }
         assertEquals(List.of(), calls);
         assertEquals(List.of("findById"), agreements.calls());
@@ -445,6 +452,28 @@ class AgreementCommandServiceTest {
         assertEquals(List.of(), trail.events());
     }
 
+    // ==================== E05-S4: the fee policy through the edit (spec S4-D1, 5.2) ====================
+
+    private static final BrokerageFee FEE = new BrokerageFee(
+            FeeFormula.of(FeeFormulaType.PERCENT_OF_RENT, List.of(new FeeTier(1, 50), new FeeTier(12, 100)), null, null),
+            7, FeeFormula.of(FeeFormulaType.NOT_CHARGED, null, null, null),
+            new EarlyLeaseEndRefund(EarlyLeaseEndType.PARTIAL_REFUND, 50, 3), 90);
+
+    @Test
+    void editDraft_feePolicy_passedToTheDraft() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+
+        service().editDraft(new AgreementDraftCommand(AGREEMENT, 0L, "LONG_TERM_RENT", START, END, CONSENT, TERMS, FEE),
+                VIEWER);
+
+        assertEquals(FEE, agreements.findById(AGREEMENT).orElseThrow().getVersions().get(0).getFee());
+
+        service().editDraft(draftCommand(1L), VIEWER);
+
+        assertEquals(BrokerageFee.NONE, agreements.findById(AGREEMENT).orElseThrow().getVersions().get(0).getFee());
+        assertEquals(2, trail.events().size());
+    }
+
     private List<String> refusedDraftFields(AgreementCommandService service) {
         AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
                 () -> service.editDraft(draftCommand(0L), VIEWER));
@@ -454,7 +483,8 @@ class AgreementCommandServiceTest {
     }
 
     private static AgreementDraftCommand draftCommand(long expectedDataVersion) {
-        return new AgreementDraftCommand(AGREEMENT, expectedDataVersion, "LONG_TERM_RENT", START, END, CONSENT, TERMS);
+        return new AgreementDraftCommand(AGREEMENT, expectedDataVersion, "LONG_TERM_RENT", START, END, CONSENT, TERMS,
+                BrokerageFee.NONE);
     }
 
     /** Stores agreement {@link #AGREEMENT} on the unit, its version 1 on basis L1 / I1, owner O, row version 0. */
