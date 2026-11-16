@@ -80,6 +80,21 @@ logging:
     org.hibernate.SQL: WARN
 # ── App / Security ────────────────────────────────────────────
 app:
+  # The transactional outbox (ADR-014): bounds are checked at start-up (OutboxConfig)
+  outbox:
+    worker:
+      enabled: true          # false in the test profile: tests drive the worker's runs
+    delivery:
+      poll-interval: 5s      # 1s to 60s
+      batch-size: 10         # 1 to 50, per consumer and run
+      timeout: 10s           # 1s to 60s, shorter than the lease
+      lease-margin: 30s      # 5s to 5m; lease = batch-size x timeout + lease-margin
+    cleanup:
+      interval: 1h           # how often DONE rows are deleted
+      done-retention: 7d     # DONE rows kept this long
+    status:
+      interval: 5m           # how often the OUTBOX_STATUS line is logged
+      queue-age-alert: 5m    # OUTBOX_QUEUE_STALE past this; an unknown consumer's row goes DEAD past it
   cors:
     allowed-origins: http://localhost:3000
   mail:
