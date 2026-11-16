@@ -32,6 +32,16 @@ test("blocks an edit of a migration that exists in HEAD (absolute path)", () => 
   });
 });
 
+test("blocks an edit of a committed migration in app's db/migration folder", () => {
+  // The outbox table lives in app's own folder (ADR-014 decision 1); the hook's path pattern covers it unchanged.
+  const appMigration = "app/src/main/resources/db/migration/V202611170000__create_x.sql";
+  withRepo({ [appMigration]: "create table x();\n" }, (dir) => {
+    const result = runHook(HOOK, { input: edit(join(dir, appMigration)), env: { CLAUDE_PROJECT_DIR: dir } });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /committed Flyway migration/);
+  });
+});
+
 test("allows editing a new migration that is only staged, not committed", () => {
   withRepo({ [COMMITTED]: "create table roles();\n" }, (dir) => {
     writeFile(dir, NEW, "alter table roles add column x int;\n");
