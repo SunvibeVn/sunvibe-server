@@ -111,8 +111,9 @@ class FlywayPostgresMigrationTest {
 						"V202611151001__create_brokerage_agreement_versions.sql",
 						"V202611151002__create_brokerage_agreement_events.sql",
 						"V202611151003__create_brokerage_agreement_access_logs.sql",
+						"V202611161435__create_outbox_events.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 66, applied.size()));
+				applied.subList(applied.size() - 67, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */
@@ -139,6 +140,58 @@ class FlywayPostgresMigrationTest {
 				"sale_territories", "sale_territory_changes")) {
 			assertTrue(tables.contains(table), () -> "missing table " + table);
 		}
+	}
+
+	/**
+	 * E05-S5b spec 4.2 (ADR-014 decision 4, S5b-D9, S5b-D15): the outbox table in app's migration folder, its
+	 * constraints all valid and its six indexes valid and ready (the table's own half of the whole-database check of
+	 * MediaVerificationQueries V10), and no row.
+	 */
+	@Test
+	void migrate_emptyDatabase_createsTheOutboxTable() {
+		List<String> columns = jdbc.queryForList("SELECT column_name || ' ' || data_type || ' ' || is_nullable"
+				+ " FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'outbox_events'"
+				+ " ORDER BY ordinal_position", String.class);
+		assertEquals(List.of(
+						"id bigint NO", "event_id bigint NO", "event_type character varying NO",
+						"event_version integer NO", "consumer character varying NO",
+						"source_module character varying NO", "aggregate_type character varying NO",
+						"aggregate_id character varying NO", "payload jsonb NO", "correlation_id character varying YES",
+						"occurred_at timestamp with time zone NO", "status character varying NO", "attempts integer NO",
+						"next_attempt_at timestamp with time zone NO", "lease_token character varying YES",
+						"published_at timestamp with time zone YES", "last_error_code character varying YES"),
+				columns);
+
+		List<String> constraints = jdbc.queryForList("SELECT conname || ' ' || contype::text FROM pg_constraint"
+				+ " WHERE conrelid = 'outbox_events'::regclass ORDER BY conname", String.class);
+		assertEquals(List.of("outbox_events_attempts_check c", "outbox_events_event_consumer_key u",
+						"outbox_events_event_version_check c", "outbox_events_pkey p", "outbox_events_status_check c"),
+				constraints);
+
+		List<String> partialIndexes = jdbc.queryForList("SELECT indexname || ' ' || indexdef FROM pg_indexes"
+				+ " WHERE schemaname = 'public' AND tablename = 'outbox_events'"
+				+ " AND indexname NOT IN ('outbox_events_pkey', 'outbox_events_event_consumer_key') ORDER BY indexname",
+				String.class);
+		assertEquals(4, partialIndexes.size(), () -> "partial indexes: " + partialIndexes);
+		assertTrue(partialIndexes.get(0).startsWith("outbox_events_dead_idx ")
+				&& partialIndexes.get(0).contains("(id) WHERE ((status)::text = 'DEAD'::text)"), partialIndexes::toString);
+		assertTrue(partialIndexes.get(1).startsWith("outbox_events_done_published_idx ")
+				&& partialIndexes.get(1).contains("(published_at) WHERE ((status)::text = 'DONE'::text)"),
+				partialIndexes::toString);
+		assertTrue(partialIndexes.get(2).startsWith("outbox_events_pending_consumer_due_idx ")
+				&& partialIndexes.get(2).contains("(consumer, next_attempt_at, id) WHERE ((status)::text = 'PENDING'::text)"),
+				partialIndexes::toString);
+		assertTrue(partialIndexes.get(3).startsWith("outbox_events_pending_due_idx ")
+				&& partialIndexes.get(3).contains("(next_attempt_at, id) WHERE ((status)::text = 'PENDING'::text)"),
+				partialIndexes::toString);
+
+		assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM pg_constraint"
+				+ " WHERE conrelid = 'outbox_events'::regclass AND NOT convalidated", Integer.class));
+		assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM pg_index"
+				+ " WHERE indrelid = 'outbox_events'::regclass AND (NOT indisvalid OR NOT indisready)", Integer.class));
+		assertEquals(6, jdbc.queryForObject("SELECT count(*) FROM pg_index"
+				+ " WHERE indrelid = 'outbox_events'::regclass", Integer.class));
+		assertEquals(0, jdbc.queryForObject("SELECT count(*) FROM outbox_events", Integer.class));
 	}
 
 	/** Roles come from Flyway (auth-roles BR-1), no longer from RoleDataInitializer. */
