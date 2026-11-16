@@ -9,7 +9,8 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 
 /**
- * The whole content of an agreement's draft (E05-S3 spec 4, S3-D5): a part not known yet is null. Unknown properties
+ * The whole content of an agreement's draft (E05-S3 spec 4, S3-D5; its fee policy, E05-S4 spec S4-D1): a part not
+ * known yet is null, so a body without a fee policy stores none. Unknown properties
  * are ignored: no field sets a status, an owner, a basis, a drafter, an actor, a time, a version number or the
  * advertising scope. Numbers are read strictly: a fraction is a malformed body, never cut (plan E05S3-P4).
  */
@@ -34,5 +35,8 @@ public record BrokerageAgreementDraftRequest(
                 + " true")
         Boolean exteriorPhotoConsent,
         @NotNull @Valid
-        BrokerageAgreementTermsInput terms) {
+        BrokerageAgreementTermsInput terms,
+        @Valid
+        @Schema(nullable = true, description = "The brokerage fee policy; absent or null = nothing entered yet")
+        BrokerageAgreementFeePolicyInput feePolicy) {
 }

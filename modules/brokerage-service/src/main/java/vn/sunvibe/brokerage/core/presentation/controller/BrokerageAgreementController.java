@@ -121,9 +121,12 @@ public class BrokerageAgreementController {
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "The draft was saved; no body (read the detail again)"),
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (one entry per field: expectedDataVersion,"
-                    + " transactionType with its allowedValues, startDate, endDate, exteriorPhotoConsent or a terms path"
-                    + " such as terms.mandatoryFees[2].amount) or MALFORMED_REQUEST (the body, a date or a number"
-                    + " cannot be read; a fraction is not a whole number)",
+                    + " transactionType with its allowedValues, startDate, endDate, exteriorPhotoConsent, a terms path"
+                    + " such as terms.mandatoryFees[2].amount, or a feePolicy path such as"
+                    + " feePolicy.formula.tiers[1].fromMonths; feePolicy.formula.type, feePolicy.renewal.type and"
+                    + " feePolicy.earlyLeaseEnd.type outside their place come with the place's allowedValues) or"
+                    + " MALFORMED_REQUEST (the body, a date or a number cannot be read; a fraction is not a whole"
+                    + " number)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "401", description = "Authentication required",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),

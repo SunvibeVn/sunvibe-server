@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.time.LocalDate;
 
-/** One version of a brokerage agreement with its content (E05-S2 spec 4; E05-S3 spec 4, S3-D14). */
+/** One version of a brokerage agreement with its content (E05-S2 spec 4; E05-S3 spec 4, S3-D14; E05-S4 spec S4-D10). */
 @Schema(name = "BrokerageAgreementVersion")
 public record BrokerageAgreementVersionResponse(
         int versionNo,
@@ -24,5 +24,8 @@ public record BrokerageAgreementVersionResponse(
         Boolean photoConsent,
         @Schema(description = "Public photos of the exterior; true only with photoConsent true")
         boolean exteriorPhotoConsent,
-        BrokerageAgreementTermsResponse terms) {
+        BrokerageAgreementTermsResponse terms,
+        BrokerageAgreementFeePolicyResponse feePolicy,
+        @Schema(nullable = true, description = "When the version was sent to the owner; null for a version never sent")
+        Instant sentAt) {
 }

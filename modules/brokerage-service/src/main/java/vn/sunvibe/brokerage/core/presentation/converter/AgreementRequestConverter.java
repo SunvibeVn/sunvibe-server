@@ -3,11 +3,17 @@ package vn.sunvibe.brokerage.core.presentation.converter;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ChargeUnit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndRefund;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeBasis;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
@@ -15,7 +21,10 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDepositInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeFormulaInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeInput;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeePolicyInput;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeTierInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementTermsInput;
 
 import java.util.ArrayList;
@@ -30,6 +39,7 @@ import java.util.function.Supplier;
 public class AgreementRequestConverter {
 
     private static final String TERMS = "terms.";
+    private static final String FEE_POLICY = "feePolicy.";
 
     public AgreementCreateCommand toCommand(BrokerageAgreementCreateRequest request) {
         return new AgreementCreateCommand(request.leadId(), request.unitId(), request.transactionType(),
@@ -39,9 +49,12 @@ public class AgreementRequestConverter {
     /**
      * The draft command of the request body; the bean constraints have already held.
      *
+     * @throws AgreementRefusedException a fee type its place does not take, with the place's allowed values
      * @throws AgreementContentException a value outside its rule, with its path in the request
      */
     public AgreementDraftCommand toDraftCommand(String agreementId, BrokerageAgreementDraftRequest request) {
+        BrokerageAgreementFeePolicyInput feeInput = request.feePolicy();
+        checkFeeTypes(feeInput);
         PhotoConsent consent = new PhotoConsent(request.photoConsent(), request.exteriorPhotoConsent());
         BrokerageAgreementTermsInput input = request.terms();
         TermsDeposit deposit = within(TERMS, () -> deposit(input.deposit()));
@@ -50,7 +63,66 @@ public class AgreementRequestConverter {
                 input.monthlyRent() == null ? null : input.monthlyRent().amount(), deposit, input.minimumTermMonths(),
                 input.paymentPeriodMonths(), fees));
         return new AgreementDraftCommand(agreementId, request.expectedDataVersion(), request.transactionType(),
-                request.startDate(), request.endDate(), consent, terms, BrokerageFee.NONE);
+                request.startDate(), request.endDate(), consent, terms, fee(feeInput));
+    }
+
+    /**
+     * brokerage-agreement BR-7 (E05-S4 spec S4-D3): each present fee type must be one its place takes, known or unknown;
+     * refused with the place's values, in their order, before any fee value is built.
+     */
+    private static void checkFeeTypes(BrokerageAgreementFeePolicyInput inputOrNull) {
+        if (inputOrNull == null) {
+            return;
+        }
+        if (inputOrNull.formula() != null && !FeeFormulaType.of(inputOrNull.formula().type())
+                .map(FeeFormulaType::forFee).orElse(false)) {
+            throw AgreementRefusedException.invalid(FEE_POLICY + "formula.type", FeeFormulaType.FEE_TYPES);
+        }
+        if (inputOrNull.renewal() != null && !FeeFormulaType.of(inputOrNull.renewal().type())
+                .map(FeeFormulaType::forRenewal).orElse(false)) {
+            throw AgreementRefusedException.invalid(FEE_POLICY + "renewal.type", FeeFormulaType.RENEWAL_TYPES);
+        }
+        if (inputOrNull.earlyLeaseEnd() != null && EarlyLeaseEndType.of(inputOrNull.earlyLeaseEnd().type()).isEmpty()) {
+            throw AgreementRefusedException.invalid(FEE_POLICY + "earlyLeaseEnd.type", EarlyLeaseEndType.NAMES);
+        }
+    }
+
+    /** The fee policy of the body, each part inside its request path; none for a body without one (spec S4-D1). */
+    private static BrokerageFee fee(BrokerageAgreementFeePolicyInput inputOrNull) {
+        if (inputOrNull == null) {
+            return BrokerageFee.NONE;
+        }
+        FeeFormula formula = formula(FEE_POLICY + "formula.", inputOrNull.formula());
+        FeeFormula renewal = formula(FEE_POLICY + "renewal.", inputOrNull.renewal());
+        EarlyLeaseEndRefund early = inputOrNull.earlyLeaseEnd() == null ? null
+                : within(FEE_POLICY + "earlyLeaseEnd.", () -> new EarlyLeaseEndRefund(
+                        EarlyLeaseEndType.of(inputOrNull.earlyLeaseEnd().type()).orElse(null),
+                        inputOrNull.earlyLeaseEnd().refundPercent(), inputOrNull.earlyLeaseEnd().withinMonths()));
+        return within(FEE_POLICY, () -> new BrokerageFee(formula, inputOrNull.dueDays(), renewal, early,
+                inputOrNull.protectionDays()));
+    }
+
+    private static FeeFormula formula(String prefix, BrokerageAgreementFeeFormulaInput inputOrNull) {
+        if (inputOrNull == null) {
+            return null;
+        }
+        List<FeeTier> tiers = null;
+        if (inputOrNull.tiers() != null) {
+            tiers = new ArrayList<>();
+            for (int index = 0; index < inputOrNull.tiers().size(); index++) {
+                BrokerageAgreementFeeTierInput tier = inputOrNull.tiers().get(index);
+                tiers.add(within(prefix + "tiers[" + index + "].", () -> new FeeTier(tier.fromMonths(),
+                        tier.percent())));
+            }
+        }
+        List<FeeTier> built = tiers;
+        FeeFormula formula = within(prefix, () -> FeeFormula.of(FeeFormulaType.of(inputOrNull.type()).orElse(null),
+                built, inputOrNull.amount(), inputOrNull.freeReason()));
+        // ADR-006: an amount is whole VND and says so; a currency beside no amount stores nothing
+        if (inputOrNull.amount() != null && inputOrNull.currency() == null) {
+            throw new AgreementContentException(prefix + "currency");
+        }
+        return formula;
     }
 
     private static TermsDeposit deposit(BrokerageAgreementDepositInput input) {
