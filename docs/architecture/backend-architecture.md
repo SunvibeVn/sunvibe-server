@@ -7,7 +7,9 @@ Moved from the former `CLAUDE.md` (2026-10-13). Per-layer rules with code exampl
 
 This project follows a **Modular Monolith** architecture with **DDD + Hexagonal Architecture + CQRS** patterns.
 
-- **Root module**: `app` (Spring Boot application, `vn.sunvibe.SunvibeServerApplication`, global `config/SecurityConfig`)
+- **Root module**: `app` (Spring Boot application, `vn.sunvibe.SunvibeServerApplication`, global `config/SecurityConfig`,
+  and the transactional outbox of ADR-014 in `vn.sunvibe.outbox`, whose one table `outbox_events` has its migration in
+  `app/src/main/resources/db/migration`)
 - **Shared module**: `modules/shared-service`, package `vn.sunvibe.shared` (exceptions, error DTOs, crypto, ID generators, `AppClock`)
 - **Domain modules**: `modules/<name>-service`. With code today: `auth-service`, `property-service`,
   `acquisition-service`, `survey-service`, `brokerage-service` (E05, from the unit eligibility read on). Empty
@@ -127,7 +129,8 @@ Full rule: `sunvibe-hub/docs/decisions/ADR-009-cross-module-ports.md`.
   `app/src/test/java/vn/sunvibe/architecture/ModuleBoundaryArchTest.java` (part of `test`, so of `build` and CI) on
   the compiled main classes of every module: feature cores `vn.sunvibe.<module>.core..` do not use each other;
   `vn.sunvibe.shared..` uses no other `vn.sunvibe` class; no feature or shared class uses an app class
-  (`vn.sunvibe.config..`, `vn.sunvibe.integration..`, `SunvibeServerApplication`); `vn.sunvibe.integration..` uses
+  (`vn.sunvibe.config..`, `vn.sunvibe.integration..`, `vn.sunvibe.outbox..`, `SunvibeServerApplication`);
+  `vn.sunvibe.integration..` uses
   only feature classes in `..core.application.usecase..` and
   `..core.application.shared.external..`; every class lives in one of these packages; other app classes
   use no feature class except the named allowlist `SecurityConfig` -> `RoleName`, `JWTRequestFilter` (a new
@@ -144,7 +147,32 @@ Full rule: `sunvibe-hub/docs/decisions/ADR-009-cross-module-ports.md`.
 - Authorization stays with the consumer's endpoint. A published use case states which already-authorized operation
   may call it, and the adapter must not expose it over HTTP.
 - A contract every module needs and that holds no business rule (e.g. `AuthenticatedUser`) may live in `shared-service`.
-- Reactions after commit or in another module's transaction use events/outbox, not ports.
+- Reactions after commit or in another module's transaction use events/outbox, not ports: a feature appends through
+  `EventOutboxPort` (`vn.sunvibe.shared.outbox`), see "Outbox (ADR-014)" below.
+
+### Outbox (ADR-014)
+Full rule: `sunvibe-hub/docs/decisions/ADR-014-transactional-outbox.md`. Built with its first producer, E05
+(brokerage-agreement, slice E05-S5b).
+- Contract in `shared-service`, package `vn.sunvibe.shared.outbox`: the port `EventOutboxPort`, the envelope
+  `OutboxEvent` and one factory per event type (`UnitAdvertisingChangedEvent`: type `brokerage.unit-advertising-changed`,
+  the unit id only). No repository there (ADR-004).
+- A feature appends only through `EventOutboxPort`, inside its own `@Transactional` command, after its checks: the rows
+  commit or roll back with the change; an append without a read-write transaction is refused.
+- Payload rule: the subscription list declares each type's exact keys, from a closed list of identifiers of aggregates
+  that name no person (today `unitId` only, held by `OutboxSubscriptionsTest`); values are identifiers or codes, never
+  free text.
+- The table `outbox_events` (one row per event and subscribed consumer, none without a subscriber) and everything else
+  live in `app`, one flat package `vn.sunvibe.outbox`: the adapter `EventOutboxAdapter`, the static
+  `OutboxSubscriptions`, the worker `OutboxWorker` with its native SQL `OutboxSql`, the jobs `OutboxDeliveryJob`,
+  `OutboxCleanupJob` and `OutboxStatusJob` on the outbox's own threads (`OutboxScheduling`, no scheduler or executor
+  bean), and `OutboxConfig` (`app.outbox.*` keys; the worker is off in the test profile).
+- Delivery is at least once and may come out of order, to consumers that are idempotent and read the current state.
+  A consumer implements `OutboxConsumer` as an adapter in `vn.sunvibe.integration` that calls the consuming module's
+  published use case (ADR-009); each consumer runs on its own threads, so one consumer never delays another.
+- Failures retry with backoff, then go `DEAD`; fixed-code log lines (`OUTBOX_*`) and the `OUTBOX_STATUS` counts alert
+  operations; `scripts/ops/README.md` section 11 requeues `DEAD` rows.
+- `ModuleBoundaryArchTest` lists `vn.sunvibe.outbox..` among the checked packages and the app packages no feature or
+  shared class may use; like any app class outside `vn.sunvibe.integration`, it uses no feature class.
 
 ## Example flow: create entity
 
