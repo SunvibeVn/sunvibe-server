@@ -1,5 +1,6 @@
 package vn.sunvibe.brokerage.core.infrastructure.persistence.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -8,17 +9,26 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
-/** JPA Entity - a version of a brokerage agreement (E05-S2 spec 5.3), written through its agreement. */
+/**
+ * JPA Entity - a version of a brokerage agreement (E05-S2 spec 5.3) with its content (E05-S3 spec S3-D9), written
+ * through its agreement.
+ */
 @Entity
 @Table(name = "brokerage_agreement_versions")
 @Getter
@@ -62,6 +72,41 @@ public class AgreementVersionEntity {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Column(name = "photo_consent")
+    private Boolean photoConsent;
+
+    @Column(name = "exterior_photo_consent", nullable = false)
+    private boolean exteriorPhotoConsent;
+
+    @Column(name = "monthly_rent_amount", precision = 15, scale = 0)
+    private BigDecimal monthlyRentAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deposit_basis", length = 10)
+    private DepositBasis depositBasis;
+
+    @Column(name = "deposit_months")
+    private Integer depositMonths;
+
+    @Column(name = "deposit_amount", precision = 15, scale = 0)
+    private BigDecimal depositAmount;
+
+    @Column(name = "minimum_term_months")
+    private Integer minimumTermMonths;
+
+    @Column(name = "payment_period_months")
+    private Integer paymentPeriodMonths;
+
+    /** Whether the fee list is stated: false = not stated yet; true with no row = no mandatory fee besides the rent. */
+    @Column(name = "mandatory_fees_stated", nullable = false)
+    private boolean mandatoryFeesStated;
+
+    /** Matched by key (version, number) on a merge: a key in both lists is updated, one only stored is removed. */
+    @OneToMany(mappedBy = "version", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id.feeNo ASC")
+    @Builder.Default
+    private List<AgreementVersionFeeEntity> fees = new ArrayList<>();
 
     @Override
     public String toString() {

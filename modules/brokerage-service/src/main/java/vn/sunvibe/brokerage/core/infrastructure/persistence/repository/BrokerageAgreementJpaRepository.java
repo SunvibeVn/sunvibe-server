@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
+import vn.sunvibe.brokerage.core.infrastructure.persistence.entity.AgreementVersionEntity;
 import vn.sunvibe.brokerage.core.infrastructure.persistence.entity.BrokerageAgreementEntity;
 
 import java.util.Collection;
@@ -17,6 +18,14 @@ public interface BrokerageAgreementJpaRepository extends JpaRepository<Brokerage
     /** The agreement with its versions, in one statement. */
     @Query("select distinct a from BrokerageAgreementEntity a left join fetch a.versions where a.id = :id")
     Optional<BrokerageAgreementEntity> findWithVersions(@Param("id") String id);
+
+    /**
+     * The versions of the agreement with their fee rows, in one statement: run after {@link #findWithVersions} in the
+     * same persistence context, it fills the fee lists of the versions already loaded (two lists cannot be fetch-joined
+     * in one query).
+     */
+    @Query("select distinct v from AgreementVersionEntity v left join fetch v.fees where v.agreement.id = :id")
+    List<AgreementVersionEntity> fetchVersionFees(@Param("id") String agreementId);
 
     /** The agreements of those units and that type in those statuses, as ids only. */
     @Query("select a.id as agreementId, a.unitId as unitId, a.basisLeadId as basisLeadId"
