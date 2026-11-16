@@ -58,7 +58,7 @@ class BrokerageAgreementDraftTest {
         AgreementVersion draft = version("V2", 2, VersionStatus.DRAFT);
         BrokerageAgreement agreement = load(AgreementStatus.DRAFTING, List.of(rejected, draft));
 
-        BrokerageAgreement edited = agreement.editDraft(NEW_PERIOD, CONSENT, TERMS, NOW);
+        BrokerageAgreement edited = agreement.editDraft(NEW_PERIOD, CONSENT, TERMS, BrokerageFee.NONE, NOW);
 
         assertEquals("A1", edited.getId());
         assertEquals("U1", edited.getUnitId());
@@ -98,7 +98,8 @@ class BrokerageAgreementDraftTest {
         BrokerageAgreement awaiting = load(AgreementStatus.AWAITING_CONFIRMATION,
                 List.of(version("V1", 1, VersionStatus.AWAITING_OWNER)));
 
-        assertThrows(IllegalStateException.class, () -> awaiting.editDraft(NEW_PERIOD, CONSENT, TERMS, NOW));
+        assertThrows(IllegalStateException.class, () -> awaiting.editDraft(NEW_PERIOD, CONSENT, TERMS, BrokerageFee.NONE,
+                NOW));
     }
 
     @Test

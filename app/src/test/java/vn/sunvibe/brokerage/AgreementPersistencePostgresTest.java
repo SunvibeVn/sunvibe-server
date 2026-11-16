@@ -39,6 +39,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ChargeUnit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeBasis;
@@ -308,7 +309,7 @@ class AgreementPersistencePostgresTest {
 
 		tx(() -> {
 			BrokerageAgreement read = agreements.findById(agreement.getId()).orElseThrow();
-			agreements.update(read.editDraft(period, consent, terms, edited));
+			agreements.update(read.editDraft(period, consent, terms, BrokerageFee.NONE, edited));
 			return null;
 		});
 		BrokerageAgreement read = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
@@ -418,12 +419,12 @@ class AgreementPersistencePostgresTest {
 		VersionTerms secondTerms = new VersionTerms(9_000_000L, null, null, null, null);
 
 		tx(() -> {
-			agreements.update(first.editDraft(PERIOD, PhotoConsent.NONE, firstTerms, now()));
+			agreements.update(first.editDraft(PERIOD, PhotoConsent.NONE, firstTerms, BrokerageFee.NONE, now()));
 			return null;
 		});
 
 		assertThrows(ConcurrencyFailureException.class, () -> tx(() -> {
-			agreements.update(second.editDraft(PERIOD, PhotoConsent.NONE, secondTerms, now()));
+			agreements.update(second.editDraft(PERIOD, PhotoConsent.NONE, secondTerms, BrokerageFee.NONE, now()));
 			return null;
 		}));
 		BrokerageAgreement stored = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
@@ -527,7 +528,7 @@ class AgreementPersistencePostgresTest {
 			BrokerageAgreement read = agreements.findById(agreementId).orElseThrow();
 			AgreementVersion draft = read.draft().orElseThrow();
 			agreements.update(read.editDraft(draft.getPeriod(), draft.getPhotoConsent(),
-					new VersionTerms(null, null, null, null, feesOrNull), now()));
+					new VersionTerms(null, null, null, null, feesOrNull), BrokerageFee.NONE, now()));
 			return null;
 		});
 	}
