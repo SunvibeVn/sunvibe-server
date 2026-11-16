@@ -27,6 +27,13 @@ public interface BrokerageAgreementJpaRepository extends JpaRepository<Brokerage
     @Query("select distinct v from AgreementVersionEntity v left join fetch v.fees where v.agreement.id = :id")
     List<AgreementVersionEntity> fetchVersionFees(@Param("id") String agreementId);
 
+    /**
+     * The versions of the agreement with their fee tier rows, in one statement: run after {@link #findWithVersions} in
+     * the same persistence context, it fills the tier lists of the versions already loaded (E05-S4 spec 5.3).
+     */
+    @Query("select distinct v from AgreementVersionEntity v left join fetch v.feeTiers where v.agreement.id = :id")
+    List<AgreementVersionEntity> fetchVersionFeeTiers(@Param("id") String agreementId);
+
     /** The agreements of those units and that type in those statuses, as ids only. */
     @Query("select a.id as agreementId, a.unitId as unitId, a.basisLeadId as basisLeadId"
             + " from BrokerageAgreementEntity a"
