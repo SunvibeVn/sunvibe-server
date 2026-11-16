@@ -3,6 +3,7 @@ package vn.sunvibe.brokerage.core.presentation.converter;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
@@ -21,6 +22,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDepositInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftSubmissionRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeFormulaInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeePolicyInput;
@@ -64,6 +66,11 @@ public class AgreementRequestConverter {
                 input.paymentPeriodMonths(), fees));
         return new AgreementDraftCommand(agreementId, request.expectedDataVersion(), request.transactionType(),
                 request.startDate(), request.endDate(), consent, terms, fee(feeInput));
+    }
+
+    /** The send command of the request body (E05-S4 spec S4-D2); the bean constraints have already held. */
+    public AgreementSendCommand toSendCommand(String agreementId, BrokerageAgreementDraftSubmissionRequest request) {
+        return new AgreementSendCommand(agreementId, request.expectedDataVersion());
     }
 
     /**

@@ -388,6 +388,50 @@ class BrokerageOpenApiTest {
 		assertEquals("[\"integer\",\"null\"]", early.path("withinMonths").path("type").toString());
 	}
 
+	/** E05-S4 spec S4-D2, S4-D11, SD-11: the submission's operation, its answers and its request schema. */
+	@Test
+	void submission_operation_asTheContract() {
+		String submissionPath = "/api/v1/staff/brokerage-agreements/{agreementId}/draft/submission";
+		JsonNode submission = contract.path("paths").path(submissionPath);
+		assertEquals(List.of("post"), names(submission));
+		JsonNode post = submission.path("post");
+		assertEquals("submitBrokerageAgreementDraft", post.path("operationId").asString());
+		assertEquals("[\"Brokerage agreement\"]", post.path("tags").toString());
+		List<String> withTheId = new ArrayList<>();
+		contract.path("paths").properties().forEach(entry -> entry.getValue().properties().forEach(operation -> {
+			if ("submitBrokerageAgreementDraft".equals(operation.getValue().path("operationId").asString())) {
+				withTheId.add(operation.getKey() + " " + entry.getKey());
+			}
+		}));
+		assertEquals(List.of("post " + submissionPath), withTheId);
+		assertEquals("#/components/schemas/BrokerageAgreementDraftSubmissionRequest",
+				post.path("requestBody").path("content").path("application/json").path("schema").path("$ref").asString());
+
+		JsonNode responses = post.path("responses");
+		assertEquals(List.of("204", "400", "401", "403", "404", "409", "500"), names(responses).stream().sorted().toList());
+		assertTrue(responses.path("204").path("content").isMissingNode(), responses.path("204").toString());
+		for (String status : List.of("400", "401", "403", "404", "409", "500")) {
+			assertEquals("#/components/schemas/ErrorResponse", schemaRef(responses.path(status)), status);
+		}
+		for (String code : List.of("AGREEMENT_NOT_DRAFT", "CONCURRENT_MODIFICATION", "AGREEMENT_VERSION_INCOMPLETE",
+				"AGREEMENT_NOT_ELIGIBLE", "AGREEMENT_SENDING_NOT_AVAILABLE")) {
+			assertTrue(responses.path("409").path("description").asString().contains(code), code);
+		}
+
+		JsonNode request = contract.path("components").path("schemas").path("BrokerageAgreementDraftSubmissionRequest");
+		assertEquals(List.of("expectedDataVersion"), names(request.path("properties")));
+		assertEquals("[\"expectedDataVersion\"]", request.path("required").toString());
+		assertEquals("int64", request.path("properties").path("expectedDataVersion").path("format").asString());
+		assertEquals(0, request.path("properties").path("expectedDataVersion").path("minimum").asInt());
+
+		// the export orders the paths by key (OpenApiExportTest: springdoc.writer-with-order-by-keys)
+		List<String> paths = names(contract.path("paths")).stream().sorted().toList();
+		int draft = paths.indexOf("/api/v1/staff/brokerage-agreements/{agreementId}/draft");
+		int surveyTerms = paths.indexOf("/api/v1/staff/brokerage-agreements/{agreementId}/survey-terms");
+		assertEquals(draft + 1, paths.indexOf(submissionPath), paths.toString());
+		assertTrue(paths.indexOf(submissionPath) < surveyTerms, paths.toString());
+	}
+
 	private static void assertNullableRef(String schema, JsonNode property) {
 		assertEquals("[{\"$ref\":\"#/components/schemas/" + schema + "\"},{\"type\":\"null\"}]",
 				property.path("anyOf").toString(), property.toString());

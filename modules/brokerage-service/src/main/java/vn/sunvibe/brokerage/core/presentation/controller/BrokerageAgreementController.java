@@ -24,6 +24,7 @@ import vn.sunvibe.brokerage.core.presentation.converter.AgreementRequestConverte
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementResponseConverter;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftSubmissionRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
@@ -32,8 +33,8 @@ import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 /**
  * Brokerage agreements in the staff workspace (brokerage-agreement US-1 AC-1 to AC-5, US-4 AC-3 part; E05-S2 spec 4,
- * E05-S3 spec 4). {@code /api/v1/staff/**} has no path rule, so this class carries the staff rule; the lead's visibility
- * and the assignee are checked in the use cases, and the actor is the principal, never a body field
+ * E05-S3 spec 4, E05-S4 spec 4). {@code /api/v1/staff/**} has no path rule, so this class carries the staff rule; the
+ * lead's visibility and the assignee are checked in the use cases, and the actor is the principal, never a body field
  * (brokerage-agreement BR-16). Every path runs without open-in-view (ADR-012 decision 8).
  */
 @RestController
@@ -147,5 +148,40 @@ public class BrokerageAgreementController {
     public void updateDraft(@PathVariable("agreementId") String agreementId,
                             @Valid @RequestBody BrokerageAgreementDraftRequest request) {
         commands.editDraft(requests.toDraftCommand(agreementId, request), viewers.current());
+    }
+
+    @PostMapping("/{agreementId}/draft/submission")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "submitBrokerageAgreementDraft",
+            summary = "Send the agreement's complete draft to the owner, against the data version read")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The draft was sent: the version waits for the owner and its"
+                    + " content is locked; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (entry expectedDataVersion) or"
+                    + " MALFORMED_REQUEST (the body or the number cannot be read)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff; AGREEMENT_NOT_ASSIGNEE:"
+                    + " the caller is not the basis lead's assigned Sale",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_NOT_DRAFT (the agreement has no draft),"
+                    + " CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed"
+                    + " in between), AGREEMENT_VERSION_INCOMPLETE (one entry per missing part, in the order photoConsent,"
+                    + " terms.monthlyRent, terms.deposit, terms.minimumTermMonths, terms.paymentPeriodMonths,"
+                    + " terms.mandatoryFees, feePolicy.formula, feePolicy.dueDays, feePolicy.renewal,"
+                    + " feePolicy.earlyLeaseEnd, feePolicy.protectionDays), AGREEMENT_NOT_ELIGIBLE (one"
+                    + " reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY, UNIT, OWNER) or"
+                    + " AGREEMENT_SENDING_NOT_AVAILABLE (sending to owners is not open on this server; no entry)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void submitDraft(@PathVariable("agreementId") String agreementId,
+                            @Valid @RequestBody BrokerageAgreementDraftSubmissionRequest request) {
+        commands.sendDraft(requests.toSendCommand(agreementId, request), viewers.current());
     }
 }

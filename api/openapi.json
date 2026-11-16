@@ -2718,6 +2718,96 @@
         "tags" : [ "Brokerage agreement" ]
       }
     },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/draft/submission" : {
+      "post" : {
+        "operationId" : "submitBrokerageAgreementDraft",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementDraftSubmissionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The draft was sent: the version waits for the owner and its content is locked; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (entry expectedDataVersion) or MALFORMED_REQUEST (the body or the number cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff; AGREEMENT_NOT_ASSIGNEE: the caller is not the basis lead's assigned Sale"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NOT_DRAFT (the agreement has no draft), CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed in between), AGREEMENT_VERSION_INCOMPLETE (one entry per missing part, in the order photoConsent, terms.monthlyRent, terms.deposit, terms.minimumTermMonths, terms.paymentPeriodMonths, terms.mandatoryFees, feePolicy.formula, feePolicy.dueDays, feePolicy.renewal, feePolicy.earlyLeaseEnd, feePolicy.protectionDays), AGREEMENT_NOT_ELIGIBLE (one reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY, UNIT, OWNER) or AGREEMENT_SENDING_NOT_AVAILABLE (sending to owners is not open on this server; no entry)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Send the agreement's complete draft to the owner, against the data version read",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/brokerage-agreements/{agreementId}/survey-terms" : {
       "get" : {
         "operationId" : "getBrokerageAgreementSurveyTerms",
@@ -9049,6 +9139,18 @@
           }
         },
         "required" : [ "endDate", "expectedDataVersion", "exteriorPhotoConsent", "startDate", "terms", "transactionType" ]
+      },
+      "BrokerageAgreementDraftSubmissionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedDataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The dataVersion of the detail the caller read",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "expectedDataVersion" ]
       },
       "BrokerageAgreementEarlyLeaseEnd" : {
         "type" : "object",
