@@ -2,6 +2,7 @@ package vn.sunvibe.brokerage.core.application.usecase;
 
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 
 /** Use Case - the commands of a brokerage agreement. */
 public interface AgreementCommandUseCase {
@@ -34,4 +35,22 @@ public interface AgreementCommandUseCase {
      *                                                                                     not visible
      */
     void editDraft(AgreementDraftCommand command, StaffViewer actor);
+
+    /**
+     * The basis lead's assigned Sale sends the agreement's draft to the owner (brokerage-agreement US-1 AC-5; E05-S4 spec
+     * 3.2, S4-D6): the version AWAITING_OWNER with its sending time and its content locked, the agreement
+     * AWAITING_CONFIRMATION, one history row, and one neutral notice to the owner's account. In one transaction, the
+     * first failing step answers: the agreement (404); its basis lead, locked and visible to the actor (404); the actor
+     * is its current assignee with SALE or SALE_LEADER (403); the draft (409 AGREEMENT_NOT_DRAFT); the data version (409
+     * CONCURRENT_MODIFICATION); every part of the version present (409 AGREEMENT_VERSION_INCOMPLETE with the missing
+     * parts); the unit's eligibility on the draft's own basis (409 with the groups); sending to owners open on this
+     * server (409 AGREEMENT_SENDING_NOT_AVAILABLE). A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  the agreement or its lead is
+     *                                                                                     not visible
+     * @throws org.springframework.dao.ConcurrencyFailureException                         the agreement changed between
+     *                                                                                     its read and the write
+     */
+    void sendDraft(AgreementSendCommand command, StaffViewer actor);
 }

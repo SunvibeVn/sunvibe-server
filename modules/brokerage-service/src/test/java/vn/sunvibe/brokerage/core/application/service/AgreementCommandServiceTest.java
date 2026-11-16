@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.OptimisticLockingFailureException;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Entry;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Reason;
@@ -34,11 +35,13 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
+import vn.sunvibe.brokerage.core.testsupport.FixedAgreementSwitches;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryAgreementRepository;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryBasisLeadPort;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryIntakeBasisPort;
 import vn.sunvibe.brokerage.core.testsupport.RecordingAgreementTrail;
 import vn.sunvibe.brokerage.core.testsupport.RecordingOwnerAccountPort;
+import vn.sunvibe.brokerage.core.testsupport.RecordingOwnerNoticePort;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -81,9 +84,11 @@ class AgreementCommandServiceTest {
     private final InMemoryAgreementRepository agreements = new InMemoryAgreementRepository();
     private final RecordingAgreementTrail trail = new RecordingAgreementTrail();
     private final Iterator<String> ids = List.of("A1", "V1", "A2", "V2", "A3", "V3").iterator();
+    private final RecordingOwnerNoticePort notices = new RecordingOwnerNoticePort();
+    private FixedAgreementSwitches switches = new FixedAgreementSwitches();
 
     private AgreementCommandService service() {
-        return new AgreementCommandService(leads, bases, accounts, agreements, trail, ids::next);
+        return new AgreementCommandService(leads, bases, accounts, agreements, trail, ids::next, notices, switches);
     }
 
     @Test
@@ -155,7 +160,7 @@ class AgreementCommandServiceTest {
     void create_leadNotVisible_notFound() {
         InMemoryBasisLeadPort hidden = new InMemoryBasisLeadPort(calls).lead(LEAD, SALE, "M");
         AgreementCommandService service = new AgreementCommandService(hidden, bases, accounts, agreements, trail,
-                ids::next);
+                ids::next, notices, switches);
 
         assertThrows(BrokerageNotFoundException.class, () -> service.create(command("U1"), VIEWER));
 
@@ -183,7 +188,7 @@ class AgreementCommandServiceTest {
     void create_noBasis_notEligibleBasisOnly() {
         InMemoryIntakeBasisPort none = new InMemoryIntakeBasisPort(calls);
         AgreementCommandService service = new AgreementCommandService(leads, none, accounts, agreements, trail,
-                ids::next);
+                ids::next, notices, switches);
 
         AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
                 () -> service.create(command("U1"), VIEWER));
@@ -237,7 +242,7 @@ class AgreementCommandServiceTest {
         InMemoryAgreementRepository cancelled = new InMemoryAgreementRepository()
                 .store(stored("A8", "L9", AgreementStatus.CANCELLED, VersionStatus.CANCELLED));
         AgreementCommandService service = new AgreementCommandService(leads, bases, accounts, cancelled, trail,
-                ids::next);
+                ids::next, notices, switches);
         assertEquals(new AgreementCreateResult("A1"), service.create(command("U1"), VIEWER));
         assertEquals(2, cancelled.all().size());
     }
@@ -390,7 +395,7 @@ class AgreementCommandServiceTest {
         storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
         InMemoryIntakeBasisPort none = new InMemoryIntakeBasisPort(calls);
         assertEquals(List.of("reasonGroups.BASIS"), refusedDraftFields(
-                new AgreementCommandService(leads, none, accounts, agreements, trail, ids::next)));
+                new AgreementCommandService(leads, none, accounts, agreements, trail, ids::next, notices, switches)));
 
         calls.clear();
         bases.basis(LEAD, new IntakeBasisFacts("I2", "P1", "USABLE", BASIS.units(), OWNER, HOLDINGS));
@@ -472,6 +477,229 @@ class AgreementCommandServiceTest {
 
         assertEquals(BrokerageFee.NONE, agreements.findById(AGREEMENT).orElseThrow().getVersions().get(0).getFee());
         assertEquals(2, trail.events().size());
+    }
+
+    // ==================== E05-S4: sending the draft (spec 3.2, S4-D5 to S4-D9, S4-D11, S4-D13) ====================
+
+    private static final List<String> ELEVEN = List.of("photoConsent", "terms.monthlyRent", "terms.deposit",
+            "terms.minimumTermMonths", "terms.paymentPeriodMonths", "terms.mandatoryFees", "feePolicy.formula",
+            "feePolicy.dueDays", "feePolicy.renewal", "feePolicy.earlyLeaseEnd", "feePolicy.protectionDays");
+
+    @Test
+    void sendDraft_complete_sentNoticeAndOneEvent() {
+        BrokerageAgreement before = storeComplete("U1", BrokerageFeeOf.COMPLETE);
+
+        service().sendDraft(new AgreementSendCommand(AGREEMENT, 0L), VIEWER);
+
+        BrokerageAgreement stored = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(AgreementStatus.AWAITING_CONFIRMATION, stored.getStatus());
+        assertEquals(1L, stored.getRowVersionOrNull());
+        assertEquals(before.getUnitId(), stored.getUnitId());
+        assertEquals(before.getOwnerUserId(), stored.getOwnerUserId());
+        assertEquals(before.getBasisLeadId(), stored.getBasisLeadId());
+        assertEquals(before.getCreatedByUserId(), stored.getCreatedByUserId());
+        assertEquals(before.getCreatedAt(), stored.getCreatedAt());
+        AgreementVersion version = stored.getVersions().get(0);
+        assertEquals(VersionStatus.AWAITING_OWNER, version.getStatus());
+        assertEquals(CONSENT, version.getPhotoConsent());
+        assertEquals(TERMS, version.getTerms());
+        assertEquals(FEE, version.getFee());
+        assertEquals("S9", version.getCreatedByUserId());
+        assertEquals(1, trail.events().size());
+        RecordingAgreementTrail.Event event = trail.events().get(0);
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT, 1, AgreementEventType.VERSION_SENT, SALE, event.at()),
+                event);
+        assertEquals(event.at(), version.getSentAtOrNull());
+        assertEquals(event.at(), version.getUpdatedAt());
+        assertEquals(event.at(), stored.getUpdatedAt());
+        assertEquals(0, event.at().getNano() % 1_000);
+        assertEquals(List.of(OWNER), notices.agreementPending());
+        assertEquals(List.of(), trail.accesses());
+        assertEquals(List.of("findById", "update", "findById"), agreements.calls());
+        assertEquals(List.of("forUpdate " + LEAD + " " + SALE, "basis " + LEAD, "account " + OWNER), calls);
+    }
+
+    @Test
+    void sendDraft_stepOrder_firstFailingStepAnswers() {
+        StaffViewer manager = new StaffViewer("M", Set.of("ROLE_SALES_MANAGER"));
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.AWAITING_OWNER);
+        assertEquals(Reason.AGREEMENT_NOT_ASSIGNEE, sendRefused(new AgreementSendCommand(AGREEMENT, 5L), manager).reason());
+        assertEquals(Reason.AGREEMENT_NOT_DRAFT, sendRefused(new AgreementSendCommand(AGREEMENT, 5L), VIEWER).reason());
+
+        storeDraft("U2", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+        assertEquals(Reason.CONCURRENT_MODIFICATION,
+                sendRefused(new AgreementSendCommand(AGREEMENT, 5L), VIEWER).reason());
+        assertEquals(Reason.AGREEMENT_VERSION_INCOMPLETE,
+                sendRefused(new AgreementSendCommand(AGREEMENT, 0L), VIEWER).reason());
+
+        storeComplete("U2", BrokerageFeeOf.COMPLETE);
+        switches = FixedAgreementSwitches.off();
+        assertEquals(Reason.AGREEMENT_NOT_ELIGIBLE, sendRefused(new AgreementSendCommand(AGREEMENT, 0L), VIEWER).reason());
+
+        assertNothingSent();
+    }
+
+    @Test
+    void sendDraft_notAssignee_refused() {
+        storeComplete("U1", BrokerageFeeOf.COMPLETE);
+
+        for (StaffViewer viewer : List.of(new StaffViewer("M", Set.of("ROLE_SALES_MANAGER")),
+                new StaffViewer("S2", Set.of("ROLE_ADMIN", "ROLE_SUPER_ADMIN")),
+                new StaffViewer(SALE, Set.of("ROLE_SALES_MANAGER")))) {
+            AgreementRefusedException refused = sendRefused(new AgreementSendCommand(AGREEMENT, 0L), viewer);
+
+            assertEquals(Reason.AGREEMENT_NOT_ASSIGNEE, refused.reason());
+            assertEquals(List.of(), refused.entries());
+        }
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("basis")).count());
+        assertNothingSent();
+
+        StaffViewer stranger = new StaffViewer("S3", Set.of("ROLE_SALE"));
+        assertThrows(BrokerageNotFoundException.class,
+                () -> service().sendDraft(new AgreementSendCommand(AGREEMENT, 0L), stranger));
+        for (String id : List.of("a1", "01jagre0000000000000000001", "01JAGRE0000000000000000009")) {
+            assertThrows(BrokerageNotFoundException.class,
+                    () -> service().sendDraft(new AgreementSendCommand(id, 0L), VIEWER), id);
+        }
+        assertNothingSent();
+    }
+
+    @Test
+    void sendDraft_noDraft_notDraft() {
+        for (AgreementStatus status : List.of(AgreementStatus.DRAFTING, AgreementStatus.AWAITING_CONFIRMATION,
+                AgreementStatus.CANCELLED)) {
+            VersionStatus versionStatus = status == AgreementStatus.CANCELLED ? VersionStatus.CANCELLED
+                    : VersionStatus.AWAITING_OWNER;
+            storeDraft("U1", status, versionStatus);
+
+            AgreementRefusedException refused = sendRefused(new AgreementSendCommand(AGREEMENT, 0L), VIEWER);
+
+            assertEquals(Reason.AGREEMENT_NOT_DRAFT, refused.reason(), status.name());
+            assertEquals("This agreement has no draft to edit.", refused.getMessage());
+            assertEquals(List.of(), refused.entries());
+        }
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("basis")).count());
+        assertNothingSent();
+    }
+
+    @Test
+    void sendDraft_staleDataVersion_concurrentModification() {
+        storeComplete("U1", BrokerageFeeOf.COMPLETE);
+
+        AgreementRefusedException refused = sendRefused(new AgreementSendCommand(AGREEMENT, 1L), VIEWER);
+
+        assertEquals(Reason.CONCURRENT_MODIFICATION, refused.reason());
+        assertEquals(List.of(new Entry("expectedDataVersion", null)), refused.entries());
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("basis")).count());
+        assertNothingSent();
+    }
+
+    @Test
+    void sendDraft_incomplete_partsInOrder() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+
+        AgreementRefusedException created = sendRefused(new AgreementSendCommand(AGREEMENT, 0L), VIEWER);
+
+        assertEquals(Reason.AGREEMENT_VERSION_INCOMPLETE, created.reason());
+        assertEquals(409, created.reason().status());
+        assertEquals("This version cannot be sent yet: a part is missing.", created.getMessage());
+        assertEquals("This part is missing.", created.reason().entryMessageOrNull());
+        assertEquals(ELEVEN, created.entries().stream().map(Entry::field).toList());
+        assertTrue(created.entries().stream().allMatch(entry -> entry.allowedValuesOrNull() == null));
+
+        storeComplete("U1", BrokerageFeeOf.WITHOUT_DUE_DAYS);
+        assertEquals(List.of(new Entry("feePolicy.dueDays", null)),
+                sendRefused(new AgreementSendCommand(AGREEMENT, 0L), VIEWER).entries());
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("basis")).count());
+        assertNothingSent();
+    }
+
+    @Test
+    void sendDraft_notEligible_groups() {
+        storeComplete("U2", BrokerageFeeOf.COMPLETE);
+        assertEquals(List.of("reasonGroups.UNIT"), sendRefusedFields());
+
+        storeComplete("U1", BrokerageFeeOf.COMPLETE);
+        bases.basis(LEAD, new IntakeBasisFacts("I2", "P1", "USABLE", BASIS.units(), OWNER, HOLDINGS));
+        assertEquals(List.of("reasonGroups.BASIS"), sendRefusedFields());
+
+        bases.basis(LEAD, basis("SUSPENDED", BASIS.units().toArray(Unit[]::new)));
+        accounts.answer(OWNER, false);
+        assertEquals(List.of("reasonGroups.BASIS", "reasonGroups.OWNER"), sendRefusedFields());
+
+        bases.basis(LEAD, new IntakeBasisFacts("I1", "P1", "USABLE", BASIS.units(), "O2",
+                List.of(new Holding("O2", "OWNER", "UNVERIFIED"))));
+        accounts.answer("O2", true);
+        assertEquals(List.of("reasonGroups.OWNER"), sendRefusedFields());
+
+        assertNothingSent();
+
+        bases.basis(LEAD, basis("USABLE", new Unit("U1", "P101", List.of("AVAILABILITY_DIFFERS"))));
+        accounts.answer(OWNER, true);
+        service().sendDraft(new AgreementSendCommand(AGREEMENT, 0L), VIEWER);
+        assertEquals(List.of(OWNER), notices.agreementPending());
+    }
+
+    /** brokerage-agreement BR-19 (spec S4-D8): the switch answers last, so every other refusal still tells the Sale. */
+    @Test
+    void sendDraft_switchOff_refusedLastNothingWritten() {
+        storeComplete("U1", BrokerageFeeOf.COMPLETE);
+        switches = FixedAgreementSwitches.off();
+
+        AgreementRefusedException refused = sendRefused(new AgreementSendCommand(AGREEMENT, 0L), VIEWER);
+
+        assertEquals(Reason.AGREEMENT_SENDING_NOT_AVAILABLE, refused.reason());
+        assertEquals(409, refused.reason().status());
+        assertEquals("Sending to owners is not open on this server.", refused.getMessage());
+        assertEquals(List.of(), refused.entries());
+        assertEquals(List.of("forUpdate " + LEAD + " " + SALE, "basis " + LEAD, "account " + OWNER), calls);
+        assertNothingSent();
+    }
+
+    @Test
+    void sendDraft_lostGuardedUpdate_propagatesNoEventNoNotice() {
+        storeComplete("U1", BrokerageFeeOf.COMPLETE);
+        agreements.moveAfterNextRead();
+
+        assertThrows(OptimisticLockingFailureException.class,
+                () -> service().sendDraft(new AgreementSendCommand(AGREEMENT, 0L), VIEWER));
+
+        assertEquals(List.of("findById", "update"), agreements.calls());
+        assertEquals(List.of(), trail.events());
+        assertEquals(List.of(), notices.agreementPending());
+    }
+
+    private enum BrokerageFeeOf { COMPLETE, WITHOUT_DUE_DAYS }
+
+    /** Stores {@link #AGREEMENT} DRAFTING on the unit, its version 1 a DRAFT with every part of the content. */
+    private BrokerageAgreement storeComplete(String unitId, BrokerageFeeOf fee) {
+        Instant at = Instant.parse("2026-11-01T00:00:00Z");
+        BrokerageFee policy = fee == BrokerageFeeOf.COMPLETE ? FEE : new BrokerageFee(FEE.formulaOrNull(), null,
+                FEE.renewalOrNull(), FEE.earlyLeaseEndOrNull(), FEE.protectionDaysOrNull());
+        BrokerageAgreement agreement = BrokerageAgreement.load(AGREEMENT, unitId, "P101", "P1",
+                TransactionType.LONG_TERM_RENT, OWNER, LEAD, AgreementStatus.DRAFTING, "S9", at, at, 0L,
+                List.of(AgreementVersion.load("V1", 1, VersionStatus.DRAFT, new AgreementPeriod(START, START.plusMonths(6)),
+                        LEAD, "I1", "S9", at, at, CONSENT, TERMS, policy, null)));
+        agreements.store(agreement);
+        return agreement;
+    }
+
+    private AgreementRefusedException sendRefused(AgreementSendCommand command, StaffViewer viewer) {
+        return assertThrows(AgreementRefusedException.class, () -> service().sendDraft(command, viewer));
+    }
+
+    private List<String> sendRefusedFields() {
+        AgreementRefusedException refused = sendRefused(new AgreementSendCommand(AGREEMENT, 0L), VIEWER);
+        assertEquals(Reason.AGREEMENT_NOT_ELIGIBLE, refused.reason());
+        assertTrue(refused.entries().stream().allMatch(entry -> entry.allowedValuesOrNull() == null));
+        return refused.entries().stream().map(Entry::field).toList();
+    }
+
+    /** A refused send writes nothing: no update, no history row, no notice. */
+    private void assertNothingSent() {
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+        assertEquals(List.of(), notices.agreementPending());
     }
 
     private List<String> refusedDraftFields(AgreementCommandService service) {
