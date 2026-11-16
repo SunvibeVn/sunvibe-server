@@ -35,6 +35,9 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	/** The survey reference of an agreement's draft (E05-S3 spec S3-D16). */
 	static final String BROKERAGE_AGREEMENT_SURVEY_TERMS_PATTERN = "/api/v1/staff/brokerage-agreements/*/survey-terms";
 
+	/** The sending of an agreement's draft (E05-S4 spec S4-D12); {@code /*}{@code /draft} matches that path only. */
+	static final String BROKERAGE_AGREEMENT_SUBMISSION_PATTERN = "/api/v1/staff/brokerage-agreements/*/draft/submission";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -50,6 +53,7 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 		registry.addWebRequestInterceptor(openInView)
 				.excludePathPatterns(MediaContentPaths.UPLOAD_PATTERN, MediaContentPaths.READ_PATTERN,
 						BROKERAGE_ELIGIBILITY_PATTERN, BROKERAGE_AGREEMENTS_PATTERN, BROKERAGE_AGREEMENT_PATTERN,
-						BROKERAGE_AGREEMENT_DRAFT_PATTERN, BROKERAGE_AGREEMENT_SURVEY_TERMS_PATTERN);
+						BROKERAGE_AGREEMENT_DRAFT_PATTERN, BROKERAGE_AGREEMENT_SURVEY_TERMS_PATTERN,
+						BROKERAGE_AGREEMENT_SUBMISSION_PATTERN);
 	}
 }

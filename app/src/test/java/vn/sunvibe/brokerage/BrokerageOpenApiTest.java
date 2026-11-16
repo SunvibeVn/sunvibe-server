@@ -288,6 +288,167 @@ class BrokerageOpenApiTest {
 		assertEquals("#/components/schemas/BrokerageAgreementTerms", version.path("terms").path("$ref").asString());
 	}
 
+	// ==================== E05-S4 (SD-11) ====================
+
+	/** E05-S4 spec S4-D1, 4: the draft request's fee policy is optional and nullable; its required list is unchanged. */
+	@Test
+	void draftRequest_feePolicy_optionalWithItsSchemas() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode request = schemas.path("BrokerageAgreementDraftRequest");
+		assertEquals("[{\"$ref\":\"#/components/schemas/BrokerageAgreementFeePolicyInput\"},{\"type\":\"null\"}]",
+				request.path("properties").path("feePolicy").path("anyOf").toString(), request.toString());
+		List<String> required = new ArrayList<>();
+		request.path("required").forEach(field -> required.add(field.asString()));
+		assertEquals(List.of("endDate", "expectedDataVersion", "exteriorPhotoConsent", "startDate", "terms",
+				"transactionType"), required.stream().sorted().toList());
+
+		JsonNode policy = schemas.path("BrokerageAgreementFeePolicyInput");
+		assertTrue(policy.path("required").isMissingNode(), policy.toString());
+		JsonNode policyProperties = policy.path("properties");
+		assertEquals(List.of("dueDays", "earlyLeaseEnd", "formula", "protectionDays", "renewal"),
+				names(policyProperties).stream().sorted().toList());
+		assertNullableRef("BrokerageAgreementFeeFormulaInput", policyProperties.path("formula"));
+		assertNullableRef("BrokerageAgreementFeeFormulaInput", policyProperties.path("renewal"));
+		assertNullableRef("BrokerageAgreementEarlyLeaseEndInput", policyProperties.path("earlyLeaseEnd"));
+		assertBounds(policyProperties.path("dueDays"), 0, 30, true);
+		assertBounds(policyProperties.path("protectionDays"), 0, 180, true);
+
+		JsonNode formula = schemas.path("BrokerageAgreementFeeFormulaInput");
+		assertEquals("[\"type\"]", formula.path("required").toString());
+		JsonNode formulaProperties = formula.path("properties");
+		assertEquals("[\"PERCENT_OF_RENT\",\"FIXED_AMOUNT\",\"FREE\",\"NOT_CHARGED\"]",
+				formulaProperties.path("type").path("enum").toString());
+		assertEquals(20, formulaProperties.path("type").path("maxLength").asInt());
+		assertEquals(5, formulaProperties.path("tiers").path("maxItems").asInt());
+		assertEquals("[\"array\",\"null\"]", formulaProperties.path("tiers").path("type").toString());
+		assertEquals("#/components/schemas/BrokerageAgreementFeeTierInput",
+				formulaProperties.path("tiers").path("items").path("$ref").asString());
+		assertBounds(formulaProperties.path("amount"), 1, 999_999_999_999_999L, true);
+		assertEquals("int64", formulaProperties.path("amount").path("format").asString());
+		assertEquals("[\"VND\",null]", formulaProperties.path("currency").path("enum").toString());
+		assertEquals(500, formulaProperties.path("freeReason").path("maxLength").asInt());
+		assertEquals("[\"string\",\"null\"]", formulaProperties.path("freeReason").path("type").toString());
+
+		JsonNode tier = schemas.path("BrokerageAgreementFeeTierInput");
+		assertEquals(List.of("fromMonths", "percent"), requiredOf(tier));
+		assertBounds(tier.path("properties").path("fromMonths"), 1, 120, false);
+		assertBounds(tier.path("properties").path("percent"), 1, 300, false);
+
+		JsonNode early = schemas.path("BrokerageAgreementEarlyLeaseEndInput");
+		assertEquals("[\"type\"]", early.path("required").toString());
+		assertEquals("[\"NO_REFUND\",\"PARTIAL_REFUND\"]", early.path("properties").path("type").path("enum").toString());
+		assertEquals(20, early.path("properties").path("type").path("maxLength").asInt());
+		assertBounds(early.path("properties").path("refundPercent"), 1, 100, true);
+		assertBounds(early.path("properties").path("withinMonths"), 1, 12, true);
+	}
+
+	/** E05-S4 spec S4-D10, SD-11: the version's fee policy and sending time, in no required list. */
+	@Test
+	void version_feePolicyAndSentAt_notRequired() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode version = schemas.path("BrokerageAgreementVersion");
+		assertTrue(version.path("required").isMissingNode(), version.toString());
+		assertEquals("#/components/schemas/BrokerageAgreementFeePolicy",
+				version.path("properties").path("feePolicy").path("$ref").asString(), version.toString());
+		assertEquals("[\"string\",\"null\"]", version.path("properties").path("sentAt").path("type").toString());
+		assertEquals("date-time", version.path("properties").path("sentAt").path("format").asString());
+		for (String name : List.of("BrokerageAgreementFeePolicy", "BrokerageAgreementFeeFormula",
+				"BrokerageAgreementFeeTier", "BrokerageAgreementEarlyLeaseEnd")) {
+			assertTrue(schemas.path(name).path("required").isMissingNode(), name + " " + schemas.path(name));
+		}
+
+		JsonNode policy = schemas.path("BrokerageAgreementFeePolicy").path("properties");
+		assertEquals(List.of("chargedWhen", "dueDays", "earlyLeaseEnd", "formula", "payer", "protectionDays", "renewal"),
+				names(policy).stream().sorted().toList());
+		assertEquals("[\"OWNER\"]", policy.path("payer").path("enum").toString());
+		assertEquals("string", policy.path("payer").path("type").asString());
+		assertEquals("[\"LEASE_SIGNED\"]", policy.path("chargedWhen").path("enum").toString());
+		assertNullableRef("BrokerageAgreementFeeFormula", policy.path("formula"));
+		assertNullableRef("BrokerageAgreementFeeFormula", policy.path("renewal"));
+		assertNullableRef("BrokerageAgreementEarlyLeaseEnd", policy.path("earlyLeaseEnd"));
+		assertEquals("[\"integer\",\"null\"]", policy.path("dueDays").path("type").toString());
+		assertEquals("[\"integer\",\"null\"]", policy.path("protectionDays").path("type").toString());
+
+		JsonNode formula = schemas.path("BrokerageAgreementFeeFormula").path("properties");
+		assertEquals("[\"PERCENT_OF_RENT\",\"FIXED_AMOUNT\",\"FREE\",\"NOT_CHARGED\"]",
+				formula.path("type").path("enum").toString());
+		assertEquals("array", formula.path("tiers").path("type").asString());
+		assertEquals("#/components/schemas/BrokerageAgreementFeeTier",
+				formula.path("tiers").path("items").path("$ref").asString());
+		assertEquals("[\"integer\",\"null\"]", formula.path("amount").path("type").toString());
+		assertEquals("int64", formula.path("amount").path("format").asString());
+		assertEquals("[\"VND\",null]", formula.path("currency").path("enum").toString());
+		assertEquals("[\"string\",\"null\"]", formula.path("freeReason").path("type").toString());
+		JsonNode tier = schemas.path("BrokerageAgreementFeeTier").path("properties");
+		assertEquals("integer", tier.path("fromMonths").path("type").asString());
+		assertEquals("integer", tier.path("percent").path("type").asString());
+		JsonNode early = schemas.path("BrokerageAgreementEarlyLeaseEnd").path("properties");
+		assertEquals("[\"NO_REFUND\",\"PARTIAL_REFUND\"]", early.path("type").path("enum").toString());
+		assertEquals("[\"integer\",\"null\"]", early.path("refundPercent").path("type").toString());
+		assertEquals("[\"integer\",\"null\"]", early.path("withinMonths").path("type").toString());
+	}
+
+	/** E05-S4 spec S4-D2, S4-D11, SD-11: the submission's operation, its answers and its request schema. */
+	@Test
+	void submission_operation_asTheContract() {
+		String submissionPath = "/api/v1/staff/brokerage-agreements/{agreementId}/draft/submission";
+		JsonNode submission = contract.path("paths").path(submissionPath);
+		assertEquals(List.of("post"), names(submission));
+		JsonNode post = submission.path("post");
+		assertEquals("submitBrokerageAgreementDraft", post.path("operationId").asString());
+		assertEquals("[\"Brokerage agreement\"]", post.path("tags").toString());
+		List<String> withTheId = new ArrayList<>();
+		contract.path("paths").properties().forEach(entry -> entry.getValue().properties().forEach(operation -> {
+			if ("submitBrokerageAgreementDraft".equals(operation.getValue().path("operationId").asString())) {
+				withTheId.add(operation.getKey() + " " + entry.getKey());
+			}
+		}));
+		assertEquals(List.of("post " + submissionPath), withTheId);
+		assertEquals("#/components/schemas/BrokerageAgreementDraftSubmissionRequest",
+				post.path("requestBody").path("content").path("application/json").path("schema").path("$ref").asString());
+
+		JsonNode responses = post.path("responses");
+		assertEquals(List.of("204", "400", "401", "403", "404", "409", "500"), names(responses).stream().sorted().toList());
+		assertTrue(responses.path("204").path("content").isMissingNode(), responses.path("204").toString());
+		for (String status : List.of("400", "401", "403", "404", "409", "500")) {
+			assertEquals("#/components/schemas/ErrorResponse", schemaRef(responses.path(status)), status);
+		}
+		for (String code : List.of("AGREEMENT_NOT_DRAFT", "CONCURRENT_MODIFICATION", "AGREEMENT_VERSION_INCOMPLETE",
+				"AGREEMENT_NOT_ELIGIBLE", "AGREEMENT_SENDING_NOT_AVAILABLE")) {
+			assertTrue(responses.path("409").path("description").asString().contains(code), code);
+		}
+
+		JsonNode request = contract.path("components").path("schemas").path("BrokerageAgreementDraftSubmissionRequest");
+		assertEquals(List.of("expectedDataVersion"), names(request.path("properties")));
+		assertEquals("[\"expectedDataVersion\"]", request.path("required").toString());
+		assertEquals("int64", request.path("properties").path("expectedDataVersion").path("format").asString());
+		assertEquals(0, request.path("properties").path("expectedDataVersion").path("minimum").asInt());
+
+		// the export orders the paths by key (OpenApiExportTest: springdoc.writer-with-order-by-keys)
+		List<String> paths = names(contract.path("paths")).stream().sorted().toList();
+		int draft = paths.indexOf("/api/v1/staff/brokerage-agreements/{agreementId}/draft");
+		int surveyTerms = paths.indexOf("/api/v1/staff/brokerage-agreements/{agreementId}/survey-terms");
+		assertEquals(draft + 1, paths.indexOf(submissionPath), paths.toString());
+		assertTrue(paths.indexOf(submissionPath) < surveyTerms, paths.toString());
+	}
+
+	private static void assertNullableRef(String schema, JsonNode property) {
+		assertEquals("[{\"$ref\":\"#/components/schemas/" + schema + "\"},{\"type\":\"null\"}]",
+				property.path("anyOf").toString(), property.toString());
+	}
+
+	private static void assertBounds(JsonNode property, long minimum, long maximum, boolean nullable) {
+		assertEquals(minimum, property.path("minimum").asLong(), property.toString());
+		assertEquals(maximum, property.path("maximum").asLong(), property.toString());
+		assertEquals(nullable, property.path("type").toString().contains("null"), property.toString());
+	}
+
+	private static List<String> requiredOf(JsonNode schema) {
+		List<String> required = new ArrayList<>();
+		schema.path("required").forEach(field -> required.add(field.asString()));
+		return required.stream().sorted().toList();
+	}
+
 	private static List<String> names(JsonNode node) {
 		List<String> names = new ArrayList<>();
 		node.properties().forEach(entry -> names.add(entry.getKey()));

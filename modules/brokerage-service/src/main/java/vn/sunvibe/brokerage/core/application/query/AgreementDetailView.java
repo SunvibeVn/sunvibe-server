@@ -2,6 +2,7 @@ package vn.sunvibe.brokerage.core.application.query;
 
 import vn.sunvibe.brokerage.core.domain.model.agreement.AdvertisingScope;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
@@ -31,9 +32,14 @@ public record AgreementDetailView(String agreementId, AgreementStatus status, Tr
         versions = List.copyOf(versions);
     }
 
-    /** One version: its number, state, calendar dates and content (brokerage-agreement BR-8, BR-9). */
+    /**
+     * One version: its number, state, calendar dates and content (brokerage-agreement BR-7 to BR-9), and when it was sent
+     * to the owner (E05-S4 spec S4-D10).
+     *
+     * @param sentAtOrNull null for a version never sent
+     */
     public record VersionView(int versionNo, VersionStatus status, LocalDate startDate, LocalDate endDate,
                               Instant createdAt, AdvertisingScope advertisingScope, PhotoConsent photoConsent,
-                              VersionTerms terms) {
+                              VersionTerms terms, BrokerageFee fee, Instant sentAtOrNull) {
     }
 }

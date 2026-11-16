@@ -18,7 +18,10 @@ public final class AgreementRefusedException extends RuntimeException {
         AGREEMENT_NOT_ELIGIBLE(409, "This unit cannot get an agreement now.", "This group stops the agreement."),
         AGREEMENT_EXISTS(409, "This unit already has an agreement in progress.", null),
         AGREEMENT_NOT_DRAFT(409, "This agreement has no draft to edit.", null),
-        CONCURRENT_MODIFICATION(409, "Something changed at the same time. Try again.", "This value is out of date.");
+        CONCURRENT_MODIFICATION(409, "Something changed at the same time. Try again.", "This value is out of date."),
+        AGREEMENT_VERSION_INCOMPLETE(409, "This version cannot be sent yet: a part is missing.",
+                "This part is missing."),
+        AGREEMENT_SENDING_NOT_AVAILABLE(409, "Sending to owners is not open on this server.", null);
 
         private final int status;
         private final String message;
@@ -96,6 +99,23 @@ public final class AgreementRefusedException extends RuntimeException {
     public static AgreementRefusedException stale() {
         return new AgreementRefusedException(Reason.CONCURRENT_MODIFICATION,
                 List.of(new Entry("expectedDataVersion", null)));
+    }
+
+    /**
+     * brokerage-agreement BR-8 and E-13: no part of a version sent to the owner is unknown; one entry per missing part,
+     * in the given order (E05-S4 spec S4-D5, S4-D11).
+     */
+    public static AgreementRefusedException incomplete(List<String> parts) {
+        return new AgreementRefusedException(Reason.AGREEMENT_VERSION_INCOMPLETE,
+                parts.stream().map(part -> new Entry(part, null)).toList());
+    }
+
+    /**
+     * brokerage-agreement BR-19: sending to owners is not open on this server until the owner closes SV-180 for it
+     * (E05-S4 spec S4-D8, S4-D11); no entry.
+     */
+    public static AgreementRefusedException sendingNotAvailable() {
+        return new AgreementRefusedException(Reason.AGREEMENT_SENDING_NOT_AVAILABLE, List.of());
     }
 
     public Reason reason() {

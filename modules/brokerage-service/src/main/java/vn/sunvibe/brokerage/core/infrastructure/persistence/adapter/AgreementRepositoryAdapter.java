@@ -54,11 +54,15 @@ public class AgreementRepositoryAdapter implements AgreementDomainRepository {
         entityManager.detach(saved);
     }
 
-    /** Two statements: the agreement with its versions, then the versions' fee rows into the same persistence context. */
+    /**
+     * Three statements: the agreement with its versions, then the versions' fee rows and their fee tier rows into the
+     * same persistence context (two lists are not fetch-joined in one query).
+     */
     @Override
     public Optional<BrokerageAgreement> findById(String id) {
         return jpaRepository.findWithVersions(id).map(entity -> {
             jpaRepository.fetchVersionFees(id);
+            jpaRepository.fetchVersionFeeTiers(id);
             BrokerageAgreement agreement = mapper.toDomain(entity);
             entityManager.detach(entity);
             return agreement;
@@ -68,8 +72,8 @@ public class AgreementRepositoryAdapter implements AgreementDomainRepository {
     /**
      * A merge of the mapped graph with the row version it was read with (E05-S3 plan E05S3-P5): a row version that moved
      * fails with Spring's optimistic-locking failure, at the merge or at the guarded UPDATE of the flush. Fee rows are
-     * matched by (version, number): updated, inserted, or removed as orphans. The changed update time makes the
-     * agreement row dirty, so its row version is checked and bumped.
+     * matched by (version, number) and fee tier rows by (version, renewal, number): updated, inserted, or removed as
+     * orphans. The changed update time makes the agreement row dirty, so its row version is checked and bumped.
      */
     @Override
     public void update(BrokerageAgreement agreement) {

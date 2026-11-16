@@ -4,13 +4,20 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.query.AgreementDetailView;
 import vn.sunvibe.brokerage.core.application.query.SurveyTermsView;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCreateResult;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndRefund;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDepositResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementEarlyLeaseEndResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeFormulaResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeePolicyResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeTierResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementRentResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementTermSourceResponse;
@@ -35,9 +42,32 @@ public class AgreementResponseConverter {
                         .map(version -> new BrokerageAgreementVersionResponse(version.versionNo(), version.status().name(),
                                 version.startDate(), version.endDate(), version.createdAt(),
                                 version.advertisingScope().name(), version.photoConsent().interiorOrNull(),
-                                version.photoConsent().exterior(), terms(version.terms())))
+                                version.photoConsent().exterior(), terms(version.terms()), feePolicy(version.fee()),
+                                version.sentAtOrNull()))
                         .toList(),
                 view.dataVersion(), view.viewerIsAssignedSale());
+    }
+
+    /** brokerage-agreement BR-7: the fixed payer and moment, and every part, null when not entered (spec S4-D10). */
+    private static BrokerageAgreementFeePolicyResponse feePolicy(BrokerageFee fee) {
+        EarlyLeaseEndRefund early = fee.earlyLeaseEndOrNull();
+        return new BrokerageAgreementFeePolicyResponse(fee.payer().name(), fee.chargedWhen().name(),
+                formula(fee.formulaOrNull()), fee.dueDaysOrNull(), formula(fee.renewalOrNull()),
+                early == null ? null : new BrokerageAgreementEarlyLeaseEndResponse(early.type().name(),
+                        early.refundPercentOrNull(), early.withinMonthsOrNull()),
+                fee.protectionDaysOrNull());
+    }
+
+    private static BrokerageAgreementFeeFormulaResponse formula(FeeFormula formulaOrNull) {
+        if (formulaOrNull == null) {
+            return null;
+        }
+        return new BrokerageAgreementFeeFormulaResponse(formulaOrNull.type().name(),
+                formulaOrNull.tiers().stream()
+                        .map(tier -> new BrokerageAgreementFeeTierResponse(tier.fromMonths(), tier.percent()))
+                        .toList(),
+                formulaOrNull.amountOrNull(), formulaOrNull.amountOrNull() == null ? null : VND,
+                formulaOrNull.freeReasonOrNull());
     }
 
     public BrokerageAgreementSurveyTermsResponse toSurveyTerms(SurveyTermsView view) {

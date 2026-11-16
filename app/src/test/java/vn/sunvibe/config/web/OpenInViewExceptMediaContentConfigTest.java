@@ -79,6 +79,19 @@ class OpenInViewExceptMediaContentConfigTest {
 				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/survey-terms")));
 	}
 
+	/** E05-S4 spec S4-D12, ADR-012 decision 8: the draft submission runs without open-in-view. */
+	@Test
+	void excluded_listsTheSubmissionPattern() {
+		MappedInterceptor openInView = openInView();
+
+		assertEquals("/api/v1/staff/brokerage-agreements/*/draft/submission",
+				OpenInViewExceptMediaContentConfig.BROKERAGE_AGREEMENT_SUBMISSION_PATTERN);
+		assertFalse(openInView.matches(request("POST",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft/submission")));
+		assertTrue(openInView.matches(request("GET",
+				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake")));
+	}
+
 	private MappedInterceptor openInView() {
 		assertEquals(1, interceptors.size());
 		MappedInterceptor mapped = assertInstanceOf(MappedInterceptor.class, interceptors.get(0));

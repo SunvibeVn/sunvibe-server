@@ -305,6 +305,45 @@ class AgreementDraftApiPostgresTest extends IntakeApiTestBase {
 				"DRAFT_EDITED 1 " + sale.userId()), events(done.agreementId()));
 	}
 
+	/**
+	 * brokerage-agreement E05-S4 pin (U-8): the E05-S3 body, which holds no fee policy, still saves and reads back the
+	 * same content. Named columns and keys only, so that columns added later do not change this test.
+	 */
+	@Test
+	void draft_bodyWithoutFeePolicy_storesAsToday() throws Exception {
+		Done done = done();
+
+		Result answer = put(sale, done.agreementId(), example(0));
+
+		assertEquals(204, answer.status(), answer.rawBody());
+		Map<String, Object> version = versionRow(done.agreementId());
+		assertEquals(true, version.get("photo_consent"));
+		assertEquals(false, version.get("exterior_photo_consent"));
+		assertEquals(0, new BigDecimal("8000000").compareTo((BigDecimal) version.get("monthly_rent_amount")));
+		assertEquals("MONTHS", version.get("deposit_basis"));
+		assertEquals(2, version.get("deposit_months"));
+		assertNull(version.get("deposit_amount"));
+		assertEquals(12, version.get("minimum_term_months"));
+		assertEquals(1, version.get("payment_period_months"));
+		assertEquals(true, version.get("mandatory_fees_stated"));
+		assertEquals(List.of("1|Electricity|AMOUNT|3500|PER_KWH", "2|Water|PROVIDER_TARIFF|null|null"),
+				feeRows(done.agreementId()));
+		assertEquals(List.of("CREATED 1 " + sale.userId(), "DRAFT_EDITED 1 " + sale.userId()), events(done.agreementId()));
+
+		Result detail = api.get(sale, AGREEMENTS + "/" + done.agreementId());
+
+		assertEquals(200, detail.status(), detail.rawBody());
+		JsonNode read = detail.body().path("versions").path(0);
+		assertEquals(true, read.path("photoConsent").asBoolean(), detail.rawBody());
+		assertEquals(false, read.path("exteriorPhotoConsent").asBoolean(), detail.rawBody());
+		assertEquals(api.json().readTree("{\"monthlyRent\":{\"amount\":8000000,\"currency\":\"VND\",\"unit\":\"MONTH\"},"
+				+ "\"deposit\":{\"basis\":\"MONTHS\",\"months\":2,\"amount\":null,\"currency\":null},"
+				+ "\"minimumTermMonths\":12,\"paymentPeriodMonths\":1,\"mandatoryFees\":["
+				+ "{\"name\":\"Electricity\",\"basis\":\"AMOUNT\",\"amount\":3500,\"currency\":\"VND\",\"chargeUnit\":\"PER_KWH\"},"
+				+ "{\"name\":\"Water\",\"basis\":\"PROVIDER_TARIFF\",\"amount\":null,\"currency\":null,\"chargeUnit\":null}]}"),
+				read.path("terms"), detail.rawBody());
+	}
+
 	// ==================== ED-3: only a draft is edited ====================
 
 	@Test

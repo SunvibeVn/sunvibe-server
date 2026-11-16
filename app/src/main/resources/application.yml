@@ -208,6 +208,13 @@ app:
       enabled: ${PROPERTY_INTAKE_ENABLED:false}
     direct-create:
       enabled: ${PROPERTY_DIRECT_CREATE_ENABLED:true}
+  brokerage:
+    owner-sending:
+      # Sending an agreement version to its owner (brokerage-agreement BR-19, E05-S4 spec S4-D8): off by default, so no
+      # real owner is reached before the owner closes the legal evidence gap SV-180 (brief Q-1). While off, the send
+      # answers 409 AGREEMENT_SENDING_NOT_AVAILABLE and writes nothing; drafting and reading work as before. Turning it
+      # on in an environment is the owner's act, with BROKERAGE_OWNER_SENDING_ENABLED=true.
+      enabled: ${BROKERAGE_OWNER_SENDING_ENABLED:false}
   survey:
     checklist:
       # Survey checklist submission and review (survey-checklist submission spec A-3): off until the owner opens review;

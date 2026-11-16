@@ -18,6 +18,11 @@ app:
     # The intake form is on for local development (off by default elsewhere); the env var wins if set.
     owner-intake:
       enabled: ${ACQUISITION_OWNER_INTAKE_ENABLED:true}
+  brokerage:
+    # Sending an agreement to its owner is on for local development (off by default elsewhere, brokerage-agreement
+    # BR-19); the env var wins if set.
+    owner-sending:
+      enabled: ${BROKERAGE_OWNER_SENDING_ENABLED:true}
   jwt:
     # Local-development JWT signing key only. It is committed to git, so it is public:
     # never use it for real data. The env var wins if set.

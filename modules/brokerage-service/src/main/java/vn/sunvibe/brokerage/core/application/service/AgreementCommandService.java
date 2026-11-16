@@ -5,9 +5,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException;
+import vn.sunvibe.brokerage.core.application.shared.AgreementSwitches;
 import vn.sunvibe.brokerage.core.application.shared.external.account.OwnerAccountPort;
+import vn.sunvibe.brokerage.core.application.shared.external.account.OwnerNoticePort;
 import vn.sunvibe.brokerage.core.application.shared.external.lead.BasisLeadFacts;
 import vn.sunvibe.brokerage.core.application.shared.external.lead.BasisLeadPort;
 import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasisFacts;
@@ -21,6 +24,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.eligibility.ReasonGroup;
+import vn.sunvibe.brokerage.core.domain.policy.agreement.VersionSendRules;
 import vn.sunvibe.brokerage.core.domain.policy.eligibility.EligibilityPolicy;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementTrailDomainRepository;
@@ -57,6 +61,8 @@ public class AgreementCommandService implements AgreementCommandUseCase {
     private final AgreementDomainRepository agreements;
     private final AgreementTrailDomainRepository trail;
     private final IdGenerator<String> ids;
+    private final OwnerNoticePort notices;
+    private final AgreementSwitches switches;
 
     @Override
     @Transactional
@@ -139,8 +145,61 @@ public class AgreementCommandService implements AgreementCommandUseCase {
             throw AgreementRefusedException.notEligible(groups);
         }
         Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
-        agreements.update(agreement.editDraft(period, command.photoConsent(), command.terms(), now));
+        agreements.update(agreement.editDraft(period, command.photoConsent(), command.terms(), command.fee(), now));
         trail.recordEvent(agreement.getId(), draft.getVersionNo(), AgreementEventType.DRAFT_EDITED, actor.userId(), now);
+    }
+
+    /**
+     * Statements (E05-S4 spec 5.2): one agreement read with its versions, fee rows and tier rows, one locked lead read,
+     * one basis read, at most one owner standing read, then the guarded update of the agreement row and the draft's row,
+     * one history insert, and auth's notice (one user read and one notice insert, in this transaction). It appends no
+     * outbox event, writes no access log and changes no lead, intake or ownership row (brokerage-agreement BR-18; spec
+     * S4-D9). The agreement is read before the lead's lock, since it names the lead; a change committed in between fails
+     * the guarded update, which answers 409 with nothing written. Two sends, or a send and an edit, of one agreement
+     * serialize on the lead's row lock.
+     */
+    @Override
+    @Transactional
+    public void sendDraft(AgreementSendCommand command, StaffViewer actor) {
+        if (!AgreementQueryService.AGREEMENT_ID.matcher(command.agreementId()).matches()) {
+            throw new BrokerageNotFoundException();
+        }
+        BrokerageAgreement agreement = agreements.findById(command.agreementId())
+                .orElseThrow(BrokerageNotFoundException::new);
+        // The basis lead's row stays locked to the commit (lock order of E05-S2 spec S2-D4: the lead, then the
+        // agreement's row through the guarded update). An agreement whose lead the actor may not see answers as an
+        // unknown one.
+        BasisLeadFacts lead = leads.findVisibleForUpdate(agreement.getBasisLeadId(), actor.userId(),
+                actor.expandedAuthorities()).orElseThrow(BrokerageNotFoundException::new);
+        // brokerage-agreement BR-16: only the lead's current assignee holding SALE or SALE_LEADER sends.
+        if (!EligibilityPolicy.assignedSale(lead.assignedUserIdOrNull(), actor.userId(), actor.expandedAuthorities())) {
+            throw AgreementRefusedException.notAssignee();
+        }
+        AgreementVersion draft = agreement.draft().orElseThrow(AgreementRefusedException::notDraft);
+        // brokerage-agreement BR-5: the Sale sends exactly the version they read.
+        if (!command.expectedDataVersion().equals(agreement.getRowVersionOrNull())) {
+            throw AgreementRefusedException.stale();
+        }
+        // brokerage-agreement BR-8 and E-13: no part of a version sent to the owner is unknown.
+        List<String> missing = VersionSendRules.missingParts(draft);
+        if (!missing.isEmpty()) {
+            throw AgreementRefusedException.incomplete(missing);
+        }
+        // brokerage-agreement E-2: nothing is sent on a basis that no longer allows an agreement.
+        List<ReasonGroup> groups = draftGroups(agreement, draft, lead);
+        if (!groups.isEmpty()) {
+            throw AgreementRefusedException.notEligible(groups);
+        }
+        // brokerage-agreement BR-19: no real owner is reached while the server keeps sending closed; checked last, so
+        // every other answer still tells the Sale what to fix.
+        if (!switches.ownerSendingEnabled()) {
+            throw AgreementRefusedException.sendingNotAvailable();
+        }
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        agreements.update(agreement.sendDraft(now));
+        trail.recordEvent(agreement.getId(), draft.getVersionNo(), AgreementEventType.VERSION_SENT, actor.userId(), now);
+        // brokerage-agreement BR-10 and BR-17: the owner party's account gets a neutral notice by user id.
+        notices.agreementPending(agreement.getOwnerUserId());
     }
 
     /**
