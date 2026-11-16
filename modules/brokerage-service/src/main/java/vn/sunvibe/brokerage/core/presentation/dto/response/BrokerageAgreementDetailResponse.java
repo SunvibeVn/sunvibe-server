@@ -25,5 +25,11 @@ public record BrokerageAgreementDetailResponse(
         String basisLeadId,
         Instant createdAt,
         @Schema(description = "By version number, from 1")
-        List<BrokerageAgreementVersionResponse> versions) {
+        List<BrokerageAgreementVersionResponse> versions,
+        @Schema(format = "int64", description = "The data version a change of the agreement sends back as"
+                + " expectedDataVersion")
+        long dataVersion,
+        @Schema(description = "Whether the caller is the basis lead's assigned Sale, who edits the draft; a hint, the"
+                + " server decides")
+        boolean viewerIsAssignedSale) {
 }

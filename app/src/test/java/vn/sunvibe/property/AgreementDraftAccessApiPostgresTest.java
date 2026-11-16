@@ -159,6 +159,92 @@ class AgreementDraftAccessApiPostgresTest extends IntakeApiTestBase {
 		assertEquals(List.of(otherSale.userId()), edits(done.agreementId()));
 	}
 
+	// ==================== ED-11 and the read of ED-1: the detail's content ====================
+
+	private Result detail(TestUser caller, String agreementId) throws Exception {
+		return api.get(caller, AGREEMENTS + "/" + agreementId);
+	}
+
+	private static List<String> sortedKeys(tools.jackson.databind.JsonNode node) {
+		List<String> keys = new ArrayList<>();
+		node.properties().forEach(entry -> keys.add(entry.getKey()));
+		return keys.stream().sorted().toList();
+	}
+
+	private int accessRows(String agreementId) {
+		return AgreementFixture.rows(jdbc, "brokerage_agreement_access_logs", agreementId);
+	}
+
+	@Test
+	void detail_exactKeySets_agreementVersionAndTerms() throws Exception {
+		Done done = done();
+
+		Result answer = detail(sale, done.agreementId());
+
+		assertEquals(200, answer.status(), answer.rawBody());
+		assertEquals(List.of("agreementId", "basisLeadId", "createdAt", "dataVersion", "status", "transactionType",
+				"unitCode", "unitId", "versions", "viewerIsAssignedSale"), sortedKeys(answer.body()));
+		tools.jackson.databind.JsonNode version = answer.body().path("versions").path(0);
+		assertEquals(List.of("advertisingScope", "createdAt", "endDate", "exteriorPhotoConsent", "photoConsent",
+				"startDate", "status", "terms", "versionNo"), sortedKeys(version));
+		assertEquals(List.of("deposit", "mandatoryFees", "minimumTermMonths", "monthlyRent", "paymentPeriodMonths"),
+				sortedKeys(version.path("terms")));
+	}
+
+	@Test
+	void detail_dataVersionAndViewerFlag() throws Exception {
+		Done done = done();
+		assertEquals(204, put(sale, done.agreementId(), AgreementDraftApiPostgresTest.example(0)).status());
+		long rowVersion = jdbc.queryForObject("select version from brokerage_agreements where id = ?", Long.class,
+				done.agreementId());
+
+		Result bySale = detail(sale, done.agreementId());
+		assertEquals(1, accessRows(done.agreementId()));
+		Result byManager = detail(manager, done.agreementId());
+		assertEquals(2, accessRows(done.agreementId()));
+
+		assertEquals(rowVersion, bySale.body().path("dataVersion").asLong(), bySale.rawBody());
+		assertEquals(true, bySale.body().path("viewerIsAssignedSale").asBoolean(), bySale.rawBody());
+		assertEquals(rowVersion, byManager.body().path("dataVersion").asLong(), byManager.rawBody());
+		assertEquals(false, byManager.body().path("viewerIsAssignedSale").asBoolean(), byManager.rawBody());
+	}
+
+	@Test
+	void detail_createdVersion_readsNothingEntered() throws Exception {
+		Done done = done();
+
+		Result answer = detail(sale, done.agreementId());
+
+		tools.jackson.databind.JsonNode version = answer.body().path("versions").path(0);
+		assertEquals(0L, answer.body().path("dataVersion").asLong(), answer.rawBody());
+		assertEquals("SUNVIBE_CHANNELS", version.path("advertisingScope").asString(), answer.rawBody());
+		assertEquals(true, version.path("photoConsent").isNull(), answer.rawBody());
+		assertEquals(false, version.path("exteriorPhotoConsent").asBoolean(), answer.rawBody());
+		assertEquals(api.json().readTree("{\"monthlyRent\":null,\"deposit\":null,\"minimumTermMonths\":null,"
+				+ "\"paymentPeriodMonths\":null,\"mandatoryFees\":null}"), version.path("terms"), answer.rawBody());
+	}
+
+	@Test
+	void detail_afterEdit_sameContentAndDataVersion() throws Exception {
+		Done done = done();
+		assertEquals(204, put(sale, done.agreementId(), AgreementDraftApiPostgresTest.example(0)).status());
+
+		Result answer = detail(sale, done.agreementId());
+
+		assertEquals(1L, answer.body().path("dataVersion").asLong(), answer.rawBody());
+		tools.jackson.databind.JsonNode version = answer.body().path("versions").path(0);
+		assertEquals("2027-01-01", version.path("startDate").asString());
+		assertEquals("2027-12-31", version.path("endDate").asString());
+		assertEquals(true, version.path("photoConsent").asBoolean(), answer.rawBody());
+		assertEquals(false, version.path("exteriorPhotoConsent").asBoolean(), answer.rawBody());
+		assertEquals(api.json().readTree("{\"monthlyRent\":{\"amount\":8000000,\"currency\":\"VND\",\"unit\":\"MONTH\"},"
+				+ "\"deposit\":{\"basis\":\"MONTHS\",\"months\":2,\"amount\":null,\"currency\":null},"
+				+ "\"minimumTermMonths\":12,\"paymentPeriodMonths\":1,\"mandatoryFees\":["
+				+ "{\"name\":\"Electricity\",\"basis\":\"AMOUNT\",\"amount\":3500,\"currency\":\"VND\",\"chargeUnit\":\"PER_KWH\"},"
+				+ "{\"name\":\"Water\",\"basis\":\"PROVIDER_TARIFF\",\"amount\":null,\"currency\":null,\"chargeUnit\":null}]}"),
+				version.path("terms"), answer.rawBody());
+	}
+
 	/** E05-S3 spec S3-D5: no body field sets a status, owner, basis, version number or scope. */
 	@Test
 	void draft_bodyFieldsForStatusOwnerBasisScope_ignored() throws Exception {

@@ -26,6 +26,7 @@ import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCrea
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
 import vn.sunvibe.brokerage.core.presentation.resolver.StaffViewerResolver;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
@@ -89,6 +90,28 @@ public class BrokerageAgreementController {
     })
     public BrokerageAgreementDetailResponse detail(@PathVariable("agreementId") String agreementId) {
         return responses.toDetail(queries.detail(agreementId, viewers.current()));
+    }
+
+    @GetMapping("/{agreementId}/survey-terms")
+    @Operation(operationId = "getBrokerageAgreementSurveyTerms",
+            summary = "The survey's values for the draft's terms, with their sources and dates; a proposal, never stored")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The proposal of the unit's surveyed space; every part null"
+                    + " and no source when the survey holds none or no longer stands as the intake's source"),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_NOT_DRAFT: the agreement has no draft",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public BrokerageAgreementSurveyTermsResponse surveyTerms(@PathVariable("agreementId") String agreementId) {
+        return responses.toSurveyTerms(queries.surveyTerms(agreementId, viewers.current()));
     }
 
     @PutMapping("/{agreementId}/draft")

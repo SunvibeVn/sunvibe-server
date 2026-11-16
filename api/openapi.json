@@ -2718,6 +2718,83 @@
         "tags" : [ "Brokerage agreement" ]
       }
     },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/survey-terms" : {
+      "get" : {
+        "operationId" : "getBrokerageAgreementSurveyTerms",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerageAgreementSurveyTerms"
+                }
+              }
+            },
+            "description" : "The proposal of the unit's surveyed space; every part null and no source when the survey holds none or no longer stands as the intake's source"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NOT_DRAFT: the agreement has no draft"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "The survey's values for the draft's terms, with their sources and dates; a proposal, never stored",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/inventory-cases" : {
       "get" : {
         "operationId" : "list_3",
@@ -8826,6 +8903,30 @@
           }
         }
       },
+      "BrokerageAgreementDeposit" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Set for AMOUNT"
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [ "MONTHS", "AMOUNT" ]
+          },
+          "currency" : {
+            "type" : [ "string", "null" ],
+            "description" : "VND with an amount, else null",
+            "enum" : [ "VND", null ]
+          },
+          "months" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Set for MONTHS"
+          }
+        }
+      },
       "BrokerageAgreementDepositInput" : {
         "type" : "object",
         "properties" : {
@@ -8868,6 +8969,11 @@
             "type" : "string",
             "format" : "date-time"
           },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The data version a change of the agreement sends back as expectedDataVersion"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "DRAFTING", "AWAITING_CONFIRMATION", "ACTIVE", "SUSPENDED", "EXPIRED", "TERMINATED", "CANCELLED" ]
@@ -8889,6 +8995,10 @@
             "items" : {
               "$ref" : "#/components/schemas/BrokerageAgreementVersion"
             }
+          },
+          "viewerIsAssignedSale" : {
+            "type" : "boolean",
+            "description" : "Whether the caller is the basis lead's assigned Sale, who edits the draft; a hint, the server decides"
           }
         }
       },
@@ -8932,6 +9042,33 @@
         },
         "required" : [ "endDate", "expectedDataVersion", "exteriorPhotoConsent", "startDate", "terms", "transactionType" ]
       },
+      "BrokerageAgreementFee" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Set for AMOUNT"
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [ "AMOUNT", "INCLUDED", "PROVIDER_TARIFF" ]
+          },
+          "chargeUnit" : {
+            "type" : [ "string", "null" ],
+            "description" : "Set for AMOUNT",
+            "enum" : [ "PER_MONTH", "PER_KWH", "PER_M3", "PER_PERSON_PER_MONTH", "PER_VEHICLE_PER_MONTH", "ONE_OFF", null ]
+          },
+          "currency" : {
+            "type" : [ "string", "null" ],
+            "description" : "VND with an amount, else null",
+            "enum" : [ "VND", null ]
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
       "BrokerageAgreementFeeInput" : {
         "type" : "object",
         "properties" : {
@@ -8964,6 +9101,23 @@
         },
         "required" : [ "basis", "name" ]
       },
+      "BrokerageAgreementRent" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "currency" : {
+            "type" : "string",
+            "enum" : [ "VND" ]
+          },
+          "unit" : {
+            "type" : "string",
+            "enum" : [ "MONTH" ]
+          }
+        }
+      },
       "BrokerageAgreementRentInput" : {
         "type" : "object",
         "properties" : {
@@ -8985,6 +9139,74 @@
           }
         },
         "required" : [ "amount", "currency", "unit" ]
+      },
+      "BrokerageAgreementSurveyTerms" : {
+        "type" : "object",
+        "properties" : {
+          "sources" : {
+            "type" : "array",
+            "description" : "One per part held: monthlyRent, deposit, minimumTermMonths, paymentPeriodMonths, mandatoryFees[i]",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementTermSource"
+            }
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/BrokerageAgreementTerms"
+          }
+        }
+      },
+      "BrokerageAgreementTermSource" : {
+        "type" : "object",
+        "properties" : {
+          "date" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The date of the survey's statement, else the day of the visit, in Vietnam time"
+          },
+          "field" : {
+            "type" : "string",
+            "description" : "monthlyRent, deposit, minimumTermMonths, paymentPeriodMonths or mandatoryFees[i]"
+          },
+          "source" : {
+            "type" : [ "string", "null" ],
+            "description" : "null when the survey recorded none of these",
+            "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
+          }
+        }
+      },
+      "BrokerageAgreementTerms" : {
+        "type" : "object",
+        "properties" : {
+          "deposit" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementDeposit"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "mandatoryFees" : {
+            "type" : [ "array", "null" ],
+            "description" : "null = not stated yet; [] = no mandatory fee besides the rent",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementFee"
+            }
+          },
+          "minimumTermMonths" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          },
+          "monthlyRent" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementRent"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "paymentPeriodMonths" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32"
+          }
+        }
       },
       "BrokerageAgreementTermsInput" : {
         "type" : "object",
@@ -9029,6 +9251,11 @@
       "BrokerageAgreementVersion" : {
         "type" : "object",
         "properties" : {
+          "advertisingScope" : {
+            "type" : "string",
+            "description" : "The advertising permission: sunvibe.vn and staff sending the listing link, for the version's period (brokerage-agreement BR-9)",
+            "enum" : [ "SUNVIBE_CHANNELS" ]
+          },
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -9038,6 +9265,14 @@
             "format" : "date",
             "description" : "A calendar date in Vietnam time"
           },
+          "exteriorPhotoConsent" : {
+            "type" : "boolean",
+            "description" : "Public photos of the exterior; true only with photoConsent true"
+          },
+          "photoConsent" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "Public photos of the interior and common areas; null = not answered yet"
+          },
           "startDate" : {
             "type" : "string",
             "format" : "date",
@@ -9046,6 +9281,9 @@
           "status" : {
             "type" : "string",
             "enum" : [ "DRAFT", "AWAITING_OWNER", "OWNER_CONFIRMED", "ACTIVATED", "EFFECTIVE", "SUPERSEDED", "OWNER_REJECTED", "LAPSED", "ACTIVATION_REFUSED", "CANCELLED" ]
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/BrokerageAgreementTerms"
           },
           "versionNo" : {
             "type" : "integer",
