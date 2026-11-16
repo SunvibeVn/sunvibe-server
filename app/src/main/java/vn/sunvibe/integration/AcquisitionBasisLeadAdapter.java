@@ -25,4 +25,10 @@ public class AcquisitionBasisLeadAdapter implements BasisLeadPort {
         return leads.findVisible(leadId, leads.viewerFor(userId, expandedAuthorities))
                 .map(facts -> new BasisLeadFacts(facts.leadId(), facts.assignedUserIdOrNull()));
     }
+
+    @Override
+    public Optional<BasisLeadFacts> findVisibleForUpdate(String leadId, String userId, Set<String> expandedAuthorities) {
+        return leads.findVisibleForUpdate(leadId, leads.viewerFor(userId, expandedAuthorities))
+                .map(facts -> new BasisLeadFacts(facts.leadId(), facts.assignedUserIdOrNull()));
+    }
 }

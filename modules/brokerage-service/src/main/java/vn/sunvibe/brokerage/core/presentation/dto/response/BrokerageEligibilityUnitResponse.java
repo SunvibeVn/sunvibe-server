@@ -15,5 +15,10 @@ public record BrokerageEligibilityUnitResponse(
                 + " stop for the whole property; UNIT: a stop of this unit; OWNER: the owner on record does not meet"
                 + " brokerage-agreement BR-4. No group names a lead."),
                 schema = @Schema(allowableValues = {"BASIS", "PROPERTY", "UNIT", "OWNER"}))
-        List<String> reasonGroups) {
+        List<String> reasonGroups,
+        @Schema(description = "The unit already has a long-term rental agreement in progress (drafting, awaiting"
+                + " confirmation, active or suspended)")
+        boolean unfinishedAgreement,
+        @Schema(nullable = true, description = "Set only when the agreement rests on this lead")
+        String agreementId) {
 }

@@ -810,6 +810,71 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
+	 * brokerage-agreement E05-S2 spec S2-D16: what an agreement run leaves on L15 (the agreement, its version, its history
+	 * and access-log rows) goes with the next seed, so the agreement E2E test can run again; an agreement whose basis
+	 * leads are all outside the fixture is kept.
+	 */
+	@Test
+	void reseed_afterAnAgreement_clearsItsRows() throws Exception {
+		String agreement = "01JE2EAGREEMENT00000000015";
+		String version = "01JE2EAGRVERSION0000000015";
+		String foreignAgreement = "01JE2EOTHERAGREEMENT000001";
+		String foreignVersion = "01JE2EOTHERAGRVERSION00001";
+		try {
+			seedAccounts();
+			assertEquals(0, runLeads("local").getExitCode());
+			String l15 = LEAD_IDS.get(14);
+			Timestamp now = Timestamp.from(Instant.now());
+			// A DRAFTING agreement with its version 1 DRAFT on L15, and one on a lead outside the fixture (no FK to leads).
+			for (String[] row : List.of(new String[] {agreement, version, "01JE2EAGRUNIT0000000000015", l15},
+					new String[] {foreignAgreement, foreignVersion, "01JE2EAGRUNIT0000000000099", FOREIGN_LEAD})) {
+				jdbc.update("INSERT INTO brokerage_agreements (id, unit_id, unit_code, property_id, transaction_type,"
+						+ " owner_user_id, basis_lead_id, status, created_by_user_id, created_at, updated_at, version) VALUES (?, ?,"
+						+ " 'SV-HOU-999915', 'e2e00000-0000-0000-0000-000000000015', 'LONG_TERM_RENT', ?, ?, 'DRAFTING', ?, ?, ?, 0)",
+						row[0], row[2], CUSTOMER_ID, row[3], SALE_ID, now, now);
+				jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date, end_date,"
+						+ " basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at) VALUES (?, ?, 1, 'DRAFT',"
+						+ " DATE '2027-01-01', DATE '2027-12-31', ?, '01JE2EINTAKE00000000000015', ?, ?, ?)", row[1], row[0], row[3],
+						SALE_ID, now, now);
+			}
+			jdbc.update("INSERT INTO brokerage_agreement_events (agreement_id, version_no, event_type, actor_user_id, occurred_at)"
+					+ " VALUES (?, 1, 'CREATED', ?, ?)", agreement, SALE_ID, now);
+			jdbc.update("INSERT INTO brokerage_agreement_access_logs (user_id, agreement_id, action, accessed_at)"
+					+ " VALUES (?, ?, 'DETAIL_READ', ?)", SALE_ID, agreement, now);
+			String foreignRow = jdbc.queryForObject("SELECT a::text FROM brokerage_agreements a WHERE id = ?", String.class,
+					foreignAgreement);
+			String foreignVersionRow = jdbc.queryForObject("SELECT v::text FROM brokerage_agreement_versions v WHERE id = ?",
+					String.class, foreignVersion);
+
+			ExecResult again = runLeads("local");
+
+			assertEquals(0, again.getExitCode(), "re-run after an agreement failed: " + again.getStderr());
+			assertEquals(SEEDED, printedCounts(again));
+			for (String table : List.of("brokerage_agreement_access_logs", "brokerage_agreement_events",
+					"brokerage_agreement_versions")) {
+				assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE agreement_id = '" + agreement + "'"), table);
+			}
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreements WHERE id = '" + agreement + "'"));
+			assertEquals(foreignRow, jdbc.queryForObject("SELECT a::text FROM brokerage_agreements a WHERE id = ?",
+					String.class, foreignAgreement));
+			assertEquals(foreignVersionRow, jdbc.queryForObject(
+					"SELECT v::text FROM brokerage_agreement_versions v WHERE id = ?", String.class, foreignVersion));
+
+			ExecResult third = runLeads("local");
+
+			assertEquals(0, third.getExitCode(), "a second run failed: " + third.getStderr());
+			assertEquals(SEEDED, printedCounts(third));
+		} finally {
+			for (String id : List.of(agreement, foreignAgreement)) {
+				jdbc.update("DELETE FROM brokerage_agreement_access_logs WHERE agreement_id = ?", id);
+				jdbc.update("DELETE FROM brokerage_agreement_events WHERE agreement_id = ?", id);
+				jdbc.update("DELETE FROM brokerage_agreement_versions WHERE agreement_id = ?", id);
+				jdbc.update("DELETE FROM brokerage_agreements WHERE id = ?", id);
+			}
+		}
+	}
+
+	/**
 	 * survey-media spec 6.4 (plan Task A23): after the media flows on L14 (a checklist started through the API, photos
 	 * in the shapes create, content, removal and an ADMIN hold leave, their set, job and variants, the budget and slot
 	 * rows of the fixture users), the next run removes every one of them and L14 can be started again.

@@ -2492,6 +2492,142 @@
         "tags" : [ "Administrative areas" ]
       }
     },
+    "/api/v1/staff/brokerage-agreements" : {
+      "post" : {
+        "operationId" : "createBrokerageAgreement",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerageAgreementCreated"
+                }
+              }
+            },
+            "description" : "The draft was created; only its id is answered"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (field entries; transactionType with its allowedValues) or MALFORMED_REQUEST (the body or a date cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff; AGREEMENT_NOT_ASSIGNEE: the caller is not the lead's assigned Sale"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the lead does not exist or is not visible"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NOT_ELIGIBLE (one reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY, UNIT, OWNER), AGREEMENT_EXISTS (the unit already has an agreement in progress) or CONCURRENT_MODIFICATION"
+          }
+        },
+        "summary" : "Draft a brokerage agreement for a unit of the lead's intake basis",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
+    "/api/v1/staff/brokerage-agreements/{agreementId}" : {
+      "get" : {
+        "operationId" : "getBrokerageAgreement",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerageAgreementDetail"
+                }
+              }
+            },
+            "description" : "The agreement and its versions"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Caller is not staff"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "The agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          }
+        },
+        "summary" : "The detail of a brokerage agreement; each read is logged",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/inventory-cases" : {
       "get" : {
         "operationId" : "list_3",
@@ -8561,6 +8697,110 @@
         },
         "required" : [ "expectedLeadVersion", "startAt" ]
       },
+      "BrokerageAgreementCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "endDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "A calendar date in Vietnam time, not before the start date and at most 12 months after it"
+          },
+          "leadId" : {
+            "type" : "string",
+            "description" : "The basis lead: the owner lead whose latest completed intake maps the unit",
+            "pattern" : "^[0-9A-Z]{26}$"
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "A calendar date in Vietnam time, 2000-01-01 to 2099-12-31"
+          },
+          "transactionType" : {
+            "type" : "string",
+            "description" : "Only long-term rental now",
+            "enum" : [ "LONG_TERM_RENT" ]
+          },
+          "unitId" : {
+            "type" : "string",
+            "description" : "A unit the lead's latest completed intake maps",
+            "pattern" : "^[0-9A-Z]{26}$"
+          }
+        },
+        "required" : [ "endDate", "leadId", "startDate", "transactionType", "unitId" ]
+      },
+      "BrokerageAgreementCreated" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BrokerageAgreementDetail" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string"
+          },
+          "basisLeadId" : {
+            "type" : "string",
+            "description" : "The basis lead of the latest version"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFTING", "AWAITING_CONFIRMATION", "ACTIVE", "SUSPENDED", "EXPIRED", "TERMINATED", "CANCELLED" ]
+          },
+          "transactionType" : {
+            "type" : "string",
+            "enum" : [ "LONG_TERM_RENT" ]
+          },
+          "unitCode" : {
+            "type" : [ "string", "null" ],
+            "description" : "The unit's code as read from the intake basis at creation; null when it had none"
+          },
+          "unitId" : {
+            "type" : "string"
+          },
+          "versions" : {
+            "type" : "array",
+            "description" : "By version number, from 1",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementVersion"
+            }
+          }
+        }
+      },
+      "BrokerageAgreementVersion" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "A calendar date in Vietnam time"
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "A calendar date in Vietnam time"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "AWAITING_OWNER", "OWNER_CONFIRMED", "ACTIVATED", "EFFECTIVE", "SUPERSEDED", "OWNER_REJECTED", "LAPSED", "ACTIVATION_REFUSED", "CANCELLED" ]
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "BrokerageEligibility" : {
         "type" : "object",
         "properties" : {
@@ -8585,6 +8825,10 @@
       "BrokerageEligibilityUnit" : {
         "type" : "object",
         "properties" : {
+          "agreementId" : {
+            "type" : [ "string", "null" ],
+            "description" : "Set only when the agreement rests on this lead"
+          },
           "eligible" : {
             "type" : "boolean"
           },
@@ -8595,6 +8839,10 @@
               "type" : "string",
               "enum" : [ "BASIS", "PROPERTY", "UNIT", "OWNER" ]
             }
+          },
+          "unfinishedAgreement" : {
+            "type" : "boolean",
+            "description" : "The unit already has a long-term rental agreement in progress (drafting, awaiting confirmation, active or suspended)"
           },
           "unitCode" : {
             "type" : [ "string", "null" ],
