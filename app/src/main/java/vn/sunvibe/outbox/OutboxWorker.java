@@ -17,6 +17,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -98,6 +99,28 @@ public class OutboxWorker {
     }
 
     /**
+     * One delivery run (spec 4.5 step 1): for each consumer of the list, in name order, starts its run on its own run
+     * thread when both its threads are idle; a consumer whose run or delivery still goes on is left as it is, claimed by
+     * none. Waits for no run, so one consumer never delays another (S5b-D15).
+     *
+     * @return the runs started, by consumer name
+     */
+    public Map<String, Future<?>> deliverDue() {
+        Map<String, Future<?>> started = new LinkedHashMap<>();
+        for (String name : subscriptions.consumers()) {
+            if (!scheduling.idle(name)) {
+                continue;
+            }
+            try {
+                started.put(name, scheduling.submitRun(name, () -> runConsumer(name)));
+            } catch (RejectedExecutionException e) {
+                // Counts as busy: nothing was claimed
+            }
+        }
+        return started;
+    }
+
+    /**
      * One consumer's run (spec 4.5 steps 2 to 8): claim, then deliver each row and mark it. A time-out or a rejected
      * delivery submit ends the run and releases the rows not yet delivered; an interrupt (shutdown) ends it with the
      * rows left under their lease.
@@ -176,6 +199,15 @@ public class OutboxWorker {
 
     long removalFailureCount() {
         return removalFailures.sum();
+    }
+
+    /** A run that throws (a database error, say) leaves its unmarked rows under their lease; the next poll goes on. */
+    private void runConsumer(String name) {
+        try {
+            deliverConsumer(name);
+        } catch (RuntimeException e) {
+            log.error("OUTBOX_RUN_FAILED consumer={} exception={}", name, e.getClass().getName());
+        }
     }
 
     private void markDone(ClaimedRow row) {

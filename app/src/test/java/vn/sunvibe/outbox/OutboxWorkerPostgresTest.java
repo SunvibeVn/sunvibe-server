@@ -451,7 +451,140 @@ class OutboxWorkerPostgresTest extends OutboxPostgresTestBase {
 		assertThat(onlyRow().get("status")).isEqualTo("DONE");
 	}
 
+	// Consumers side by side
+
+	@Test
+	void deliverDue_timingOutConsumer_otherConsumersRowsNotDelayed() throws Exception {
+		TestConsumer x = new TestConsumer("x");
+		TestConsumer y = new TestConsumer("y");
+		CountDownLatch xRelease = latch();
+		x.behaviour = delivery -> awaitInterruptibly(xRelease);
+		appendEvents(adapter(subscriptions("x", "y")), 1);
+		OutboxWorker worker = worker(subscriptions("x", "y"), scheduling("x", "y"), limits(Duration.ofSeconds(30)), x,
+				y);
+
+		Map<String, Future<?>> runs = worker.deliverDue();
+
+		assertThat(runs).containsOnlyKeys("x", "y");
+		runs.get("y").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		assertThat(runs.get("x").isDone()).as("x still blocks").isFalse();
+		assertThat(rowOfConsumer("y").get("status")).isEqualTo("DONE");
+		Map<String, Object> xRow = rowOfConsumer("x");
+		assertThat(xRow.get("status")).isEqualTo("PENDING");
+		assertThat(xRow.get("lease_token")).isNotNull();
+		xRelease.countDown();
+		runs.get("x").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		assertThat(rowOfConsumer("x").get("status")).isEqualTo("DONE");
+	}
+
+	@Test
+	void deliverDue_backlogOfOneConsumer_otherConsumerDeliveredInTheSameRun() throws Exception {
+		TestConsumer x = new TestConsumer("x");
+		TestConsumer y = new TestConsumer("y");
+		appendEvents(adapter(subscriptions("x")), 50);
+		clock.advance(Duration.ofSeconds(1));
+		appendEvents(adapter(subscriptions("y")), 1);
+		OutboxWorker worker = worker(subscriptions("x", "y"), scheduling("x", "y"), limits(ONE_SECOND), x, y);
+
+		Map<String, Future<?>> runs = worker.deliverDue();
+
+		runs.get("x").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		runs.get("y").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		assertThat(x.deliveries).hasSize(10);
+		assertThat(statusCount("x", "DONE")).isEqualTo(10);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_events WHERE consumer = 'x' AND status = 'PENDING'"
+				+ " AND lease_token IS NULL AND attempts = 0", Integer.class)).isEqualTo(40);
+		assertThat(rowOfConsumer("y").get("status")).isEqualTo("DONE");
+	}
+
+	@Test
+	void deliverDue_deliveryOutlivedItsTimeout_consumerNotClaimed_othersDelivered() throws Exception {
+		TestConsumer x = new TestConsumer("x");
+		TestConsumer y = new TestConsumer("y");
+		CountDownLatch xRelease = latch();
+		x.behaviour = delivery -> awaitIgnoringInterrupts(xRelease);
+		CountDownLatch xRunEnded = new CountDownLatch(1);
+		OutboxScheduling scheduling = scheduling(name -> name.equals("outbox-run-x")
+				? OutboxSchedulingConfigTest.latched(name, xRunEnded)
+				: OutboxScheduling.newConsumerExecutor(name), "x", "y");
+		appendEvents(adapter(subscriptions("x")), 2);
+		inTransaction(status -> adapter(subscriptions("y")).append(UnitAdvertisingChangedEvent.now(unitId(900))));
+		OutboxWorker worker = worker(subscriptions("x", "y"), scheduling, limits(ONE_SECOND), x, y);
+
+		worker.deliverDue().get("y").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		assertThat(xRunEnded.await(BOUND_SECONDS, TimeUnit.SECONDS)).as("x's run ended at its time-out").isTrue();
+		assertThat(scheduling.deliveriesOutlivingTheirRun()).containsExactly("x");
+		inTransaction(status -> adapter(subscriptions("y")).append(UnitAdvertisingChangedEvent.now(unitId(901))));
+
+		Map<String, Future<?>> next = worker.deliverDue();
+
+		assertThat(next).containsOnlyKeys("y");
+		next.get("y").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		assertThat(x.deliveries).hasSize(1);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox_events WHERE consumer = 'x' AND status = 'PENDING'"
+				+ " AND lease_token IS NULL AND attempts = 0", Integer.class)).as("x's released row, not claimed again")
+				.isEqualTo(1);
+		assertThat(statusCount("y", "DONE")).isEqualTo(2);
+		assertThat(scheduling.deliveriesOutlivingTheirRun()).containsExactly("x");
+		xRelease.countDown();
+	}
+
+	@Test
+	void deliverDue_oneConsumerFails_otherConsumerDelivered() throws Exception {
+		TestConsumer x = new TestConsumer("x");
+		TestConsumer y = new TestConsumer("y");
+		x.behaviour = delivery -> {
+			throw new IllegalStateException("down");
+		};
+		appendEvents(adapter(subscriptions("x", "y")), 1);
+		OutboxWorker worker = worker(subscriptions("x", "y"), scheduling("x", "y"), limits(ONE_SECOND), x, y);
+
+		Map<String, Future<?>> runs = worker.deliverDue();
+
+		runs.get("x").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		runs.get("y").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		Map<String, Object> xRow = rowOfConsumer("x");
+		assertThat(xRow.get("status")).isEqualTo("PENDING");
+		assertThat(xRow.get("last_error_code")).isEqualTo("CONSUMER_ERROR");
+		assertThat(rowOfConsumer("y").get("status")).isEqualTo("DONE");
+	}
+
+	@Test
+	void deliverDue_returnsWithoutWaitingForARun() throws Exception {
+		TestConsumer x = new TestConsumer("x");
+		CountDownLatch started = new CountDownLatch(1);
+		CountDownLatch release = latch();
+		x.behaviour = delivery -> {
+			started.countDown();
+			awaitInterruptibly(release);
+		};
+		appendEvents(adapter(subscriptions("x")), 1);
+		OutboxWorker worker = worker(subscriptions("x"), scheduling("x"), limits(Duration.ofSeconds(30)), x);
+
+		Map<String, Future<?>> first = worker.deliverDue();
+
+		assertThat(first.get("x").isDone()).isFalse();
+		assertThat(started.await(BOUND_SECONDS, TimeUnit.SECONDS)).isTrue();
+		inTransaction(status -> adapter(subscriptions("x")).append(UnitAdvertisingChangedEvent.now(unitId(700))));
+		Map<String, Future<?>> second = worker.deliverDue();
+		assertThat(second).doesNotContainKey("x");
+		assertThat(jdbc.queryForObject("SELECT attempts FROM outbox_events WHERE aggregate_id = ?", Integer.class,
+				unitId(700))).as("no more of x's rows claimed").isZero();
+		release.countDown();
+		first.get("x").get(BOUND_SECONDS, TimeUnit.SECONDS);
+		assertThat(x.deliveries).hasSize(1);
+	}
+
 	// Helpers
+
+	private Map<String, Object> rowOfConsumer(String consumer) {
+		return jdbc.queryForMap("SELECT * FROM outbox_events WHERE consumer = ?", consumer);
+	}
+
+	private int statusCount(String consumer, String status) {
+		return jdbc.queryForObject("SELECT count(*) FROM outbox_events WHERE consumer = ? AND status = ?",
+				Integer.class, consumer, status);
+	}
 
 	private CountDownLatch latch() {
 		CountDownLatch latch = new CountDownLatch(1);
