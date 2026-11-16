@@ -53,3 +53,8 @@ dbd9833b1ef8fedf0738bd33afb19271495146c8:modules/auth-service/src/test/java/vn/s
 # W6 (beb8147, merged to main with a merge commit): the same public test ID-card keys as application-test.yml.
 beb8147a2b3f1134d852773e8ba18ee5d63c8390:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/UserRepositoryAdapterRoleTest.java:generic-api-key:35
 beb8147a2b3f1134d852773e8ba18ee5d63c8390:modules/auth-service/src/test/java/vn/sunvibe/auth/core/infrastructure/persistence/adapter/user/UserRepositoryAdapterRoleTest.java:generic-api-key:36
+
+# E05-S5b-outbox (Autoflow, 2026-11-16): a fixed test correlation id passed to MDC under CorrelationId.MDC_KEY,
+# not a secret; generic-api-key reads MDC_KEY as its keyword (checked in the hub session under DEL-10).
+ff9d77dfddc13e2a775ca43cf3a34b0bedb211a9:app/src/test/java/vn/sunvibe/outbox/OutboxWorkerPostgresTest.java:generic-api-key:72
+b3544704fc6a40766b1223f8803ef71270d57174:app/src/test/java/vn/sunvibe/outbox/EventOutboxAdapterPostgresTest.java:generic-api-key:79
