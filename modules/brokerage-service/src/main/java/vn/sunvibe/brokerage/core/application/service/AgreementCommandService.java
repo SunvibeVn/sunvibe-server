@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException;
 import vn.sunvibe.brokerage.core.application.shared.external.account.OwnerAccountPort;
@@ -16,6 +17,7 @@ import vn.sunvibe.brokerage.core.application.usecase.AgreementCreateResult;
 import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.eligibility.ReasonGroup;
@@ -28,7 +30,9 @@ import vn.sunvibe.shared.time.AppClock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Use Case Implementation - the commands of a brokerage agreement (E05-S2 spec 3.1, 5.2). The create is one read-write
@@ -94,6 +98,68 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         agreements.create(agreement);
         trail.recordEvent(agreement.getId(), 1, AgreementEventType.CREATED, actor.userId(), now);
         return new AgreementCreateResult(agreement.getId());
+    }
+
+    /**
+     * Statements: one agreement read with its versions and their fee rows, one locked lead read, one basis read (the
+     * readiness of the lead's latest completed intake), at most one owner standing read, then the guarded update of the
+     * agreement row with the draft's row and fee rows, and one history insert. It writes nothing else: no access log,
+     * no lead change, no row of another module and no outbox event (brokerage-agreement BR-18; E05-S3 spec S3-D15).
+     * The agreement is read before the lead's lock, since it names the lead; a change committed in between fails the
+     * guarded update (E05-S3 spec S3-D3, S3-D4).
+     */
+    @Override
+    @Transactional
+    public void editDraft(AgreementDraftCommand command, StaffViewer actor) {
+        // brokerage-agreement BR-1: only long-term rental; the type of an agreement cannot change while one type exists.
+        TransactionType.of(command.transactionType())
+                .orElseThrow(() -> AgreementRefusedException.invalid("transactionType", TRANSACTION_TYPES));
+        // brokerage-agreement BR-6: both dates, the end at most 12 months after the start; checked before any read.
+        AgreementPeriod period = new AgreementPeriod(command.startDate(), command.endDate());
+        if (!AgreementQueryService.AGREEMENT_ID.matcher(command.agreementId()).matches()) {
+            throw new BrokerageNotFoundException();
+        }
+        BrokerageAgreement agreement = agreements.findById(command.agreementId())
+                .orElseThrow(BrokerageNotFoundException::new);
+        // The basis lead's row stays locked to the commit (lock order of spec S2-D4: the lead, then the agreement's row
+        // through the guarded update). An agreement whose lead the actor may not see answers as an unknown one.
+        BasisLeadFacts lead = leads.findVisibleForUpdate(agreement.getBasisLeadId(), actor.userId(),
+                actor.expandedAuthorities()).orElseThrow(BrokerageNotFoundException::new);
+        // brokerage-agreement BR-16 and E-10: only the lead's current assignee holding SALE or SALE_LEADER drafts.
+        if (!EligibilityPolicy.assignedSale(lead.assignedUserIdOrNull(), actor.userId(), actor.expandedAuthorities())) {
+            throw AgreementRefusedException.notAssignee();
+        }
+        AgreementVersion draft = agreement.draft().orElseThrow(AgreementRefusedException::notDraft);
+        // brokerage-agreement BR-5: the change checks the data version the caller read.
+        if (!command.expectedDataVersion().equals(agreement.getRowVersionOrNull())) {
+            throw AgreementRefusedException.stale();
+        }
+        List<ReasonGroup> groups = draftGroups(agreement, draft, lead);
+        if (!groups.isEmpty()) {
+            throw AgreementRefusedException.notEligible(groups);
+        }
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        agreements.update(agreement.editDraft(period, command.photoConsent(), command.terms(), now));
+        trail.recordEvent(agreement.getId(), draft.getVersionNo(), AgreementEventType.DRAFT_EDITED, actor.userId(), now);
+    }
+
+    /**
+     * The E05-S1 check rerun on the draft's own basis (E05-S3 spec S3-D3 step 7), the groups in their order: BASIS
+     * alone when the lead's latest completed intake is not the draft's (brokerage-agreement BR-2: a version rests on one
+     * basis, so no owner is read); else the groups the create computes, plus OWNER when the declared owner of that basis
+     * is no longer the agreement's owner party (BR-1, BR-4).
+     */
+    private List<ReasonGroup> draftGroups(BrokerageAgreement agreement, AgreementVersion draft, BasisLeadFacts lead) {
+        IntakeBasisFacts basis = bases.latestBasis(lead.leadId()).orElse(null);
+        if (basis == null || !basis.intakeId().equals(draft.getBasisIntakeId())) {
+            return List.of(ReasonGroup.BASIS);
+        }
+        Set<ReasonGroup> groups = EnumSet.noneOf(ReasonGroup.class);
+        groups.addAll(reasonGroups(agreement.getUnitId(), basis));
+        if (!agreement.getOwnerUserId().equals(basis.declaredOwnerIdOrNull())) {
+            groups.add(ReasonGroup.OWNER);
+        }
+        return List.copyOf(groups);
     }
 
     /** The reason groups of the unit on this basis, as the eligibility read computes them. */

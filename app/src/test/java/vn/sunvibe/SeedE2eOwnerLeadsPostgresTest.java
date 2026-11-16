@@ -875,6 +875,49 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
+	 * brokerage-agreement E05-S3 spec S3-D9, section 10: the fee rows of an agreement's version on L15 go with their
+	 * version by the cascade, so the seed clears an edited draft unchanged.
+	 */
+	@Test
+	void reseed_afterAnAgreementWithFees_clearsItsRows() throws Exception {
+		String agreement = "01JE2EFEEAGREEMENT00000015";
+		String version = "01JE2EFEEAGRVERSION0000015";
+		try {
+			seedAccounts();
+			assertEquals(0, runLeads("local").getExitCode());
+			String l15 = LEAD_IDS.get(14);
+			Timestamp now = Timestamp.from(Instant.now());
+			jdbc.update("INSERT INTO brokerage_agreements (id, unit_id, unit_code, property_id, transaction_type,"
+					+ " owner_user_id, basis_lead_id, status, created_by_user_id, created_at, updated_at, version) VALUES (?,"
+					+ " '01JE2EFEEUNIT0000000000015', 'SV-HOU-999915', 'e2e00000-0000-0000-0000-000000000015', 'LONG_TERM_RENT',"
+					+ " ?, ?, 'DRAFTING', ?, ?, ?, 1)", agreement, CUSTOMER_ID, l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date, end_date,"
+					+ " basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at, mandatory_fees_stated)"
+					+ " VALUES (?, ?, 1, 'DRAFT', DATE '2027-01-01', DATE '2027-12-31', ?, '01JE2EINTAKE00000000000015', ?, ?,"
+					+ " ?, TRUE)", version, agreement, l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO brokerage_agreement_version_fees (version_id, fee_no, name, basis, amount, charge_unit)"
+					+ " VALUES (?, 1, 'Electricity', 'AMOUNT', 3500, 'PER_KWH'), (?, 2, 'Water', 'PROVIDER_TARIFF', NULL, NULL)",
+					version, version);
+			jdbc.update("INSERT INTO brokerage_agreement_events (agreement_id, version_no, event_type, actor_user_id, occurred_at)"
+					+ " VALUES (?, 1, 'DRAFT_EDITED', ?, ?)", agreement, SALE_ID, now);
+			assertEquals(2, count("SELECT count(*) FROM brokerage_agreement_version_fees WHERE version_id = '" + version + "'"));
+
+			ExecResult again = runLeads("local");
+
+			assertEquals(0, again.getExitCode(), "re-run after an agreement with fees failed: " + again.getStderr());
+			assertEquals(SEEDED, printedCounts(again));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreement_version_fees WHERE version_id = '" + version + "'"));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreement_versions WHERE id = '" + version + "'"));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreement_events WHERE agreement_id = '" + agreement + "'"));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreements WHERE id = '" + agreement + "'"));
+		} finally {
+			jdbc.update("DELETE FROM brokerage_agreement_events WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreement_versions WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreements WHERE id = ?", agreement);
+		}
+	}
+
+	/**
 	 * survey-media spec 6.4 (plan Task A23): after the media flows on L14 (a checklist started through the API, photos
 	 * in the shapes create, content, removal and an ADMIN hold leave, their set, job and variants, the budget and slot
 	 * rows of the fixture users), the next run removes every one of them and L14 can be started again.

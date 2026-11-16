@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import tools.jackson.databind.node.ObjectNode;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.auth.core.domain.repository.user.UserDomainRepository;
@@ -37,6 +39,7 @@ import vn.sunvibe.survey.core.application.usecase.checklist.IntakeSourceView;
 import vn.sunvibe.survey.core.application.usecase.checklist.SourceStandingUseCase;
 import vn.sunvibe.survey.core.application.usecase.checklist.SourceStandingView;
 import vn.sunvibe.survey.core.application.usecase.checklist.SurveyIntakeSourceUseCase;
+import vn.sunvibe.survey.core.domain.policy.common.SurveyTimeRules;
 
 /**
  * What survey-service publishes for the inventory intake (property-create intake spec 5.1), on real PASSED revisions: the
@@ -152,6 +155,93 @@ class SurveyIntakeSourcePostgresTest extends MediaApiTestBase {
 
 		assertTrue(source.terms().stream().anyMatch(term -> "electricity".equals(term.name())
 				&& term.amount() == null && term.text() == null && term.source() == null), source.terms().toString());
+	}
+
+	/**
+	 * Pin of brokerage-agreement E05-S3 (spec S3-D12, A-3): the forms in which this read flattens the G8 terms that the
+	 * survey proposal of an agreement draft maps. A deposit in months is the text "N months", the payment period and the
+	 * minimum term are integer texts, a charge's basis is its text, a fee is "otherFees:" or "spaceFees:" and its name, a
+	 * space's override is listed only with a value, and a date is the owner statement's (else none).
+	 */
+	@Test
+	void source_g8Values_flattenedFormsAsListed() throws Exception {
+		ChecklistApiTestSupport checklists = fixture.checklists();
+		LocalDate stated = LocalDate.now(SurveyTimeRules.ZONE).minusDays(2);
+		Passed passed = fixture.partsWithTerms(leader, sale, "WHOLE_BUILDING", "14 Bạch Đằng", c -> {
+			ChecklistApiTestSupport.set(c, "spaces.0.monthlyRent",
+					checklists.ownerStated(checklists.rent(8_000_000L), stated, sale.userId(), null));
+			ChecklistApiTestSupport.set(c, "spaces.0.deposit", seen(deposit("MONTHS", 2, null)));
+			ChecklistApiTestSupport.set(c, "spaces.1.deposit", seen(deposit("AMOUNT", null, 3_000_000L)));
+			ChecklistApiTestSupport.set(c, "spaces.0.paymentPeriodMonths", seen(1));
+			ChecklistApiTestSupport.set(c, "spaces.0.minimumTermMonths", seen(12));
+			ChecklistApiTestSupport.set(c, "common.electricity", seen(checklists.charge("AMOUNT", 3_500L, "PER_KWH")));
+			ChecklistApiTestSupport.set(c, "common.water", seen(checklists.charge("PROVIDER_TARIFF", null, null)));
+			ChecklistApiTestSupport.set(c, "common.internet", seen(checklists.charge("INCLUDED", null, null)));
+			ChecklistApiTestSupport.set(c, "common.parking", seen(checklists.charge("NOT_OFFERED", null, null)));
+			ChecklistApiTestSupport.set(c, "spaces.0.chargeOverrides.electricity",
+					seen(checklists.charge("AMOUNT", 4_000L, "PER_KWH")));
+			ChecklistApiTestSupport.set(c, "common.otherFees", seen(List.of(fee("Cleaning", 100_000L))));
+			ChecklistApiTestSupport.set(c, "spaces.0.spaceFees", seen(List.of(fee("Balcony", 50_000L))));
+		}, "P101", "P102");
+
+		IntakeSourceView source = current(passed.leadId()).orElseThrow();
+
+		Instant arrivedAt = jdbc.queryForObject("select visit_arrived_at from survey_checklist_submissions where "
+				+ "checklist_id = ?", Timestamp.class, passed.checklistId()).toInstant();
+		assertEquals(SurveyTimeRules.vietnamDate(arrivedAt), source.sourceDate());
+		String seen = "OBSERVED_ON_SITE";
+		List<IntakeSourceView.Term> expected = List.of(
+				new IntakeSourceView.Term("electricity", null, 3_500L, "VND", "PER_KWH", "AMOUNT", seen, null),
+				new IntakeSourceView.Term("water", null, null, null, null, "PROVIDER_TARIFF", seen, null),
+				new IntakeSourceView.Term("internet", null, null, null, null, "INCLUDED", seen, null),
+				new IntakeSourceView.Term("parking", null, null, null, null, "NOT_OFFERED", seen, null),
+				new IntakeSourceView.Term("serviceFee", null, null, null, null, null, null, null),
+				new IntakeSourceView.Term("otherFees:Cleaning", null, 100_000L, "VND", "PER_MONTH", null, seen, null),
+				new IntakeSourceView.Term("monthlyRent", "P101", 8_000_000L, "VND", "MONTH", null, "OWNER_STATED", stated),
+				new IntakeSourceView.Term("deposit", "P101", null, null, null, "2 months", seen, null),
+				new IntakeSourceView.Term("paymentPeriodMonths", "P101", null, null, null, "1", seen, null),
+				new IntakeSourceView.Term("minimumTermMonths", "P101", null, null, null, "12", seen, null),
+				new IntakeSourceView.Term("electricity", "P101", 4_000L, "VND", "PER_KWH", "AMOUNT", seen, null),
+				new IntakeSourceView.Term("spaceFees:Balcony", "P101", 50_000L, "VND", "PER_MONTH", null, seen, null),
+				new IntakeSourceView.Term("monthlyRent", "P102", null, null, null, null, null, null),
+				new IntakeSourceView.Term("deposit", "P102", 3_000_000L, "VND", null, null, seen, null),
+				new IntakeSourceView.Term("paymentPeriodMonths", "P102", null, null, null, null, null, null),
+				new IntakeSourceView.Term("minimumTermMonths", "P102", null, null, null, null, null, null));
+		List<IntakeSourceView.Term> read = source.terms().stream().filter(term -> BROKERAGE_TERMS.contains(term.name())
+				|| term.name().startsWith("otherFees:") || term.name().startsWith("spaceFees:")).toList();
+		assertEquals(tuples(expected), tuples(read));
+		assertEquals(expected, read);
+	}
+
+	/** The G8 term names the survey proposal of brokerage-agreement E05-S3 reads, besides the fee names. */
+	private static final Set<String> BROKERAGE_TERMS = Set.of("monthlyRent", "deposit", "minimumTermMonths",
+			"paymentPeriodMonths", "electricity", "water", "internet", "parking", "serviceFee");
+
+	/** Every value of each term, since a term's own toString hides them. */
+	private static List<String> tuples(List<IntakeSourceView.Term> terms) {
+		return terms.stream().map(term -> String.join("|", term.name(), String.valueOf(term.spaceCodeOrNull()),
+				String.valueOf(term.amount()), String.valueOf(term.currency()), String.valueOf(term.unit()),
+				String.valueOf(term.text()), String.valueOf(term.source()), String.valueOf(term.date()))).toList();
+	}
+
+	private ObjectNode seen(Object value) {
+		return fixture.checklists().sourced(value, "OBSERVED_ON_SITE");
+	}
+
+	private ObjectNode deposit(String basis, Integer months, Long amount) {
+		ObjectNode deposit = fixture.checklists().object();
+		deposit.put("basis", basis);
+		deposit.put("months", months);
+		deposit.set("amount", amount == null ? null : fixture.checklists().money(amount));
+		return deposit;
+	}
+
+	private ObjectNode fee(String name, long amount) {
+		ObjectNode fee = fixture.checklists().object();
+		fee.put("name", name);
+		fee.set("amount", fixture.checklists().money(amount));
+		fee.put("chargeUnit", "PER_MONTH");
+		return fee;
 	}
 
 	@Test

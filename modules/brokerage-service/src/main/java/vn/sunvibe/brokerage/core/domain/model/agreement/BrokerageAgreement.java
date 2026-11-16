@@ -2,12 +2,13 @@ package vn.sunvibe.brokerage.core.domain.model.agreement;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A brokerage agreement between Sunvibe and the declared owner of one unit, for one transaction type
  * (brokerage-agreement BR-1), with its versions (BR-5). The aggregate is the only write path of its rows: it keeps the
- * agreement's basis lead equal to its latest version's (E05-S2 spec S2-D3). This slice creates a draft and has no
- * transition.
+ * agreement's basis lead equal to its latest version's (E05-S2 spec S2-D3). A draft is created and its content edited;
+ * no transition exists yet.
  */
 public final class BrokerageAgreement {
 
@@ -66,6 +67,36 @@ public final class BrokerageAgreement {
                                           Instant updatedAt, Long rowVersion, List<AgreementVersion> versions) {
         return new BrokerageAgreement(id, unitId, unitCodeOrNull, propertyId, type, ownerUserId, basisLeadId, status,
                 createdByUserId, createdAt, updatedAt, rowVersion, versions);
+    }
+
+    /**
+     * The version a Sale may edit: the pending version of a DRAFTING agreement while it is DRAFT (brokerage-agreement
+     * BR-5: a version is a draft until it is sent and never changes after; E05-S3 spec S3-D2). Empty otherwise.
+     */
+    public Optional<AgreementVersion> draft() {
+        if (status != AgreementStatus.DRAFTING) {
+            return Optional.empty();
+        }
+        return versions.stream().filter(version -> version.getStatus().isPending()).findFirst()
+                .filter(version -> version.getStatus() == VersionStatus.DRAFT);
+    }
+
+    /**
+     * This agreement with its draft's period, photo consent and terms replaced and both update times set to {@code now}
+     * (E05-S3 spec 5.1); its identity, unit, type, owner, basis, status, creator, creation time, row version and every
+     * other version are kept. The caller checks {@link #draft()} first.
+     *
+     * @throws IllegalStateException when the agreement has no draft
+     */
+    public BrokerageAgreement editDraft(AgreementPeriod period, PhotoConsent photoConsent, VersionTerms terms,
+                                        Instant now) {
+        AgreementVersion draft = draft()
+                .orElseThrow(() -> new IllegalStateException("The agreement has no draft to edit."));
+        List<AgreementVersion> edited = versions.stream()
+                .map(version -> version == draft ? draft.withDraftContent(period, photoConsent, terms, now) : version)
+                .toList();
+        return new BrokerageAgreement(id, unitId, unitCodeOrNull, propertyId, transactionType, ownerUserId, basisLeadId,
+                status, createdByUserId, createdAt, now, rowVersionOrNull, edited);
     }
 
     private void checkVersions() {

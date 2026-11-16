@@ -9,6 +9,7 @@ import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
+import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementExistsException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementPeriodException;
 import vn.sunvibe.brokerage.core.domain.model.eligibility.ReasonGroup;
@@ -77,6 +78,23 @@ class BrokerageExceptionHandlerAgreementTest {
                 "CONCURRENT_MODIFICATION", "Something changed at the same time. Try again.", List.of());
         assertBody(handler.handleConflict(new CannotAcquireLockException("x")), HttpStatus.CONFLICT,
                 "CONCURRENT_MODIFICATION", "Something changed at the same time. Try again.", List.of());
+    }
+
+    /** E05-S3 spec S3-D8: a refused content value names its field path only, never the value. */
+    @Test
+    void handleContent_fieldEntryWithoutValue() {
+        assertBody(handler.handleContent(new AgreementContentException("amount").within("terms.mandatoryFees[2].")),
+                HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Validation failed.",
+                List.of(ValidationError.of("terms.mandatoryFees[2].amount", "This value is not accepted.")));
+    }
+
+    @Test
+    void handleRefused_notDraftAndStale_conflictBodies() {
+        assertBody(handler.handleRefused(AgreementRefusedException.notDraft()), HttpStatus.CONFLICT,
+                "AGREEMENT_NOT_DRAFT", "This agreement has no draft to edit.", List.of());
+        assertBody(handler.handleRefused(AgreementRefusedException.stale()), HttpStatus.CONFLICT,
+                "CONCURRENT_MODIFICATION", "Something changed at the same time. Try again.",
+                List.of(ValidationError.of("expectedDataVersion", "This value is out of date.")));
     }
 
     private static void assertBody(ResponseEntity<ErrorResponse<ValidationError>> response, HttpStatus status,

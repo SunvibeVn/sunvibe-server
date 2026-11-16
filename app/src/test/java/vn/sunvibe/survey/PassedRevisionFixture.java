@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -75,7 +76,14 @@ public final class PassedRevisionFixture {
 	public Passed partsWithAmenity(TestUser leader, TestUser sale, String assetType, String address, String amenity,
 			int spaceIndex, String... codes) throws Exception {
 		Visit visit = checklists.visited(leader, sale);
-		return finish(leader, sale, visit, "PARTS", assetType, address, null, null, amenity, spaceIndex, codes);
+		return finish(leader, sale, visit, "PARTS", assetType, address, null, null, amenity, spaceIndex, null, codes);
+	}
+
+	/** As {@link #parts} with the G8 terms group saved once, by {@code terms} on its content, before the photos. */
+	public Passed partsWithTerms(TestUser leader, TestUser sale, String assetType, String address,
+			Consumer<ObjectNode> terms, String... codes) throws Exception {
+		Visit visit = checklists.visited(leader, sale);
+		return finish(leader, sale, visit, "PARTS", assetType, address, null, null, null, -1, terms, codes);
 	}
 
 	/** Withdraws the revision from use, as a manager does; the answer must be 200. */
@@ -105,18 +113,18 @@ public final class PassedRevisionFixture {
 		survey.shiftBack(appointmentId, back);
 		SurveyApiTestSupport.ok(checklists.recordVisit(sale, leadId, appointmentId, arrivedAt));
 		return finish(leader, sale, new Visit(leadId, appointmentId, arrivedAt), scope, assetType, address, null, null,
-				null, -1, codes);
+				null, -1, null, codes);
 	}
 
 	private Passed passed(TestUser leader, TestUser sale, String scope, String assetType, String address,
 			BigDecimal latitude, BigDecimal longitude, String... codes) throws Exception {
 		Visit visit = checklists.visited(leader, sale);
-		return finish(leader, sale, visit, scope, assetType, address, latitude, longitude, null, -1, codes);
+		return finish(leader, sale, visit, scope, assetType, address, latitude, longitude, null, -1, null, codes);
 	}
 
 	private Passed finish(TestUser leader, TestUser sale, Visit visit, String scope, String assetType, String address,
-			BigDecimal latitude, BigDecimal longitude, String amenityOrNull, int amenitySpace, String... codes)
-			throws Exception {
+			BigDecimal latitude, BigDecimal longitude, String amenityOrNull, int amenitySpace,
+			Consumer<ObjectNode> termsOrNull, String... codes) throws Exception {
 		String id = checklists.started(sale, visit.appointmentId());
 		List<String> spaces = new ArrayList<>();
 		for (int i = 0; i < codes.length; i++) {
@@ -126,6 +134,9 @@ public final class PassedRevisionFixture {
 		if (amenityOrNull != null) {
 			checklists.saved(sale, id, "amenities", c -> ((ArrayNode) c.path("spaces").path(amenitySpace).path("items"))
 					.add(amenity(amenityOrNull)));
+		}
+		if (termsOrNull != null) {
+			checklists.saved(sale, id, "terms", termsOrNull);
 		}
 		List<String> photos = photos(sale, id, scope, spaces, codes);
 		review.submitted(sale, id);

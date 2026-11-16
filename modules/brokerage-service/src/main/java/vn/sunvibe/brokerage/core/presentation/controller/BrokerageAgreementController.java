@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -22,16 +23,18 @@ import vn.sunvibe.brokerage.core.application.usecase.AgreementQueryUseCase;
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementRequestConverter;
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementResponseConverter;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
 import vn.sunvibe.brokerage.core.presentation.resolver.StaffViewerResolver;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 /**
- * Brokerage agreements in the staff workspace (brokerage-agreement US-1 AC-1 to AC-4, US-4 AC-3 part; E05-S2 spec 4).
- * {@code /api/v1/staff/**} has no path rule, so this class carries the staff rule; the lead's visibility and the
- * assignee are checked in the use cases, and the actor is the principal, never a body field (brokerage-agreement BR-16).
- * Both paths run without open-in-view (ADR-012 decision 8).
+ * Brokerage agreements in the staff workspace (brokerage-agreement US-1 AC-1 to AC-5, US-4 AC-3 part; E05-S2 spec 4,
+ * E05-S3 spec 4). {@code /api/v1/staff/**} has no path rule, so this class carries the staff rule; the lead's visibility
+ * and the assignee are checked in the use cases, and the actor is the principal, never a body field
+ * (brokerage-agreement BR-16). Every path runs without open-in-view (ADR-012 decision 8).
  */
 @RestController
 @RequestMapping(BrokerageAgreementController.PATH)
@@ -87,5 +90,59 @@ public class BrokerageAgreementController {
     })
     public BrokerageAgreementDetailResponse detail(@PathVariable("agreementId") String agreementId) {
         return responses.toDetail(queries.detail(agreementId, viewers.current()));
+    }
+
+    @GetMapping("/{agreementId}/survey-terms")
+    @Operation(operationId = "getBrokerageAgreementSurveyTerms",
+            summary = "The survey's values for the draft's terms, with their sources and dates; a proposal, never stored")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The proposal of the unit's surveyed space; every part null"
+                    + " and no source when the survey holds none or no longer stands as the intake's source"),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_NOT_DRAFT: the agreement has no draft",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public BrokerageAgreementSurveyTermsResponse surveyTerms(@PathVariable("agreementId") String agreementId) {
+        return responses.toSurveyTerms(queries.surveyTerms(agreementId, viewers.current()));
+    }
+
+    @PutMapping("/{agreementId}/draft")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "updateBrokerageAgreementDraft",
+            summary = "Replace the whole content of the agreement's draft, against the data version read")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The draft was saved; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (one entry per field: expectedDataVersion,"
+                    + " transactionType with its allowedValues, startDate, endDate, exteriorPhotoConsent or a terms path"
+                    + " such as terms.mandatoryFees[2].amount) or MALFORMED_REQUEST (the body, a date or a number"
+                    + " cannot be read; a fraction is not a whole number)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff; AGREEMENT_NOT_ASSIGNEE:"
+                    + " the caller is not the basis lead's assigned Sale",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_NOT_DRAFT (the agreement has no draft to edit),"
+                    + " AGREEMENT_NOT_ELIGIBLE (one reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY,"
+                    + " UNIT, OWNER) or CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for"
+                    + " a change committed in between)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void updateDraft(@PathVariable("agreementId") String agreementId,
+                            @Valid @RequestBody BrokerageAgreementDraftRequest request) {
+        commands.editDraft(requests.toDraftCommand(agreementId, request), viewers.current());
     }
 }

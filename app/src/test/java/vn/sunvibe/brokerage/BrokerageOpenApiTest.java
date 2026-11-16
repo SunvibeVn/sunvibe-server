@@ -166,6 +166,128 @@ class BrokerageOpenApiTest {
 		assertEquals("[\"string\",\"null\"]", unit.path("agreementId").path("type").toString(), unit.toString());
 	}
 
+	// ==================== E05-S3 (ED-14) ====================
+
+	/** E05-S3 spec 4, S3-D1: the draft write and the survey reference, each with its explicit unique operationId. */
+	@Test
+	void openApi_draftAndSurveyTermsOperations_idsTagAndAnswers() {
+		JsonNode draft = contract.path("paths").path("/api/v1/staff/brokerage-agreements/{agreementId}/draft");
+		JsonNode surveyTerms = contract.path("paths").path("/api/v1/staff/brokerage-agreements/{agreementId}/survey-terms");
+		assertEquals(List.of("put"), names(draft));
+		assertEquals(List.of("get"), names(surveyTerms));
+		JsonNode put = draft.path("put");
+		JsonNode get = surveyTerms.path("get");
+		assertEquals("updateBrokerageAgreementDraft", put.path("operationId").asString());
+		assertEquals("getBrokerageAgreementSurveyTerms", get.path("operationId").asString());
+		assertEquals("[\"Brokerage agreement\"]", put.path("tags").toString());
+		assertEquals("[\"Brokerage agreement\"]", get.path("tags").toString());
+		for (String operationId : List.of("updateBrokerageAgreementDraft", "getBrokerageAgreementSurveyTerms")) {
+			List<String> withTheId = new ArrayList<>();
+			contract.path("paths").properties().forEach(entry -> entry.getValue().properties().forEach(operation -> {
+				if (operationId.equals(operation.getValue().path("operationId").asString())) {
+					withTheId.add(operation.getKey() + " " + entry.getKey());
+				}
+			}));
+			assertEquals(1, withTheId.size(), operationId + " " + withTheId);
+		}
+		assertEquals("#/components/schemas/BrokerageAgreementDraftRequest",
+				put.path("requestBody").path("content").path("application/json").path("schema").path("$ref").asString());
+
+		JsonNode written = put.path("responses");
+		assertEquals(List.of("204", "400", "401", "403", "404", "409", "500"), names(written).stream().sorted().toList());
+		assertTrue(written.path("204").path("content").isMissingNode(), written.path("204").toString());
+		for (String status : List.of("400", "401", "403", "404", "409", "500")) {
+			assertEquals("#/components/schemas/ErrorResponse", schemaRef(written.path(status)), status);
+		}
+		for (String code : List.of("AGREEMENT_NOT_DRAFT", "AGREEMENT_NOT_ELIGIBLE", "CONCURRENT_MODIFICATION")) {
+			assertTrue(written.path("409").path("description").asString().contains(code), code);
+		}
+		JsonNode read = get.path("responses");
+		assertEquals(List.of("200", "401", "403", "404", "409", "500"), names(read).stream().sorted().toList());
+		assertEquals("#/components/schemas/BrokerageAgreementSurveyTerms", schemaRef(read.path("200")));
+		for (String status : List.of("401", "403", "404", "409", "500")) {
+			assertEquals("#/components/schemas/ErrorResponse", schemaRef(read.path(status)), status);
+		}
+	}
+
+	/** E05-S3 spec 4, S3-D8: every new schema's closed values, nullable parts and bounds. */
+	@Test
+	void openApi_termsSchemas_enumsBoundsAndNullables() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode request = schemas.path("BrokerageAgreementDraftRequest").path("properties");
+		assertEquals("[\"LONG_TERM_RENT\"]", request.path("transactionType").path("enum").toString());
+		assertEquals(0, request.path("expectedDataVersion").path("minimum").asInt());
+		assertEquals("int64", request.path("expectedDataVersion").path("format").asString());
+		assertEquals("[\"boolean\",\"null\"]", request.path("photoConsent").path("type").toString());
+		assertEquals("boolean", request.path("exteriorPhotoConsent").path("type").asString());
+		List<String> required = new ArrayList<>();
+		schemas.path("BrokerageAgreementDraftRequest").path("required").forEach(field -> required.add(field.asString()));
+		assertEquals(List.of("endDate", "expectedDataVersion", "exteriorPhotoConsent", "startDate", "terms",
+				"transactionType"), required.stream().sorted().toList());
+
+		JsonNode termsInput = schemas.path("BrokerageAgreementTermsInput").path("properties");
+		assertEquals(20, termsInput.path("mandatoryFees").path("maxItems").asInt());
+		assertEquals("[\"array\",\"null\"]", termsInput.path("mandatoryFees").path("type").toString());
+		assertEquals(120, termsInput.path("minimumTermMonths").path("maximum").asInt());
+		assertEquals(12, termsInput.path("paymentPeriodMonths").path("maximum").asInt());
+		JsonNode rentInput = schemas.path("BrokerageAgreementRentInput").path("properties");
+		assertEquals(999_999_999_999_999L, rentInput.path("amount").path("maximum").asLong());
+		assertEquals(1, rentInput.path("amount").path("minimum").asInt());
+		assertEquals("[\"VND\"]", rentInput.path("currency").path("enum").toString());
+		assertEquals("[\"MONTH\"]", rentInput.path("unit").path("enum").toString());
+		assertEquals("[\"MONTHS\",\"AMOUNT\"]",
+				schemas.path("BrokerageAgreementDepositInput").path("properties").path("basis").path("enum").toString());
+		JsonNode feeInput = schemas.path("BrokerageAgreementFeeInput").path("properties");
+		assertEquals(100, feeInput.path("name").path("maxLength").asInt());
+		assertEquals("[\"AMOUNT\",\"INCLUDED\",\"PROVIDER_TARIFF\"]", feeInput.path("basis").path("enum").toString());
+
+		JsonNode terms = schemas.path("BrokerageAgreementTerms").path("properties");
+		for (String part : List.of("minimumTermMonths", "paymentPeriodMonths")) {
+			assertEquals("[\"integer\",\"null\"]", terms.path(part).path("type").toString(), part);
+		}
+		assertEquals("[\"array\",\"null\"]", terms.path("mandatoryFees").path("type").toString());
+		assertEquals("#/components/schemas/BrokerageAgreementFee",
+				terms.path("mandatoryFees").path("items").path("$ref").asString());
+		JsonNode rent = schemas.path("BrokerageAgreementRent").path("properties");
+		assertEquals("int64", rent.path("amount").path("format").asString());
+		assertEquals("[\"VND\"]", rent.path("currency").path("enum").toString());
+		assertEquals("[\"MONTH\"]", rent.path("unit").path("enum").toString());
+		JsonNode deposit = schemas.path("BrokerageAgreementDeposit").path("properties");
+		assertEquals("[\"MONTHS\",\"AMOUNT\"]", deposit.path("basis").path("enum").toString());
+		for (String part : List.of("months", "amount", "currency")) {
+			assertTrue(deposit.path(part).path("type").toString().contains("null"), part);
+		}
+		JsonNode fee = schemas.path("BrokerageAgreementFee").path("properties");
+		assertEquals("[\"AMOUNT\",\"INCLUDED\",\"PROVIDER_TARIFF\"]", fee.path("basis").path("enum").toString());
+		assertEquals("[\"PER_MONTH\",\"PER_KWH\",\"PER_M3\",\"PER_PERSON_PER_MONTH\",\"PER_VEHICLE_PER_MONTH\",\"ONE_OFF\",null]",
+				fee.path("chargeUnit").path("enum").toString());
+		for (String part : List.of("amount", "currency", "chargeUnit")) {
+			assertTrue(fee.path(part).path("type").toString().contains("null"), part);
+		}
+		JsonNode survey = schemas.path("BrokerageAgreementSurveyTerms").path("properties");
+		assertEquals("#/components/schemas/BrokerageAgreementTerms", survey.path("terms").path("$ref").asString());
+		assertEquals("#/components/schemas/BrokerageAgreementTermSource",
+				survey.path("sources").path("items").path("$ref").asString());
+		JsonNode source = schemas.path("BrokerageAgreementTermSource").path("properties");
+		assertEquals("[\"OBSERVED_ON_SITE\",\"OWNER_STATED\",\"OWNER_FORM\",null]", source.path("source").path("enum").toString());
+		assertEquals("date", source.path("date").path("format").asString());
+	}
+
+	/** E05-S3 spec S3-D14: the detail's data version and viewer flag, and the content of each version. */
+	@Test
+	void openApi_detailAndVersion_contentProperties() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode detail = schemas.path("BrokerageAgreementDetail").path("properties");
+		assertEquals("integer", detail.path("dataVersion").path("type").asString());
+		assertEquals("int64", detail.path("dataVersion").path("format").asString());
+		assertEquals("boolean", detail.path("viewerIsAssignedSale").path("type").asString());
+		JsonNode version = schemas.path("BrokerageAgreementVersion").path("properties");
+		assertEquals("[\"SUNVIBE_CHANNELS\"]", version.path("advertisingScope").path("enum").toString());
+		assertEquals("[\"boolean\",\"null\"]", version.path("photoConsent").path("type").toString());
+		assertEquals("boolean", version.path("exteriorPhotoConsent").path("type").asString());
+		assertEquals("#/components/schemas/BrokerageAgreementTerms", version.path("terms").path("$ref").asString());
+	}
+
 	private static List<String> names(JsonNode node) {
 		List<String> names = new ArrayList<>();
 		node.properties().forEach(entry -> names.add(entry.getKey()));

@@ -1,7 +1,9 @@
 package vn.sunvibe.brokerage.core.application.service;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.OptimisticLockingFailureException;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Entry;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Reason;
@@ -16,8 +18,15 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ChargeUnit;
+import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeBasis;
+import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
+import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
+import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryAgreementRepository;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryBasisLeadPort;
@@ -52,6 +61,12 @@ class AgreementCommandServiceTest {
     private static final List<Holding> HOLDINGS = List.of(new Holding(OWNER, "OWNER", "UNVERIFIED"));
     private static final IntakeBasisFacts BASIS = basis("USABLE",
             new Unit("U1", "P101", List.of()), new Unit("U2", "P102", List.of("UNIT_STOP")));
+    private static final String AGREEMENT = "01JAGRE0000000000000000001";
+    private static final PhotoConsent CONSENT = new PhotoConsent(true, false);
+    private static final VersionTerms TERMS = new VersionTerms(8_000_000L,
+            new TermsDeposit(DepositBasis.MONTHS, 2, null), 12, 1,
+            List.of(new MandatoryFee("Electricity", FeeBasis.AMOUNT, 3_500L, ChargeUnit.PER_KWH),
+                    new MandatoryFee("Water", FeeBasis.PROVIDER_TARIFF, null, null)));
 
     private final List<String> calls = new ArrayList<>();
     private final InMemoryBasisLeadPort leads = new InMemoryBasisLeadPort(calls).lead(LEAD, SALE, SALE, "M", "S2");
@@ -228,6 +243,229 @@ class AgreementCommandServiceTest {
         service().create(command("U3"), VIEWER);
 
         assertNull(agreements.all().get(0).getUnitCodeOrNull());
+    }
+
+    // ==================== E05-S3: editing the draft (spec 3.1, S3-D2 to S3-D5, S3-D10) ====================
+
+    @Test
+    void editDraft_assignedSale_writesContentAndOneEvent() {
+        BrokerageAgreement before = storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+
+        service().editDraft(draftCommand(0L), VIEWER);
+
+        BrokerageAgreement stored = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(1L, stored.getRowVersionOrNull());
+        assertEquals(before.getUnitId(), stored.getUnitId());
+        assertEquals(before.getOwnerUserId(), stored.getOwnerUserId());
+        assertEquals(before.getBasisLeadId(), stored.getBasisLeadId());
+        assertEquals(before.getStatus(), stored.getStatus());
+        assertEquals(before.getCreatedByUserId(), stored.getCreatedByUserId());
+        assertEquals(before.getCreatedAt(), stored.getCreatedAt());
+        AgreementVersion version = stored.getVersions().get(0);
+        assertEquals(VersionStatus.DRAFT, version.getStatus());
+        assertEquals("I1", version.getBasisIntakeId());
+        assertEquals("S9", version.getCreatedByUserId());
+        assertEquals(new AgreementPeriod(START, END), version.getPeriod());
+        assertEquals(CONSENT, version.getPhotoConsent());
+        assertEquals(TERMS, version.getTerms());
+        assertEquals(1, trail.events().size());
+        RecordingAgreementTrail.Event event = trail.events().get(0);
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT, 1, AgreementEventType.DRAFT_EDITED, SALE, event.at()),
+                event);
+        assertEquals(event.at(), stored.getUpdatedAt());
+        assertEquals(event.at(), version.getUpdatedAt());
+        assertEquals(0, event.at().getNano() % 1_000);
+        assertEquals(List.of(), trail.accesses());
+    }
+
+    @Test
+    void editDraft_steps_agreementThenLockedLeadThenBasisThenOwner() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+
+        service().editDraft(draftCommand(0L), VIEWER);
+
+        assertEquals(List.of("findById", "update"), agreements.calls());
+        assertEquals(List.of("forUpdate " + LEAD + " " + SALE, "basis " + LEAD, "account " + OWNER), calls);
+    }
+
+    @Test
+    void editDraft_typeOrPeriodRefused_beforeAnyRead() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+
+        AgreementRefusedException type = assertThrows(AgreementRefusedException.class, () -> service().editDraft(
+                new AgreementDraftCommand(AGREEMENT, 0L, "SALE", START, END, CONSENT, TERMS), VIEWER));
+        assertEquals(Reason.VALIDATION_FAILED, type.reason());
+        assertEquals(List.of(new Entry("transactionType", List.of("LONG_TERM_RENT"))), type.entries());
+
+        AgreementPeriodException period = assertThrows(AgreementPeriodException.class, () -> service().editDraft(
+                new AgreementDraftCommand(AGREEMENT, 0L, "LONG_TERM_RENT", START, LocalDate.parse("2028-01-02"),
+                        CONSENT, TERMS), VIEWER));
+        assertEquals("endDate", period.field());
+
+        assertEquals(List.of(), calls);
+        assertEquals(List.of(), agreements.calls());
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void editDraft_unknownMalformedOrHiddenLead_notFound() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+
+        for (String id : List.of("a1", "01jagre0000000000000000001", "01JAGRE0000000000000000009")) {
+            assertThrows(BrokerageNotFoundException.class, () -> service().editDraft(
+                    new AgreementDraftCommand(id, 0L, "LONG_TERM_RENT", START, END, CONSENT, TERMS), VIEWER), id);
+        }
+        assertEquals(List.of(), calls);
+        assertEquals(List.of("findById"), agreements.calls());
+
+        StaffViewer stranger = new StaffViewer("S3", Set.of("ROLE_SALE"));
+        assertThrows(BrokerageNotFoundException.class, () -> service().editDraft(draftCommand(0L), stranger));
+
+        assertEquals(List.of("forUpdate " + LEAD + " S3"), calls);
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void editDraft_notAssignee_refused() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+
+        for (StaffViewer viewer : List.of(new StaffViewer("M", Set.of("ROLE_SALES_MANAGER")),
+                new StaffViewer("S2", Set.of("ROLE_ADMIN", "ROLE_SUPER_ADMIN")),
+                new StaffViewer(SALE, Set.of("ROLE_SALES_MANAGER")))) {
+            AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                    () -> service().editDraft(draftCommand(0L), viewer), viewer.toString());
+
+            assertEquals(Reason.AGREEMENT_NOT_ASSIGNEE, refused.reason());
+            assertEquals(List.of(), refused.entries());
+        }
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("basis")).count());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void editDraft_noDraft_notDraft() {
+        for (AgreementStatus status : List.of(AgreementStatus.DRAFTING, AgreementStatus.CANCELLED)) {
+            VersionStatus versionStatus = status == AgreementStatus.DRAFTING ? VersionStatus.AWAITING_OWNER
+                    : VersionStatus.CANCELLED;
+            storeDraft("U1", status, versionStatus);
+
+            AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                    () -> service().editDraft(draftCommand(0L), VIEWER), status.name());
+
+            assertEquals(Reason.AGREEMENT_NOT_DRAFT, refused.reason());
+            assertEquals("This agreement has no draft to edit.", refused.getMessage());
+            assertEquals(List.of(), refused.entries());
+        }
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("basis")).count());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void editDraft_staleDataVersion_concurrentModificationWithEntry() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().editDraft(draftCommand(1L), VIEWER));
+
+        assertEquals(Reason.CONCURRENT_MODIFICATION, refused.reason());
+        assertEquals("Something changed at the same time. Try again.", refused.getMessage());
+        assertEquals(List.of(new Entry("expectedDataVersion", null)), refused.entries());
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("basis")).count());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void editDraft_basisNotTheDraftsOrPolicyGroups_notEligibleInOrder() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+        InMemoryIntakeBasisPort none = new InMemoryIntakeBasisPort(calls);
+        assertEquals(List.of("reasonGroups.BASIS"), refusedDraftFields(
+                new AgreementCommandService(leads, none, accounts, agreements, trail, ids::next)));
+
+        calls.clear();
+        bases.basis(LEAD, new IntakeBasisFacts("I2", "P1", "USABLE", BASIS.units(), OWNER, HOLDINGS));
+        assertEquals(List.of("reasonGroups.BASIS"), refusedDraftFields(service()));
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("account")).count());
+
+        bases.basis(LEAD, BASIS);
+        storeDraft("U2", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+        assertEquals(List.of("reasonGroups.UNIT"), refusedDraftFields(service()));
+
+        bases.basis(LEAD, basis("SUSPENDED", BASIS.units().toArray(Unit[]::new)));
+        accounts.answer(OWNER, false);
+        assertEquals(List.of("reasonGroups.BASIS", "reasonGroups.UNIT", "reasonGroups.OWNER"),
+                refusedDraftFields(service()));
+
+        bases.basis(LEAD, basis("USABLE", new Unit("U2", "P102", List.of("PROPERTY_STOP"))));
+        accounts.answer(OWNER, true);
+        assertEquals(List.of("reasonGroups.PROPERTY"), refusedDraftFields(service()));
+
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void editDraft_ownerPartyNoLongerDeclared_owner() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+        IntakeBasisFacts declaredO2 = new IntakeBasisFacts("I1", "P1", "USABLE", BASIS.units(), "O2",
+                List.of(new Holding("O2", "OWNER", "UNVERIFIED")));
+        bases.basis(LEAD, declaredO2);
+        accounts.answer("O2", true);
+
+        assertEquals(List.of("reasonGroups.OWNER"), refusedDraftFields(service()));
+
+        storeDraft("U2", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+        assertEquals(List.of("reasonGroups.UNIT", "reasonGroups.OWNER"), refusedDraftFields(service()));
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void editDraft_availabilityDiffersOnly_saved() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+        bases.basis(LEAD, basis("USABLE", new Unit("U1", "P101", List.of("AVAILABILITY_DIFFERS"))));
+
+        service().editDraft(draftCommand(0L), VIEWER);
+
+        assertEquals(1, agreements.count("update"));
+        assertEquals(1, trail.events().size());
+    }
+
+    @Test
+    void editDraft_lostGuardedUpdate_propagates() {
+        storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+        agreements.moveAfterNextRead();
+
+        assertThrows(OptimisticLockingFailureException.class, () -> service().editDraft(draftCommand(0L), VIEWER));
+
+        assertEquals(List.of("findById", "update"), agreements.calls());
+        assertEquals(List.of(), trail.events());
+    }
+
+    private List<String> refusedDraftFields(AgreementCommandService service) {
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service.editDraft(draftCommand(0L), VIEWER));
+        assertEquals(Reason.AGREEMENT_NOT_ELIGIBLE, refused.reason());
+        assertTrue(refused.entries().stream().allMatch(entry -> entry.allowedValuesOrNull() == null));
+        return refused.entries().stream().map(Entry::field).toList();
+    }
+
+    private static AgreementDraftCommand draftCommand(long expectedDataVersion) {
+        return new AgreementDraftCommand(AGREEMENT, expectedDataVersion, "LONG_TERM_RENT", START, END, CONSENT, TERMS);
+    }
+
+    /** Stores agreement {@link #AGREEMENT} on the unit, its version 1 on basis L1 / I1, owner O, row version 0. */
+    private BrokerageAgreement storeDraft(String unitId, AgreementStatus status, VersionStatus versionStatus) {
+        Instant at = Instant.parse("2026-11-01T00:00:00Z");
+        BrokerageAgreement agreement = BrokerageAgreement.load(AGREEMENT, unitId, "P101", "P1",
+                TransactionType.LONG_TERM_RENT, OWNER, LEAD, status, "S9", at, at, 0L,
+                List.of(AgreementVersion.load("V1", 1, versionStatus, new AgreementPeriod(START, START.plusMonths(6)),
+                        LEAD, "I1", "S9", at, at)));
+        agreements.store(agreement);
+        return agreement;
     }
 
     private List<String> refusedFields(AgreementCommandService service, String unitId) {
