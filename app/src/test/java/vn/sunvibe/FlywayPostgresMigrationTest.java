@@ -189,4 +189,22 @@ class FlywayPostgresMigrationTest {
 		assertFalse(mappedTables.contains("property_availability"),
 				"an entity still maps property_availability: " + mappedTables);
 	}
+
+	/**
+	 * Each module's {@code @EntityScan} adds to the others: one table of each module stays mapped, compared exactly as
+	 * its entity's {@code @Table} writes it, so a scan that replaced the others, or a renamed annotation, fails here.
+	 */
+	@Test
+	void context_everyModuleEntityStaysMapped() {
+		List<String> mappedTables = entityManagerFactory.getMetamodel().getEntities().stream()
+				.map(entity -> entity.getJavaType().getAnnotation(Table.class))
+				.filter(table -> table != null)
+				.map(Table::name)
+				.toList();
+
+		assertTrue(!mappedTables.isEmpty(), "no @Table found: the metamodel check would pass vacuously");
+		for (String table : List.of("USERS", "units", "owner_leads", "survey_media_jobs", "brokerage_agreements")) {
+			assertTrue(mappedTables.contains(table), () -> "no entity maps " + table + ": " + mappedTables);
+		}
+	}
 }
