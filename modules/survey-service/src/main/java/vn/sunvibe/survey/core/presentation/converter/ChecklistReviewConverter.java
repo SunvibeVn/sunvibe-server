@@ -1,12 +1,14 @@
 package vn.sunvibe.survey.core.presentation.converter;
 
 import vn.sunvibe.survey.core.application.query.checklist.SubmissionView;
+import vn.sunvibe.survey.core.application.query.common.RefusedPhotoView;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistDecision;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistRequalification;
 import vn.sunvibe.survey.core.domain.model.checklist.ChecklistSubmission;
 import vn.sunvibe.survey.core.domain.model.checklist.EvidenceEntry;
 import vn.sunvibe.survey.core.domain.policy.checklist.ReviewAccess;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistDecisionResponse;
+import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRefusedPhoto;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistRequalificationResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistReviewResponse;
 import vn.sunvibe.survey.core.presentation.dto.response.checklist.ChecklistStaffMember;
@@ -37,8 +39,15 @@ final class ChecklistReviewConverter {
                     EvidenceEntry entry = evidence.entry();
                     return new ChecklistSubmittedEvidence(entry.mediaId(), entry.category(), entry.spaceIdOrNull(),
                             entry.spaceCodeOrNull(), entry.fullSha256(), evidence.acceptedOrNull(),
-                            evidence.rejectionReasonOrNull());
+                            evidence.rejectionReasonOrNull(), evidence.refusedSameContent().stream()
+                            .map(ChecklistReviewConverter::refusedPhoto).toList());
                 }).toList());
+    }
+
+    /** survey-checklist SV-310: a photo an earlier revision's decision on the visit did not accept. */
+    static ChecklistRefusedPhoto refusedPhoto(RefusedPhotoView view) {
+        return new ChecklistRefusedPhoto(view.mediaId(), view.checklistId(), view.checklistNo(), view.category(),
+                view.spaceIdOrNull(), view.spaceCodeOrNull(), view.reason());
     }
 
     static ChecklistDecisionResponse decision(ChecklistDecision decision, Function<String, String> names) {

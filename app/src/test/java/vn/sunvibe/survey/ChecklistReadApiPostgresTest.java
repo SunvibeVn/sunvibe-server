@@ -150,7 +150,7 @@ class ChecklistReadApiPostgresTest {
 
 		JsonNode read = checklists.readOk(sale, id).body();
 
-		assertEquals(List.of("available", "uploadEnabled", "setVersion"),
+		assertEquals(List.of("available", "uploadEnabled", "setVersion", "refusedNotCarried"),
 				AcquisitionApiTestSupport.fieldNames(read.path("media")));
 		assertFalse(read.path("media").path("available").asBoolean());
 		assertFalse(read.path("media").path("uploadEnabled").asBoolean());

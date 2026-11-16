@@ -11241,11 +11241,18 @@
       },
       "ChecklistMedia" : {
         "type" : "object",
-        "description" : "Whether the checklist's photos are available and this viewer could upload now",
+        "description" : "Whether the checklist's photos are available and this viewer could upload now, and the refused photos of the previous revision that this revision does not hold",
         "properties" : {
           "available" : {
             "type" : "boolean",
             "description" : "Uploads are on or the checklist already has photos; readiness then lists evidence per required pair"
+          },
+          "refusedNotCarried" : {
+            "type" : "array",
+            "description" : "The photos of the previous revision's frozen set that a decision on an earlier revision of the visit did not accept and that this revision does not hold, one per photo with its newest refusal, newest revision first; empty when none",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistRefusedPhoto"
+            }
           },
           "setVersion" : {
             "type" : "integer",
@@ -12171,6 +12178,40 @@
             "items" : {
               "$ref" : "#/components/schemas/ChecklistWarning"
             }
+          }
+        }
+      },
+      "ChecklistRefusedPhoto" : {
+        "type" : "object",
+        "description" : "A photo a decision on an earlier revision of the visit did not accept",
+        "properties" : {
+          "category" : {
+            "type" : "string",
+            "description" : "The photo's category in that revision's frozen evidence",
+            "enum" : [ "EXTERIOR_ACCESS", "MAIN_SPACE", "KITCHEN", "BATHROOM", "SHARED_KITCHEN", "SHARED_BATHROOM", "SHARED_AMENITY", "DETAIL" ]
+          },
+          "checklistId" : {
+            "type" : "string",
+            "description" : "The revision whose decision did not accept the photo"
+          },
+          "checklistNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The number of that revision"
+          },
+          "mediaId" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "The reviewer's reason for not accepting the photo"
+          },
+          "spaceCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "spaceId" : {
+            "type" : [ "string", "null" ],
+            "description" : "The photo's space in that revision's frozen evidence; null for the asset"
           }
         }
       },
@@ -13165,6 +13206,13 @@
           },
           "mediaId" : {
             "type" : "string"
+          },
+          "refusedSameContent" : {
+            "type" : "array",
+            "description" : "The photos that a decision on an earlier revision of the visit did not accept and whose source content is the same as this photo's, one per refusing decision, newest revision first; empty when none. It informs the reviewer and blocks no decision",
+            "items" : {
+              "$ref" : "#/components/schemas/ChecklistRefusedPhoto"
+            }
           },
           "rejectionReason" : {
             "type" : [ "string", "null" ]

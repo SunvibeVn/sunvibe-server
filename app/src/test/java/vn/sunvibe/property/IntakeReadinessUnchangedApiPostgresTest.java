@@ -22,6 +22,8 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeBlockView;
 import vn.sunvibe.property.core.application.usecase.intake.InventoryIntakeReadinessUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.UnitIntakeUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.UnitIntakeView;
 import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
 import vn.sunvibe.survey.SurveyApiTestSupport;
@@ -38,6 +40,9 @@ class IntakeReadinessUnchangedApiPostgresTest extends IntakeApiTestBase {
 
 	@Autowired
 	private InventoryIntakeReadinessUseCase readiness;
+
+	@Autowired
+	private UnitIntakeUseCase unitIntakes;
 
 	@Override
 	String phonePrefix() {
@@ -412,5 +417,180 @@ class IntakeReadinessUnchangedApiPostgresTest extends IntakeApiTestBase {
 			assertEquals(jdbc.queryForObject("select unit_code from units where id = ?", String.class, unit.unitId()),
 					unit.unitCode());
 		}
+	}
+
+	// ==================== read 1 of E05-S6b: parity with the per-lead readiness (SR-1, SR-3) ====================
+
+	private UnitIntakeParity parity() {
+		return new UnitIntakeParity(unitIntakes, readiness, jdbc);
+	}
+
+	@Test
+	void otherLeadOnHold_unitsStayUsable_forUnitsMatches() throws Exception {
+		Pair pair = housePair();
+
+		hold(pair.first().leadId());
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+	}
+
+	@Test
+	void otherLeadClosed_unitsStayUsable_forUnitsMatches() throws Exception {
+		Pair pair = housePair();
+
+		close(pair.first().leadId());
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+	}
+
+	@Test
+	void otherLeadEvidenceHeld_unitsStayUsable_forUnitsMatches() throws Exception {
+		Pair pair = housePair();
+
+		jdbc.update("update survey_media set held_at = now(), held_by_user_id = ?, hold_reason = 'SECURITY_INCIDENT' where id = ?",
+				admin.userId(), pair.first().photoIds().getFirst());
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+	}
+
+	@Test
+	void openDuplicateCaseOnTheProperty_unitsStayUsable_forUnitsMatches() throws Exception {
+		String street = unique("Open Case");
+		Passed first = house(street);
+		createdHouse(first, owner());
+		Passed rival = house(street);
+		checked(rival, owner());
+
+		SurveyApiTestSupport.ok(createTarget(rival.leadId(), null));
+
+		assertEquals("CASE_OPEN", blockOk(sale, rival.leadId()).path("status").asString());
+		parity().check(first.leadId(), rival.leadId());
+	}
+
+	@Test
+	void sameAssetWithTheSameOwner_unitsStayUsable_forUnitsMatches() throws Exception {
+		String street = unique("Same Owner");
+		Passed lead = house(street);
+		TestUser owner = owner();
+		checked(lead, owner);
+		String propertyId = seeded(street, owner.userId());
+		SurveyApiTestSupport.ok(createTarget(lead.leadId(), null));
+		String caseId = jdbc.queryForObject("select id from inventory_duplicate_cases where candidate_property_id = ?",
+				String.class, propertyId);
+
+		decide(caseId, "SAME_ASSET");
+
+		assertFalse(blockOk(sale, lead.leadId()).path("forcedPropertyCode").isNull());
+		SurveyApiTestSupport.ok(linkTarget(lead.leadId(), propertyId, lead.spaceIds(), List.of(unitOf(propertyId))));
+		available(lead.leadId(), lead.spaceIds(), "VACANT");
+		completed(lead.leadId());
+		parity().check(lead.leadId());
+	}
+
+	@Test
+	void sameAssetAfterAnotherAccountsProofWasReplaced_unitsStayUsable_forUnitsMatches() throws Exception {
+		String street = unique("Corrected Owner");
+		Passed first = house(street);
+		TestUser owner = owner();
+		JsonNode result = createdHouse(first, owner);
+		String propertyId = result.path("propertyId").asString();
+		String unit = result.path("units").path(0).path("unitId").asString();
+		Passed rival = house(street);
+		TestUser other = owner();
+		Issued replaced = checked(rival, other);
+		SurveyApiTestSupport.ok(createTarget(rival.leadId(), null));
+		assertEquals("CASE_OPEN", blockOk(sale, rival.leadId()).path("status").asString());
+
+		Result withdrawal = withdraw(other, replaced.requestId(), passwordOf(other));
+		assertEquals(204, withdrawal.status(), withdrawal.rawBody());
+		assertEquals("DRAFT", blockOk(sale, rival.leadId()).path("status").asString());
+		Issued again = issued(rival.leadId(), address(owner));
+		confirmed(owner, again);
+		assertEquals(204, enter(owner, again.requestId(), started(manager, rival.leadId())).status());
+		SurveyApiTestSupport.ok(createTarget(rival.leadId(), null));
+		assertEquals("CASE_OPEN", blockOk(sale, rival.leadId()).path("status").asString());
+		String caseId = jdbc.queryForObject("select id from inventory_duplicate_cases where candidate_property_id = ?"
+				+ " and status = 'OPEN'", String.class, propertyId);
+
+		decide(caseId, "SAME_ASSET");
+
+		assertEquals("DECIDED", blockOk(sale, rival.leadId()).path("caseState").asString());
+		parity().check(first.leadId(), rival.leadId());
+
+		SurveyApiTestSupport.ok(linkTarget(rival.leadId(), propertyId, rival.spaceIds(), List.of(unit)));
+		available(rival.leadId(), rival.spaceIds(), "VACANT");
+		completed(rival.leadId());
+		parity().check(first.leadId(), rival.leadId());
+	}
+
+	@Test
+	void otherLeadSuspended_leadLevelReadinessGateAndLinkUnchanged_forUnitsMatches() throws Exception {
+		String street = unique("Suspended First");
+		Passed first = house(street);
+		TestUser owner = owner();
+		JsonNode result = createdHouse(first, owner);
+		String propertyId = result.path("propertyId").asString();
+		String unit = result.path("units").path(0).path("unitId").asString();
+		suspendLead(first.leadId(), null, "Data request");
+		Passed second = house(street);
+		checked(second, owner);
+
+		Result linked = linkTarget(second.leadId(), propertyId, second.spaceIds(), List.of(unit));
+
+		assertEquals(200, linked.status(), linked.rawBody());
+		available(second.leadId(), second.spaceIds(), "VACANT");
+		completed(second.leadId());
+		parity().check(first.leadId(), second.leadId());
+	}
+
+	@Test
+	void ownUnitSuspension_readsRestrictedOnly_forUnitsMatches() throws Exception {
+		Building building = building();
+		String p101 = building.unitBySpaceCode().get("P101");
+
+		suspendLead(building.first().leadId(), p101, "This room only");
+
+		parity().check(building.first().leadId());
+	}
+
+	/** Also SR-3: the entry holds AVAILABILITY_DIFFERS and the unit its stored state, not the one the link confirmed. */
+	@Test
+	void linkedUnitInAnotherState_readsAvailabilityDiffersOnly_forUnitsMatches() throws Exception {
+		Passed passed = house(unique("Link Street"));
+		TestUser owner = owner();
+		checked(passed, owner);
+		String address = jdbc.queryForObject("select address_norm from inventory_intakes where lead_id = ?", String.class,
+				passed.leadId());
+		String id = property(owner.userId(), WARD, WARD_NAME, address, "HOUSE", address);
+		ownership(id, owner.userId());
+		String unit = unit(id, "U1", "OCCUPIED");
+		SurveyApiTestSupport.ok(linkTarget(passed.leadId(), id, passed.spaceIds(), List.of(unit)));
+		available(passed.leadId(), passed.spaceIds(), "VACANT");
+
+		completed(passed.leadId());
+
+		parity().check(passed.leadId());
+		UnitIntakeView view = unitIntakes.forUnits(List.of(unit)).getFirst();
+		assertEquals(jdbc.queryForObject("select availability_state from units where id = ?", String.class, unit),
+				view.availabilityState());
+		assertEquals("OCCUPIED", view.availabilityState());
+		assertEquals(1, view.intakes().size());
+		assertTrue(view.intakes().getFirst().unitReasons().contains("AVAILABILITY_DIFFERS"), view.toString());
+	}
+
+	@Test
+	void expiredOwnerRowOrCoOwner_unitsStayUsable_forUnitsMatches() throws Exception {
+		Passed passed = house(unique("Old Owner Rows"));
+		String propertyId = createdHouse(passed, owner()).path("propertyId").asString();
+
+		jdbc.update("insert into property_ownerships (id, property_id, user_id, relation_type, verification_state, valid_from,"
+						+ " valid_to, created_at) values (?, ?, ?, 'OWNER', 'UNVERIFIED', ?, ?, ?)", ids.generateId(), propertyId,
+				ids.generateId(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31),
+				Timestamp.from(Instant.parse("2026-01-01T00:00:00Z")));
+		jdbc.update("insert into property_ownerships (id, property_id, user_id, relation_type, verification_state, valid_from,"
+						+ " created_at) values (?, ?, ?, 'CO_OWNER', 'UNVERIFIED', ?, ?)", ids.generateId(), propertyId,
+				ids.generateId(), LocalDate.of(2026, 1, 1), Timestamp.from(Instant.parse("2026-01-01T00:00:00Z")));
+
+		parity().check(passed.leadId());
 	}
 }

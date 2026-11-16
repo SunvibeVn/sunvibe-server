@@ -10,6 +10,7 @@ import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.IntakeS
 import vn.sunvibe.property.core.infrastructure.persistence.mapper.manual.IntakeEntityMapper;
 import vn.sunvibe.property.core.infrastructure.persistence.repository.intake.IntakeSuspensionJpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,6 +38,12 @@ public class IntakeSuspensionRepositoryAdapter implements IntakeSuspensionDomain
     @Override
     public List<IntakeSuspension> findByLeadId(String leadId) {
         return jpaRepository.findByLeadIdOrderByCreatedAtAscIdAsc(leadId).stream().map(this::read).toList();
+    }
+
+    @Override
+    public List<IntakeSuspension> findByLeadIds(Collection<String> leadIds) {
+        return leadIds.isEmpty() ? List.of()
+                : jpaRepository.findByLeadIdInOrderByLeadIdAscCreatedAtAscIdAsc(leadIds).stream().map(this::read).toList();
     }
 
     @Override

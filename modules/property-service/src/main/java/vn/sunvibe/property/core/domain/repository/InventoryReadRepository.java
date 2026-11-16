@@ -3,6 +3,7 @@ package vn.sunvibe.property.core.domain.repository;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -67,6 +68,21 @@ public interface InventoryReadRepository {
      * ordered by user and relation (brokerage-agreement BR-4, E05-S1).
      */
     List<HoldingFacts> holdingsOn(String propertyId, LocalDate today);
+
+    /** The properties of these ids that exist, by id, in one statement; an empty input reads nothing. */
+    List<PropertyFacts> properties(Collection<String> propertyIds);
+
+    /**
+     * {@link #currentOwnerIds} of each property in one statement: per property that has any, its distinct users with an
+     * OWNER row valid on {@code today}, sorted; a property with none is absent. An empty input reads nothing.
+     */
+    Map<String, List<String>> currentOwnerIdsOf(Collection<String> propertyIds, LocalDate today);
+
+    /**
+     * {@link #holdingsOn} of each property in one statement: per property that has any, its rows valid on {@code today},
+     * ordered by user and relation; a property with none is absent. An empty input reads nothing.
+     */
+    Map<String, List<HoldingFacts>> holdingsOf(Collection<String> propertyIds, LocalDate today);
 
     /** The next number of an intake property code (A-3). */
     long nextIntakeCodeNumber();

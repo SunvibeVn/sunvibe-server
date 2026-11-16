@@ -11,6 +11,7 @@ import vn.sunvibe.property.core.infrastructure.persistence.entity.intake.OwnerPr
 import vn.sunvibe.property.core.infrastructure.persistence.mapper.manual.IntakeEntityMapper;
 import vn.sunvibe.property.core.infrastructure.persistence.repository.intake.OwnerProofJpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -62,6 +63,17 @@ public class OwnerProofRepositoryAdapter implements OwnerProofDomainRepository {
     @Override
     public List<OwnerProof> findByLeadId(String leadId) {
         return jpaRepository.findByLeadIdOrderByConfirmedAtAscIdAsc(leadId).stream().map(this::read).toList();
+    }
+
+    @Override
+    public List<OwnerProof> findByIds(Collection<String> ids) {
+        return ids.isEmpty() ? List.of() : jpaRepository.findByIdIn(ids).stream().map(this::read).toList();
+    }
+
+    @Override
+    public List<OwnerProof> findByLeadIds(Collection<String> leadIds) {
+        return leadIds.isEmpty() ? List.of()
+                : jpaRepository.findByLeadIdInOrderByLeadIdAscConfirmedAtAscIdAsc(leadIds).stream().map(this::read).toList();
     }
 
     @Override

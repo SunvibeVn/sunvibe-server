@@ -112,6 +112,20 @@ public class SurveyRecordReader {
                     .flatMap(decision -> decision.rejections().stream()).map(EvidenceRejection::mediaId)
                     .collect(Collectors.toUnmodifiableSet());
         }
+
+        /**
+         * survey-checklist SV-310: the decided revisions whose marks count for a revision's read: those of its visit with a
+         * lower number, newest first. Its own decision and later ones are not read, so the read of a revision does not
+         * change after it is decided.
+         */
+        public List<SurveyChecklist> decidedBefore(SurveyChecklist revision) {
+            return ofCycle.stream()
+                    .filter(checklist -> checklist.getVisitAppointmentId().equals(revision.getVisitAppointmentId())
+                            && checklist.getChecklistNo() < revision.getChecklistNo()
+                            && decisions.containsKey(checklist.getId()))
+                    .sorted(Comparator.comparingInt(SurveyChecklist::getChecklistNo).reversed())
+                    .toList();
+        }
     }
 
     /**

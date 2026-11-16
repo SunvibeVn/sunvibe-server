@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.survey.core.application.query.checklist.ChecklistReviewView;
 import vn.sunvibe.survey.core.application.query.media.EvidenceView;
 import vn.sunvibe.survey.core.application.query.common.PassedView;
+import vn.sunvibe.survey.core.application.query.common.RefusedPhotoView;
 import vn.sunvibe.survey.core.application.query.checklist.SubmissionView;
 import vn.sunvibe.survey.core.application.shared.common.SurveyRecordReader;
 import vn.sunvibe.survey.core.application.shared.external.lead.LeadFacts;
@@ -40,7 +41,10 @@ import vn.sunvibe.survey.core.domain.repository.checklist.SurveyChecklistSubmiss
 import vn.sunvibe.survey.core.domain.repository.media.SurveyMediaDomainRepository;
 import vn.sunvibe.survey.core.domain.model.lead.LeadStatus;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,7 +55,10 @@ import java.util.stream.Collectors;
 /**
  * The review part of the reads (survey-checklist submission spec 4.2, 4.7, 7.2): the frozen facts of a revision, whether
  * the viewer can decide it and whether a PASSED one can still be used, on the rules the decision itself runs, and why it
- * was withdrawn (property-create requalification spec 4). A draft costs no read of the review tables.
+ * was withdrawn (property-create requalification spec 4). With the refusals of the earlier revisions of the visit, it
+ * flags each frozen photo that repeats a refused photo's content and lists the refused photos of the previous revision
+ * that this one does not hold (survey-checklist SV-310); a revision without a previous revision costs no read of
+ * earlier decisions.
  */
 @Component
 public class ChecklistReviewReader {
@@ -84,9 +91,14 @@ public class ChecklistReviewReader {
         this.switches = switches;
     }
 
+    /**
+     * @param photosOrNull the photos the revision holds (its own and the carried ones it selects), as the caller read
+     *                     them; null when photos are not available, so the revision holds none
+     */
     public ChecklistReviewView read(SurveyViewer viewer, LeadFacts lead, List<SurveyAppointment> ofLead,
                                     SurveyChecklist checklist, SurveyAppointment visit,
-                                    Map<ChecklistGroup, GroupState> states, Readiness readiness) {
+                                    Map<ChecklistGroup, GroupState> states, Readiness readiness,
+                                    Collection<SurveyMedia> photosOrNull) {
         SurveyChecklistId id = checklist.getId();
         ChecklistStatus status = checklist.getStatus();
         boolean frozen = status != ChecklistStatus.DRAFT;
@@ -95,12 +107,18 @@ public class ChecklistReviewReader {
         Optional<ChecklistSubmission> submission = frozen ? submissions.findByChecklistId(id) : Optional.empty();
         Optional<ReviewReason> refusal = refusal(canActAsReviewer(viewer), checklist, lead.status(), lead.intentCycle(),
                 ofLead, () -> exclusions.load(checklist, visit), lead.assignedUserId(), viewer.userId());
+        EarlierRefusals earlier = refusalsBefore(checklist, ofLead);
+        boolean flagged = frozen && !earlier.refusals().isEmpty();
+        List<SurveyMedia> frozenPhotos = status == ChecklistStatus.SUBMITTED || flagged ? photosOf(entries) : List.of();
         List<String> blockedBy = status == ChecklistStatus.SUBMITTED
-                ? passedBlockers(readiness, states, photosOf(entries), Set.of(), ofLead) : List.of();
-        return new ChecklistReviewView(submission.map(row -> new SubmissionView(row, views(entries, decision)))
-                .orElse(null), decision, new ReviewAccess(refusal.isEmpty(), refusal.orElse(null), blockedBy),
-                status == ChecklistStatus.PASSED ? passed(checklist, lead) : null,
-                checklist.isRequalified() ? requalifications.findByChecklistId(id).orElse(null) : null);
+                ? passedBlockers(readiness, states, frozenPhotos, Set.of(), ofLead) : List.of();
+        Map<String, List<RefusedPhotoView>> sameContent = flagged ? sameContent(earlier.refusals(), frozenPhotos)
+                : Map.of();
+        return new ChecklistReviewView(submission.map(row -> new SubmissionView(row, views(entries, decision,
+                sameContent))).orElse(null), decision, new ReviewAccess(refusal.isEmpty(), refusal.orElse(null),
+                blockedBy), status == ChecklistStatus.PASSED ? passed(checklist, lead) : null,
+                checklist.isRequalified() ? requalifications.findByChecklistId(id).orElse(null) : null,
+                notCarried(checklist, earlier, photosOrNull));
     }
 
     /** spec 4.2, plan PD-6: a reviewer role and an account that can sign in; both first in the command too. */
@@ -142,11 +160,99 @@ public class ChecklistReviewReader {
         return media.findByIds(entries.stream().map(EvidenceEntry::mediaId).map(SurveyMediaId::of).toList());
     }
 
-    private static List<EvidenceView> views(List<EvidenceEntry> entries, ChecklistDecision decisionOrNull) {
+    /** The refusals before a revision and the frozen entries read to place them, by revision. */
+    private record EarlierRefusals(List<RefusedPhotoView> refusals,
+                                   Map<SurveyChecklistId, List<EvidenceEntry>> entriesByRevision) {
+    }
+
+    /**
+     * survey-checklist SV-310: the marks of the decisions on the earlier revisions of the visit, newest revision first
+     * and each decision's marks in its order, placed by the refused photo's frozen entry in the revision that refused it.
+     * A revision without a previous revision reads nothing; a mark without its entry is left out.
+     */
+    private EarlierRefusals refusalsBefore(SurveyChecklist checklist, List<SurveyAppointment> ofLead) {
+        if (checklist.getPreviousChecklistIdOrNull() == null) {
+            return new EarlierRefusals(List.of(), Map.of());
+        }
+        SurveyRecordReader.CycleRecord record = records.read(checklist.getLeadId(), checklist.getIntentCycle(), ofLead);
+        List<RefusedPhotoView> refusals = new ArrayList<>();
+        Map<SurveyChecklistId, List<EvidenceEntry>> entriesByRevision = new HashMap<>();
+        for (SurveyChecklist earlier : record.decidedBefore(checklist)) {
+            List<EvidenceRejection> marks = record.decisions().get(earlier.getId()).rejections();
+            if (marks.isEmpty()) {
+                continue;
+            }
+            List<EvidenceEntry> entries = evidence.findByChecklistId(earlier.getId());
+            entriesByRevision.put(earlier.getId(), entries);
+            Map<String, EvidenceEntry> byPhoto = entries.stream()
+                    .collect(Collectors.toMap(EvidenceEntry::mediaId, entry -> entry, (first, second) -> first));
+            for (EvidenceRejection mark : marks) {
+                EvidenceEntry entry = byPhoto.get(mark.mediaId());
+                if (entry != null) {
+                    refusals.add(new RefusedPhotoView(mark.mediaId(), earlier.getId().getValue(),
+                            earlier.getChecklistNo(), entry.category(), entry.spaceIdOrNull(), entry.spaceCodeOrNull(),
+                            mark.reason()));
+                }
+            }
+        }
+        return new EarlierRefusals(refusals, entriesByRevision);
+    }
+
+    /**
+     * survey-checklist SV-310: by frozen photo id, the refusals of a photo with the same source content (media A-16), in
+     * the order of the refusals; a photo without a source hash matches nothing.
+     */
+    private Map<String, List<RefusedPhotoView>> sameContent(List<RefusedPhotoView> refusals,
+                                                            Collection<SurveyMedia> frozenPhotos) {
+        Map<String, String> refusedHashes = new HashMap<>();
+        media.findByIds(refusals.stream().map(RefusedPhotoView::mediaId).distinct().map(SurveyMediaId::of).toList())
+                .stream().filter(photo -> photo.getSourceSha256() != null)
+                .forEach(photo -> refusedHashes.put(photo.getId().getValue(), photo.getSourceSha256()));
+        Map<String, List<RefusedPhotoView>> byPhoto = new HashMap<>();
+        for (SurveyMedia photo : frozenPhotos) {
+            String hash = photo.getSourceSha256();
+            if (hash == null) {
+                continue;
+            }
+            List<RefusedPhotoView> same = refusals.stream()
+                    .filter(refused -> hash.equals(refusedHashes.get(refused.mediaId()))).toList();
+            if (!same.isEmpty()) {
+                byPhoto.put(photo.getId().getValue(), same);
+            }
+        }
+        return byPhoto;
+    }
+
+    /**
+     * survey-checklist SV-310: the refused photos of the previous revision's frozen set that this revision does not hold,
+     * one per photo with its newest refusal, newest revision first.
+     */
+    private List<RefusedPhotoView> notCarried(SurveyChecklist checklist, EarlierRefusals earlier,
+                                              Collection<SurveyMedia> photosOrNull) {
+        if (earlier.refusals().isEmpty()) {
+            return List.of();
+        }
+        SurveyChecklistId previousId = checklist.getPreviousChecklistIdOrNull();
+        List<EvidenceEntry> previousEntries = earlier.entriesByRevision().containsKey(previousId)
+                ? earlier.entriesByRevision().get(previousId) : evidence.findByChecklistId(previousId);
+        Set<String> previous = previousEntries.stream().map(EvidenceEntry::mediaId).collect(Collectors.toSet());
+        Set<String> held = photosOrNull == null ? Set.of() : photosOrNull.stream()
+                .map(photo -> photo.getId().getValue()).collect(Collectors.toSet());
+        Map<String, RefusedPhotoView> newestPerPhoto = new LinkedHashMap<>();
+        for (RefusedPhotoView refused : earlier.refusals()) {
+            if (previous.contains(refused.mediaId()) && !held.contains(refused.mediaId())) {
+                newestPerPhoto.putIfAbsent(refused.mediaId(), refused);
+            }
+        }
+        return List.copyOf(newestPerPhoto.values());
+    }
+
+    private static List<EvidenceView> views(List<EvidenceEntry> entries, ChecklistDecision decisionOrNull,
+                                            Map<String, List<RefusedPhotoView>> sameContent) {
         Map<String, String> rejected = decisionOrNull == null ? Map.of() : decisionOrNull.rejections().stream()
                 .collect(Collectors.toMap(EvidenceRejection::mediaId, EvidenceRejection::reason));
         return entries.stream().map(entry -> new EvidenceView(entry,
                 decisionOrNull == null ? null : !rejected.containsKey(entry.mediaId()),
-                rejected.get(entry.mediaId()))).toList();
+                rejected.get(entry.mediaId()), sameContent.getOrDefault(entry.mediaId(), List.of()))).toList();
     }
 }

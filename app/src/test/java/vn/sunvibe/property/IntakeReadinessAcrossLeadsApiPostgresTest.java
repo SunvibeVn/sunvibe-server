@@ -21,6 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.JsonNode;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
+import vn.sunvibe.property.core.application.usecase.intake.InventoryIntakeReadinessUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.UnitIntakeUseCase;
 import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.property.core.domain.repository.InventoryReadRepository;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
@@ -36,6 +38,12 @@ class IntakeReadinessAcrossLeadsApiPostgresTest extends IntakeApiTestBase {
 
 	@Autowired
 	private InventoryReadRepository inventory;
+
+	@Autowired
+	private InventoryIntakeReadinessUseCase readiness;
+
+	@Autowired
+	private UnitIntakeUseCase unitIntakes;
 
 	@Override
 	String phonePrefix() {
@@ -482,5 +490,238 @@ class IntakeReadinessAcrossLeadsApiPostgresTest extends IntakeApiTestBase {
 		hidden.forEach(text -> assertFalse(body.contains(text), text));
 		assertEquals("[]", read.body().path("suspensions").toString());
 		assertEquals("[]", blockOk(manager, second).path("suspensions").toString());
+	}
+
+	// ==================== read 1 of E05-S6b: parity with the per-lead readiness (SR-1) ====================
+
+	private UnitIntakeParity parity() {
+		return new UnitIntakeParity(unitIntakes, readiness, jdbc);
+	}
+
+	@Test
+	void otherLeadWholeSuspension_stopsEveryUnit_untilReleased_forUnitsMatches() throws Exception {
+		Pair pair = housePair();
+
+		suspendLead(pair.first().leadId(), null, "Data request");
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+		String suspensionId = jdbc.queryForObject("select id from inventory_suspensions where lead_id = ? and released_at is null",
+				String.class, pair.first().leadId());
+		release(pair.first().leadId(), suspensionId);
+		parity().check(pair.first().leadId(), pair.second().leadId());
+	}
+
+	@Test
+	void otherLeadWrongAssetOrOwnerMark_stopsEveryUnit_forUnitsMatches() throws Exception {
+		for (String kind : List.of("WRONG_ASSET", "WRONG_OWNER")) {
+			Pair pair = housePair();
+
+			fixture.requalify(leader, pair.first().checklistId(), kind);
+
+			parity().check(pair.first().leadId(), pair.second().leadId());
+			close(pair.first().leadId());
+			parity().check(pair.first().leadId(), pair.second().leadId());
+		}
+	}
+
+	@Test
+	void otherLeadRuledOutResult_stopsEveryUnit_forUnitsMatches() throws Exception {
+		Pair pair = housePair();
+		String first = pair.first().leadId();
+
+		fixture.requalify(leader, pair.first().checklistId(), "OTHER");
+
+		parity().check(first, pair.second().leadId());
+		Passed again = fixture.revisit(leader, sale, first, "WHOLE", "HOUSE", unique("A Moved House"), "A1");
+		checked(again, pair.owner());
+		SurveyApiTestSupport.ok(linkTarget(first, pair.propertyId(), again.spaceIds(),
+				List.of(pair.unitBySpaceCode().get("A1"))));
+		assertEquals("CASE_OPEN", blockOk(sale, first).path("status").asString());
+		String caseId = jdbc.queryForObject("select id from inventory_duplicate_cases where candidate_property_id = ?",
+				String.class, pair.propertyId());
+		decide(caseId, "DIFFERENT_ASSET");
+		assertTrue(reasons(blockOk(sale, first)).contains("RECONCILIATION_REQUIRED"));
+		parity().check(first, pair.second().leadId());
+		close(first);
+		parity().check(first, pair.second().leadId());
+	}
+
+	@Test
+	void sameAssetWithAnotherOwner_stopsEveryUnit_forUnitsMatches() throws Exception {
+		String street = unique("Another Owner");
+		Passed first = house(street);
+		String propertyId = createdHouse(first, owner()).path("propertyId").asString();
+		Passed rival = house(street);
+		checked(rival, owner());
+		SurveyApiTestSupport.ok(createTarget(rival.leadId(), null));
+		parity().check(first.leadId(), rival.leadId());
+		String caseId = jdbc.queryForObject("select id from inventory_duplicate_cases where candidate_property_id = ?",
+				String.class, propertyId);
+
+		decide(caseId, "SAME_ASSET");
+
+		assertEquals("WAITING", blockOk(sale, rival.leadId()).path("caseState").asString());
+		parity().check(first.leadId(), rival.leadId());
+		close(rival.leadId());
+		parity().check(first.leadId(), rival.leadId());
+	}
+
+	@Test
+	void sameAssetCheckedForAnotherOwnerAfterTheDecision_stopsEveryUnit_forUnitsMatches() throws Exception {
+		String street = unique("Later Owner");
+		Passed first = house(street);
+		TestUser owner = owner();
+		String propertyId = createdHouse(first, owner).path("propertyId").asString();
+		Passed rival = house(street);
+		Issued rivalIssued = checked(rival, owner);
+		SurveyApiTestSupport.ok(createTarget(rival.leadId(), null));
+		assertEquals("CASE_OPEN", blockOk(sale, rival.leadId()).path("status").asString());
+		String caseId = jdbc.queryForObject("select id from inventory_duplicate_cases where candidate_property_id = ?"
+				+ " and status = 'OPEN'", String.class, propertyId);
+		decide(caseId, "SAME_ASSET");
+		assertFalse(blockOk(sale, rival.leadId()).path("forcedPropertyCode").isNull());
+		parity().check(first.leadId(), rival.leadId());
+
+		Result withdrawal = withdraw(owner, rivalIssued.requestId(), passwordOf(owner));
+		assertEquals(204, withdrawal.status(), withdrawal.rawBody());
+		reproved(rival.leadId(), owner());
+
+		assertEquals("WAITING", blockOk(sale, rival.leadId()).path("caseState").asString());
+		parity().check(first.leadId(), rival.leadId());
+		close(rival.leadId());
+		parity().check(first.leadId(), rival.leadId());
+	}
+
+	@Test
+	void ownerNotEligible_stopsEveryUnit_untilEligibleAgain_forUnitsMatches() throws Exception {
+		Passed first = house(unique("Staff Owner"));
+		TestUser owner = owner();
+		createdHouse(first, owner);
+
+		jdbc.update("insert into user_roles (user_id, role_id) select ?, id from roles where name = 'SALE'", owner.userId());
+
+		parity().check(first.leadId());
+		jdbc.update("delete from user_roles where user_id = ? and role_id = (select id from roles where name = 'SALE')",
+				owner.userId());
+		parity().check(first.leadId());
+	}
+
+	/** Also Review Focus 3: one unit that two leads' latest rows map, in different states, has two entries. */
+	@Test
+	void otherLeadOwnerWithdrew_stopsEveryUnit_untilRestored_forUnitsMatches() throws Exception {
+		Pair pair = housePair();
+
+		withdrawn(pair);
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+		Map<String, String> stateByIntake = new LinkedHashMap<>();
+		unitIntakes.forUnits(List.of(pair.unitBySpaceCode().get("A1"))).getFirst().intakes()
+				.forEach(entry -> stateByIntake.put(entry.intakeId(), entry.state()));
+		assertEquals(Map.of((String) intakeRow(pair.first().leadId()).get("id"), "SUSPENDED",
+				(String) intakeRow(pair.second().leadId()).get("id"), "USABLE"), stateByIntake);
+		reproved(pair.first().leadId(), pair.owner());
+		restore(pair.first().leadId());
+		parity().check(pair.first().leadId(), pair.second().leadId());
+	}
+
+	@Test
+	void otherLeadClosedAfterWithdrawal_endsOnTheOwnersLaterConfirmedResult_forUnitsMatches() throws Exception {
+		Pair pair = housePair();
+		withdrawn(pair);
+
+		close(pair.first().leadId());
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+		String street = jdbc.queryForObject("select street from properties where id = ?", String.class, pair.propertyId());
+		Passed third = house(street);
+		checked(third, pair.owner());
+		SurveyApiTestSupport.ok(linkTarget(third.leadId(), pair.propertyId(), third.spaceIds(),
+				List.of(pair.unitBySpaceCode().get("A1"))));
+		available(third.leadId(), third.spaceIds(), "VACANT");
+		parity().check(pair.first().leadId(), pair.second().leadId(), third.leadId());
+		completed(third.leadId());
+		parity().check(pair.first().leadId(), pair.second().leadId(), third.leadId());
+	}
+
+	@Test
+	void otherLeadOwnerWithdrew_staysAfterItsResultIsMarked_forUnitsMatches() throws Exception {
+		Pair pair = housePair();
+		withdrawn(pair);
+
+		fixture.requalify(leader, pair.first().checklistId(), "NEED_CHANGED");
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+		close(pair.first().leadId());
+		parity().check(pair.first().leadId(), pair.second().leadId());
+	}
+
+	@Test
+	void ownerHoldersDiffer_stopsEveryUnit_forUnitsMatches() throws Exception {
+		Passed first = house(unique("Two Holders"));
+		String propertyId = createdHouse(first, owner()).path("propertyId").asString();
+
+		ownership(propertyId, owner().userId());
+
+		parity().check(first.leadId());
+
+		Passed another = house(unique("Other Holder"));
+		String anotherProperty = createdHouse(another, owner()).path("propertyId").asString();
+		jdbc.update("update properties set owner_id = ? where id = ?", owner().userId(), anotherProperty);
+		parity().check(first.leadId(), another.leadId());
+	}
+
+	@Test
+	void otherLeadUnitSuspension_stopsThatUnitOnly_forUnitsMatches() throws Exception {
+		Pair pair = buildingPair("P101", "P102");
+		String p101 = pair.unitBySpaceCode().get("P101");
+
+		suspendLead(pair.first().leadId(), p101, "Room only");
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+		suspendLead(pair.second().leadId(), p101, "Room only too");
+		parity().check(pair.first().leadId(), pair.second().leadId());
+	}
+
+	@Test
+	void otherLeadMarkOfAnotherKind_stopsItsUnitsOnly_forUnitsMatches() throws Exception {
+		Pair pair = buildingPair("P101");
+
+		fixture.requalify(leader, pair.second().checklistId(), "PHOTO_PROBLEM");
+
+		parity().check(pair.first().leadId(), pair.second().leadId());
+	}
+
+	@Test
+	void resultCompletedAfterTheMark_liftsTheUnitStop_forUnitsMatches() throws Exception {
+		String street = unique("Marked First");
+		Passed first = house(street);
+		TestUser owner = owner();
+		JsonNode result = createdHouse(first, owner);
+		String propertyId = result.path("propertyId").asString();
+		String unit = result.path("units").path(0).path("unitId").asString();
+		fixture.requalify(leader, first.checklistId(), "PHOTO_PROBLEM");
+		Passed second = house(street);
+		checked(second, owner);
+		SurveyApiTestSupport.ok(linkTarget(second.leadId(), propertyId, second.spaceIds(), List.of(unit)));
+		available(second.leadId(), second.spaceIds(), "VACANT");
+
+		completed(second.leadId());
+
+		parity().check(first.leadId(), second.leadId());
+		hold(second.leadId());
+		parity().check(first.leadId(), second.leadId());
+	}
+
+	@Test
+	void stops_tellNothingOfTheOtherLead_forUnitsMatches() throws Exception {
+		Pair pair = buildingPair("P101", "P102");
+		String first = pair.first().leadId();
+		String second = pair.second().leadId();
+		fixture.checklists().reassign(leader, second, otherSale);
+
+		suspendLead(first, null, "Tenant asked to stop processing");
+		suspendLead(first, pair.unitBySpaceCode().get("P102"), "Room only, private");
+
+		parity().check(first, second);
 	}
 }

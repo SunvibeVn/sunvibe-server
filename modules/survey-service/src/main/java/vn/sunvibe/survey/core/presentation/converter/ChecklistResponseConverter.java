@@ -99,7 +99,8 @@ public class ChecklistResponseConverter {
                 view.editability().reason(),
                 ChecklistGroupsConverter.groups(view.groups(), view.difference(), names),
                 readiness(view.readiness()), new ChecklistMedia(view.media().available(),
-                        view.media().uploadEnabled(), view.media().setVersion()),
+                        view.media().uploadEnabled(), view.media().setVersion(), view.review().refusedNotCarried()
+                        .stream().map(ChecklistReviewConverter::refusedPhoto).toList()),
                 ChecklistGroupsConverter.effectiveTerms(view.effectiveTerms(),
                         view.groups().get(ChecklistGroup.TERMS).document(), names),
                 view.earlierHazards().stream().map(hazard -> earlierHazard(hazard, names)).toList(),

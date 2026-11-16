@@ -199,7 +199,8 @@ class SurveyOpenApiTest {
 
 	/**
 	 * survey-media spec 7.1, 7.2 (plan Task A18): the checklist answer carries {@code media {available, uploadEnabled,
-	 * setVersion}} and a missing item's problem may be EVIDENCE_MISSING or EVIDENCE_PROCESSING.
+	 * setVersion, refusedNotCarried}} (survey-checklist SV-310 spec 3.4) and a missing item's problem may be
+	 * EVIDENCE_MISSING or EVIDENCE_PROCESSING.
 	 */
 	@Test
 	void openApi_checklistResponse_hasTheMediaBlockAndTheEvidenceProblems() {
@@ -207,7 +208,8 @@ class SurveyOpenApiTest {
 		assertEquals("#/components/schemas/ChecklistMedia", schemas.path("ChecklistResponse").path("properties")
 				.path("media").path("$ref").asString());
 		JsonNode media = schemas.path("ChecklistMedia").path("properties");
-		assertEquals(List.of("available", "setVersion", "uploadEnabled"), fieldNames(media).stream().sorted().toList());
+		assertEquals(List.of("available", "refusedNotCarried", "setVersion", "uploadEnabled"),
+				fieldNames(media).stream().sorted().toList());
 		assertEquals("boolean", media.path("available").path("type").asString());
 		assertEquals("boolean", media.path("uploadEnabled").path("type").asString());
 		assertEquals("integer", media.path("setVersion").path("type").asString());
@@ -216,6 +218,29 @@ class SurveyOpenApiTest {
 				.forEach(value -> problems.add(value.asString()));
 		assertTrue(problems.containsAll(List.of("EVIDENCE_PENDING", "EVIDENCE_MISSING", "EVIDENCE_PROCESSING")),
 				problems.toString());
+	}
+
+	/**
+	 * survey-checklist SV-310 spec section 4: a frozen photo names the refused photos with the same content and the media
+	 * block the refused photos not carried, both as lists of {@code ChecklistRefusedPhoto}.
+	 */
+	@Test
+	void openApi_checklistRead_namesTheRefusedPhotos() {
+		JsonNode refused = schema("ChecklistRefusedPhoto").path("properties");
+		assertEquals(List.of("category", "checklistId", "checklistNo", "mediaId", "reason", "spaceCode", "spaceId"),
+				fieldNames(refused).stream().sorted().toList());
+		for (String nullable : List.of("spaceId", "spaceCode")) {
+			assertTrue(acceptsNull(refused.path(nullable)), nullable + ": " + refused.path(nullable));
+		}
+		for (String required : List.of("mediaId", "checklistId", "checklistNo", "category", "reason")) {
+			assertFalse(acceptsNull(refused.path(required)), required + ": " + refused.path(required));
+		}
+		for (JsonNode list : List.of(schema("ChecklistSubmittedEvidence").path("properties").path("refusedSameContent"),
+				schema("ChecklistMedia").path("properties").path("refusedNotCarried"))) {
+			assertEquals("array", list.path("type").asString(), list.toString());
+			assertEquals("#/components/schemas/ChecklistRefusedPhoto", list.path("items").path("$ref").asString(),
+					list.toString());
+		}
 	}
 
 	/** contract-wire S-4: the seven reasons of the gate, and null when submission is available (SV-085). */

@@ -229,4 +229,30 @@ class SurveyRecordReaderTest {
 
         assertEquals(Set.of("M1"), record.rejectedOnVisit(V1));
     }
+
+    // ==================== the decided revisions before a revision (survey-checklist SV-310) ====================
+
+    @Test
+    void decidedBefore_earlierDecidedRevisionsOfTheVisit_newestFirst() {
+        SurveyChecklist r1 = returned(1, V1);
+        SurveyChecklist r2 = returned(2, V1);
+        SurveyChecklist r3 = draft(3, V1);
+        SurveyChecklist r4 = returned(4, V2);
+        CycleRecord record = new CycleRecord(List.of(r1, r2, r3, r4), byRevision(documentsOnly(r1, "M1"),
+                documentsOnly(r2, "M2"), documentsOnly(r4, "M4")), Optional.empty());
+
+        assertEquals(List.of(r2, r1), record.decidedBefore(r3));
+        assertEquals(List.of(r1), record.decidedBefore(r2));
+        assertEquals(List.of(), record.decidedBefore(r1));
+    }
+
+    @Test
+    void decidedBefore_firstRevisionOrOtherVisit_none() {
+        SurveyChecklist r1 = returned(1, V1);
+        SurveyChecklist r2 = draft(2, V2);
+        CycleRecord record = new CycleRecord(List.of(r1, r2), byRevision(documentsOnly(r1, "M1")), Optional.empty());
+
+        assertEquals(List.of(), record.decidedBefore(r2));
+        assertEquals(List.of(), record.decidedBefore(r1));
+    }
 }
