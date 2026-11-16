@@ -2,10 +2,11 @@
 name: flyway-migration
 description: Create a new Flyway migration safely. Use whenever a database schema or data change is needed.
 ---
-1. Find the latest migration across ALL modules (`modules/*/src/main/resources/db/migration/`;
-   versions are global) and pick the next version with the pattern V<yyyyMMddHHmm>__<snake_case_desc>.sql,
+1. Find the latest migration across ALL modules and app (`modules/*/src/main/resources/db/migration/` and
+   `app/src/main/resources/db/migration/`; versions are global) and pick the next version with the pattern V<yyyyMMddHHmm>__<snake_case_desc>.sql,
    using the current time and a value later than the latest one.
-2. Put the file in the owning module's db/migration folder. Write one concern per file.
+2. Put the file in the owning module's db/migration folder (the cross-cutting `outbox_events` is owned by `app`,
+   ADR-014). Write one concern per file.
    Never edit an existing committed versioned migration (a repeatable R__ file is edited in place).
 3. Check backward compatibility with the running app: add columns as nullable or with defaults;
    no drop or rename in the same release that stops using the column.

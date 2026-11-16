@@ -45,7 +45,8 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
 - Tooling tests (Claude/Codex hooks, CI scripts; temporary Git repos only): node --test "scripts/tests/*.test.mjs"
 
 ## Modules
-- app: Spring Boot entry point (vn.sunvibe.SunvibeServerApplication) and the single SecurityFilterChain (app/.../config/SecurityConfig.java).
+- app: Spring Boot entry point (vn.sunvibe.SunvibeServerApplication), the single SecurityFilterChain (app/.../config/SecurityConfig.java)
+  and the outbox of ADR-014 (`vn.sunvibe.outbox`).
 - modules/shared-service: shared exceptions, ErrorResponse, crypto, ID generators, AppClock (package vn.sunvibe.shared).
 - modules/auth-service: login by email or phone, refresh-token rotation, registration, email bind and replace, phone
   verification, password reset, audit, rate limit. A Java Flyway migration lives in src/main/java/db/migration.
@@ -91,7 +92,8 @@ Gradle 9.7.1 wrapper, Kotlin DSL, multi-module modular monolith.
   were removed in W10c (auth-browser-session); never re-add them.
 - CORS: explicit origin allow-list from config (app.cors.allowed-origins), allowCredentials=true. Never "*".
   See ../docs/decisions/ADR-001-direct-browser-api.md
-- Schema changes go through Flyway only (modules/<module>/src/main/resources/db/migration). Do not rely on ddl-auto.
+- Schema changes go through Flyway only (modules/<module>/src/main/resources/db/migration; app/src/main/resources/db/migration
+  for `outbox_events`, ADR-014). Do not rely on ddl-auto.
 
 ## Before saying "done"
 Each step is its own evidence; a passing compile (the Claude Stop hook) is not a passing build.

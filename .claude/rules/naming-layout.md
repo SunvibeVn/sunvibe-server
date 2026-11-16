@@ -2,6 +2,7 @@
 paths:
   - "modules/*/src/main/java/**"
   - "app/src/test/java/**/architecture/**"
+  - "app/src/main/java/vn/sunvibe/outbox/**"
 ---
 # Names and packages: one standard for every module
 
@@ -46,6 +47,18 @@ not list stay as they are: `infrastructure/{config,security,email,sms,audit,medi
 | `presentation/dto/{request,response}/[<area>/]` | DTOs | see the words below |
 | `presentation/exception/`, `filter/`, `validation/`, `openapi/` | as named | `*ExceptionHandler` and `*Exception` (in `exception/`), `*Filter` |
 
+## Packages of `app` and the outbox contract
+
+| Package | Holds | Class names |
+|---|---|---|
+| `vn.sunvibe.config[.<area>]` | Spring and web configuration of the whole app | as they are |
+| `vn.sunvibe.integration` | adapters of ports between modules (ADR-009) | `<Provider><Topic>Adapter` |
+| `vn.sunvibe.outbox` (`app`) | the outbox of ADR-014, one flat package: the adapter of `EventOutboxPort`, the entity of `outbox_events` and its SQL, the subscription list, the consumer interface, the retry policy and error codes, the worker, its three scheduled triggers, the holder of its scheduler and per-consumer threads, its configuration | `EventOutboxAdapter`, `OutboxEventEntity`, `OutboxSql`, `OutboxSubscriptions`, `OutboxConsumer`, `OutboxRetryPolicy`, `OutboxErrorCode`, `OutboxWorker`, `OutboxDeliveryJob`, `OutboxCleanupJob`, `OutboxStatusJob`, `OutboxScheduling`, `OutboxConfig` |
+| `vn.sunvibe.shared.outbox` (`shared-service`) | the outbox contract: the port, the envelope, each event type's factory; no repository (ADR-004) | `EventOutboxPort`, `OutboxEvent`, `<Topic>Event` (`UnitAdvertisingChangedEvent`) |
+
+In `vn.sunvibe.outbox` a `*Job` calls one run of `OutboxWorker`, which stands where a module's use case stands; the
+words `Adapter`, `Policy`, `Job` and `Port` keep their meaning.
+
 An exception that crosses a module boundary sits with its contract, in `application/usecase/` or
 `application/shared/external/<system>/`, not in `application/exception/`: `ModuleBoundaryArchTest` lets an integration
 adapter read only those two packages (ADR-009). No class sits directly in `domain/policy/`; survey-service uses its
@@ -88,5 +101,13 @@ replaces its entry with the new classes. The list, with a reason per class, and 
 | Kind | a discriminator used only inside code | |
 | Input | nested part of a request DTO | top-level stays `*Request` |
 | Job | a scheduled trigger that calls one use case or port | |
+| Event | an event contract of the outbox: the envelope a producer appends, or the factory of one event type | in `vn.sunvibe.shared.outbox` |
+| Worker | claims durable work in the database under a lease and runs it (the outbox; survey media's `MediaProcessingWorker`) | |
+| Consumer | receives the outbox rows of one subscription, implemented by an adapter in `vn.sunvibe.integration` (ADR-014 decision 7) | |
+| Subscriptions | the static list of which consumers receive an event type and which payload keys the type declares | |
+| Sql | the native SQL statements of one area, as constants (survey's `MediaSql`) | |
+| Scheduling | holds an area's own scheduler and executors and registers its jobs on them (survey's `MediaScheduling`) | not a Spring bean of a scheduler or executor type |
+| ErrorCode | a closed list of fixed failure codes, stored or logged, never a message (shared's `ErrorCode` for API errors) | |
+| Config | a Spring `@Configuration` class of one area | |
 
 A nested response DTO has a feature-prefixed noun and never the name of a domain class.

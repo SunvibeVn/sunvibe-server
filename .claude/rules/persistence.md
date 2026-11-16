@@ -1,6 +1,7 @@
 ---
 paths:
   - "modules/*/src/main/java/**/core/infrastructure/persistence/**"
+  - "app/src/main/java/vn/sunvibe/outbox/**"
 ---
 # Persistence rules (details: docs/architecture/layer-guide.md#infrastructure-layer-infrastructure)
 - entity/: JPA entities (@Entity, @Table), no business logic, separate from domain models.
