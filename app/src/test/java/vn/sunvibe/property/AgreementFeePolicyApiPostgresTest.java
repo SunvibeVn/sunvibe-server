@@ -539,9 +539,13 @@ class AgreementFeePolicyApiPostgresTest extends IntakeApiTestBase {
 			Result answer = put(sale, done.agreementId(), withPolicy(0, policy));
 
 			assertTrue(answer.status() >= 400, answer.rawBody());
+			// the message and the entries, not the random correlation id, which may hold any digits
+			String quoted = answer.body().path("message").asString() + answer.body().path("errors").toString();
 			for (String value : List.of("123456789", "Zebra", "287", "288", "99", "77")) {
-				assertFalse(answer.rawBody().contains(value), value + " in " + answer.rawBody());
+				assertFalse(quoted.contains(value), value + " in " + answer.rawBody());
 			}
+			assertFalse(answer.rawBody().contains("123456789"), answer.rawBody());
+			assertFalse(answer.rawBody().contains("Zebra"), answer.rawBody());
 		}
 	}
 }
