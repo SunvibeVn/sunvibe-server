@@ -2628,6 +2628,96 @@
         "tags" : [ "Brokerage agreement" ]
       }
     },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/draft" : {
+      "put" : {
+        "operationId" : "updateBrokerageAgreementDraft",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementDraftRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The draft was saved; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: expectedDataVersion, transactionType with its allowedValues, startDate, endDate, exteriorPhotoConsent or a terms path such as terms.mandatoryFees[2].amount) or MALFORMED_REQUEST (the body, a date or a number cannot be read; a fraction is not a whole number)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff; AGREEMENT_NOT_ASSIGNEE: the caller is not the basis lead's assigned Sale"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NOT_DRAFT (the agreement has no draft to edit), AGREEMENT_NOT_ELIGIBLE (one reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY, UNIT, OWNER) or CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed in between)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Replace the whole content of the agreement's draft, against the data version read",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/inventory-cases" : {
       "get" : {
         "operationId" : "list_3",
@@ -8736,6 +8826,34 @@
           }
         }
       },
+      "BrokerageAgreementDepositInput" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "maximum" : 999999999999999,
+            "minimum" : 0
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [ "MONTHS", "AMOUNT" ],
+            "pattern" : "MONTHS|AMOUNT"
+          },
+          "currency" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "VND", null ],
+            "pattern" : "VND"
+          },
+          "months" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "maximum" : 12,
+            "minimum" : 0
+          }
+        },
+        "required" : [ "basis" ]
+      },
       "BrokerageAgreementDetail" : {
         "type" : "object",
         "properties" : {
@@ -8771,6 +8889,140 @@
             "items" : {
               "$ref" : "#/components/schemas/BrokerageAgreementVersion"
             }
+          }
+        }
+      },
+      "BrokerageAgreementDraftRequest" : {
+        "type" : "object",
+        "properties" : {
+          "endDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "A calendar date in Vietnam time, not before the start date and at most 12 months after it"
+          },
+          "expectedDataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The dataVersion of the detail the caller read",
+            "minimum" : 0
+          },
+          "exteriorPhotoConsent" : {
+            "type" : "boolean",
+            "description" : "Public photos of the exterior (front, entrance, street view); true only with photoConsent true"
+          },
+          "photoConsent" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "Public photos of the interior and common areas; null = not answered yet"
+          },
+          "startDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "A calendar date in Vietnam time, 2000-01-01 to 2099-12-31"
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/BrokerageAgreementTermsInput"
+          },
+          "transactionType" : {
+            "type" : "string",
+            "description" : "Only long-term rental now",
+            "enum" : [ "LONG_TERM_RENT" ],
+            "maxLength" : 20,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "endDate", "expectedDataVersion", "exteriorPhotoConsent", "startDate", "terms", "transactionType" ]
+      },
+      "BrokerageAgreementFeeInput" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "maximum" : 999999999999999,
+            "minimum" : 1
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [ "AMOUNT", "INCLUDED", "PROVIDER_TARIFF" ],
+            "pattern" : "AMOUNT|INCLUDED|PROVIDER_TARIFF"
+          },
+          "chargeUnit" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "PER_MONTH", "PER_KWH", "PER_M3", "PER_PERSON_PER_MONTH", "PER_VEHICLE_PER_MONTH", "ONE_OFF", null ],
+            "pattern" : "PER_MONTH|PER_KWH|PER_M3|PER_PERSON_PER_MONTH|PER_VEHICLE_PER_MONTH|ONE_OFF"
+          },
+          "currency" : {
+            "type" : [ "string", "null" ],
+            "enum" : [ "VND", null ],
+            "pattern" : "VND"
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 1
+          }
+        },
+        "required" : [ "basis", "name" ]
+      },
+      "BrokerageAgreementRentInput" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "maximum" : 999999999999999,
+            "minimum" : 1
+          },
+          "currency" : {
+            "type" : "string",
+            "enum" : [ "VND" ],
+            "pattern" : "VND"
+          },
+          "unit" : {
+            "type" : "string",
+            "enum" : [ "MONTH" ],
+            "pattern" : "MONTH"
+          }
+        },
+        "required" : [ "amount", "currency", "unit" ]
+      },
+      "BrokerageAgreementTermsInput" : {
+        "type" : "object",
+        "properties" : {
+          "deposit" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementDepositInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "mandatoryFees" : {
+            "type" : [ "array", "null" ],
+            "description" : "null = not stated yet; [] = no mandatory fee besides the rent",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementFeeInput"
+            },
+            "maxItems" : 20,
+            "minItems" : 0
+          },
+          "minimumTermMonths" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "maximum" : 120,
+            "minimum" : 1
+          },
+          "monthlyRent" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementRentInput"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "paymentPeriodMonths" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "maximum" : 12,
+            "minimum" : 1
           }
         }
       },

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException;
+import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementExistsException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementPeriodException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
@@ -63,6 +64,16 @@ public class BrokerageExceptionHandler {
     /** brokerage-agreement BR-6: the period is refused on the field it is about, without its value. */
     @ExceptionHandler(AgreementPeriodException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handlePeriod(AgreementPeriodException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED,
+                VALIDATION_FAILED_MESSAGE, List.of(ValidationError.of(e.field(), FIELD_MESSAGE))));
+    }
+
+    /**
+     * brokerage-agreement BR-8, BR-9: a draft's content value is refused on its field path (E05-S3 spec S3-D7, S3-D8),
+     * without its value.
+     */
+    @ExceptionHandler(AgreementContentException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleContent(AgreementContentException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED,
                 VALIDATION_FAILED_MESSAGE, List.of(ValidationError.of(e.field(), FIELD_MESSAGE))));
     }
