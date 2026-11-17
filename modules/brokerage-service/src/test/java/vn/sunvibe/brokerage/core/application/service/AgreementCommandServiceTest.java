@@ -7,6 +7,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
@@ -992,6 +993,151 @@ class AgreementCommandServiceTest {
         assertEquals(List.of(), agreements.calls());
         assertEquals(List.of(), calls);
         assertEquals(List.of(), trail.events());
+    }
+
+    // ==================== E05-S5: the new draft version (spec 3.5, S5-D10, S5-D8 backstop) ====================
+
+    /** ND-1: after a rejection the assignee opens version 2, a copy of version 1, with one history row. */
+    @Test
+    void openDraft_afterRejection_version2AndOneRow() {
+        storeAnswered(AGREEMENT, VersionStatus.OWNER_REJECTED, AgreementStatus.DRAFTING);
+
+        service().openDraft(new AgreementOpenDraftCommand(AGREEMENT, 0L), VIEWER);
+
+        BrokerageAgreement stored = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(AgreementStatus.DRAFTING, stored.getStatus());
+        assertEquals(1L, stored.getRowVersionOrNull());
+        assertEquals(2, stored.getVersions().size());
+        AgreementVersion first = stored.getVersions().get(0);
+        AgreementVersion second = stored.getVersions().get(1);
+        assertEquals(VersionStatus.OWNER_REJECTED, first.getStatus());
+        assertEquals(VersionStatus.DRAFT, second.getStatus());
+        assertEquals(2, second.getVersionNo());
+        assertEquals("A1", second.getId());
+        assertEquals(SALE, second.getCreatedByUserId());
+        assertEquals(first.getPeriod(), second.getPeriod());
+        assertEquals(CONSENT, second.getPhotoConsent());
+        assertEquals(TERMS, second.getTerms());
+        assertEquals(FEE, second.getFee());
+        assertEquals(LEAD, second.getBasisLeadId());
+        assertEquals("I1", second.getBasisIntakeId());
+        assertEquals(1, trail.events().size());
+        RecordingAgreementTrail.Event event = trail.events().get(0);
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT, 2, AgreementEventType.DRAFT_OPENED, SALE, event.at()),
+                event);
+        assertEquals(event.at(), second.getCreatedAt());
+        assertEquals(List.of("findById", "update", "findById"), agreements.calls());
+        assertEquals(List.of("forUpdate " + LEAD + " " + SALE, "basis " + LEAD, "account " + OWNER), calls);
+        assertEquals(List.of(), notices.agreementPending());
+    }
+
+    /** ND-3, brokerage-agreement BR-16: only the lead's assigned Sale opens a draft; a lead not visible answers 404. */
+    @Test
+    void openDraft_notAssignee_forbidden() {
+        storeAnswered(AGREEMENT, VersionStatus.OWNER_REJECTED, AgreementStatus.DRAFTING);
+
+        for (StaffViewer viewer : List.of(new StaffViewer("M", Set.of("ROLE_SALES_MANAGER")),
+                new StaffViewer("S2", Set.of("ROLE_ADMIN", "ROLE_SUPER_ADMIN")),
+                new StaffViewer(SALE, Set.of("ROLE_SALES_MANAGER")))) {
+            AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                    () -> service().openDraft(new AgreementOpenDraftCommand(AGREEMENT, 0L), viewer), viewer.toString());
+            assertEquals(Reason.AGREEMENT_NOT_ASSIGNEE, refused.reason());
+        }
+        assertThrows(BrokerageNotFoundException.class, () -> service().openDraft(
+                new AgreementOpenDraftCommand(AGREEMENT, 0L), new StaffViewer("S3", Set.of("ROLE_SALE"))));
+        for (String id : List.of("a1", "01JAGRE0000000000000000009")) {
+            assertThrows(BrokerageNotFoundException.class,
+                    () -> service().openDraft(new AgreementOpenDraftCommand(id, 0L), VIEWER), id);
+        }
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    /** ND-2: a version still waiting, a confirmed one or an open draft keeps the slot. */
+    @Test
+    void openDraft_pendingOrConfirmedOrDraft_notAllowed() {
+        List<Runnable> stores = List.of(
+                () -> storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS)),
+                () -> storeAnswered(AGREEMENT, VersionStatus.OWNER_CONFIRMED, AgreementStatus.AWAITING_CONFIRMATION),
+                () -> storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT));
+
+        for (Runnable store : stores) {
+            store.run();
+            AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                    () -> service().openDraft(new AgreementOpenDraftCommand(AGREEMENT, 0L), VIEWER));
+
+            assertEquals(Reason.AGREEMENT_NEW_DRAFT_NOT_ALLOWED, refused.reason());
+            assertEquals("A new draft can be opened only when no version is pending.", refused.getMessage());
+            assertEquals(List.of(), refused.entries());
+        }
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void openDraft_staleDataVersion_conflictWithEntry() {
+        storeAnswered(AGREEMENT, VersionStatus.OWNER_REJECTED, AgreementStatus.DRAFTING);
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().openDraft(new AgreementOpenDraftCommand(AGREEMENT, 1L), VIEWER));
+
+        assertEquals(Reason.CONCURRENT_MODIFICATION, refused.reason());
+        assertEquals(List.of(new Entry("expectedDataVersion", null)), refused.entries());
+        assertEquals(0, calls.stream().filter(call -> call.startsWith("basis")).count());
+        assertEquals(0, agreements.count("update"));
+    }
+
+    /** ND-3: the E05-S1 check reruns on the latest version's basis. */
+    @Test
+    void openDraft_stopped_notEligible() {
+        storeAnswered(AGREEMENT, VersionStatus.OWNER_REJECTED, AgreementStatus.DRAFTING);
+        bases.basis(LEAD, new IntakeBasisFacts("I2", "P1", "USABLE", BASIS.units(), OWNER, HOLDINGS));
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().openDraft(new AgreementOpenDraftCommand(AGREEMENT, 0L), VIEWER));
+
+        assertEquals(Reason.AGREEMENT_NOT_ELIGIBLE, refused.reason());
+        assertEquals(List.of(new Entry("reasonGroups.BASIS", null)), refused.entries());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    /**
+     * ND-4, E05-S5 spec S5-D8 backstop: a lapse due and not stored yet is stored first, with its history row at its
+     * deadline and no actor, then the agreement is read again and the draft opened in a second write.
+     */
+    @Test
+    void openDraft_lapseDueNotStored_lapseStoredFirstThenDraft() {
+        Instant sentAt = clock().minus(Duration.ofDays(7)).minusSeconds(1);
+        storeSent(AGREEMENT, "U1", sentAt);
+
+        service().openDraft(new AgreementOpenDraftCommand(AGREEMENT, 0L), VIEWER);
+
+        assertEquals(List.of("findById", "update", "findById", "update"), agreements.calls());
+        assertEquals(2, trail.events().size());
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT, 1, AgreementEventType.VERSION_LAPSED, null,
+                sentAt.plus(Duration.ofDays(7))), trail.events().get(0));
+        RecordingAgreementTrail.Event opened = trail.events().get(1);
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT, 2, AgreementEventType.DRAFT_OPENED, SALE, opened.at()),
+                opened);
+        BrokerageAgreement stored = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(2L, stored.getRowVersionOrNull());
+        assertEquals(AgreementStatus.DRAFTING, stored.getStatus());
+        assertEquals(VersionStatus.LAPSED, stored.getVersions().get(0).getStatus());
+        assertEquals(VersionStatus.DRAFT, stored.getVersions().get(1).getStatus());
+    }
+
+    /** Stores {@link #AGREEMENT} on U1 with its version 1 sent an hour ago and answered by the owner as given. */
+    private void storeAnswered(String agreementId, VersionStatus versionStatus, AgreementStatus status) {
+        Instant sentAt = clock().minus(2, ChronoUnit.HOURS);
+        Instant answered = clock().minus(1, ChronoUnit.HOURS);
+        OwnerAnswer answer = versionStatus == VersionStatus.OWNER_CONFIRMED
+                ? OwnerAnswer.confirmed(OWNER, AgreementStatement.VERSION, answered)
+                : OwnerAnswer.rejected(OWNER, "Too low", answered);
+        agreements.store(BrokerageAgreement.load(agreementId, "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, OWNER,
+                LEAD, status, "S9", sentAt, answered, 0L, List.of(AgreementVersion.load("V" + agreementId, 1,
+                        versionStatus, new AgreementPeriod(START, START.plusMonths(6)), LEAD, "I1", "S9", sentAt,
+                        answered, CONSENT, TERMS, FEE, sentAt, answer))));
     }
 
     /** The command confirming version 1 of each agreement, with the current statement. */

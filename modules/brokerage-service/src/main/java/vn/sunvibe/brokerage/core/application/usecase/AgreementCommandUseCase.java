@@ -3,6 +3,7 @@ package vn.sunvibe.brokerage.core.application.usecase;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 
@@ -84,4 +85,21 @@ public interface AgreementCommandUseCase {
      * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  not the caller's sent version
      */
     void rejectByOwner(AgreementRejectCommand command, String ownerUserId);
+
+    /**
+     * The basis lead's assigned Sale opens the next draft version after the owner's rejection or a lapse
+     * (brokerage-agreement US-2 AC-3, E-6; E05-S5 spec S5-D10): version n + 1, a DRAFT copy of the latest version's
+     * content, and one history row. In one transaction, the first failing step answers: the agreement (404); its basis
+     * lead, locked and visible to the actor (404); the actor is its current assignee with SALE or SALE_LEADER (403); the
+     * agreement, with a due lapse applied, is DRAFTING with no pending version (409 AGREEMENT_NEW_DRAFT_NOT_ALLOWED); the
+     * data version (409 CONCURRENT_MODIFICATION); the E05-S1 check on the latest version's basis (409). A lapse due and
+     * not stored yet is stored first, with its VERSION_LAPSED row at its deadline. A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  the agreement or its lead is
+     *                                                                                     not visible
+     * @throws org.springframework.dao.ConcurrencyFailureException                         the agreement changed between
+     *                                                                                     its read and the write
+     */
+    void openDraft(AgreementOpenDraftCommand command, StaffViewer actor);
 }

@@ -6,6 +6,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
@@ -26,6 +27,7 @@ import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
@@ -330,6 +332,62 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         // brokerage-agreement US-2 AC-3, E-6: the agreement is drafting again and the Sale may open a new draft.
         agreements.update(agreement.rejectByOwner(command.versionNo(), ownerUserId, command.reasonOrNull(), now));
         trail.recordEvent(agreement.getId(), command.versionNo(), AgreementEventType.OWNER_REJECTED, ownerUserId, now);
+    }
+
+    /**
+     * Statements (E05-S5 spec S5-D10): one agreement read, one locked lead read (held to the end, lock order of E05-S2
+     * spec S2-D4), the basis and owner reads of the E05-S1 check; when a lapse is due and not stored yet, the guarded
+     * update that stores it with its history row and a second agreement read; then the guarded update that adds the new
+     * draft version and one history row.
+     */
+    @Override
+    @Transactional
+    public void openDraft(AgreementOpenDraftCommand command, StaffViewer actor) {
+        if (!AgreementQueryService.AGREEMENT_ID.matcher(command.agreementId()).matches()) {
+            throw new BrokerageNotFoundException();
+        }
+        BrokerageAgreement agreement = agreements.findById(command.agreementId())
+                .orElseThrow(BrokerageNotFoundException::new);
+        BasisLeadFacts lead = leads.findVisibleForUpdate(agreement.getBasisLeadId(), actor.userId(),
+                actor.expandedAuthorities()).orElseThrow(BrokerageNotFoundException::new);
+        // brokerage-agreement BR-16 and E-10: only the lead's current assignee holding SALE or SALE_LEADER drafts.
+        if (!EligibilityPolicy.assignedSale(lead.assignedUserIdOrNull(), actor.userId(), actor.expandedAuthorities())) {
+            throw AgreementRefusedException.notAssignee();
+        }
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        // brokerage-agreement BR-5: one pending version at a time; a version still waiting for the owner or for
+        // activation, or an agreement in effect, keeps the slot (a new version of an agreement in effect is E05-S10's).
+        BrokerageAgreement effective = agreement.withDueLapse(now);
+        if (effective.getStatus() != AgreementStatus.DRAFTING
+                || effective.getVersions().stream().anyMatch(version -> version.getStatus().isPending())) {
+            throw AgreementRefusedException.newDraftNotAllowed();
+        }
+        // brokerage-agreement BR-5: the change checks the data version the caller read.
+        if (!command.expectedDataVersion().equals(agreement.getRowVersionOrNull())) {
+            throw AgreementRefusedException.stale();
+        }
+        // brokerage-agreement BR-2 to BR-4: the E05-S1 check on the latest version's basis (a newer completed intake of
+        // the lead answers BASIS: a version on another basis is E05-S10's).
+        AgreementVersion latest = effective.getVersions().getLast();
+        List<ReasonGroup> groups = draftGroups(effective, latest, lead.leadId());
+        if (!groups.isEmpty()) {
+            throw AgreementRefusedException.notEligible(groups);
+        }
+        AgreementVersion due = agreement.dueLapseOrNull(now);
+        BrokerageAgreement drafting = agreement;
+        if (due != null) {
+            // E05-S5 spec S5-D8: the job's backstop. The lapse is stored first, in its own flush, and the agreement read
+            // again: one flush would insert the new DRAFT row before updating the old one and meet
+            // uq_brokerage_agreement_versions_pending, which is not deferrable.
+            agreements.update(effective);
+            trail.recordEvent(agreement.getId(), due.getVersionNo(), AgreementEventType.VERSION_LAPSED, null,
+                    due.answerByOrNull());
+            drafting = agreements.findById(agreement.getId()).orElseThrow(BrokerageNotFoundException::new);
+        }
+        BrokerageAgreement opened = drafting.openDraft(ids.generateId(), actor.userId(), now);
+        agreements.update(opened);
+        trail.recordEvent(agreement.getId(), opened.getVersions().getLast().getVersionNo(),
+                AgreementEventType.DRAFT_OPENED, actor.userId(), now);
     }
 
     /**
