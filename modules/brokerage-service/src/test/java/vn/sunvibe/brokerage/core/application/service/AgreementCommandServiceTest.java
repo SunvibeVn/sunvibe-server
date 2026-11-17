@@ -7,6 +7,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
@@ -19,6 +20,7 @@ import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasi
 import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasisFacts.Unit;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCreateResult;
 import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
+import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementPeriodException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
@@ -899,6 +901,97 @@ class AgreementCommandServiceTest {
         service().confirmByOwner(confirm(AGREEMENT), OWNER);
         assertEquals(VersionStatus.OWNER_CONFIRMED,
                 agreements.findById(AGREEMENT).orElseThrow().getVersions().get(0).getStatus());
+    }
+
+    // ==================== E05-S5: the owner's rejection (spec 3.3, S5-D7, S5-D9) ====================
+
+    /** RJ-1: declined with the trimmed reason, the agreement drafting again, no password asked. */
+    @Test
+    void rejectByOwner_answerable_rejectedDraftingNoPassword() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+
+        service().rejectByOwner(new AgreementRejectCommand(AGREEMENT, 1, "  The rent is too low.  "), OWNER);
+
+        BrokerageAgreement stored = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(1, trail.events().size());
+        RecordingAgreementTrail.Event event = trail.events().get(0);
+        Instant at = event.at();
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT, 1, AgreementEventType.OWNER_REJECTED, OWNER, at), event);
+        assertEquals(AgreementStatus.DRAFTING, stored.getStatus());
+        assertEquals(1L, stored.getRowVersionOrNull());
+        AgreementVersion version = stored.getVersions().get(0);
+        assertEquals(VersionStatus.OWNER_REJECTED, version.getStatus());
+        assertEquals(OwnerAnswer.rejected(OWNER, "The rent is too low.", at), version.getOwnerAnswerOrNull());
+        assertEquals(TERMS, version.getTerms());
+        assertEquals(List.of(), passwords.checks());
+        assertEquals(List.of(), notices.agreementPending());
+        assertEquals(List.of(), trail.accesses());
+
+        storeSent(AGREEMENT_2, "U1", clock().minus(1, ChronoUnit.HOURS));
+        service().rejectByOwner(new AgreementRejectCommand(AGREEMENT_2, 1, "   "), OWNER);
+        assertEquals(null, agreements.findById(AGREEMENT_2).orElseThrow().getVersions().get(0).getOwnerAnswerOrNull()
+                .rejectionReasonOrNull());
+    }
+
+    /** RJ-1, US-2 AC-1: another owner, a non-owner and every id that is not the caller's sent version get one not-found. */
+    @Test
+    void rejectByOwner_notBound_notFound() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+        storeSent(AGREEMENT_2, "U1", null);
+        accounts.answer("O2", true);
+        List<Executable> notFound = List.of(
+                () -> service().rejectByOwner(new AgreementRejectCommand(AGREEMENT, 1, null), "O2"),
+                () -> service().rejectByOwner(new AgreementRejectCommand("a1", 1, null), OWNER),
+                () -> service().rejectByOwner(new AgreementRejectCommand("01JAGRE0000000000000000009", 1, null), OWNER),
+                () -> service().rejectByOwner(new AgreementRejectCommand(AGREEMENT, 2, null), OWNER),
+                () -> service().rejectByOwner(new AgreementRejectCommand(AGREEMENT_2, 1, null), OWNER));
+
+        for (int index = 0; index < notFound.size(); index++) {
+            assertThrows(BrokerageNotFoundException.class, notFound.get(index), "case " + index);
+        }
+        accounts.answer(OWNER, false);
+        assertThrows(BrokerageNotFoundException.class,
+                () -> service().rejectByOwner(new AgreementRejectCommand(AGREEMENT, 1, null), OWNER));
+
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void rejectByOwner_lapsedOrAnswered_notAwaitingNoEntry() {
+        storeSent(AGREEMENT, "U1", clock().minus(Duration.ofDays(7)).minusSeconds(1));
+        Instant answered = clock().minus(30, ChronoUnit.MINUTES);
+        agreements.store(BrokerageAgreement.load(AGREEMENT_2, "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, OWNER,
+                LEAD, AgreementStatus.AWAITING_CONFIRMATION, "S9", answered, answered, 1L, List.of(AgreementVersion.load(
+                        "V2", 1, VersionStatus.OWNER_CONFIRMED, new AgreementPeriod(START, START.plusMonths(6)), LEAD,
+                        "I1", "S9", answered, answered, CONSENT, TERMS, FEE, clock().minus(1, ChronoUnit.HOURS),
+                        OwnerAnswer.confirmed(OWNER, AgreementStatement.VERSION, answered)))));
+
+        for (String id : List.of(AGREEMENT, AGREEMENT_2)) {
+            AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                    () -> service().rejectByOwner(new AgreementRejectCommand(id, 1, "No"), OWNER), id);
+
+            assertEquals(Reason.AGREEMENT_NOT_AWAITING_OWNER, refused.reason());
+            assertEquals(List.of(), refused.entries());
+        }
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    /** spec 3.3, S5-D18: the reason's rule is part of the body's shape, so it answers first, for any agreement id. */
+    @Test
+    void rejectByOwner_badReasonOnAnyAgreement_validationFirst() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+
+        for (String id : List.of(AGREEMENT, "01JAGRE0000000000000000009")) {
+            AgreementContentException refused = assertThrows(AgreementContentException.class,
+                    () -> service().rejectByOwner(new AgreementRejectCommand(id, 1, "Too‮low"), OWNER), id);
+
+            assertEquals("reason", refused.field());
+        }
+        assertEquals(List.of(), agreements.calls());
+        assertEquals(List.of(), calls);
+        assertEquals(List.of(), trail.events());
     }
 
     /** The command confirming version 1 of each agreement, with the current statement. */

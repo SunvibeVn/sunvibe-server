@@ -3,6 +3,7 @@ package vn.sunvibe.brokerage.core.application.usecase;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 
 /** Use Case - the commands of a brokerage agreement. */
@@ -70,4 +71,17 @@ public interface AgreementCommandUseCase {
      *                                                                                     its read and the write
      */
     void confirmByOwner(AgreementConfirmCommand command, String ownerUserId);
+
+    /**
+     * The owner declines the version waiting for them, with an optional private reason (brokerage-agreement US-2 AC-3,
+     * BR-17; E05-S5 spec S5-D7): the version OWNER_REJECTED, the agreement drafting again, one history row; no password.
+     * In one transaction, the first failing step answers: the reason's rule (400 on reason); the caller is an eligible
+     * owner and the version is theirs and was sent (404, one answer for every case); the version still waits for them
+     * within its 7 days (409). A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.domain.exception.AgreementContentException       the reason breaks its rule
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  not the caller's sent version
+     */
+    void rejectByOwner(AgreementRejectCommand command, String ownerUserId);
 }

@@ -6,6 +6,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
@@ -27,6 +28,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.eligibility.ReasonGroup;
 import vn.sunvibe.brokerage.core.domain.policy.agreement.VersionSendRules;
@@ -306,6 +308,28 @@ public class AgreementCommandService implements AgreementCommandUseCase {
             agreements.update(agreement.confirmByOwner(versionNo, ownerUserId, AgreementStatement.VERSION, now));
             trail.recordEvent(agreement.getId(), versionNo, AgreementEventType.OWNER_CONFIRMED, ownerUserId, now);
         });
+    }
+
+    /**
+     * Statements (E05-S5 spec S5-D7): auth's owner standing, one agreement read, then the guarded update of the agreement
+     * row with its version row and one history insert. No password (US-2 AC-3 asks none for a rejection), no lead lock,
+     * no E05-S1 recheck (refusing a "no" would keep the version pending for nothing), no notice.
+     */
+    @Override
+    @Transactional
+    public void rejectByOwner(AgreementRejectCommand command, String ownerUserId) {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        // brokerage-agreement BR-17 (E05-S5 spec 3.3): the reason's rule is part of the body's shape, so it answers first,
+        // the same for every caller and id.
+        OwnerAnswer.rejected(ownerUserId, command.reasonOrNull(), now);
+        BrokerageAgreement agreement = boundVersion(ownerUserId, command.agreementId(), command.versionNo());
+        // brokerage-agreement BR-5, BR-10: only the version waiting for the owner, within its 7 days, is declined.
+        if (versionOf(agreement, command.versionNo()).filter(version -> version.answerableAt(now)).isEmpty()) {
+            throw AgreementRefusedException.notAwaitingOwner(List.of());
+        }
+        // brokerage-agreement US-2 AC-3, E-6: the agreement is drafting again and the Sale may open a new draft.
+        agreements.update(agreement.rejectByOwner(command.versionNo(), ownerUserId, command.reasonOrNull(), now));
+        trail.recordEvent(agreement.getId(), command.versionNo(), AgreementEventType.OWNER_REJECTED, ownerUserId, now);
     }
 
     /**
