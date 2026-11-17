@@ -5,6 +5,7 @@ import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRefuseActivationCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 
@@ -128,6 +129,24 @@ public interface AgreementCommandUseCase {
      *                                                                                     its read and the write
      */
     void activate(AgreementActivateCommand command, StaffViewer actor);
+
+    /**
+     * An independent manager refuses to activate the version the owner confirmed, with a type and an optional private
+     * note (brokerage-agreement US-3 AC-3, E-7, BR-17; E05-S6 spec S6-D4): the version ACTIVATION_REFUSED with its
+     * refusal record, the agreement drafting again, one history row; no event and no notice. In one transaction, the
+     * first failing step answers: the note's rule (400 on note); the role is the controller's method rule (403); the
+     * agreement (404); its basis lead, locked and visible to the actor (404); the actor is independent (403
+     * AGREEMENT_ACTIVATOR_NOT_INDEPENDENT); the version awaits activation within its 14 days (409
+     * AGREEMENT_NOT_AWAITING_ACTIVATION); the data version (409 CONCURRENT_MODIFICATION). A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.domain.exception.AgreementContentException       the note breaks its rule
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  the agreement or its lead is
+     *                                                                                     not visible
+     * @throws org.springframework.dao.ConcurrencyFailureException                         the agreement changed between
+     *                                                                                     its read and the write
+     */
+    void refuseActivation(AgreementRefuseActivationCommand command, StaffViewer actor);
 
     /**
      * Stores the 7-day lapses that are due (brokerage-agreement BR-10, US-2 AC-3; E05-S5 spec S5-D8): at most

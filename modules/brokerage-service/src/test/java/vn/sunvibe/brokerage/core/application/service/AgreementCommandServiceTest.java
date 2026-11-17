@@ -9,6 +9,7 @@ import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRefuseActivationCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
@@ -25,6 +26,7 @@ import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementPeriodException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationRefusalType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
@@ -1459,6 +1461,135 @@ class AgreementCommandServiceTest {
         assertEquals(List.of(UnitAdvertisingChangedEvent.now(UNIT), UnitAdvertisingChangedEvent.dueAt(UNIT,
                         now.plus(Duration.ofDays(200)))),
                 AgreementCommandService.activationEvents(UNIT, now, now, now.plus(Duration.ofDays(200))));
+    }
+
+    // ==================== E05-S6: the refusal of activation (spec S6-D4, 3.2) ====================
+
+    /** RF-1 (unit part): refused with its type and trimmed note, drafting again, one row, no event, no notice. */
+    @Test
+    void refuseActivation_documentDiffers_refusedDraftingOneRow() {
+        LocalDate today = AgreementVersion.todayInVietnam(clock());
+        storeConfirmed(AGREEMENT, new AgreementPeriod(today, today.plusMonths(6)), clock().minus(1, ChronoUnit.HOURS));
+        basisOfUnit();
+
+        service().refuseActivation(new AgreementRefuseActivationCommand(AGREEMENT, 0L, 1,
+                ActivationRefusalType.DOCUMENT_DIFFERS, "  Rent differs.  "), MANAGER_VIEWER);
+
+        RecordingAgreementTrail.Event event = trail.events().getFirst();
+        Instant now = event.at();
+        assertEquals(List.of(new RecordingAgreementTrail.Event(AGREEMENT, 1, AgreementEventType.ACTIVATION_REFUSED,
+                MANAGER, now)), trail.events());
+        BrokerageAgreement stored = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(AgreementStatus.DRAFTING, stored.getStatus());
+        assertEquals(1L, stored.getRowVersionOrNull());
+        AgreementVersion version = stored.getVersions().getFirst();
+        assertEquals(VersionStatus.ACTIVATION_REFUSED, version.getStatus());
+        assertEquals(ActivationDecision.refused(MANAGER, now, ActivationRefusalType.DOCUMENT_DIFFERS, "Rent differs."),
+                version.getActivationOrNull());
+        assertEquals(List.of(), outbox.events());
+        assertEquals(List.of(), notices.agreementActivated());
+        assertEquals(List.of(), notices.agreementPending());
+        assertEquals(List.of(), trail.accesses());
+    }
+
+    @Test
+    void refuseActivation_noteBlankOrNull_noneStored() {
+        LocalDate today = AgreementVersion.todayInVietnam(clock());
+        basisOfUnit();
+        for (String note : java.util.Arrays.asList(null, "", "   ")) {
+            storeConfirmed(AGREEMENT, new AgreementPeriod(today, today.plusMonths(6)),
+                    clock().minus(1, ChronoUnit.HOURS));
+
+            service().refuseActivation(new AgreementRefuseActivationCommand(AGREEMENT, 0L, 1,
+                    ActivationRefusalType.SIGNER_NOT_OWNER, note), MANAGER_VIEWER);
+
+            ActivationDecision decision = agreements.findById(AGREEMENT).orElseThrow().getVersions().getFirst()
+                    .getActivationOrNull();
+            assertEquals(ActivationRefusalType.SIGNER_NOT_OWNER, decision.refusalTypeOrNull(), String.valueOf(note));
+            assertNull(decision.refusalNoteOrNull(), String.valueOf(note));
+        }
+    }
+
+    /** RF-1 with AV-3 and AV-4 (unit part): the same independence, state and data-version refusals; nothing written. */
+    @Test
+    void refuseActivation_notIndependentOrNotAwaiting_refusedNothingWritten() {
+        LocalDate today = AgreementVersion.todayInVietnam(clock());
+        basisOfUnit();
+        leads.lead(LEAD, SALE, SALE, MANAGER, "E1");
+        trail.recordEvent(AGREEMENT, 1, AgreementEventType.DRAFT_EDITED, "E1", clock());
+        storeConfirmed(AGREEMENT, new AgreementPeriod(today, today.plusMonths(6)), clock().minus(1, ChronoUnit.HOURS));
+
+        for (StaffViewer viewer : List.of(new StaffViewer(SALE, Set.of("ROLE_SALE_LEADER")),
+                new StaffViewer("E1", Set.of("ROLE_SALE_LEADER")))) {
+            assertEquals(Reason.AGREEMENT_ACTIVATOR_NOT_INDEPENDENT, assertThrows(AgreementRefusedException.class,
+                    () -> service().refuseActivation(refusal(0L, 1), viewer), viewer.userId()).reason());
+        }
+        assertEquals(Reason.AGREEMENT_NOT_AWAITING_ACTIVATION, assertThrows(AgreementRefusedException.class,
+                () -> service().refuseActivation(refusal(0L, 2), MANAGER_VIEWER)).reason());
+        storeConfirmed(AGREEMENT, new AgreementPeriod(today, today.plusMonths(6)),
+                clock().minus(Duration.ofDays(14)).minusSeconds(1));
+        assertEquals(Reason.AGREEMENT_NOT_AWAITING_ACTIVATION, assertThrows(AgreementRefusedException.class,
+                () -> service().refuseActivation(refusal(0L, 1), MANAGER_VIEWER)).reason());
+        storeDraft(UNIT, AgreementStatus.DRAFTING, VersionStatus.DRAFT);
+        assertEquals(Reason.AGREEMENT_NOT_AWAITING_ACTIVATION, assertThrows(AgreementRefusedException.class,
+                () -> service().refuseActivation(refusal(0L, 1), MANAGER_VIEWER)).reason());
+        assertEquals(1, trail.events().size());
+        assertNothingActivated();
+    }
+
+    @Test
+    void refuseActivation_leadNotVisible_notFound() {
+        LocalDate today = AgreementVersion.todayInVietnam(clock());
+        storeConfirmed(AGREEMENT, new AgreementPeriod(today, today.plusMonths(6)), clock().minus(1, ChronoUnit.HOURS));
+        basisOfUnit();
+
+        assertThrows(BrokerageNotFoundException.class, () -> service().refuseActivation(refusal(0L, 1),
+                new StaffViewer("M9", Set.of("ROLE_SALE_LEADER"))));
+
+        assertEquals(List.of(), trail.events());
+        assertNothingActivated();
+    }
+
+    @Test
+    void refuseActivation_staleDataVersion_conflictWithEntry() {
+        LocalDate today = AgreementVersion.todayInVietnam(clock());
+        storeConfirmed(AGREEMENT, new AgreementPeriod(today, today.plusMonths(6)), clock().minus(1, ChronoUnit.HOURS));
+        basisOfUnit();
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().refuseActivation(refusal(3L, 1), MANAGER_VIEWER));
+
+        assertEquals(Reason.CONCURRENT_MODIFICATION, refused.reason());
+        assertEquals(List.of(new Entry("expectedDataVersion", null)), refused.entries());
+        assertEquals(List.of(), trail.events());
+        assertNothingActivated();
+    }
+
+    /** RF-2 (command part): after a refusal the Sale opens version 2, a copy, with E05-S5's command unchanged. */
+    @Test
+    void refuseActivation_thenOpenDraft_version2Copy() {
+        LocalDate today = AgreementVersion.todayInVietnam(clock());
+        storeConfirmed(AGREEMENT, new AgreementPeriod(today, today.plusMonths(6)), clock().minus(1, ChronoUnit.HOURS));
+        basisOfUnit();
+        service().refuseActivation(refusal(0L, 1), MANAGER_VIEWER);
+
+        service().openDraft(new AgreementOpenDraftCommand(AGREEMENT, 1L), VIEWER);
+
+        BrokerageAgreement stored = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(AgreementStatus.DRAFTING, stored.getStatus());
+        assertEquals(VersionStatus.ACTIVATION_REFUSED, stored.getVersions().get(0).getStatus());
+        AgreementVersion copy = stored.getVersions().get(1);
+        assertEquals(VersionStatus.DRAFT, copy.getStatus());
+        assertEquals(stored.getVersions().get(0).getTerms(), copy.getTerms());
+        assertEquals(stored.getVersions().get(0).getPeriod(), copy.getPeriod());
+        assertNull(copy.getActivationOrNull());
+        assertEquals(List.of(AgreementEventType.ACTIVATION_REFUSED, AgreementEventType.DRAFT_OPENED),
+                trail.events().stream().map(RecordingAgreementTrail.Event::type).toList());
+    }
+
+    private static AgreementRefuseActivationCommand refusal(long expectedDataVersion, int versionNo) {
+        return new AgreementRefuseActivationCommand(AGREEMENT, expectedDataVersion, versionNo,
+                ActivationRefusalType.DOCUMENT_DIFFERS, "Rent differs.");
     }
 
     /** The command activating that version with the document of the fixtures, signed on that date. */

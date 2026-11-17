@@ -9,6 +9,7 @@ import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRefuseActivationCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
@@ -455,6 +456,29 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         }
         // brokerage-agreement US-3 AC-5, BR-17: the owner party's account gets a neutral notice by user id.
         notices.agreementActivated(agreement.getOwnerUserId());
+    }
+
+    /**
+     * Statements (E05-S6 spec S6-D4, plan E05S6-P4): one agreement read, one locked lead read and one read of the
+     * version's authors, then the guarded update of the agreement row with the version's row and one history insert. No
+     * statement, no period check and no E05-S1 rerun (refusing a "no" needs none), no event (the answer does not
+     * change) and no notice (brokerage-agreement BR-17 names none).
+     */
+    @Override
+    @Transactional
+    public void refuseActivation(AgreementRefuseActivationCommand command, StaffViewer actor) {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        // brokerage-agreement BR-17 (spec S6-D4): the note's rule is part of the body's shape, so it answers first.
+        ActivationDecision decision = ActivationDecision.refused(actor.userId(), now, command.refusalType(),
+                command.noteOrNull());
+        AwaitingActivation awaiting = awaitingActivation(command.agreementId(), command.expectedDataVersion(),
+                command.versionNo(), actor, now);
+        // brokerage-agreement US-3 AC-3, E-7 (E05-S5 spec S5-D9): the agreement is drafting again and the Sale opens a
+        // new draft with the new-draft command.
+        BrokerageAgreement agreement = awaiting.agreement();
+        int versionNo = awaiting.version().getVersionNo();
+        agreements.update(agreement.refuseActivation(versionNo, decision, now));
+        trail.recordEvent(agreement.getId(), versionNo, AgreementEventType.ACTIVATION_REFUSED, actor.userId(), now);
     }
 
     /**
