@@ -38,6 +38,15 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	/** The sending of an agreement's draft (E05-S4 spec S4-D12); {@code /*}{@code /draft} matches that path only. */
 	static final String BROKERAGE_AGREEMENT_SUBMISSION_PATTERN = "/api/v1/staff/brokerage-agreements/*/draft/submission";
 
+	/** The owner's read of their agreements (E05-S5 spec S5-D15). */
+	static final String ME_BROKERAGE_AGREEMENTS_PATTERN = "/api/v1/me/brokerage-agreements";
+
+	/** The owner's confirmation of sent versions (E05-S5 spec S5-D15). */
+	static final String ME_BROKERAGE_AGREEMENT_CONFIRMATIONS_PATTERN = "/api/v1/me/brokerage-agreements/confirmations";
+
+	/** The owner's rejection of a sent version (E05-S5 spec S5-D15); the staff POST .../draft is covered by the draft pattern. */
+	static final String ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN = "/api/v1/me/brokerage-agreements/*/rejection";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -54,6 +63,7 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 				.excludePathPatterns(MediaContentPaths.UPLOAD_PATTERN, MediaContentPaths.READ_PATTERN,
 						BROKERAGE_ELIGIBILITY_PATTERN, BROKERAGE_AGREEMENTS_PATTERN, BROKERAGE_AGREEMENT_PATTERN,
 						BROKERAGE_AGREEMENT_DRAFT_PATTERN, BROKERAGE_AGREEMENT_SURVEY_TERMS_PATTERN,
-						BROKERAGE_AGREEMENT_SUBMISSION_PATTERN);
+						BROKERAGE_AGREEMENT_SUBMISSION_PATTERN, ME_BROKERAGE_AGREEMENTS_PATTERN,
+						ME_BROKERAGE_AGREEMENT_CONFIRMATIONS_PATTERN, ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN);
 	}
 }
