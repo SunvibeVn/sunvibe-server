@@ -8,12 +8,20 @@ import vn.sunvibe.brokerage.core.application.query.AgreementDetailView.VersionVi
 import vn.sunvibe.brokerage.core.application.query.OwnerAgreementView;
 import vn.sunvibe.brokerage.core.application.query.OwnerAgreementsView;
 import vn.sunvibe.brokerage.core.application.query.SurveyTermsView;
+import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasisFacts;
 import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeOriginFacts;
+import vn.sunvibe.brokerage.core.application.shared.external.property.PropertyOwnerFacts;
+import vn.sunvibe.brokerage.core.application.shared.external.property.UnitBasisFacts;
 import vn.sunvibe.brokerage.core.application.shared.external.property.UnitLocationFacts;
 import vn.sunvibe.brokerage.core.application.shared.external.survey.SourceTermsFacts;
+import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightView;
 import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecisionType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AdvertisingScope;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementAccessType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
@@ -26,13 +34,16 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SignedDocument;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryAgreementRepository;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryBasisLeadPort;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryIntakeOriginPort;
+import vn.sunvibe.brokerage.core.testsupport.InMemoryOwnerEligibilityPort;
 import vn.sunvibe.brokerage.core.testsupport.InMemorySourceTermsPort;
+import vn.sunvibe.brokerage.core.testsupport.InMemoryUnitBasisPort;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryUnitLocationPort;
 import vn.sunvibe.brokerage.core.testsupport.RecordingAgreementTrail;
 import vn.sunvibe.brokerage.core.testsupport.RecordingOwnerAccountPort;
@@ -79,8 +90,11 @@ class AgreementQueryServiceTest {
     private final InMemorySourceTermsPort sourceTerms = new InMemorySourceTermsPort(calls);
     private final RecordingOwnerAccountPort accounts = new RecordingOwnerAccountPort(calls).answer(OWNER, true);
     private final InMemoryUnitLocationPort locations = new InMemoryUnitLocationPort();
+    private final InMemoryUnitBasisPort unitBases = new InMemoryUnitBasisPort();
+    private final InMemoryOwnerEligibilityPort eligibility = new InMemoryOwnerEligibilityPort();
+    private final AdvertisingRightAssembler assembler = new AdvertisingRightAssembler(unitBases, eligibility);
     private final AgreementQueryService service = new AgreementQueryService(agreements, leads, trail, origins,
-            sourceTerms, accounts, locations);
+            sourceTerms, accounts, locations, assembler);
 
     @Test
     void detail_visibleBasisLead_viewAndOneAccessRow() {
@@ -89,8 +103,9 @@ class AgreementQueryServiceTest {
         assertEquals(new AgreementDetailView(AGREEMENT, AgreementStatus.DRAFTING, TransactionType.LONG_TERM_RENT, "U1",
                 "P101", LEAD, CREATED, List.of(new VersionView(1, VersionStatus.DRAFT, PERIOD.startDate(),
                 PERIOD.endDate(), CREATED, AdvertisingScope.SUNVIBE_CHANNELS, PhotoConsent.NONE, VersionTerms.NONE,
-                BrokerageFee.NONE, null, null, null, null)),
-                0L, true), view);
+                BrokerageFee.NONE, null, null, null, null, null, null)),
+                0L, true, new AdvertisingRightView("U1", AGREEMENT, false, false, List.of("NOT_IN_EFFECT"), null, null,
+                false, false, null, null, null, null), false, null), view);
         assertEquals(1, trail.accesses().size());
         RecordingAgreementTrail.Access access = trail.accesses().get(0);
         assertEquals(new RecordingAgreementTrail.Access(SALE, AGREEMENT, AgreementAccessType.DETAIL_READ, access.at()),
@@ -118,8 +133,8 @@ class AgreementQueryServiceTest {
         VersionView version = service.detail(AGREEMENT, VIEWER).versions().getFirst();
 
         assertEquals(new VersionView(1, VersionStatus.AWAITING_OWNER, PERIOD.startDate(), PERIOD.endDate(), CREATED,
-                AdvertisingScope.SUNVIBE_CHANNELS, consent, terms, fee, sent, sent.plus(Duration.ofDays(7)), null, null),
-                version);
+                AdvertisingScope.SUNVIBE_CHANNELS, consent, terms, fee, sent, sent.plus(Duration.ofDays(7)), null, null,
+                null, null), version);
     }
 
     @Test
@@ -152,7 +167,7 @@ class AgreementQueryServiceTest {
     @Test
     void detail_accessWriteFails_noViewAnswered() {
         AgreementQueryService failing = new AgreementQueryService(agreements, leads, trail.failAccess(), origins,
-                sourceTerms, accounts, locations);
+                sourceTerms, accounts, locations, assembler);
 
         assertThrows(IllegalStateException.class, () -> failing.detail(AGREEMENT, VIEWER));
         assertEquals(List.of(), trail.accesses());
@@ -175,7 +190,7 @@ class AgreementQueryServiceTest {
                 "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, "O", LEAD, AgreementStatus.DRAFTING, SALE, CREATED,
                 CREATED, 3L, STORED.getVersions()));
         AgreementQueryService read = new AgreementQueryService(moved, seen, trail, origins, sourceTerms, accounts,
-                locations);
+                locations, assembler);
 
         AgreementDetailView forSale = read.detail(AGREEMENT, VIEWER);
         AgreementDetailView forManager = read.detail(AGREEMENT, new StaffViewer("M", Set.of("ROLE_SALES_MANAGER")));
@@ -311,7 +326,7 @@ class AgreementQueryServiceTest {
                 TransactionType.LONG_TERM_RENT, "P101", "P101 · Floor 1", "12 Tran Phu", "Hai Chau",
                 List.of(new VersionView(1, VersionStatus.AWAITING_OWNER, PERIOD.startDate(), PERIOD.endDate(), CREATED,
                         AdvertisingScope.SUNVIBE_CHANNELS, OWNER_CONSENT, OWNER_TERMS, OWNER_FEE, firstSent,
-                        firstSent.plus(Duration.ofDays(7)), null, null)),
+                        firstSent.plus(Duration.ofDays(7)), null, null, null, null)),
                 new OwnerAgreementsView.StatementView(AgreementStatement.VERSION, AgreementStatement.text(1, "P101"))),
                 first);
         assertTrue(first.statementOrNull().text().contains("Version 1"));
@@ -437,8 +452,143 @@ class AgreementQueryServiceTest {
         assertEquals("Too low", version.ownerRejectionReasonOrNull());
     }
 
+    // ==================== E05-S6: the answer, the activation hint and the effective state (S6-D8, S6-D21) ==========
+
+    /** AV-1 (read part), S6-D8: an agreement in effect reads allowed with its end, terms in effect and photo consent. */
+    @Test
+    void detail_activeAgreement_advertisingAllowedTermsInEffect() {
+        LocalDate today = AgreementVersion.todayInVietnam(now());
+        AgreementPeriod period = new AgreementPeriod(today.minusDays(30), today.plusDays(150));
+        agreements.store(BrokerageAgreement.load(AGREEMENT, "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, OWNER,
+                LEAD, AgreementStatus.ACTIVE, SALE, CREATED, CREATED, 4L, List.of(inEffect(period))));
+        conditionsHold();
+
+        AgreementDetailView view = service.detail(AGREEMENT, VIEWER);
+
+        AdvertisingRightView advertising = view.advertising();
+        assertTrue(advertising.allowed());
+        assertEquals(List.of(), advertising.reasonGroups());
+        assertEquals(period.endDate(), advertising.endDateOrNull());
+        assertTrue(advertising.interiorPhotos());
+        assertEquals(false, advertising.exteriorPhotos());
+        assertEquals(new AdvertisingRightView.Terms(8_000_000L, null, 12, 1, List.of()),
+                advertising.termsInEffectOrNull());
+        assertNull(advertising.pendingStartDateOrNull());
+        assertEquals(VersionStatus.EFFECTIVE, view.versions().getFirst().status());
+        assertEquals(ActivationDecisionType.ACTIVATED, view.versions().getFirst().activationOrNull().type());
+        assertEquals(List.of("forUnits [U1]", "ownersOf [P1]"), unitBases.calls());
+        assertEquals(List.of("eligibleOwners [" + OWNER + "]"), eligibility.calls());
+        assertEquals(1, trail.accesses().size());
+    }
+
+    /** S6-D8, S6-D2: a manager who is neither the assignee nor an author may decide; the statement of the version. */
+    @Test
+    void detail_independentManager_mayDecideWithStatement() {
+        Instant confirmedAt = now().minus(1, ChronoUnit.HOURS);
+        storeAwaitingActivation(confirmedAt);
+        InMemoryBasisLeadPort seen = new InMemoryBasisLeadPort(calls).lead(LEAD, SALE, SALE, "M");
+        AgreementQueryService read = new AgreementQueryService(agreements, seen, trail, origins, sourceTerms, accounts,
+                locations, assembler);
+
+        AgreementDetailView view = read.detail(AGREEMENT, new StaffViewer("M", Set.of("ROLE_SALES_MANAGER")));
+
+        assertTrue(view.viewerMayDecideActivation());
+        assertEquals(new AgreementDetailView.ActivationStatementView(ActivationStatement.VERSION,
+                ActivationStatement.text(1)), view.activationStatementOrNull());
+        assertEquals(confirmedAt.plus(Duration.ofDays(14)), view.versions().getFirst().activateByOrNull());
+        assertNull(view.versions().getFirst().activationOrNull());
+        assertEquals(List.of("NOT_IN_EFFECT"), view.advertising().reasonGroups());
+        assertEquals(List.of(AGREEMENT + "@1"), trail.authorReads());
+    }
+
+    /** S6-D8, plan E05S6-P6: a Sale reads no authors; the assignee is never independent; an author may not decide. */
+    @Test
+    void detail_assigneeOrSale_mayNotDecideNoAuthorsRead() {
+        storeAwaitingActivation(now().minus(1, ChronoUnit.HOURS));
+        InMemoryBasisLeadPort seen = new InMemoryBasisLeadPort(calls).lead(LEAD, SALE, SALE, "E1");
+        AgreementQueryService read = new AgreementQueryService(agreements, seen, trail, origins, sourceTerms, accounts,
+                locations, assembler);
+
+        AgreementDetailView forSale = read.detail(AGREEMENT, VIEWER);
+        AgreementDetailView forAssignee = read.detail(AGREEMENT, new StaffViewer(SALE, Set.of("ROLE_SALE_LEADER")));
+
+        assertEquals(false, forSale.viewerMayDecideActivation());
+        assertEquals(false, forAssignee.viewerMayDecideActivation());
+        assertEquals(List.of(), trail.authorReads());
+        assertEquals(new AgreementDetailView.ActivationStatementView(ActivationStatement.VERSION,
+                ActivationStatement.text(1)), forSale.activationStatementOrNull());
+
+        trail.recordEvent(AGREEMENT, 1, AgreementEventType.DRAFT_EDITED, "E1", now());
+        assertEquals(false, read.detail(AGREEMENT, new StaffViewer("E1", Set.of("ROLE_SALE_LEADER")))
+                .viewerMayDecideActivation());
+    }
+
+    /** LP-1 (unit part): past its 14 days the version reads LAPSED, the agreement DRAFTING; nothing is stored. */
+    @Test
+    void detail_activationLapseDue_lapsedDraftingStoredDataVersion() {
+        Instant confirmedAt = now().minus(Duration.ofDays(14)).minusSeconds(1);
+        storeAwaitingActivation(confirmedAt);
+
+        AgreementDetailView view = service.detail(AGREEMENT, VIEWER);
+
+        assertEquals(AgreementStatus.DRAFTING, view.status());
+        assertEquals(2L, view.dataVersion());
+        assertEquals(VersionStatus.LAPSED, view.versions().getFirst().status());
+        assertEquals(confirmedAt.plus(Duration.ofDays(14)), view.versions().getFirst().activateByOrNull());
+        assertNull(view.activationStatementOrNull());
+        assertEquals(false, view.viewerMayDecideActivation());
+        assertEquals(0, agreements.count("update"));
+    }
+
+    /** OW-1 (unit part), S6-D21: the owner reads the effective state and activateBy, never the activation record. */
+    @Test
+    void ownerAgreements_activatedVersion_activationNullActivateBySet() {
+        LocalDate today = AgreementVersion.todayInVietnam(now());
+        AgreementVersion version = inEffect(new AgreementPeriod(today.minusDays(30), today.plusDays(150)));
+        InMemoryAgreementRepository owned = new InMemoryAgreementRepository()
+                .store(owned("01JAGREEMENTA0000000000001", "U1", "P101", AgreementStatus.ACTIVE, List.of(version)));
+
+        OwnerAgreementView item = ownerService(owned).ownerAgreements(OWNER).items().getFirst();
+
+        assertEquals(AgreementStatus.ACTIVE, item.status());
+        VersionView read = item.versions().getFirst();
+        assertEquals(VersionStatus.EFFECTIVE, read.status());
+        assertNull(read.activationOrNull());
+        assertEquals(version.getOwnerAnswerOrNull().answeredAt().plus(Duration.ofDays(14)), read.activateByOrNull());
+        assertEquals(List.of(), unitBases.calls());
+    }
+
+    /** Stores {@link #AGREEMENT} awaiting confirmation, version 1 confirmed at {@code confirmedAt}, row version 2. */
+    private void storeAwaitingActivation(Instant confirmedAt) {
+        Instant sentAt = confirmedAt.minus(1, ChronoUnit.HOURS);
+        agreements.store(BrokerageAgreement.load(AGREEMENT, "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, OWNER,
+                LEAD, AgreementStatus.AWAITING_CONFIRMATION, SALE, CREATED, confirmedAt, 2L, List.of(
+                        AgreementVersion.load("V1", 1, VersionStatus.OWNER_CONFIRMED, PERIOD, LEAD, "I1", SALE, CREATED,
+                                confirmedAt, OWNER_CONSENT, OWNER_TERMS, OWNER_FEE, sentAt,
+                                OwnerAnswer.confirmed(OWNER, AgreementStatement.VERSION, confirmedAt)))));
+    }
+
+    /** Version 1 EFFECTIVE over the period, confirmed three days ago and activated a minute later. */
+    private static AgreementVersion inEffect(AgreementPeriod period) {
+        Instant confirmedAt = now().minus(Duration.ofDays(3));
+        Instant sentAt = confirmedAt.minus(1, ChronoUnit.HOURS);
+        return AgreementVersion.load("V1", 1, VersionStatus.EFFECTIVE, period, LEAD, "I1", SALE, CREATED, confirmedAt,
+                OWNER_CONSENT, OWNER_TERMS, OWNER_FEE, sentAt,
+                OwnerAnswer.confirmed(OWNER, AgreementStatement.VERSION, confirmedAt),
+                ActivationDecision.activated("M", confirmedAt.plusSeconds(60), ActivationStatement.VERSION,
+                        new SignedDocument("HDMG-1", LocalDate.parse("2026-11-01"), "A", "B")));
+    }
+
+    /** Read 1 maps U1 on intake I1 (usable, no reason), read 1b gives P1's owner O, and O is an eligible owner. */
+    private void conditionsHold() {
+        unitBases.unit(new UnitBasisFacts("U1", "P1", List.of(new UnitBasisFacts.Entry("I1", "USABLE", List.of()))))
+                .owner(new PropertyOwnerFacts("P1", OWNER, List.of(new IntakeBasisFacts.Holding(OWNER, "OWNER",
+                        "UNVERIFIED"))));
+        eligibility.eligible(OWNER);
+    }
+
     private AgreementQueryService ownerService(InMemoryAgreementRepository owned) {
-        return new AgreementQueryService(owned, leads, trail, origins, sourceTerms, accounts, locations);
+        return new AgreementQueryService(owned, leads, trail, origins, sourceTerms, accounts, locations, assembler);
     }
 
     private static BrokerageAgreement owned(String id, String unitId, String unitCode, AgreementStatus status,

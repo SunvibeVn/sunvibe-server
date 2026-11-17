@@ -130,6 +130,14 @@ public final class AdvertisingRightPolicy {
         return groups;
     }
 
+    /**
+     * The version whose facts and dates the answer reads (E05-S6 spec S6-D7): the EFFECTIVE version with the highest
+     * number, else the ACTIVATED one; null when neither exists.
+     */
+    public static AgreementVersion versionThatCountsOrNull(BrokerageAgreement effective) {
+        return versionThatCounts(effective);
+    }
+
     /** The EFFECTIVE version with the highest number, else the ACTIVATED one; null when neither exists. */
     private static AgreementVersion versionThatCounts(BrokerageAgreement agreement) {
         return agreement.getVersions().stream()

@@ -19,8 +19,10 @@ import vn.sunvibe.brokerage.core.application.shared.external.property.UnitLocati
 import vn.sunvibe.brokerage.core.application.shared.external.survey.SourceTermsPort;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementQueryUseCase;
 import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementAccessType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
@@ -34,14 +36,16 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
  * Use Case Implementation - the reads of a brokerage agreement (E05-S2 spec 3.3, 5.2). The detail is one read-write
  * transaction on purpose: it inserts the access-log row, which a read-only transaction cannot (spec S2-D9). Statements:
- * one agreement read with its versions, one lead read (no lock: a read changes nothing), one insert. Everything the
- * view needs is loaded inside the transaction. Both the detail and the owner's read answer the effective state at the
- * wall clock's {@code now} (E05-S5 spec S5-D8, S5-D19).
+ * one agreement read with its versions, one lead read (no lock: a read changes nothing), one insert; for an agreement in
+ * effect the reads of the advertising answer (E05-S6 spec S6-D8), and for a manager while a version awaits activation
+ * one read of its authors. Everything the view needs is loaded inside the transaction. Both the detail and the owner's
+ * read answer the effective state at the wall clock's {@code now} (E05-S5 spec S5-D8, S5-D19; E05-S6 spec S6-D6).
  */
 @Service
 @RequiredArgsConstructor
@@ -56,6 +60,9 @@ public class AgreementQueryService implements AgreementQueryUseCase {
     /** E05-S5 spec S5-D1: the owner's read answers at most this many agreements and says when there are more. */
     static final int OWNER_PAGE = 50;
 
+    /** brokerage-agreement BR-16: the roles that may decide an activation (SUPER_ADMIN through the hierarchy). */
+    private static final Set<String> DECIDER_ROLES = Set.of("ROLE_SALE_LEADER", "ROLE_SALES_MANAGER", "ROLE_ADMIN");
+
     private final AgreementDomainRepository agreements;
     private final BasisLeadPort leads;
     private final AgreementTrailDomainRepository trail;
@@ -63,6 +70,7 @@ public class AgreementQueryService implements AgreementQueryUseCase {
     private final SourceTermsPort sourceTerms;
     private final OwnerAccountPort accounts;
     private final UnitLocationPort locations;
+    private final AdvertisingRightAssembler assembler;
 
     @Override
     @Transactional
@@ -72,19 +80,48 @@ public class AgreementQueryService implements AgreementQueryUseCase {
         // answer of an unknown id, and a refused read opens nothing, so it is not logged.
         BasisLeadFacts lead = visibleLead(stored, viewer);
         Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
-        // brokerage-agreement BR-17: opening the detail of an agreement is logged; no detail without its row.
+        // brokerage-agreement BR-17: opening the detail of an agreement is logged; no detail without its row. The row
+        // covers the advertising answer too, which holds the private terms (E05-S6 spec S6-D8).
         trail.recordAccess(viewer.userId(), stored.getId(), AgreementAccessType.DETAIL_READ, now);
-        // brokerage-agreement BR-10 (E05-S5 spec S5-D8): a version past its 7 days reads LAPSED from its deadline on,
-        // whether or not the lapse job has stored it yet; the data version stays the stored row's, so the Sale's next
-        // command matches it.
-        BrokerageAgreement agreement = stored.withDueLapse(now);
+        // brokerage-agreement BR-10, BR-11, BR-5 (E05-S5 spec S5-D8, E05-S6 spec S6-D6): a version past its 7 or 14 days
+        // reads LAPSED from its deadline on, and an activated version EFFECTIVE from its start, whether or not the jobs
+        // have stored it yet; the data version stays the stored row's, so the next command matches it.
+        BrokerageAgreement agreement = stored.effectiveAt(now);
+        AgreementVersion awaiting = awaitingActivationOrNull(agreement, now);
         return new AgreementDetailView(agreement.getId(), agreement.getStatus(), agreement.getTransactionType(),
                 agreement.getUnitId(), agreement.getUnitCodeOrNull(), agreement.getBasisLeadId(),
-                agreement.getCreatedAt(), agreement.getVersions().stream().map(AgreementQueryService::versionView)
-                .toList(),
+                agreement.getCreatedAt(), agreement.getVersions().stream()
+                .map(version -> versionView(version, true)).toList(),
                 stored.getRowVersionOrNull(),
                 EligibilityPolicy.assignedSale(lead.assignedUserIdOrNull(), viewer.userId(),
-                        viewer.expandedAuthorities()));
+                        viewer.expandedAuthorities()),
+                assembler.answers(List.of(agreement), now).getFirst(),
+                mayDecideActivation(agreement, awaiting, lead, viewer),
+                awaiting == null ? null : new AgreementDetailView.ActivationStatementView(ActivationStatement.VERSION,
+                        ActivationStatement.text(awaiting.getVersionNo())));
+    }
+
+    /** The confirmed version a manager may activate or refuse at {@code now}; null when none awaits activation. */
+    private static AgreementVersion awaitingActivationOrNull(BrokerageAgreement agreement, Instant now) {
+        if (agreement.getStatus() != AgreementStatus.AWAITING_CONFIRMATION) {
+            return null;
+        }
+        return agreement.getVersions().stream().filter(version -> version.activatableAt(now)).findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * The hint of E05-S6 spec S6-D8 (plan E05S6-P6): a viewer holding SALE_LEADER, SALES_MANAGER or ADMIN, while a
+     * version awaits activation, who is not the basis lead's current assignee and wrote no version from 1 to n
+     * (brokerage-agreement BR-11, BR-16; spec S6-D2). Any other viewer is answered false with no read of the authors.
+     */
+    private boolean mayDecideActivation(BrokerageAgreement agreement, AgreementVersion awaitingOrNull,
+                                        BasisLeadFacts lead, StaffViewer viewer) {
+        if (awaitingOrNull == null || viewer.expandedAuthorities().stream().noneMatch(DECIDER_ROLES::contains)
+                || viewer.userId().equals(lead.assignedUserIdOrNull())) {
+            return false;
+        }
+        return !trail.versionAuthors(agreement.getId(), awaitingOrNull.getVersionNo()).contains(viewer.userId());
     }
 
     /**
@@ -111,7 +148,7 @@ public class AgreementQueryService implements AgreementQueryUseCase {
         locations.locate(page.stream().map(BrokerageAgreement::getUnitId).distinct().toList())
                 .forEach(facts -> located.put(facts.unitId(), facts));
         List<OwnerAgreementView> items = page.stream()
-                .map(agreement -> ownerView(agreement.withDueLapse(now), located.get(agreement.getUnitId()), now))
+                .map(agreement -> ownerView(agreement.effectiveAt(now), located.get(agreement.getUnitId()), now))
                 .toList();
         // brokerage-agreement BR-17: the owner's opening of each agreement's detail is logged.
         trail.recordAccesses(ownerUserId, page.stream().map(BrokerageAgreement::getId).toList(),
@@ -137,17 +174,23 @@ public class AgreementQueryService implements AgreementQueryUseCase {
                 locationOrNull == null ? null : locationOrNull.streetOrNull(),
                 locationOrNull == null ? null : locationOrNull.wardNameOrNull(),
                 agreement.getVersions().stream().filter(version -> version.getSentAtOrNull() != null)
-                        .map(AgreementQueryService::versionView).toList(),
+                        .map(version -> versionView(version, false)).toList(),
                 statement);
     }
 
-    private static AgreementDetailView.VersionView versionView(AgreementVersion version) {
+    /**
+     * One version as staff or its owner reads it. The activation decision is staff data (brokerage-agreement BR-17:
+     * the contract number, Sunvibe's signatory and the refusal note): the owner's read leaves it out (E05-S6 spec
+     * S6-D21), and answers its activateBy only.
+     */
+    private static AgreementDetailView.VersionView versionView(AgreementVersion version, boolean staff) {
         OwnerAnswer answer = version.getOwnerAnswerOrNull();
         return new AgreementDetailView.VersionView(version.getVersionNo(), version.getStatus(),
                 version.getPeriod().startDate(), version.getPeriod().endDate(), version.getCreatedAt(),
                 version.getAdvertisingScope(), version.getPhotoConsent(), version.getTerms(), version.getFee(),
                 version.getSentAtOrNull(), version.answerByOrNull(), answer == null ? null : answer.answeredAt(),
-                answer == null ? null : answer.rejectionReasonOrNull());
+                answer == null ? null : answer.rejectionReasonOrNull(), version.activateByOrNull(),
+                staff ? version.getActivationOrNull() : null);
     }
 
     /**
