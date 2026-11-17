@@ -1,5 +1,7 @@
 package vn.sunvibe.brokerage.core.application.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.IntStream;
 
 /**
@@ -75,6 +78,8 @@ import java.util.stream.IntStream;
  */
 @Service
 public class AgreementCommandService implements AgreementCommandUseCase {
+
+    private static final Logger log = LoggerFactory.getLogger(AgreementCommandService.class);
 
     /**
      * E05-S6 spec S6-D12: a due event of an activation is appended only when it falls at or before the command's now plus
@@ -401,8 +406,9 @@ public class AgreementCommandService implements AgreementCommandUseCase {
             // again: one flush would insert the new DRAFT row before updating the old one and meet
             // uq_brokerage_agreement_versions_pending, which is not deferrable.
             agreements.update(effective);
+            // E05-S6 spec S6-D5: the row is dated by the deadline of the lapse that fell due (7 or 14 days)
             trail.recordEvent(agreement.getId(), due.getVersionNo(), AgreementEventType.VERSION_LAPSED, null,
-                    due.answerByOrNull());
+                    due.lapseDeadlineOrNull());
             drafting = agreements.findById(agreement.getId()).orElseThrow(BrokerageNotFoundException::new);
         }
         BrokerageAgreement opened = drafting.openDraft(ids.generateId(), actor.userId(), now);
@@ -552,23 +558,57 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         // brokerage-agreement BR-10: a version not answered within 7 days of its sending lapses.
         List<String> due = agreements.dueLapseAgreementIds(now.minus(AgreementVersion.ANSWER_WINDOW),
                 MAX_LAPSES_PER_RUN);
+        int stored = storeEach(due, agreementId -> storeDueLapse(agreementId, now));
+        // brokerage-agreement BR-11, US-3 AC-4 (E05-S6 spec S6-D5): a version the owner confirmed and nobody activated
+        // within 14 days lapses; the second branch of the same run, at most 100 more.
+        List<String> dueActivation = agreements.dueActivationLapseAgreementIds(
+                now.minus(AgreementVersion.ACTIVATION_WINDOW), MAX_LAPSES_PER_RUN);
+        return stored + storeEach(dueActivation, agreementId -> storeDueLapse(agreementId, now));
+    }
+
+    /**
+     * One run of the start job (E05-S6 spec S6-D6): one selection of at most 100 agreements whose activated version
+     * holds its record and starts today or earlier in Vietnam, then per agreement a short transaction of its own with
+     * one agreement read, the guarded update and one history insert, under the failure rule of {@link #storeEach}.
+     */
+    @Override
+    public int storeDueStarts() {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        List<String> due = agreements.dueStartAgreementIds(AgreementVersion.todayInVietnam(now), MAX_STARTS_PER_RUN);
+        return storeEach(due, agreementId -> storeDueStart(agreementId, now));
+    }
+
+    /**
+     * The failure rule of the stores (E05-S6 spec S6-D5, plan E05S6-P5; SV-319 (2)): each agreement in a transaction of
+     * its own. A lost row-version race (another instance's run, the owner's answer or a staff command committed first)
+     * is skipped silently: its state is what the next run reads. Any other runtime fault of one agreement is caught
+     * after its transaction rolled back, at this job loop's boundary (java-core.md), and logged once with a fixed code,
+     * the agreement id and the exception's class name, never its message, which may carry row values
+     * (brokerage-agreement BR-17); the run goes on. An Error ends the run.
+     *
+     * @return the number of agreements stored
+     */
+    private int storeEach(List<String> agreementIds, Function<String, Boolean> store) {
         int stored = 0;
-        for (String agreementId : due) {
+        for (String agreementId : agreementIds) {
             try {
-                if (Boolean.TRUE.equals(transactions.execute(status -> storeDueLapse(agreementId, now)))) {
+                if (Boolean.TRUE.equals(transactions.execute(status -> store.apply(agreementId)))) {
                     stored++;
                 }
             } catch (OptimisticLockingFailureException lost) {
-                // Another instance's run, the owner's answer or the Sale's command committed first: its state is what
-                // the next run reads, and this agreement's transaction rolled back whole (spec S5-D8 step 4).
+                // the next run reads what committed first; this agreement's transaction rolled back whole
+            } catch (RuntimeException failure) {
+                log.error("BROKERAGE_TRANSITION_FAILED agreementId={} exception={}", agreementId,
+                        failure.getClass().getName());
             }
         }
         return stored;
     }
 
     /**
-     * brokerage-agreement BR-5 (E05-S2 spec S2-D4, E05-S5 spec S5-D8): the lapse is a stored transition, written when it
-     * is due; nothing when the agreement was answered, lapsed or given a new draft since the selection.
+     * brokerage-agreement BR-5 (E05-S2 spec S2-D4, E05-S5 spec S5-D8, E05-S6 spec S6-D5): the lapse is a stored
+     * transition, written when it is due, its row dated by the deadline of the lapse that fell due; nothing when the
+     * agreement was answered, decided, lapsed or given a new draft since the selection.
      */
     private boolean storeDueLapse(String agreementId, Instant now) {
         BrokerageAgreement agreement = agreements.findById(agreementId).orElse(null);
@@ -577,7 +617,24 @@ public class AgreementCommandService implements AgreementCommandUseCase {
             return false;
         }
         agreements.update(agreement.withDueLapse(now));
-        trail.recordEvent(agreementId, due.getVersionNo(), AgreementEventType.VERSION_LAPSED, null, due.answerByOrNull());
+        trail.recordEvent(agreementId, due.getVersionNo(), AgreementEventType.VERSION_LAPSED, null,
+                due.lapseDeadlineOrNull());
+        return true;
+    }
+
+    /**
+     * brokerage-agreement BR-5, BR-6 (E05-S2 spec S2-D4, E05-S6 spec S6-D6): the start of an activated version is a
+     * stored transition, written when it is due, its row dated by the start of its start date, without an actor;
+     * nothing when the agreement changed since the selection.
+     */
+    private boolean storeDueStart(String agreementId, Instant now) {
+        BrokerageAgreement agreement = agreements.findById(agreementId).orElse(null);
+        AgreementVersion due = agreement == null ? null : agreement.dueStartOrNull(now);
+        if (due == null) {
+            return false;
+        }
+        agreements.update(agreement.withDueStart(now));
+        trail.recordEvent(agreementId, due.getVersionNo(), AgreementEventType.VERSION_STARTED, null, due.startsAt());
         return true;
     }
 

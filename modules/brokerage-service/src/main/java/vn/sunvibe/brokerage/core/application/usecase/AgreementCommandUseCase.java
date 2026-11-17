@@ -15,6 +15,9 @@ public interface AgreementCommandUseCase {
     /** The most due lapses one run of {@link #storeDueLapses()} stores; the next run takes the rest (spec S5-D8). */
     int MAX_LAPSES_PER_RUN = 100;
 
+    /** The most due starts one run of {@link #storeDueStarts()} stores; the next run takes the rest (spec S6-D6). */
+    int MAX_STARTS_PER_RUN = 100;
+
     /**
      * The lead's assigned Sale drafts an agreement for one unit of the lead's intake basis (brokerage-agreement US-1
      * AC-1 to AC-4): DRAFTING with its version 1 DRAFT and one history row. In one transaction, the first failing step
@@ -149,15 +152,31 @@ public interface AgreementCommandUseCase {
     void refuseActivation(AgreementRefuseActivationCommand command, StaffViewer actor);
 
     /**
-     * Stores the 7-day lapses that are due (brokerage-agreement BR-10, US-2 AC-3; E05-S5 spec S5-D8): at most
-     * {@link #MAX_LAPSES_PER_RUN} agreements whose version waits for the owner and was sent 7 days ago or more, oldest
-     * sending first; each in a transaction of its own, the version LAPSED and the agreement drafting again through the
-     * guarded update, then one VERSION_LAPSED history row at the deadline, without an actor. An agreement changed since
-     * the selection (a lost row-version race) is skipped and the run goes on; any other failure ends the run.
+     * Stores the lapses that are due, in two branches of one run (brokerage-agreement BR-10, BR-11, US-2 AC-3, US-3
+     * AC-4; E05-S5 spec S5-D8, E05-S6 spec S6-D5): at most {@link #MAX_LAPSES_PER_RUN} agreements whose version waits
+     * for the owner and was sent 7 days ago or more, oldest sending first; then at most as many whose version the owner
+     * confirmed 14 days ago or more without an activation, oldest confirmation first. Each in a transaction of its own:
+     * the version LAPSED and the agreement drafting again through the guarded update, then one VERSION_LAPSED history
+     * row at the deadline of the lapse that fell due, without an actor. An agreement changed since the selection (a lost
+     * row-version race) is skipped silently; any other runtime failure of one agreement rolls it back and is logged as
+     * BROKERAGE_TRANSITION_FAILED with its id and the exception's class name, and the run goes on.
      * <p>
      * Its only caller is AgreementLapseJob; no controller reaches it, so it takes no viewer.
      *
      * @return the number of lapses stored
      */
     int storeDueLapses();
+
+    /**
+     * Stores the starts that are due (brokerage-agreement BR-5, BR-6, US-3 AC-5; E05-S6 spec S6-D6): at most
+     * {@link #MAX_STARTS_PER_RUN} agreements whose ACTIVATED version holds its activation record and starts today or
+     * earlier in Vietnam, oldest start first; each in a transaction of its own, the version EFFECTIVE through the guarded
+     * update, then one VERSION_STARTED history row at the start of its start date, without an actor. The failure rule of
+     * {@link #storeDueLapses()} applies. No event: the one due at the start was appended at the activation.
+     * <p>
+     * Its only caller is AgreementStartJob; no controller reaches it, so it takes no viewer.
+     *
+     * @return the number of starts stored
+     */
+    int storeDueStarts();
 }
