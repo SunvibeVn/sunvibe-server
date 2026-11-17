@@ -31,6 +31,10 @@ record OwnerNoticeText(String subject, String sentence, String closing) {
             case AGREEMENT_PENDING -> new OwnerNoticeText("A brokerage agreement is waiting for you",
                     "Sunvibe sent you a brokerage agreement to read and answer."
                             + " Sign in to your Sunvibe account to read it.", IF_NOT_EXPECTED);
+            // brokerage-agreement BR-17 (E05-S6 spec S6-D13): a neutral notice of the activation, only a sign-in.
+            case AGREEMENT_ACTIVATED -> new OwnerNoticeText("A brokerage agreement is in effect",
+                    "A brokerage agreement you confirmed was signed and activated by Sunvibe."
+                            + " Sign in to your Sunvibe account to read it.", IF_NOT_EXPECTED);
         };
     }
 

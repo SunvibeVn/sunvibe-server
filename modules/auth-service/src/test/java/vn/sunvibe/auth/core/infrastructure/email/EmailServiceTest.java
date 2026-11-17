@@ -191,6 +191,30 @@ class EmailServiceTest {
         assertFalse(body.contains(ADDRESS), body);
     }
 
+    /**
+     * brokerage-agreement E05-S6 spec S6-D13, NT-1 (BR-17): the activation notice is neutral and only invites a sign-in:
+     * no term, code, address, amount, contract number or link, and its own closing line.
+     */
+    @Test
+    void notify_agreementActivated_neutralTextAndOwnClosing() throws Exception {
+        service.sendOwnerNotice(ADDRESS, "AGREEMENT_ACTIVATED", java.time.Instant.parse("2026-11-06T02:30:00Z"));
+
+        MimeMessage message = outbox.sent.getFirst();
+        String body = (String) message.getContent();
+        assertEquals("A brokerage agreement is in effect", message.getSubject());
+        assertEquals("A brokerage agreement you confirmed was signed and activated by Sunvibe. Sign in to your Sunvibe"
+                + " account to read it. Time: 2026-11-06 09:30 (Vietnam time). If you did not expect this, contact"
+                + " Sunvibe.", body);
+        assertEquals(List.of("2026", "11", "06", "09", "30"),
+                java.util.regex.Pattern.compile("\\d+").matcher(body).results().map(java.util.regex.MatchResult::group)
+                        .toList(), body);
+        String folded = (message.getSubject() + " " + body).toLowerCase(java.util.Locale.ROOT);
+        for (String word : List.of("code", "lead", "address", "unit", "vnd", "%", "http", "number", "document")) {
+            assertFalse(folded.contains(word), word + " in " + body);
+        }
+        assertFalse(body.contains(ADDRESS), body);
+    }
+
     /** D5-7: a refusal is neutral; the account never reads it as a withdrawal of its own. */
     @Test
     void notify_refusalIsNeverAWithdrawal() throws Exception {
