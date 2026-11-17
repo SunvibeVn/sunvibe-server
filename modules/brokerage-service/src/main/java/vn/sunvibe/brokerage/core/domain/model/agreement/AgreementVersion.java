@@ -2,18 +2,27 @@ package vn.sunvibe.brokerage.core.domain.model.agreement;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Objects;
 
 /**
  * One version of an agreement (brokerage-agreement BR-5: a version once sent never changes; BR-2: each version rests on
  * its own usable intake basis), with its content: the period, the public photo consent (BR-9), the confirmed terms
- * (BR-8) and the brokerage fee policy (BR-7), the time it was sent to the owner, and the owner's answer. An entity of
- * the {@link BrokerageAgreement} aggregate, changed only through it.
+ * (BR-8) and the brokerage fee policy (BR-7), the time it was sent to the owner, the owner's answer, and a manager's
+ * activation decision (BR-11). An entity of the {@link BrokerageAgreement} aggregate, changed only through it.
  */
 public final class AgreementVersion {
 
     /** brokerage-agreement BR-10: the owner answers within 7 days (168 hours) of the sending (E05-S5 spec S5-D8). */
     public static final Duration ANSWER_WINDOW = Duration.ofDays(7);
+    /**
+     * brokerage-agreement BR-11, US-3 AC-4: a confirmed version is activated within 14 days (336 hours; Vietnam has no
+     * daylight saving) of the owner's confirmation (E05-S6 spec S6-D5).
+     */
+    public static final Duration ACTIVATION_WINDOW = Duration.ofDays(14);
+    /** brokerage-agreement BR-6: the dates of a version are calendar dates in Vietnam. */
+    public static final ZoneId VIETNAM = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final String id;
     private final int versionNo;
@@ -29,11 +38,12 @@ public final class AgreementVersion {
     private final BrokerageFee fee;
     private final Instant sentAtOrNull;
     private final OwnerAnswer ownerAnswerOrNull;
+    private final ActivationDecision activationOrNull;
 
     private AgreementVersion(String id, int versionNo, VersionStatus status, AgreementPeriod period, String basisLeadId,
                              String basisIntakeId, String createdByUserId, Instant createdAt, Instant updatedAt,
                              PhotoConsent photoConsent, VersionTerms terms, BrokerageFee fee, Instant sentAtOrNull,
-                             OwnerAnswer ownerAnswerOrNull) {
+                             OwnerAnswer ownerAnswerOrNull, ActivationDecision activationOrNull) {
         if (versionNo <= 0) {
             throw new IllegalStateException("An agreement version number starts at 1.");
         }
@@ -46,6 +56,7 @@ public final class AgreementVersion {
                 || status == VersionStatus.AWAITING_OWNER)) {
             throw new IllegalArgumentException("Only a sent version that is no longer waiting holds an owner answer.");
         }
+        checkActivation(status, ownerAnswerOrNull, activationOrNull);
         this.id = Objects.requireNonNull(id, "id");
         this.versionNo = versionNo;
         this.status = Objects.requireNonNull(status, "status");
@@ -60,6 +71,31 @@ public final class AgreementVersion {
         this.fee = Objects.requireNonNull(fee, "fee");
         this.sentAtOrNull = sentAtOrNull;
         this.ownerAnswerOrNull = ownerAnswerOrNull;
+        this.activationOrNull = activationOrNull;
+    }
+
+    /**
+     * E05-S6 spec S6-D14: a version holds an activation decision only after the owner confirmed it; an activation only on
+     * a version activated or past it (ACTIVATED, EFFECTIVE, SUPERSEDED, CANCELLED), a refusal only on an
+     * ACTIVATION_REFUSED version. No rule asks a record on those states: stored rows inserted around the commands hold
+     * none.
+     */
+    private static void checkActivation(VersionStatus status, OwnerAnswer ownerAnswerOrNull,
+                                        ActivationDecision activationOrNull) {
+        if (activationOrNull == null) {
+            return;
+        }
+        if (ownerAnswerOrNull == null || ownerAnswerOrNull.type() != OwnerAnswerType.CONFIRMED) {
+            throw new IllegalArgumentException("Only a version its owner confirmed holds an activation decision.");
+        }
+        boolean activatedState = status == VersionStatus.ACTIVATED || status == VersionStatus.EFFECTIVE
+                || status == VersionStatus.SUPERSEDED || status == VersionStatus.CANCELLED;
+        if (activationOrNull.type() == ActivationDecisionType.ACTIVATED && !activatedState) {
+            throw new IllegalArgumentException("An activation is held only by an activated version.");
+        }
+        if (activationOrNull.type() == ActivationDecisionType.REFUSED && status != VersionStatus.ACTIVATION_REFUSED) {
+            throw new IllegalArgumentException("A refusal is held only by a version whose activation was refused.");
+        }
     }
 
     /** Rebuilds a stored version in any state with nothing entered yet: no consent answered, no terms, no fee policy. */
@@ -103,15 +139,32 @@ public final class AgreementVersion {
                                         Instant createdAt, Instant updatedAt, PhotoConsent photoConsent,
                                         VersionTerms terms, BrokerageFee fee, Instant sentAtOrNull,
                                         OwnerAnswer ownerAnswerOrNull) {
+        return load(id, versionNo, status, period, basisLeadId, basisIntakeId, createdByUserId, createdAt, updatedAt,
+                photoConsent, terms, fee, sentAtOrNull, ownerAnswerOrNull, null);
+    }
+
+    /**
+     * Rebuilds a stored version in any state with its whole content, its sending time, the owner's answer and a
+     * manager's activation decision.
+     *
+     * @throws IllegalArgumentException a DRAFT version with a sending time, an answer on a version never sent, a DRAFT
+     *                                  or an AWAITING_OWNER version (E05-S5 spec S5-D11), or a decision outside the
+     *                                  combinations of E05-S6 spec S6-D14
+     */
+    public static AgreementVersion load(String id, int versionNo, VersionStatus status, AgreementPeriod period,
+                                        String basisLeadId, String basisIntakeId, String createdByUserId,
+                                        Instant createdAt, Instant updatedAt, PhotoConsent photoConsent,
+                                        VersionTerms terms, BrokerageFee fee, Instant sentAtOrNull,
+                                        OwnerAnswer ownerAnswerOrNull, ActivationDecision activationOrNull) {
         return new AgreementVersion(id, versionNo, status, period, basisLeadId, basisIntakeId, createdByUserId,
-                createdAt, updatedAt, photoConsent, terms, fee, sentAtOrNull, ownerAnswerOrNull);
+                createdAt, updatedAt, photoConsent, terms, fee, sentAtOrNull, ownerAnswerOrNull, activationOrNull);
     }
 
     /** This version with a new content and update time, everything else kept; the aggregate calls it on its draft. */
     AgreementVersion withDraftContent(AgreementPeriod newPeriod, PhotoConsent newPhotoConsent, VersionTerms newTerms,
                                       BrokerageFee newFee, Instant now) {
         return new AgreementVersion(id, versionNo, status, newPeriod, basisLeadId, basisIntakeId, createdByUserId,
-                createdAt, now, newPhotoConsent, newTerms, newFee, sentAtOrNull, ownerAnswerOrNull);
+                createdAt, now, newPhotoConsent, newTerms, newFee, sentAtOrNull, ownerAnswerOrNull, activationOrNull);
     }
 
     /**
@@ -120,7 +173,7 @@ public final class AgreementVersion {
      */
     AgreementVersion sent(Instant now) {
         return new AgreementVersion(id, versionNo, VersionStatus.AWAITING_OWNER, period, basisLeadId, basisIntakeId,
-                createdByUserId, createdAt, now, photoConsent, terms, fee, now, null);
+                createdByUserId, createdAt, now, photoConsent, terms, fee, now, null, null);
     }
 
     /**
@@ -129,7 +182,7 @@ public final class AgreementVersion {
      */
     AgreementVersion copiedAsDraft(String newId, int newVersionNo, String actorUserId, Instant now) {
         return new AgreementVersion(newId, newVersionNo, VersionStatus.DRAFT, period, basisLeadId, basisIntakeId,
-                actorUserId, now, now, photoConsent, terms, fee, null, null);
+                actorUserId, now, now, photoConsent, terms, fee, null, null, null);
     }
 
     /** This version confirmed by its owner (brokerage-agreement BR-10): OWNER_CONFIRMED with the answer, content kept. */
@@ -149,7 +202,39 @@ public final class AgreementVersion {
 
     private AgreementVersion answered(VersionStatus newStatus, OwnerAnswer answerOrNull, Instant now) {
         return new AgreementVersion(id, versionNo, newStatus, period, basisLeadId, basisIntakeId, createdByUserId,
-                createdAt, now, photoConsent, terms, fee, sentAtOrNull, answerOrNull);
+                createdAt, now, photoConsent, terms, fee, sentAtOrNull, answerOrNull, null);
+    }
+
+    /**
+     * This version activated by an independent manager (brokerage-agreement US-3 AC-2, AC-5; E05-S6 spec S6-D6):
+     * ACTIVATED with the decision when its start lies ahead, else EFFECTIVE at once; the owner's answer and the content
+     * kept. The aggregate calls it on the version awaiting activation.
+     */
+    AgreementVersion activated(ActivationDecision decision, boolean startAhead, Instant now) {
+        return decided(startAhead ? VersionStatus.ACTIVATED : VersionStatus.EFFECTIVE, decision, now);
+    }
+
+    /** This version whose activation a manager refused (brokerage-agreement US-3 AC-3): ACTIVATION_REFUSED with it. */
+    AgreementVersion activationRefused(ActivationDecision decision, Instant now) {
+        return decided(VersionStatus.ACTIVATION_REFUSED, decision, now);
+    }
+
+    /** This activated version taking effect at its start (brokerage-agreement BR-5, BR-6): EFFECTIVE, record kept. */
+    AgreementVersion started(Instant now) {
+        return decided(VersionStatus.EFFECTIVE, activationOrNull, now);
+    }
+
+    /**
+     * This confirmed version not activated within 14 days (brokerage-agreement BR-11, US-3 AC-4): LAPSED, the owner's
+     * confirmation kept, so its {@link #activateByOrNull()} tells this lapse from the owner's 7-day one.
+     */
+    AgreementVersion activationLapsed(Instant now) {
+        return decided(VersionStatus.LAPSED, null, now);
+    }
+
+    private AgreementVersion decided(VersionStatus newStatus, ActivationDecision decisionOrNull, Instant now) {
+        return new AgreementVersion(id, versionNo, newStatus, period, basisLeadId, basisIntakeId, createdByUserId,
+                createdAt, now, photoConsent, terms, fee, sentAtOrNull, ownerAnswerOrNull, decisionOrNull);
     }
 
     /**
@@ -171,6 +256,67 @@ public final class AgreementVersion {
     /** Whether this version waits for the owner and its deadline has come at {@code now}, so it lapses. */
     boolean lapseDueAt(Instant now) {
         return status == VersionStatus.AWAITING_OWNER && sentAtOrNull != null && !now.isBefore(answerByOrNull());
+    }
+
+    /**
+     * brokerage-agreement BR-11, US-3 AC-4: a version whose owner answer is a confirmation is activated until 14 days
+     * after that confirmation, exclusive (E05-S6 spec S6-D5); null when the owner did not confirm it, whatever its
+     * status now (S6-D21), so a 14-day lapse holds one and a 7-day lapse none.
+     */
+    public Instant activateByOrNull() {
+        if (ownerAnswerOrNull == null || ownerAnswerOrNull.type() != OwnerAnswerType.CONFIRMED) {
+            return null;
+        }
+        return ownerAnswerOrNull.answeredAt().plus(ACTIVATION_WINDOW);
+    }
+
+    /**
+     * The deadline of whichever lapse applies to this version (E05-S6 spec S6-D5): the owner's 7 days for a version
+     * waiting for them, the 14 days of activation for a confirmed one, null in any other state. The history row of a
+     * stored lapse is dated by it.
+     */
+    public Instant lapseDeadlineOrNull() {
+        return switch (status) {
+            case AWAITING_OWNER -> answerByOrNull();
+            case OWNER_CONFIRMED -> activateByOrNull();
+            default -> null;
+        };
+    }
+
+    /** Whether a manager may activate or refuse this version at {@code now}: confirmed, and before its activateBy. */
+    public boolean activatableAt(Instant now) {
+        Instant activateBy = activateByOrNull();
+        return status == VersionStatus.OWNER_CONFIRMED && activateBy != null && now.isBefore(activateBy);
+    }
+
+    /** Whether this confirmed version's 14 days have passed at {@code now}, so it lapses (E05-S6 spec S6-D5). */
+    public boolean activationLapseDueAt(Instant now) {
+        Instant activateBy = activateByOrNull();
+        return status == VersionStatus.OWNER_CONFIRMED && activateBy != null && !now.isBefore(activateBy);
+    }
+
+    /** brokerage-agreement BR-6: the start of the start date in Vietnam, when the version may take effect. */
+    public Instant startsAt() {
+        return period.startDate().atStartOfDay(VIETNAM).toInstant();
+    }
+
+    /** brokerage-agreement BR-6: the start of the day after the end date in Vietnam, when the version's right ends. */
+    public Instant endsAt() {
+        return period.endDate().plusDays(1).atStartOfDay(VIETNAM).toInstant();
+    }
+
+    /**
+     * Whether this activated version takes effect at {@code now} (E05-S6 spec S6-D6): ACTIVATED with its activation
+     * record and its start reached. A row without a record (inserted around the commands) is never started.
+     */
+    public boolean startDueAt(Instant now) {
+        return status == VersionStatus.ACTIVATED && activationOrNull != null
+                && activationOrNull.type() == ActivationDecisionType.ACTIVATED && !startsAt().isAfter(now);
+    }
+
+    /** Today's calendar date in Vietnam at {@code now} (brokerage-agreement BR-6). */
+    public static LocalDate todayInVietnam(Instant now) {
+        return LocalDate.ofInstant(now, VIETNAM);
     }
 
     public String getId() {
@@ -230,6 +376,11 @@ public final class AgreementVersion {
     /** The owner's answer; null for a version never answered (E05-S5 spec S5-D11, S5-D13). */
     public OwnerAnswer getOwnerAnswerOrNull() {
         return ownerAnswerOrNull;
+    }
+
+    /** A manager's activation decision; null for a version never decided (E05-S6 spec S6-D14, S6-D21). Staff data. */
+    public ActivationDecision getActivationOrNull() {
+        return activationOrNull;
     }
 
     /** brokerage-agreement BR-9: every version permits Sunvibe's own channels only, for its period (spec S3-D6). */

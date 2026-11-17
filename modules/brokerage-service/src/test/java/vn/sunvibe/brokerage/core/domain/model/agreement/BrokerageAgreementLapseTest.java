@@ -85,7 +85,6 @@ class BrokerageAgreementLapseTest {
         AgreementVersion rejected = answered("V1", 1, VersionStatus.OWNER_REJECTED,
                 OwnerAnswer.rejected("O1", null, SENT.plusSeconds(60)));
         List<BrokerageAgreement> agreements = List.of(
-                load(AgreementStatus.AWAITING_CONFIRMATION, List.of(confirmed)),
                 load(AgreementStatus.DRAFTING, List.of(rejected, draft("V2", 2))),
                 load(AgreementStatus.DRAFTING, List.of(draft("V1", 1))));
 
@@ -93,6 +92,11 @@ class BrokerageAgreementLapseTest {
             assertSame(agreement, agreement.withDueLapse(late));
             assertNull(agreement.dueLapseOrNull(late));
         }
+        // E05-S6 spec S6-D5: a confirmed version lapses 14 days after the confirmation, so it is unchanged just before.
+        BrokerageAgreement awaitingActivation = load(AgreementStatus.AWAITING_CONFIRMATION, List.of(confirmed));
+        Instant justBeforeActivateBy = confirmed.activateByOrNull().minus(1, ChronoUnit.MICROS);
+        assertSame(awaitingActivation, awaitingActivation.withDueLapse(justBeforeActivateBy));
+        assertNull(awaitingActivation.dueLapseOrNull(justBeforeActivateBy));
     }
 
     /** E05-S5 spec S5-D8 (revision 3): a version without a sending time has no deadline, so it never lapses. */

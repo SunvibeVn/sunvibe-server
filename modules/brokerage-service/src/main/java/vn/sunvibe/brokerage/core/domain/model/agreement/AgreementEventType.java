@@ -24,10 +24,26 @@ public enum AgreementEventType {
     /** The owner declined the version (US-2 AC-3): the owner as actor; the reason stays on the version row (BR-17). */
     OWNER_REJECTED,
     /**
-     * The version was not answered within 7 days (BR-10; E05-S5 spec S5-D8): no actor, the time is its deadline, written
-     * once by whichever stores the lapse.
+     * The version lapsed: not answered by the owner within 7 days (BR-10; E05-S5 spec S5-D8), or confirmed and not
+     * activated within 14 days (BR-11; E05-S6 spec S6-D5); the version row tells which. No actor, the time is the
+     * deadline of the lapse that fell due, written once by whichever stores the lapse.
      */
     VERSION_LAPSED,
     /** The assigned Sale opened the next draft version after a rejection or a lapse (US-2 AC-3, E-6; spec S5-D10). */
-    DRAFT_OPENED
+    DRAFT_OPENED,
+    /**
+     * An independent manager activated the version (US-3 AC-2; E05-S6 spec S6-D15): the manager as actor. The document's
+     * values and the statement version stay on the version row (BR-17).
+     */
+    ACTIVATED,
+    /**
+     * A manager refused to activate the version (US-3 AC-3, E-7; E05-S6 spec S6-D15): the manager as actor; the refusal
+     * type and the note stay on the version row (BR-17).
+     */
+    ACTIVATION_REFUSED,
+    /**
+     * The activated version took effect at its start (BR-5, BR-6, US-3 AC-5; E05-S6 spec S6-D6): no actor, the time is
+     * the start of its start date in Vietnam, written once by the start store.
+     */
+    VERSION_STARTED
 }

@@ -12,7 +12,8 @@ import java.util.Optional;
  * (brokerage-agreement BR-1), with its versions (BR-5). The aggregate is the only write path of its rows: it keeps the
  * agreement's basis lead equal to its latest version's (E05-S2 spec S2-D3). A draft is created, its content edited, and
  * it is sent to the owner (E05-S4); the owner confirms or declines it, or it lapses after 7 days, and a new draft opens
- * after a rejection or a lapse (E05-S5).
+ * after a rejection or a lapse (E05-S5). An independent manager activates a confirmed version within 14 days or refuses
+ * it, else it lapses; an activated version takes effect at its start (E05-S6).
  */
 public final class BrokerageAgreement {
 
@@ -156,24 +157,97 @@ public final class BrokerageAgreement {
     }
 
     /**
-     * This agreement as it stands at {@code now} (brokerage-agreement BR-10, US-2 AC-3; E05-S5 spec S5-D8): a version
-     * waiting for the owner whose 7 days have passed is LAPSED, and the agreement drafting again when no version is
-     * pending any more (spec S5-D9). {@code this} when nothing is due. Every read applies it to its copy; the lapse job
-     * and the new draft store it.
+     * This agreement with its version {@code versionNo} activated by an independent manager (brokerage-agreement US-3
+     * AC-2, AC-5, BR-5, BR-11; E05-S6 spec S6-D1 step 11, S6-D6): the version ACTIVATED with the decision when the start
+     * of its start date lies after {@code now}, else EFFECTIVE at once; the agreement ACTIVE, since its first activated
+     * version puts it in effect. The caller checks the version first and answers its refusals.
+     *
+     * @throws IllegalStateException    unless the agreement awaits confirmation and that version is confirmed and may be
+     *                                  activated at {@code now}
+     * @throws IllegalArgumentException a decision that is not an activation
+     */
+    public BrokerageAgreement activate(int versionNo, ActivationDecision decision, Instant now) {
+        if (decision.type() != ActivationDecisionType.ACTIVATED) {
+            throw new IllegalArgumentException("An activation needs an activation decision.");
+        }
+        AgreementVersion version = awaitingActivation(versionNo, now);
+        AgreementVersion activated = version.activated(decision, version.startsAt().isAfter(now), now);
+        return withVersions(AgreementStatus.ACTIVE, now, versions.stream()
+                .map(each -> each == version ? activated : each).toList());
+    }
+
+    /**
+     * This agreement with the activation of its version {@code versionNo} refused (brokerage-agreement US-3 AC-3, E-7;
+     * E05-S6 spec S6-D4): the version ACTIVATION_REFUSED with the decision, and the agreement drafting again when no
+     * version is pending any more (E05-S5 spec S5-D9). The caller checks the version first.
+     *
+     * @throws IllegalStateException    unless the agreement awaits confirmation and that version is confirmed and may be
+     *                                  activated at {@code now}
+     * @throws IllegalArgumentException a decision that is not a refusal
+     */
+    public BrokerageAgreement refuseActivation(int versionNo, ActivationDecision decision, Instant now) {
+        if (decision.type() != ActivationDecisionType.REFUSED) {
+            throw new IllegalArgumentException("A refusal needs a refusal decision.");
+        }
+        AgreementVersion version = awaitingActivation(versionNo, now);
+        List<AgreementVersion> refused = versions.stream()
+                .map(each -> each == version ? version.activationRefused(decision, now) : each).toList();
+        return withVersions(statusWhenVersionEnded(refused), now, refused);
+    }
+
+    /**
+     * This agreement as it stands at {@code now} (brokerage-agreement BR-10, BR-11, US-2 AC-3, US-3 AC-4; E05-S5 spec
+     * S5-D8, E05-S6 spec S6-D5): a version waiting for the owner whose 7 days have passed, or a confirmed version whose
+     * 14 days of activation have passed, is LAPSED, and the agreement drafting again when no version is pending any
+     * more (spec S5-D9). {@code this} when nothing is due. Every read applies it to its copy; the lapse job and the new
+     * draft store it.
      */
     public BrokerageAgreement withDueLapse(Instant now) {
         AgreementVersion due = dueLapseOrNull(now);
         if (due == null) {
             return this;
         }
+        AgreementVersion lapsedVersion = due.getStatus() == VersionStatus.OWNER_CONFIRMED
+                ? due.activationLapsed(now) : due.lapsed(now);
         List<AgreementVersion> lapsed = versions.stream()
-                .map(each -> each == due ? due.lapsed(now) : each).toList();
+                .map(each -> each == due ? lapsedVersion : each).toList();
         return withVersions(statusWhenVersionEnded(lapsed), now, lapsed);
     }
 
-    /** The version that lapses at {@code now}, for its history row at its deadline; null when none is due. */
+    /**
+     * The version that lapses at {@code now}, for its history row at its {@link AgreementVersion#lapseDeadlineOrNull()};
+     * null when none is due.
+     */
     public AgreementVersion dueLapseOrNull(Instant now) {
-        return versions.stream().filter(version -> version.lapseDueAt(now)).findFirst().orElse(null);
+        return versions.stream().filter(version -> version.lapseDueAt(now) || version.activationLapseDueAt(now))
+                .findFirst().orElse(null);
+    }
+
+    /**
+     * This agreement with its activated version in effect from its start (brokerage-agreement BR-5, BR-6, US-3 AC-5;
+     * E05-S6 spec S6-D6): the ACTIVATED version holding its activation record whose start has come is EFFECTIVE; the
+     * agreement keeps its status. {@code this} when nothing is due. Every read applies it to its copy; the start job
+     * stores it.
+     */
+    public BrokerageAgreement withDueStart(Instant now) {
+        AgreementVersion due = dueStartOrNull(now);
+        if (due == null) {
+            return this;
+        }
+        return withVersions(status, now, versions.stream().map(each -> each == due ? due.started(now) : each).toList());
+    }
+
+    /** The activated version that takes effect at {@code now}, for its history row at its start; null when none is due. */
+    public AgreementVersion dueStartOrNull(Instant now) {
+        return versions.stream().filter(version -> version.startDueAt(now)).findFirst().orElse(null);
+    }
+
+    /**
+     * This agreement as every read answers it at {@code now} (E05-S6 spec S6-D6): its due lapse applied, then its due
+     * start. {@code this} when nothing is due.
+     */
+    public BrokerageAgreement effectiveAt(Instant now) {
+        return withDueLapse(now).withDueStart(now);
     }
 
     /**
@@ -199,6 +273,20 @@ public final class BrokerageAgreement {
                 .filter(version -> version.getVersionNo() == versionNo && version.answerableAt(now))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("The version does not wait for the owner's answer."));
+    }
+
+    /**
+     * The agreement's version of that number when the agreement awaits confirmation and the version, confirmed by the
+     * owner, may still be activated or refused at {@code now} (brokerage-agreement BR-11; E05-S6 spec S6-D1 step 6).
+     */
+    private AgreementVersion awaitingActivation(int versionNo, Instant now) {
+        if (status != AgreementStatus.AWAITING_CONFIRMATION) {
+            throw new IllegalStateException("The agreement does not await an activation.");
+        }
+        return versions.stream()
+                .filter(version -> version.getVersionNo() == versionNo && version.activatableAt(now))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("The version does not wait for an activation."));
     }
 
     /**
