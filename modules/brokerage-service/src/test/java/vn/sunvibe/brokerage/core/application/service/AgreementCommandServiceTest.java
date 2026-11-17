@@ -669,6 +669,48 @@ class AgreementCommandServiceTest {
         assertEquals(List.of(), notices.agreementPending());
     }
 
+    /**
+     * Pin (E05-S5 spec section 10, U-1, U-5): a DRAFTING agreement whose version 1 the owner answered and whose version 2
+     * is a complete draft sends version 2 as it sends a first draft, and keeps version 1 as it was.
+     */
+    @Test
+    void sendDraft_secondVersionAfterAnAnsweredOne_sent() {
+        Instant at = Instant.parse("2026-11-01T00:00:00Z");
+        Instant firstSent = Instant.parse("2026-11-02T00:00:00Z");
+        AgreementPeriod period = new AgreementPeriod(START, START.plusMonths(6));
+        AgreementVersion first = AgreementVersion.load("V1", 1, VersionStatus.OWNER_REJECTED, period, LEAD, "I1", "S9",
+                at, firstSent, CONSENT, TERMS, FEE, firstSent);
+        AgreementVersion second = AgreementVersion.load("V2", 2, VersionStatus.DRAFT, period, LEAD, "I1", "S9", at, at,
+                CONSENT, TERMS, FEE, null);
+        agreements.store(BrokerageAgreement.load(AGREEMENT, "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, OWNER,
+                LEAD, AgreementStatus.DRAFTING, "S9", at, at, 0L, List.of(first, second)));
+
+        service().sendDraft(new AgreementSendCommand(AGREEMENT, 0L), VIEWER);
+
+        BrokerageAgreement stored = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(AgreementStatus.AWAITING_CONFIRMATION, stored.getStatus());
+        assertEquals(2, stored.getVersions().size());
+        assertEquals(1, trail.events().size());
+        RecordingAgreementTrail.Event event = trail.events().get(0);
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT, 2, AgreementEventType.VERSION_SENT, SALE, event.at()),
+                event);
+        AgreementVersion sent = stored.getVersions().get(1);
+        assertEquals("V2", sent.getId());
+        assertEquals(VersionStatus.AWAITING_OWNER, sent.getStatus());
+        assertEquals(event.at(), sent.getSentAtOrNull());
+        assertEquals(event.at(), stored.getUpdatedAt());
+        assertEquals(List.of(OWNER), notices.agreementPending());
+        AgreementVersion kept = stored.getVersions().get(0);
+        assertEquals("V1", kept.getId());
+        assertEquals(VersionStatus.OWNER_REJECTED, kept.getStatus());
+        assertEquals(firstSent, kept.getSentAtOrNull());
+        assertEquals(firstSent, kept.getUpdatedAt());
+        assertEquals(period, kept.getPeriod());
+        assertEquals(CONSENT, kept.getPhotoConsent());
+        assertEquals(TERMS, kept.getTerms());
+        assertEquals(FEE, kept.getFee());
+    }
+
     private enum BrokerageFeeOf { COMPLETE, WITHOUT_DUE_DAYS }
 
     /** Stores {@link #AGREEMENT} DRAFTING on the unit, its version 1 a DRAFT with every part of the content. */
