@@ -196,6 +196,23 @@ class EligibilityQueryServiceTest {
         assertEquals(1, agreements.count("unfinishedOf"));
     }
 
+    /**
+     * E05-S6 impact map U-3, U-28 (pin): an agreement in effect (ACTIVE, its version 1 EFFECTIVE) is still unfinished
+     * (brokerage-agreement BR-1), so the lead's region says the unit has an agreement in progress, with its id.
+     */
+    @Test
+    void forLead_activeAgreementOfThisLead_flagAndId() {
+        InMemoryAgreementRepository agreements = new InMemoryAgreementRepository().store(inEffect("A1", "U1", LEAD));
+        EligibilityQueryService service = new EligibilityQueryService(lead(SALE), basis(BASIS), account(true),
+                agreements);
+
+        EligibilityView view = service.forLead(LEAD, VIEWER);
+
+        assertEquals(List.of(new UnitEligibility("U1", "P101", List.of(), true, "A1"),
+                new UnitEligibility("U2", "P102", List.of(UNIT), false, null)), view.units());
+        assertEquals(1, agreements.count("unfinishedOf"));
+    }
+
     /** brokerage-agreement BR-17: an agreement that rests on another lead is said to exist, never named. */
     @Test
     void forLead_unfinishedAgreementFromAnotherLead_flagWithoutId() {
@@ -225,5 +242,13 @@ class EligibilityQueryServiceTest {
         return BrokerageAgreement.load(id, unitId, "P101", "01PROPERTY", TransactionType.LONG_TERM_RENT, DECLARED_OWNER,
                 basisLeadId, AgreementStatus.DRAFTING, SALE, at, at, 0L, List.of(AgreementVersion.load("V" + id, 1,
                         VersionStatus.DRAFT, period, basisLeadId, "01INTAKE", SALE, at, at)));
+    }
+
+    private static BrokerageAgreement inEffect(String id, String unitId, String basisLeadId) {
+        Instant at = Instant.parse("2026-11-01T00:00:00Z");
+        AgreementPeriod period = new AgreementPeriod(LocalDate.parse("2027-01-01"), LocalDate.parse("2027-12-31"));
+        return BrokerageAgreement.load(id, unitId, "P101", "01PROPERTY", TransactionType.LONG_TERM_RENT, DECLARED_OWNER,
+                basisLeadId, AgreementStatus.ACTIVE, SALE, at, at, 0L, List.of(AgreementVersion.load("V" + id, 1,
+                        VersionStatus.EFFECTIVE, period, basisLeadId, "01INTAKE", SALE, at, at)));
     }
 }
