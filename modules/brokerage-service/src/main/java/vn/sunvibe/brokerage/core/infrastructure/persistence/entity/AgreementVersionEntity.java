@@ -19,6 +19,7 @@ import lombok.NoArgsConstructor;
 import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
 import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswerType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
 
 import java.math.BigDecimal;
@@ -29,7 +30,8 @@ import java.util.List;
 
 /**
  * JPA Entity - a version of a brokerage agreement (E05-S2 spec 5.3) with its content (E05-S3 spec S3-D9), its fee
- * policy and its sending time (E05-S4 spec S4-D4), written through its agreement.
+ * policy and its sending time (E05-S4 spec S4-D4) and the owner's answer (E05-S5 spec S5-D11), written through its
+ * agreement.
  */
 @Entity
 @Table(name = "brokerage_agreement_versions")
@@ -146,6 +148,24 @@ public class AgreementVersionEntity {
     /** When the version was sent to the owner; null for a draft (E05-S4 spec S4-D4). */
     @Column(name = "sent_at")
     private Instant sentAt;
+
+    /** The owner's answer, null until given (E05-S5 spec S5-D11); the next four columns belong to it. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_answer", length = 10)
+    private OwnerAnswerType ownerAnswer;
+
+    @Column(name = "owner_answered_by", length = 26)
+    private String ownerAnsweredBy;
+
+    @Column(name = "owner_answered_at")
+    private Instant ownerAnsweredAt;
+
+    @Column(name = "owner_statement_version", length = 40)
+    private String ownerStatementVersion;
+
+    /** Private (brokerage-agreement BR-17): never logged; {@link #toString()} holds the id only. */
+    @Column(name = "owner_rejection_reason", length = 500)
+    private String ownerRejectionReason;
 
     /**
      * The fee's and the renewal's percentage tiers, matched by key (version, renewal, number) on a merge as the fee rows

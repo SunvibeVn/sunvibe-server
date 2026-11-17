@@ -4,6 +4,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementAccessType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 
 import java.time.Instant;
+import java.util.Collection;
 
 /**
  * The insert-only trail of the agreements: their history and their access log. Rows hold no free text and no value
@@ -21,4 +22,10 @@ public interface AgreementTrailDomainRepository {
      * and in later slices.
      */
     void recordAccess(String userId, String agreementId, AgreementAccessType action, Instant at);
+
+    /**
+     * Adds one access-log row per agreement, in one round trip (brokerage-agreement BR-17; E05-S5 spec S5-D1: the owner's
+     * read answers several agreements at once). Nothing for an empty collection.
+     */
+    void recordAccesses(String userId, Collection<String> agreementIds, AgreementAccessType action, Instant at);
 }

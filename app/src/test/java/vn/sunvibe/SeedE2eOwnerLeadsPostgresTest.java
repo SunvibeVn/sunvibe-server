@@ -969,6 +969,62 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
+	 * brokerage-agreement E05-S5 spec U-32: L15's agreement after the E2E answer flow, version 1 declined and version 2
+	 * confirmed with their owner answers, goes with the next seed run; the seed deletes the versions whatever columns
+	 * they hold.
+	 */
+	@Test
+	void reseed_afterAnAnsweredSecondVersion_clearsItsRows() throws Exception {
+		String agreement = "01JE2EANSWEREDAGREEMENT015";
+		String first = "01JE2EANSWEREDVERSION01015";
+		String second = "01JE2EANSWEREDVERSION02015";
+		try {
+			seedAccounts();
+			assertEquals(0, runLeads("local").getExitCode());
+			String l15 = LEAD_IDS.get(14);
+			Timestamp now = Timestamp.from(Instant.now());
+			jdbc.update("INSERT INTO brokerage_agreements (id, unit_id, unit_code, property_id, transaction_type,"
+					+ " owner_user_id, basis_lead_id, status, created_by_user_id, created_at, updated_at, version) VALUES (?,"
+					+ " '01JE2EANSWEREDUNIT00000015', 'SV-HOU-999915', 'e2e00000-0000-0000-0000-000000000015',"
+					+ " 'LONG_TERM_RENT', ?, ?, 'AWAITING_CONFIRMATION', ?, ?, ?, 6)", agreement, CUSTOMER_ID, l15, SALE_ID,
+					now, now);
+			jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date, end_date,"
+					+ " basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at, sent_at, owner_answer,"
+					+ " owner_answered_by, owner_answered_at, owner_rejection_reason) VALUES (?, ?, 1, 'OWNER_REJECTED',"
+					+ " DATE '2027-01-01', DATE '2027-12-31', ?, '01JE2EINTAKE00000000000015', ?, ?, ?, ?, 'REJECTED', ?, ?,"
+					+ " 'The rent is too low.')", first, agreement, l15, SALE_ID, now, now, now, CUSTOMER_ID, now);
+			jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date, end_date,"
+					+ " basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at, sent_at, owner_answer,"
+					+ " owner_answered_by, owner_answered_at, owner_statement_version) VALUES (?, ?, 2, 'OWNER_CONFIRMED',"
+					+ " DATE '2027-01-01', DATE '2027-12-31', ?, '01JE2EINTAKE00000000000015', ?, ?, ?, ?, 'CONFIRMED', ?, ?,"
+					+ " 'brokerage-agreement-2026-11')", second, agreement, l15, SALE_ID, now, now, now, CUSTOMER_ID, now);
+			jdbc.update("INSERT INTO brokerage_agreement_events (agreement_id, version_no, event_type, actor_user_id, occurred_at)"
+					+ " VALUES (?, 1, 'OWNER_REJECTED', ?, ?), (?, 2, 'DRAFT_OPENED', ?, ?), (?, 2, 'OWNER_CONFIRMED', ?, ?)",
+					agreement, CUSTOMER_ID, now, agreement, SALE_ID, now, agreement, CUSTOMER_ID, now);
+			jdbc.update("INSERT INTO brokerage_agreement_access_logs (user_id, agreement_id, action, accessed_at)"
+					+ " VALUES (?, ?, 'OWNER_DETAIL_READ', ?)", CUSTOMER_ID, agreement, now);
+			assertEquals(2, count("SELECT count(*) FROM brokerage_agreement_versions WHERE agreement_id = '" + agreement
+					+ "'"));
+
+			ExecResult again = runLeads("local");
+
+			assertEquals(0, again.getExitCode(), "re-run after an answered second version failed: " + again.getStderr());
+			assertEquals(SEEDED, printedCounts(again));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreement_versions WHERE agreement_id = '" + agreement
+					+ "'"));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreement_events WHERE agreement_id = '" + agreement + "'"));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreement_access_logs WHERE agreement_id = '" + agreement
+					+ "'"));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreements WHERE id = '" + agreement + "'"));
+		} finally {
+			jdbc.update("DELETE FROM brokerage_agreement_access_logs WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreement_events WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreement_versions WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreements WHERE id = ?", agreement);
+		}
+	}
+
+	/**
 	 * survey-media spec 6.4 (plan Task A23): after the media flows on L14 (a checklist started through the API, photos
 	 * in the shapes create, content, removal and an ADMIN hold leave, their set, job and variants, the budget and slot
 	 * rows of the fixture users), the next run removes every one of them and L14 can be started again.

@@ -19,6 +19,9 @@ import org.springframework.web.util.ServletRequestPathUtils;
 
 import vn.sunvibe.brokerage.core.presentation.controller.BrokerageAgreementController;
 import vn.sunvibe.brokerage.core.presentation.controller.BrokerageEligibilityController;
+import vn.sunvibe.brokerage.core.presentation.controller.MeBrokerageAgreementController;
+
+import java.util.Map;
 
 /**
  * The brokerage eligibility read runs without open-in-view, while the intake block keeps it (E05-S1 spec S1-D8, EL-11;
@@ -98,6 +101,36 @@ class BrokerageOpenInViewTest {
 
 		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
 		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S5 spec S5-D15, SD-1: the owner's three paths run without open-in-view. */
+	@Test
+	void ownerPaths_noOpenInViewInterceptor() throws Exception {
+		Map<String, String> handlers = Map.of(
+				"GET /api/v1/me/brokerage-agreements", "list",
+				"POST /api/v1/me/brokerage-agreements/confirmations", "confirm",
+				"POST /api/v1/me/brokerage-agreements/01JAGREEMENT00000000000000/rejection", "reject");
+		for (Map.Entry<String, String> expected : handlers.entrySet()) {
+			String[] request = expected.getKey().split(" ");
+			HandlerExecutionChain owner = chain(request[0], request[1]);
+			HandlerMethod handler = assertInstanceOf(HandlerMethod.class, owner.getHandler());
+			assertEquals(MeBrokerageAgreementController.class, handler.getBeanType());
+			assertEquals(expected.getValue(), handler.getMethod().getName());
+			assertEquals(0, openInViewInterceptors(owner), expected.getKey());
+		}
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S5 spec S5-D15, SD-1: the staff new draft is a POST on the draft pattern, already excluded. */
+	@Test
+	void newDraftPost_noOpenInViewInterceptor() throws Exception {
+		HandlerExecutionChain draft = chain("POST", "/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft");
+		HandlerMethod handler = assertInstanceOf(HandlerMethod.class, draft.getHandler());
+		assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+		assertEquals("openDraft", handler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(draft));
 	}
 
 	private HandlerExecutionChain chain(String method, String path) throws Exception {

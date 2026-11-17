@@ -9,6 +9,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -173,7 +174,7 @@ class BrokerageOpenApiTest {
 	void openApi_draftAndSurveyTermsOperations_idsTagAndAnswers() {
 		JsonNode draft = contract.path("paths").path("/api/v1/staff/brokerage-agreements/{agreementId}/draft");
 		JsonNode surveyTerms = contract.path("paths").path("/api/v1/staff/brokerage-agreements/{agreementId}/survey-terms");
-		assertEquals(List.of("put"), names(draft));
+		assertEquals(List.of("post", "put"), names(draft).stream().sorted().toList());
 		assertEquals(List.of("get"), names(surveyTerms));
 		JsonNode put = draft.path("put");
 		JsonNode get = surveyTerms.path("get");
@@ -430,6 +431,152 @@ class BrokerageOpenApiTest {
 		int surveyTerms = paths.indexOf("/api/v1/staff/brokerage-agreements/{agreementId}/survey-terms");
 		assertEquals(draft + 1, paths.indexOf(submissionPath), paths.toString());
 		assertTrue(paths.indexOf(submissionPath) < surveyTerms, paths.toString());
+	}
+
+	// ==================== E05-S5 (SD-2) ====================
+
+	/** E05-S5 spec 4, S5-D15, SD-2: the owner's three operations, their ids, tag, security and answers. */
+	@Test
+	void openApi_ownerOperations_idsTagSecurityAndAnswers() {
+		Map<String, List<String>> answers = Map.of(
+				"get /api/v1/me/brokerage-agreements listMyBrokerageAgreements", List.of("200", "401", "403", "500"),
+				"post /api/v1/me/brokerage-agreements/confirmations confirmMyBrokerageAgreementVersions",
+				List.of("204", "400", "401", "403", "404", "409", "423", "429", "500"),
+				"post /api/v1/me/brokerage-agreements/{agreementId}/rejection rejectMyBrokerageAgreementVersion",
+				List.of("204", "400", "401", "403", "404", "409", "429", "500"));
+		for (Map.Entry<String, List<String>> expected : answers.entrySet()) {
+			String[] parts = expected.getKey().split(" ");
+			JsonNode path = contract.path("paths").path(parts[1]);
+			assertEquals(List.of(parts[0]), names(path), parts[1]);
+			JsonNode operation = path.path(parts[0]);
+			assertEquals(parts[2], operation.path("operationId").asString());
+			assertEquals("[\"Brokerage agreement\"]", operation.path("tags").toString());
+			assertEquals("[{\"bearerAuth\":[]}]", operation.path("security").toString(), parts[2]);
+			List<String> withTheId = new ArrayList<>();
+			contract.path("paths").properties().forEach(entry -> entry.getValue().properties().forEach(each -> {
+				if (parts[2].equals(each.getValue().path("operationId").asString())) {
+					withTheId.add(each.getKey() + " " + entry.getKey());
+				}
+			}));
+			assertEquals(List.of(parts[0] + " " + parts[1]), withTheId);
+			JsonNode responses = operation.path("responses");
+			assertEquals(expected.getValue(), names(responses).stream().sorted().toList(), parts[2]);
+			for (String status : expected.getValue()) {
+				if (status.startsWith("2")) {
+					continue;
+				}
+				assertEquals("#/components/schemas/ErrorResponse", schemaRef(responses.path(status)), parts[2] + status);
+			}
+			assertEquals("No valid access token (security chain)", responses.path("401").path("description").asString());
+			assertEquals("Access denied (security chain)", responses.path("403").path("description").asString());
+		}
+		JsonNode list = contract.path("paths").path("/api/v1/me/brokerage-agreements").path("get").path("responses");
+		assertEquals("#/components/schemas/BrokerageAgreementOwnerList", schemaRef(list.path("200")));
+		JsonNode confirm = contract.path("paths").path("/api/v1/me/brokerage-agreements/confirmations").path("post");
+		assertTrue(confirm.path("responses").path("204").path("content").isMissingNode());
+		assertEquals("#/components/schemas/BrokerageAgreementConfirmationRequest", confirm.path("requestBody")
+				.path("content").path("application/json").path("schema").path("$ref").asString());
+		for (String code : List.of("AGREEMENT_STATEMENT_OUTDATED", "AGREEMENT_NOT_AWAITING_OWNER", "AGREEMENT_NOT_ELIGIBLE",
+				"CONCURRENT_MODIFICATION")) {
+			assertTrue(confirm.path("responses").path("409").path("description").asString().contains(code), code);
+		}
+		assertTrue(confirm.path("responses").path("423").path("description").asString().contains("ACCOUNT_LOCKED"));
+		JsonNode reject = contract.path("paths").path("/api/v1/me/brokerage-agreements/{agreementId}/rejection")
+				.path("post");
+		assertEquals("#/components/schemas/BrokerageAgreementRejectionRequest", reject.path("requestBody")
+				.path("content").path("application/json").path("schema").path("$ref").asString());
+		assertTrue(reject.path("responses").path("409").path("description").asString()
+				.contains("AGREEMENT_NOT_AWAITING_OWNER"));
+	}
+
+	/** E05-S5 spec 4, S5-D13, SD-2: every nullable declared, the closed values listed, the password write-only. */
+	@Test
+	void openApi_ownerSchemas_nullableEnumsAndWriteOnly() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode ownerList = schemas.path("BrokerageAgreementOwnerList").path("properties");
+		assertEquals(List.of("items", "more"), names(ownerList).stream().sorted().toList());
+		assertEquals("#/components/schemas/BrokerageAgreementOwnerItem",
+				ownerList.path("items").path("items").path("$ref").asString());
+		assertEquals("boolean", ownerList.path("more").path("type").asString());
+
+		JsonNode item = schemas.path("BrokerageAgreementOwnerItem").path("properties");
+		assertEquals(List.of("agreementId", "statement", "status", "street", "transactionType", "unitCode", "unitLocation",
+				"versions", "wardName"), names(item).stream().sorted().toList());
+		assertEquals("[\"DRAFTING\",\"AWAITING_CONFIRMATION\",\"ACTIVE\",\"SUSPENDED\",\"EXPIRED\",\"TERMINATED\",\"CANCELLED\"]",
+				item.path("status").path("enum").toString());
+		assertEquals("[\"LONG_TERM_RENT\"]", item.path("transactionType").path("enum").toString());
+		for (String nullable : List.of("unitCode", "unitLocation", "street", "wardName")) {
+			assertEquals("[\"string\",\"null\"]", item.path(nullable).path("type").toString(), nullable);
+		}
+		assertNullableRef("BrokerageAgreementStatement", item.path("statement"));
+		assertEquals("array", item.path("versions").path("type").asString());
+		assertEquals("#/components/schemas/BrokerageAgreementVersion",
+				item.path("versions").path("items").path("$ref").asString());
+		assertEquals(List.of("text", "version"),
+				names(schemas.path("BrokerageAgreementStatement").path("properties")).stream().sorted().toList());
+
+		JsonNode version = schemas.path("BrokerageAgreementVersion");
+		assertTrue(version.path("required").isMissingNode(), version.toString());
+		for (String time : List.of("answerBy", "ownerAnsweredAt")) {
+			assertEquals("[\"string\",\"null\"]", version.path("properties").path(time).path("type").toString(), time);
+			assertEquals("date-time", version.path("properties").path(time).path("format").asString(), time);
+		}
+		assertEquals("[\"string\",\"null\"]",
+				version.path("properties").path("ownerRejectionReason").path("type").toString());
+
+		JsonNode confirmation = schemas.path("BrokerageAgreementConfirmationRequest");
+		assertEquals(List.of("currentPassword", "statementVersion", "versions"), requiredOf(confirmation));
+		JsonNode password = confirmation.path("properties").path("currentPassword");
+		assertTrue(password.path("writeOnly").asBoolean(), password.toString());
+		assertEquals(256, password.path("maxLength").asInt());
+		assertEquals(40, confirmation.path("properties").path("statementVersion").path("maxLength").asInt());
+		assertEquals(1, confirmation.path("properties").path("versions").path("minItems").asInt());
+		assertEquals(20, confirmation.path("properties").path("versions").path("maxItems").asInt());
+		JsonNode confirmationItem = schemas.path("BrokerageAgreementConfirmationItemInput");
+		assertEquals(List.of("agreementId", "versionNo"), requiredOf(confirmationItem));
+		assertEquals(26, confirmationItem.path("properties").path("agreementId").path("maxLength").asInt());
+		assertBounds(confirmationItem.path("properties").path("versionNo"), 1, 10_000, false);
+
+		JsonNode rejection = schemas.path("BrokerageAgreementRejectionRequest");
+		assertEquals(List.of("versionNo"), requiredOf(rejection));
+		assertBounds(rejection.path("properties").path("versionNo"), 1, 10_000, false);
+		assertEquals("[\"string\",\"null\"]", rejection.path("properties").path("reason").path("type").toString());
+		assertEquals(500, rejection.path("properties").path("reason").path("maxLength").asInt());
+	}
+
+	/** E05-S5 spec 4, S5-D10, S5-D15: the new draft's operation, its answers, no security entry, its request schema. */
+	@Test
+	void openApi_newDraftOperation_idTagAndAnswers() {
+		String draftPath = "/api/v1/staff/brokerage-agreements/{agreementId}/draft";
+		JsonNode post = contract.path("paths").path(draftPath).path("post");
+		assertEquals("openBrokerageAgreementDraft", post.path("operationId").asString());
+		assertEquals("[\"Brokerage agreement\"]", post.path("tags").toString());
+		assertTrue(post.path("security").isMissingNode(), post.toString());
+		List<String> withTheId = new ArrayList<>();
+		contract.path("paths").properties().forEach(entry -> entry.getValue().properties().forEach(operation -> {
+			if ("openBrokerageAgreementDraft".equals(operation.getValue().path("operationId").asString())) {
+				withTheId.add(operation.getKey() + " " + entry.getKey());
+			}
+		}));
+		assertEquals(List.of("post " + draftPath), withTheId);
+		assertEquals("#/components/schemas/BrokerageAgreementNewDraftRequest",
+				post.path("requestBody").path("content").path("application/json").path("schema").path("$ref").asString());
+		JsonNode responses = post.path("responses");
+		assertEquals(List.of("204", "400", "401", "403", "404", "409", "500"), names(responses).stream().sorted().toList());
+		assertTrue(responses.path("204").path("content").isMissingNode(), responses.path("204").toString());
+		for (String status : List.of("400", "401", "403", "404", "409", "500")) {
+			assertEquals("#/components/schemas/ErrorResponse", schemaRef(responses.path(status)), status);
+		}
+		for (String code : List.of("AGREEMENT_NEW_DRAFT_NOT_ALLOWED", "CONCURRENT_MODIFICATION", "AGREEMENT_NOT_ELIGIBLE")) {
+			assertTrue(responses.path("409").path("description").asString().contains(code), code);
+		}
+		assertTrue(responses.path("403").path("description").asString().contains("AGREEMENT_NOT_ASSIGNEE"));
+
+		JsonNode request = contract.path("components").path("schemas").path("BrokerageAgreementNewDraftRequest");
+		assertEquals(List.of("expectedDataVersion"), names(request.path("properties")));
+		assertEquals("[\"expectedDataVersion\"]", request.path("required").toString());
+		assertEquals("int64", request.path("properties").path("expectedDataVersion").path("format").asString());
+		assertEquals(0, request.path("properties").path("expectedDataVersion").path("minimum").asInt());
 	}
 
 	private static void assertNullableRef(String schema, JsonNode property) {

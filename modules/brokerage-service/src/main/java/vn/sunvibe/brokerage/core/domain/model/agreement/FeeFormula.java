@@ -83,28 +83,18 @@ public record FeeFormula(FeeFormulaType type, List<FeeTier> tiers, Long amountOr
 
     /**
      * brokerage-agreement BR-7: "free of charge" is an explicit choice with a reason. The reason is trimmed, then holds 1
-     * to 500 UTF-16 units and no character that can hide or reorder the text the owner confirms (E05-S4 spec S4-D3).
+     * to 500 UTF-16 units and no character that can hide or reorder the text the owner confirms (E05-S4 spec S4-D3; the
+     * rule the owner's rejection reason shares, {@link AgreementText}).
      */
     private static String freeReason(String reasonOrNull) {
         if (reasonOrNull == null) {
             throw new AgreementContentException("freeReason");
         }
         String reason = reasonOrNull.strip();
-        if (reason.isEmpty() || reason.length() > MAX_FREE_REASON_LENGTH
-                || reason.codePoints().anyMatch(FeeFormula::hidesText)) {
+        if (reason.isEmpty() || reason.length() > MAX_FREE_REASON_LENGTH || AgreementText.hidesText(reason)) {
             throw new AgreementContentException("freeReason");
         }
         return reason;
-    }
-
-    /**
-     * A control character (U+0000 to U+001F, U+007F to U+009F; PostgreSQL cannot store U+0000) or a bidirectional
-     * formatting character (U+200E, U+200F, U+202A to U+202E, U+2066 to U+2069).
-     */
-    private static boolean hidesText(int codePoint) {
-        return codePoint <= 0x1F || (codePoint >= 0x7F && codePoint <= 0x9F) || codePoint == 0x200E
-                || codePoint == 0x200F || (codePoint >= 0x202A && codePoint <= 0x202E)
-                || (codePoint >= 0x2066 && codePoint <= 0x2069);
     }
 
     /** brokerage-agreement BR-17: the fee policy is private, so the type and which parts it holds, never a value. */

@@ -73,7 +73,8 @@ class AuthV1OpenApiTest {
 	@Test
 	void openApi_mePaths_requireBearerAuth() {
 		List<Map.Entry<String, JsonNode>> operations = operationsUnder("/api/v1/me");
-		assertEquals(13, operations.size(), "the seven operations of spec §3.1 rows 10-16 and the six of property-create intake 7.3");
+		assertEquals(16, operations.size(), "the seven operations of spec §3.1 rows 10-16, the six of property-create intake 7.3"
+				+ " and the three of brokerage-agreement E05-S5");
 
 		for (Map.Entry<String, JsonNode> operation : operations) {
 			assertEquals(List.of("bearerAuth"), securityNames(operation.getValue()), operation.getKey());

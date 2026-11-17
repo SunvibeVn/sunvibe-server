@@ -1,7 +1,10 @@
 package vn.sunvibe.brokerage.core.presentation.converter;
 
 import org.junit.jupiter.api.Test;
+import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Entry;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Reason;
@@ -12,7 +15,10 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementConfirmationItemInput;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementConfirmationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementRejectionRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementEarlyLeaseEndInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeFormulaInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeePolicyInput;
@@ -33,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class AgreementRequestConverterTest {
 
     private static final String AGREEMENT = "01JAGRE0000000000000000001";
+    private static final String AGREEMENT_2 = "01JAGRE0000000000000000002";
     private static final BrokerageAgreementTermsInput NO_TERMS = new BrokerageAgreementTermsInput(null, null, null, null,
             null);
     private static final BrokerageAgreementFeeFormulaInput PERCENT = formula("PERCENT_OF_RENT",
@@ -43,6 +50,40 @@ class AgreementRequestConverterTest {
             new BrokerageAgreementEarlyLeaseEndInput("PARTIAL_REFUND", 50, 3);
 
     private final AgreementRequestConverter converter = new AgreementRequestConverter();
+
+    // ==================== E05-S5: the owner's confirmation and rejection (spec 3.2, 3.3, S5-D5) ====================
+
+    @Test
+    void toConfirmCommand_body_itemsInOrderGiven() {
+        AgreementConfirmCommand command = converter.toConfirmCommand(new BrokerageAgreementConfirmationRequest("secret",
+                "brokerage-agreement-2026-11", List.of(new BrokerageAgreementConfirmationItemInput(AGREEMENT_2, 1),
+                new BrokerageAgreementConfirmationItemInput(AGREEMENT, 3))));
+
+        assertEquals("secret", command.currentPassword());
+        assertEquals("brokerage-agreement-2026-11", command.statementVersion());
+        assertEquals(List.of(new AgreementVersionInput(AGREEMENT_2, 1), new AgreementVersionInput(AGREEMENT, 3)),
+                command.versions());
+    }
+
+    /** Review Focus 3, spec S5-D5: an agreement named twice is refused on versions before any read. */
+    @Test
+    void toConfirmCommand_sameAgreementTwice_invalidVersions() {
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> converter.toConfirmCommand(new BrokerageAgreementConfirmationRequest("secret",
+                        "brokerage-agreement-2026-11", List.of(new BrokerageAgreementConfirmationItemInput(AGREEMENT, 1),
+                        new BrokerageAgreementConfirmationItemInput(AGREEMENT, 2)))));
+
+        assertEquals(Reason.VALIDATION_FAILED, refused.reason());
+        assertEquals(List.of(new Entry("versions", null)), refused.entries());
+    }
+
+    @Test
+    void toRejectCommand_reasonAsGiven() {
+        assertEquals(new AgreementRejectCommand(AGREEMENT, 2, "  The rent is too low.  "),
+                converter.toRejectCommand(AGREEMENT, new BrokerageAgreementRejectionRequest(2, "  The rent is too low.  ")));
+        assertEquals(new AgreementRejectCommand(AGREEMENT, 1, null),
+                converter.toRejectCommand(AGREEMENT, new BrokerageAgreementRejectionRequest(1, null)));
+    }
 
     @Test
     void toDraftCommand_typeOutsideItsPlace_invalidWithThePlaceList() {

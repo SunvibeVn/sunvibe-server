@@ -2,6 +2,7 @@ package vn.sunvibe.brokerage.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.query.AgreementDetailView;
+import vn.sunvibe.brokerage.core.application.query.OwnerAgreementsView;
 import vn.sunvibe.brokerage.core.application.query.SurveyTermsView;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCreateResult;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
@@ -18,6 +19,9 @@ import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFee
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeePolicyResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeTierResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementOwnerItemResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementOwnerListResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementStatementResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementRentResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementTermSourceResponse;
@@ -38,14 +42,28 @@ public class AgreementResponseConverter {
     public BrokerageAgreementDetailResponse toDetail(AgreementDetailView view) {
         return new BrokerageAgreementDetailResponse(view.agreementId(), view.status().name(),
                 view.transactionType().name(), view.unitId(), view.unitCodeOrNull(), view.basisLeadId(), view.createdAt(),
-                view.versions().stream()
-                        .map(version -> new BrokerageAgreementVersionResponse(version.versionNo(), version.status().name(),
-                                version.startDate(), version.endDate(), version.createdAt(),
-                                version.advertisingScope().name(), version.photoConsent().interiorOrNull(),
-                                version.photoConsent().exterior(), terms(version.terms()), feePolicy(version.fee()),
-                                version.sentAtOrNull()))
-                        .toList(),
+                view.versions().stream().map(AgreementResponseConverter::version).toList(),
                 view.dataVersion(), view.viewerIsAssignedSale());
+    }
+
+    /** The owner's read (E05-S5 spec S5-D1, 4): the same version schema as the staff detail (spec S5-D13). */
+    public BrokerageAgreementOwnerListResponse toOwnerList(OwnerAgreementsView view) {
+        return new BrokerageAgreementOwnerListResponse(view.items().stream()
+                .map(item -> new BrokerageAgreementOwnerItemResponse(item.agreementId(), item.status().name(),
+                        item.transactionType().name(), item.unitCodeOrNull(), item.unitLocationOrNull(),
+                        item.streetOrNull(), item.wardNameOrNull(),
+                        item.versions().stream().map(AgreementResponseConverter::version).toList(),
+                        item.statementOrNull() == null ? null : new BrokerageAgreementStatementResponse(
+                                item.statementOrNull().version(), item.statementOrNull().text())))
+                .toList(), view.more());
+    }
+
+    private static BrokerageAgreementVersionResponse version(AgreementDetailView.VersionView version) {
+        return new BrokerageAgreementVersionResponse(version.versionNo(), version.status().name(), version.startDate(),
+                version.endDate(), version.createdAt(), version.advertisingScope().name(),
+                version.photoConsent().interiorOrNull(), version.photoConsent().exterior(), terms(version.terms()),
+                feePolicy(version.fee()), version.sentAtOrNull(), version.answerByOrNull(),
+                version.ownerAnsweredAtOrNull(), version.ownerRejectionReasonOrNull());
     }
 
     /** brokerage-agreement BR-7: the fixed payer and moment, and every part, null when not entered (spec S4-D10). */

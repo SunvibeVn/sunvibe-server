@@ -1104,6 +1104,266 @@
         "tags" : [ "Me" ]
       }
     },
+    "/api/v1/me/brokerage-agreements" : {
+      "get" : {
+        "operationId" : "listMyBrokerageAgreements",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerageAgreementOwnerList"
+                }
+              }
+            },
+            "description" : "At most 50 agreements, newest sending first; an account that is not an owner gets an empty list"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "The signed-in account's brokerage agreements with every version sent to them; each read is logged",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
+    "/api/v1/me/brokerage-agreements/confirmations" : {
+      "post" : {
+        "operationId" : "confirmMyBrokerageAgreementVersions",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementConfirmationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Every version was confirmed, each recorded on its own; no body (read the list again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: currentPassword, statementVersion, versions, versions[i].agreementId or versions[i].versionNo; the one entry currentPassword alone is a wrong password) or MALFORMED_REQUEST (the body cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: a version is not one sent to this account; one answer for every caller and id"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_STATEMENT_OUTDATED (the statement changed; no entry), AGREEMENT_NOT_AWAITING_OWNER (one versions[i] entry per version no longer waiting or past its 7 days), AGREEMENT_NOT_ELIGIBLE (entries versions[i].reasonGroups.<GROUP>, in the order BASIS, PROPERTY, UNIT, OWNER) or CONCURRENT_MODIFICATION (no entry)"
+          },
+          "423" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "ACCOUNT_LOCKED: too many wrong passwords; no entry"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Too many requests"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Confirm one or several versions sent to the account, with the current password and the statement read; all or none",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
+    "/api/v1/me/brokerage-agreements/{agreementId}/rejection" : {
+      "post" : {
+        "operationId" : "rejectMyBrokerageAgreementVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementRejectionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The version was declined and the agreement is drafting again; no body (read the list again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (entry versionNo or reason) or MALFORMED_REQUEST (the body cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "No valid access token (security chain)"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Access denied (security chain)"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: not a version sent to this account; one answer for every caller and id"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NOT_AWAITING_OWNER (the version no longer waits or its 7 days passed; no entry) or CONCURRENT_MODIFICATION (no entry)"
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Too many requests"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "security" : [ {
+          "bearerAuth" : [ ]
+        } ],
+        "summary" : "Decline the version waiting for the account's answer, with an optional private reason",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/me/email/confirm-code" : {
       "post" : {
         "description" : "Ends every other session and starts a new one for this device: the access token in the body, the refresh token in the HttpOnly refresh cookie (Path=/api/v1/auth/session). A replaced address gets a notice that does not name the new one.",
@@ -2629,6 +2889,94 @@
       }
     },
     "/api/v1/staff/brokerage-agreements/{agreementId}/draft" : {
+      "post" : {
+        "operationId" : "openBrokerageAgreementDraft",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementNewDraftRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The draft was opened; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (entry expectedDataVersion) or MALFORMED_REQUEST (the body or the number cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff; AGREEMENT_NOT_ASSIGNEE: the caller is not the basis lead's assigned Sale"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NEW_DRAFT_NOT_ALLOWED (a version still waits for the owner or for activation, or the agreement is not drafting; no entry), CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed in between) or AGREEMENT_NOT_ELIGIBLE (one reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY, UNIT, OWNER)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Open the next draft version, a copy of the latest one, after the owner declined it or did not answer in time, against the data version read",
+        "tags" : [ "Brokerage agreement" ]
+      },
       "put" : {
         "operationId" : "updateBrokerageAgreementDraft",
         "parameters" : [ {
@@ -8954,6 +9302,55 @@
         },
         "required" : [ "expectedLeadVersion", "startAt" ]
       },
+      "BrokerageAgreementConfirmationItemInput" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string",
+            "description" : "The agreement's id",
+            "example" : "01JAGREEMENT00000000000000",
+            "maxLength" : 26,
+            "minLength" : 0
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The version number the owner read",
+            "maximum" : 10000,
+            "minimum" : 1
+          }
+        },
+        "required" : [ "agreementId", "versionNo" ]
+      },
+      "BrokerageAgreementConfirmationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "currentPassword" : {
+            "type" : "string",
+            "description" : "The account's current password",
+            "maxLength" : 256,
+            "minLength" : 0,
+            "writeOnly" : true
+          },
+          "statementVersion" : {
+            "type" : "string",
+            "description" : "The statement version the owner read",
+            "example" : "brokerage-agreement-2026-11",
+            "maxLength" : 40,
+            "minLength" : 0
+          },
+          "versions" : {
+            "type" : "array",
+            "description" : "1 to 20 versions, no agreement twice; each recorded on its own, all or none",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementConfirmationItemInput"
+            },
+            "maxItems" : 20,
+            "minItems" : 1
+          }
+        },
+        "required" : [ "currentPassword", "statementVersion", "versions" ]
+      },
       "BrokerageAgreementCreateRequest" : {
         "type" : "object",
         "properties" : {
@@ -9449,6 +9846,102 @@
         },
         "required" : [ "fromMonths", "percent" ]
       },
+      "BrokerageAgreementNewDraftRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedDataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The dataVersion of the detail the caller read",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "expectedDataVersion" ]
+      },
+      "BrokerageAgreementOwnerItem" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string"
+          },
+          "statement" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementStatement"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The statement of the version the owner may answer now; null when none"
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "The effective state: past a version's deadline the agreement reads DRAFTING",
+            "enum" : [ "DRAFTING", "AWAITING_CONFIRMATION", "ACTIVE", "SUSPENDED", "EXPIRED", "TERMINATED", "CANCELLED" ]
+          },
+          "street" : {
+            "type" : [ "string", "null" ],
+            "description" : "The property's street; null when the property no longer answers"
+          },
+          "transactionType" : {
+            "type" : "string",
+            "enum" : [ "LONG_TERM_RENT" ]
+          },
+          "unitCode" : {
+            "type" : [ "string", "null" ],
+            "description" : "The unit's code; null when the unit has none"
+          },
+          "unitLocation" : {
+            "type" : [ "string", "null" ],
+            "description" : "The unit's location in the property; null when none is known"
+          },
+          "versions" : {
+            "type" : "array",
+            "description" : "The versions sent to the owner, by version number, in their effective state",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementVersion"
+            }
+          },
+          "wardName" : {
+            "type" : [ "string", "null" ],
+            "description" : "The property's ward; null when the property no longer answers"
+          }
+        }
+      },
+      "BrokerageAgreementOwnerList" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "description" : "At most 50, newest sending first; empty for an account that is not an owner",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementOwnerItem"
+            }
+          },
+          "more" : {
+            "type" : "boolean",
+            "description" : "Whether more agreements exist than the list shows"
+          }
+        }
+      },
+      "BrokerageAgreementRejectionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Optional and private; trimmed, and stored only when not blank; no control or bidirectional formatting character",
+            "example" : "The rent is too low.",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The version number the owner read",
+            "maximum" : 10000,
+            "minimum" : 1
+          }
+        },
+        "required" : [ "versionNo" ]
+      },
       "BrokerageAgreementRent" : {
         "type" : "object",
         "properties" : {
@@ -9487,6 +9980,19 @@
           }
         },
         "required" : [ "amount", "currency", "unit" ]
+      },
+      "BrokerageAgreementStatement" : {
+        "type" : "object",
+        "properties" : {
+          "text" : {
+            "type" : "string",
+            "description" : "The text, naming the version number and the unit's code"
+          },
+          "version" : {
+            "type" : "string",
+            "description" : "The statement version a confirmation sends back as statementVersion"
+          }
+        }
       },
       "BrokerageAgreementSurveyTerms" : {
         "type" : "object",
@@ -9604,6 +10110,11 @@
             "description" : "The advertising permission: sunvibe.vn and staff sending the listing link, for the version's period (brokerage-agreement BR-9)",
             "enum" : [ "SUNVIBE_CHANNELS" ]
           },
+          "answerBy" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "Until when the owner may answer: 7 days after the sending, exclusive; null for a version never sent"
+          },
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -9619,6 +10130,15 @@
           },
           "feePolicy" : {
             "$ref" : "#/components/schemas/BrokerageAgreementFeePolicy"
+          },
+          "ownerAnsweredAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "When the owner confirmed or declined the version; null otherwise"
+          },
+          "ownerRejectionReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "The owner's private reason for declining; null when none was given"
           },
           "photoConsent" : {
             "type" : [ "boolean", "null" ],

@@ -181,6 +181,8 @@ app:
         # Owner confirmations and the owner request (property-create intake spec 7.4)
         - { method: POST, path: "/api/v1/me/property-confirmations/**", limit: 10, window: 15m, bucket: me-property-confirmation }
         - { method: POST, path: "/api/v1/staff/owner-leads/*/inventory-intake/owner-confirmation", limit: 30, window: 1h, bucket: owner-confirmation-request }
+        # The owner's brokerage agreement confirmation (with the password) and rejection (brokerage-agreement E05-S5 spec S5-D4)
+        - { method: POST, path: "/api/v1/me/brokerage-agreements/**", limit: 10, window: 15m, bucket: me-brokerage-agreement }
   sms:
     # SMS provider for OTPs: none (default; the phone channel must then not be on) or log, which prints OTPs to the
     # log and runs only in the dev, test and lan profiles. No real provider exists yet.

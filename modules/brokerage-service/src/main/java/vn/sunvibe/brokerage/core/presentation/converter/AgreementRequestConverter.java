@@ -1,9 +1,13 @@
 package vn.sunvibe.brokerage.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
@@ -19,6 +23,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementConfirmationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDepositInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
@@ -27,6 +32,8 @@ import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeF
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeePolicyInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeTierInput;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementNewDraftRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementRejectionRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementTermsInput;
 
 import java.util.ArrayList;
@@ -71,6 +78,32 @@ public class AgreementRequestConverter {
     /** The send command of the request body (E05-S4 spec S4-D2); the bean constraints have already held. */
     public AgreementSendCommand toSendCommand(String agreementId, BrokerageAgreementDraftSubmissionRequest request) {
         return new AgreementSendCommand(agreementId, request.expectedDataVersion());
+    }
+
+    /**
+     * The owner's confirmation (E05-S5 spec S5-D5): the items in the order given; the bean constraints have already
+     * held.
+     *
+     * @throws AgreementRefusedException an agreement named twice, on {@code versions}, before any read
+     */
+    public AgreementConfirmCommand toConfirmCommand(BrokerageAgreementConfirmationRequest request) {
+        List<AgreementVersionInput> versions = request.versions().stream()
+                .map(item -> new AgreementVersionInput(item.agreementId(), item.versionNo()))
+                .toList();
+        if (versions.stream().map(AgreementVersionInput::agreementId).distinct().count() != versions.size()) {
+            throw AgreementRefusedException.invalid("versions", null);
+        }
+        return new AgreementConfirmCommand(request.currentPassword(), request.statementVersion(), versions);
+    }
+
+    /** The new draft command (E05-S5 spec S5-D10); the bean constraints have already held. */
+    public AgreementOpenDraftCommand toOpenDraftCommand(String agreementId, BrokerageAgreementNewDraftRequest request) {
+        return new AgreementOpenDraftCommand(agreementId, request.expectedDataVersion());
+    }
+
+    /** The owner's rejection (E05-S5 spec S5-D7); the reason as written, the use case trims and checks it. */
+    public AgreementRejectCommand toRejectCommand(String agreementId, BrokerageAgreementRejectionRequest request) {
+        return new AgreementRejectCommand(agreementId, request.versionNo(), request.reason());
     }
 
     /**

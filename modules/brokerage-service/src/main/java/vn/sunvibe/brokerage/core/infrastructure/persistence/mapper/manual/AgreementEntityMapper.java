@@ -11,6 +11,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
@@ -63,6 +64,7 @@ public class AgreementEntityMapper {
         FeeFormula formula = fee.formulaOrNull();
         FeeFormula renewal = fee.renewalOrNull();
         EarlyLeaseEndRefund early = fee.earlyLeaseEndOrNull();
+        OwnerAnswer answer = version.getOwnerAnswerOrNull();
         AgreementVersionEntity entity = AgreementVersionEntity.builder()
                 .id(version.getId())
                 .agreement(agreement)
@@ -95,6 +97,11 @@ public class AgreementEntityMapper {
                 .earlyLeaseEndWithinMonths(early == null ? null : early.withinMonthsOrNull())
                 .protectionDays(fee.protectionDaysOrNull())
                 .sentAt(version.getSentAtOrNull())
+                .ownerAnswer(answer == null ? null : answer.type())
+                .ownerAnsweredBy(answer == null ? null : answer.userId())
+                .ownerAnsweredAt(answer == null ? null : answer.answeredAt())
+                .ownerStatementVersion(answer == null ? null : answer.statementVersionOrNull())
+                .ownerRejectionReason(answer == null ? null : answer.rejectionReasonOrNull())
                 .build();
         List<MandatoryFee> fees = terms.mandatoryFeesOrNull() == null ? List.of() : terms.mandatoryFeesOrNull();
         for (int index = 0; index < fees.size(); index++) {
@@ -157,7 +164,25 @@ public class AgreementEntityMapper {
         return AgreementVersion.load(version.getId(), version.getVersionNo(), version.getStatus(),
                 new AgreementPeriod(version.getStartDate(), version.getEndDate()), version.getBasisLeadId(),
                 version.getBasisIntakeId(), version.getCreatedByUserId(), version.getCreatedAt(),
-                version.getUpdatedAt(), consent, terms, fee, version.getSentAt());
+                version.getUpdatedAt(), consent, terms, fee, version.getSentAt(), ownerAnswer(version));
+    }
+
+    /**
+     * The stored owner answer; null when no answer column is set. A stored combination outside the rules of E05-S5 spec
+     * S5-D11 is a data fault, never a request error; the message names no stored value (brokerage-agreement BR-17).
+     */
+    private static OwnerAnswer ownerAnswer(AgreementVersionEntity version) {
+        if (version.getOwnerAnswer() == null && version.getOwnerAnsweredBy() == null
+                && version.getOwnerAnsweredAt() == null && version.getOwnerStatementVersion() == null
+                && version.getOwnerRejectionReason() == null) {
+            return null;
+        }
+        try {
+            return new OwnerAnswer(version.getOwnerAnswer(), version.getOwnerAnsweredBy(), version.getOwnerAnsweredAt(),
+                    version.getOwnerStatementVersion(), version.getOwnerRejectionReason());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("A stored agreement version breaks the owner answer rules.", e);
+        }
     }
 
     /**
