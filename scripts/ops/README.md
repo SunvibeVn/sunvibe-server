@@ -501,3 +501,22 @@ production runbook is hardening F9.
    VM's line in `known_hosts`.
 4. Delete the SMTP key of the test Brevo account, the DNS records `api-test` and `test`, and the Vercel project of the test
    web.
+
+## 11. Outbox: dead rows (ADR-014 decision 8)
+
+A row of `outbox_events` goes `DEAD` when a consumer with the default policy failed its 10th attempt (about 16 hours), or
+when its consumer is not in the running API's subscription list after it was due for 5 minutes (`NO_CONSUMER`). The API
+logs `OUTBOX_DEAD` once per row, and `OUTBOX_DEAD_ROWS dead=<n>` in every status run (5 minutes) while one exists; the
+`OUTBOX_STATUS` line counts them. Nothing retries a `DEAD` row by itself.
+
+1. List them; the output holds ids, type, consumer, attempts and error code, never the payload:
+   `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/ops/outbox-dead-list.sql`
+2. Fix the cause: the consumer's own logs around the `OUTBOX_DELIVERY_RETRY` lines of that row (by `rowId`), or, for
+   `NO_CONSUMER`, deploy the version that subscribes the consumer.
+3. Requeue one row by its id, or every `DEAD` row of one consumer; each prints the ids it put back, due at once:
+   `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v row_id=<id> -f scripts/ops/outbox-requeue-dead-row.sql`
+   `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v consumer=<name> -f scripts/ops/outbox-requeue-dead-consumer.sql`
+
+Consumers are idempotent and read the current state (ADR-014 decision 6), so a requeued row delivered twice does no harm.
+`OUTBOX_REMOVAL_FAILED` is no dead row: a removal consumer retries every 5 minutes without limit, and the line asks for the
+cause to be fixed while it retries.

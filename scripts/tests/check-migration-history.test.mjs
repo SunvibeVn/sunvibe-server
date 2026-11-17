@@ -44,6 +44,22 @@ test("fails when the branch modifies a migration that exists on the base", () =>
   });
 });
 
+test("fails when the branch modifies a migration of app's folder that exists on the base", () => {
+  // The outbox table lives in app's own folder (ADR-014 decision 1); the script's path pattern covers it unchanged.
+  const appMigration = "app/src/main/resources/db/migration/V202611170000__create_x.sql";
+  const repo = makeRepo({ [appMigration]: "create table x();\n", "README.md": "x\n" });
+  try {
+    git(repo.dir, "checkout", "-q", "-b", "feature/x");
+    writeFile(repo.dir, appMigration, "create table x(id int);\n");
+    commitAll(repo.dir, "edit app migration");
+    const result = runHook(SCRIPT, { cwd: repo.dir, args: ["main"] });
+    assert.equal(result.status, 1);
+    assert.match(result.stdout + result.stderr, /V202611170000__create_x\.sql/);
+  } finally {
+    repo.cleanup();
+  }
+});
+
 test("javaMigrationEdit_failsHistoryCheck: a Java migration has no checksum, so this is the only guard", () => {
   const javaMigration = "modules/auth-service/src/main/java/db/migration/V202610091300__Backfill_x.java";
   const repo = makeRepo({ [javaMigration]: "class V202610091300__Backfill_x {}\n", "README.md": "x\n" });
