@@ -1,6 +1,7 @@
 package vn.sunvibe.brokerage.core.application.usecase;
 
 import vn.sunvibe.brokerage.core.application.query.AgreementDetailView;
+import vn.sunvibe.brokerage.core.application.query.OwnerAgreementsView;
 import vn.sunvibe.brokerage.core.application.query.SurveyTermsView;
 
 /** Use Case - the reads of a brokerage agreement. */
@@ -29,4 +30,13 @@ public interface AgreementQueryUseCase {
      * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  the agreement has no draft
      */
     SurveyTermsView surveyTerms(String agreementId, StaffViewer viewer);
+
+    /**
+     * The caller's agreements that hold a version sent to them, as the owner reads them in their account
+     * (brokerage-agreement US-2 AC-1, AC-4; E05-S5 spec S5-D1, 3.1): newest sending first, at most 50, every sent version
+     * in its effective state, the statement of the version they may answer now. Every agreement answered writes one
+     * OWNER_DETAIL_READ access row (BR-17). A caller who is not an eligible owner (a staff role, a locked account) gets
+     * the empty answer, exactly what an owner with no agreement gets, and nothing is read or written (US-2 AC-1).
+     */
+    OwnerAgreementsView ownerAgreements(String ownerUserId);
 }

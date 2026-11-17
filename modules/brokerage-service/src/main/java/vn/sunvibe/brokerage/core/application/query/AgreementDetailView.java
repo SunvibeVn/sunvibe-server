@@ -33,13 +33,24 @@ public record AgreementDetailView(String agreementId, AgreementStatus status, Tr
     }
 
     /**
-     * One version: its number, state, calendar dates and content (brokerage-agreement BR-7 to BR-9), and when it was sent
-     * to the owner (E05-S4 spec S4-D10).
+     * One version: its number, state, calendar dates and content (brokerage-agreement BR-7 to BR-9), when it was sent to
+     * the owner (E05-S4 spec S4-D10), and the owner's answer (E05-S5 spec S5-D13). The staff detail and the owner's read
+     * share it: it holds no staff-only value.
      *
-     * @param sentAtOrNull null for a version never sent
+     * @param status                     the effective state: a version past its deadline reads LAPSED (spec S5-D8)
+     * @param sentAtOrNull               null for a version never sent
+     * @param answerByOrNull             the owner's deadline, 7 days after the sending; null for a version never sent
+     * @param ownerAnsweredAtOrNull      when the owner confirmed or declined it; null otherwise
+     * @param ownerRejectionReasonOrNull the owner's private reason for declining (brokerage-agreement BR-17)
      */
     public record VersionView(int versionNo, VersionStatus status, LocalDate startDate, LocalDate endDate,
                               Instant createdAt, AdvertisingScope advertisingScope, PhotoConsent photoConsent,
-                              VersionTerms terms, BrokerageFee fee, Instant sentAtOrNull) {
+                              VersionTerms terms, BrokerageFee fee, Instant sentAtOrNull, Instant answerByOrNull,
+                              Instant ownerAnsweredAtOrNull, String ownerRejectionReasonOrNull) {
+
+        @Override
+        public String toString() {
+            return "VersionView[" + versionNo + ", " + status + "]";
+        }
     }
 }

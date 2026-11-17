@@ -3,6 +3,8 @@ package vn.sunvibe.brokerage.core.application.exception;
 import vn.sunvibe.brokerage.core.domain.model.eligibility.ReasonGroup;
 
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * An agreement command refused by a rule, with its status, its stable code (the reason's name) and its field entries.
@@ -21,7 +23,12 @@ public final class AgreementRefusedException extends RuntimeException {
         CONCURRENT_MODIFICATION(409, "Something changed at the same time. Try again.", "This value is out of date."),
         AGREEMENT_VERSION_INCOMPLETE(409, "This version cannot be sent yet: a part is missing.",
                 "This part is missing."),
-        AGREEMENT_SENDING_NOT_AVAILABLE(409, "Sending to owners is not open on this server.", null);
+        AGREEMENT_SENDING_NOT_AVAILABLE(409, "Sending to owners is not open on this server.", null),
+        AGREEMENT_NOT_AWAITING_OWNER(409, "This version is not waiting for your answer.",
+                "This version cannot be answered now."),
+        AGREEMENT_STATEMENT_OUTDATED(409, "The confirmation text has changed. Read it again.", null),
+        ACCOUNT_LOCKED(423, "Too many wrong passwords. Try again later.", null),
+        AGREEMENT_NEW_DRAFT_NOT_ALLOWED(409, "A new draft can be opened only when no version is pending.", null);
 
         private final int status;
         private final String message;
@@ -116,6 +123,45 @@ public final class AgreementRefusedException extends RuntimeException {
      */
     public static AgreementRefusedException sendingNotAvailable() {
         return new AgreementRefusedException(Reason.AGREEMENT_SENDING_NOT_AVAILABLE, List.of());
+    }
+
+    /**
+     * brokerage-agreement BR-5, BR-10 (E05-S5 spec S5-D6, S5-D7): the version is no longer the one waiting for the owner,
+     * or its 7 days have passed; one {@code versions[i]} entry per failing item of a batch, none for a single version.
+     */
+    public static AgreementRefusedException notAwaitingOwner(List<Integer> itemIndexesOrEmpty) {
+        return new AgreementRefusedException(Reason.AGREEMENT_NOT_AWAITING_OWNER, itemIndexesOrEmpty.stream().sorted()
+                .map(index -> new Entry("versions[" + index + "]", null)).toList());
+    }
+
+    /** brokerage-agreement BR-10 (E05-S5 spec S5-D3): the statement the owner read is not the current one; no entry. */
+    public static AgreementRefusedException statementOutdated() {
+        return new AgreementRefusedException(Reason.AGREEMENT_STATEMENT_OUTDATED, List.of());
+    }
+
+    /** E05-S5 spec S5-D4: the account's re-authentication counter refuses for now; no entry. */
+    public static AgreementRefusedException accountLocked() {
+        return new AgreementRefusedException(Reason.ACCOUNT_LOCKED, List.of());
+    }
+
+    /**
+     * brokerage-agreement BR-5 (E05-S5 spec S5-D10): a new draft opens only on a drafting agreement with no pending
+     * version; no entry.
+     */
+    public static AgreementRefusedException newDraftNotAllowed() {
+        return new AgreementRefusedException(Reason.AGREEMENT_NEW_DRAFT_NOT_ALLOWED, List.of());
+    }
+
+    /**
+     * brokerage-agreement US-2 AC-5 (E05-S5 spec S5-D6 step 6): the groups that stop each item of a batch, entries
+     * {@code versions[i].reasonGroups.<GROUP>}, items ascending, each item's groups in the given order.
+     */
+    public static AgreementRefusedException notEligibleItems(Map<Integer, List<ReasonGroup>> groupsByItemIndex) {
+        return new AgreementRefusedException(Reason.AGREEMENT_NOT_ELIGIBLE, new TreeMap<>(groupsByItemIndex).entrySet()
+                .stream()
+                .flatMap(item -> item.getValue().stream()
+                        .map(group -> new Entry("versions[" + item.getKey() + "].reasonGroups." + group.name(), null)))
+                .toList());
     }
 
     public Reason reason() {
