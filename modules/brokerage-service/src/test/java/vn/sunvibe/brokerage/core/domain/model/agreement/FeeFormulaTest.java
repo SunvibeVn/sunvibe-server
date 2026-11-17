@@ -109,6 +109,26 @@ class FeeFormulaTest {
         assertEquals("freeReason", refused(() -> FeeFormula.of(FREE, null, null, fiveHundredOneUnits)));
     }
 
+    /**
+     * Pin (E05-S5 spec section 10, U-4): every bound of the hidden-character rule (E05-S4 spec S4-D3) before it moves
+     * into the rule the owner's rejection reason shares. Each refused character sits inside the text, one at a time;
+     * each kept one is its neighbour just outside a refused range.
+     */
+    @Test
+    void freeReason_hiddenCharacterBounds_refusedOrKept() {
+        for (char hidden : new char[]{'\u001F', '\u007F', '\u009F', '‎', '‏', '‪', '‮', '⁦',
+                '⁩'}) {
+            String reason = "First" + hidden + "unit";
+            assertEquals("freeReason", refused(() -> FeeFormula.of(FREE, null, null, reason)),
+                    "U+" + Integer.toHexString(hidden));
+        }
+        for (char plain : new char[]{' ', ' ', '⁥', '⁪', ' '}) {
+            String reason = "First" + plain + "unit";
+            assertEquals(reason, FeeFormula.of(FREE, null, null, reason).freeReasonOrNull(),
+                    "U+" + Integer.toHexString(plain));
+        }
+    }
+
     @Test
     void notCharged_holdsNothing() {
         FeeFormula none = FeeFormula.of(NOT_CHARGED, null, null, null);
