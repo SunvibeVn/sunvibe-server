@@ -4,6 +4,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import vn.sunvibe.brokerage.core.application.command.AgreementActivateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
@@ -25,6 +26,8 @@ import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasi
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCommandUseCase;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCreateResult;
 import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
@@ -32,6 +35,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SignedDocument;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.eligibility.ReasonGroup;
 import vn.sunvibe.brokerage.core.domain.policy.agreement.VersionSendRules;
@@ -39,8 +43,12 @@ import vn.sunvibe.brokerage.core.domain.policy.eligibility.EligibilityPolicy;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementTrailDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.outbox.EventOutboxPort;
+import vn.sunvibe.shared.outbox.OutboxEvent;
+import vn.sunvibe.shared.outbox.UnitAdvertisingChangedEvent;
 import vn.sunvibe.shared.time.AppClock;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -67,6 +75,13 @@ import java.util.stream.IntStream;
 @Service
 public class AgreementCommandService implements AgreementCommandUseCase {
 
+    /**
+     * E05-S6 spec S6-D12: a due event of an activation is appended only when it falls at or before the command's now plus
+     * this horizon, one day inside the outbox adapter's 800 days, which reads the clock after the command did; a later
+     * one is left out, then and later, and the listing job is its only signal (a named narrowing of ADR-012 decision 6).
+     */
+    static final Duration OUTBOX_DUE_HORIZON = Duration.ofDays(799);
+
     private static final List<String> TRANSACTION_TYPES = Arrays.stream(TransactionType.values()).map(Enum::name)
             .toList();
     private static final String PASSWORD_FIELD = "currentPassword";
@@ -84,11 +99,14 @@ public class AgreementCommandService implements AgreementCommandUseCase {
     private final TransactionTemplate transactions;
     /** The owner's bound check, read-only, over the same transaction manager. */
     private final TransactionTemplate reads;
+    /** E05's outbox events of an activation, in the command's transaction (ADR-014 decision 2; spec S6-D12). */
+    private final EventOutboxPort outbox;
 
     public AgreementCommandService(BasisLeadPort leads, IntakeBasisPort bases, OwnerAccountPort accounts,
                                    AgreementDomainRepository agreements, AgreementTrailDomainRepository trail,
                                    IdGenerator<String> ids, OwnerNoticePort notices, AgreementSwitches switches,
-                                   AccountPasswordPort passwords, TransactionTemplate transactions) {
+                                   AccountPasswordPort passwords, TransactionTemplate transactions,
+                                   EventOutboxPort outbox) {
         this.leads = leads;
         this.bases = bases;
         this.accounts = accounts;
@@ -101,6 +119,7 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         this.transactions = transactions;
         this.reads = new TransactionTemplate(transactions.getTransactionManager());
         this.reads.setReadOnly(true);
+        this.outbox = outbox;
     }
 
     @Override
@@ -389,6 +408,111 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         agreements.update(opened);
         trail.recordEvent(agreement.getId(), opened.getVersions().getLast().getVersionNo(),
                 AgreementEventType.DRAFT_OPENED, actor.userId(), now);
+    }
+
+    /**
+     * Statements (E05-S6 spec S6-D1, plan E05S6-P4): one agreement read with its versions and their fee and tier rows,
+     * one locked lead read, one read of the version's authors, the basis and owner reads of the E05-S1 check; then the
+     * guarded update of the agreement row with the version's row, one history insert, the outbox appends and auth's
+     * notice, in this order, all in this transaction. The update comes first, so a lost race writes nothing at all. No
+     * access row, no lead, intake or ownership change (brokerage-agreement BR-17, BR-18).
+     */
+    @Override
+    @Transactional
+    public void activate(AgreementActivateCommand command, StaffViewer actor) {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        // brokerage-agreement BR-11 (spec S6-D3): the signed document's values, a request error, before any read; a
+        // document is not signed after today in Vietnam.
+        SignedDocument document = SignedDocument.of(command.documentNumber(), command.signedOn(),
+                command.sunvibeSignatoryName(), command.sunvibeSignatoryTitle(), AgreementVersion.todayInVietnam(now));
+        AwaitingActivation awaiting = awaitingActivation(command.agreementId(), command.expectedDataVersion(),
+                command.versionNo(), actor, now);
+        // brokerage-agreement BR-11: the manager made the statement the server holds now.
+        if (!ActivationStatement.VERSION.equals(command.statementVersion())) {
+            throw AgreementRefusedException.statementOutdated();
+        }
+        // brokerage-agreement US-3 AC-4, BR-6: a version whose end date has passed is not put in effect; a start date
+        // in the past is allowed, and the right then starts at the activation.
+        AgreementVersion version = awaiting.version();
+        if (!now.isBefore(version.endsAt())) {
+            throw AgreementRefusedException.periodEnded();
+        }
+        // brokerage-agreement US-3 AC-4, E-2, E-11: the basis, the BR-3 stops and the owner are checked again, as the
+        // sending and the owner's confirmation check them.
+        List<ReasonGroup> groups = draftGroups(awaiting.agreement(), version, awaiting.lead().leadId());
+        if (!groups.isEmpty()) {
+            throw AgreementRefusedException.notEligible(groups);
+        }
+        BrokerageAgreement agreement = awaiting.agreement();
+        ActivationDecision decision = ActivationDecision.activated(actor.userId(), now, ActivationStatement.VERSION,
+                document);
+        agreements.update(agreement.activate(version.getVersionNo(), decision, now));
+        trail.recordEvent(agreement.getId(), version.getVersionNo(), AgreementEventType.ACTIVATED, actor.userId(), now);
+        // brokerage-agreement BR-12 (ADR-012 decision 6, ADR-014 decision 2): the unit's answer changes now, at the
+        // version's start when it lies ahead, and at the end of its end date.
+        for (OutboxEvent event : activationEvents(agreement.getUnitId(), now, version.startsAt(), version.endsAt())) {
+            outbox.append(event);
+        }
+        // brokerage-agreement US-3 AC-5, BR-17: the owner party's account gets a neutral notice by user id.
+        notices.agreementActivated(agreement.getOwnerUserId());
+    }
+
+    /**
+     * E05-S6 spec S6-D12: the outbox events of an activation at {@code now}, in the order now, start, end: the event due
+     * now; the event due at the version's start when it lies after {@code now}; the event due at the end of its end date.
+     * A due event later than {@code now} + {@link #OUTBOX_DUE_HORIZON} is left out (the start's is never later than the
+     * end's, so a left-out start leaves the end out too).
+     */
+    static List<OutboxEvent> activationEvents(String unitId, Instant now, Instant startsAt, Instant endsAt) {
+        Instant horizon = now.plus(OUTBOX_DUE_HORIZON);
+        List<OutboxEvent> events = new ArrayList<>();
+        events.add(UnitAdvertisingChangedEvent.now(unitId));
+        if (startsAt.isAfter(now) && !startsAt.isAfter(horizon)) {
+            events.add(UnitAdvertisingChangedEvent.dueAt(unitId, startsAt));
+        }
+        if (!endsAt.isAfter(horizon)) {
+            events.add(UnitAdvertisingChangedEvent.dueAt(unitId, endsAt));
+        }
+        return List.copyOf(events);
+    }
+
+    /** The agreement awaiting a decision on its version, with that version and the basis lead read under its lock. */
+    private record AwaitingActivation(BrokerageAgreement agreement, AgreementVersion version, BasisLeadFacts lead) {
+    }
+
+    /**
+     * Steps 3 to 7 of E05-S6 spec S6-D1, shared by the activation and its refusal (S6-D4), the first failing one
+     * answering: the id and the agreement (404); its basis lead, locked to the commit and visible to the actor (404;
+     * lock order of E05-S2 spec S2-D4: the lead, then the agreement's row through the guarded update); the actor is
+     * independent (403); the agreement, with its due transitions applied, awaits confirmation with that version
+     * confirmed and within its 14 days (409); the data version (409).
+     */
+    private AwaitingActivation awaitingActivation(String agreementId, long expectedDataVersion, int versionNo,
+                                                  StaffViewer actor, Instant now) {
+        if (agreementId == null || !AgreementQueryService.AGREEMENT_ID.matcher(agreementId).matches()) {
+            throw new BrokerageNotFoundException();
+        }
+        BrokerageAgreement agreement = agreements.findById(agreementId).orElseThrow(BrokerageNotFoundException::new);
+        BasisLeadFacts lead = leads.findVisibleForUpdate(agreement.getBasisLeadId(), actor.userId(),
+                actor.expandedAuthorities()).orElseThrow(BrokerageNotFoundException::new);
+        // brokerage-agreement BR-11, BR-16 (spec S6-D2): the decider is not the lead's current assignee, whatever role
+        // the assignee holds, and wrote no version from 1 to n: a new draft starts as a copy of the latest version.
+        if (actor.userId().equals(lead.assignedUserIdOrNull())
+                || trail.versionAuthors(agreement.getId(), versionNo).contains(actor.userId())) {
+            throw AgreementRefusedException.notIndependent();
+        }
+        // brokerage-agreement BR-5, BR-11: only the confirmed version awaiting activation, within its 14 days.
+        BrokerageAgreement effective = agreement.effectiveAt(now);
+        AgreementVersion version = effective.getStatus() != AgreementStatus.AWAITING_CONFIRMATION ? null
+                : versionOf(effective, versionNo).filter(candidate -> candidate.activatableAt(now)).orElse(null);
+        if (version == null) {
+            throw AgreementRefusedException.notAwaitingActivation();
+        }
+        // brokerage-agreement BR-5: the decision checks the data version the caller read.
+        if (agreement.getRowVersionOrNull() == null || agreement.getRowVersionOrNull() != expectedDataVersion) {
+            throw AgreementRefusedException.stale();
+        }
+        return new AwaitingActivation(agreement, version, lead);
     }
 
     /**

@@ -1,5 +1,6 @@
 package vn.sunvibe.brokerage.core.application.usecase;
 
+import vn.sunvibe.brokerage.core.application.command.AgreementActivateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
@@ -105,6 +106,28 @@ public interface AgreementCommandUseCase {
      *                                                                                     its read and the write
      */
     void openDraft(AgreementOpenDraftCommand command, StaffViewer actor);
+
+    /**
+     * An independent manager activates the version the owner confirmed (brokerage-agreement US-3 AC-1, AC-2, AC-4, AC-5;
+     * BR-6, BR-11, BR-16; E05-S6 spec S6-D1): the version ACTIVATED (its start ahead) or EFFECTIVE with its activation
+     * record, the agreement ACTIVE, one history row, the outbox events of E05 (now, at the start when ahead, at the end,
+     * each within the outbox's horizon) and one neutral notice to the owner. In one transaction, the first failing step
+     * answers: the signed document's values (400 on the field); the role is the controller's method rule (403); the
+     * agreement (404); its basis lead, locked and visible to the actor (404); the actor is neither the lead's current
+     * assignee nor an author of versions 1 to n (403 AGREEMENT_ACTIVATOR_NOT_INDEPENDENT); the agreement, with its due
+     * transitions applied, awaits confirmation with that version confirmed and within its 14 days (409
+     * AGREEMENT_NOT_AWAITING_ACTIVATION); the data version (409 CONCURRENT_MODIFICATION); the statement version (409
+     * AGREEMENT_STATEMENT_OUTDATED); the end of the version's end date lies ahead (409 AGREEMENT_VERSION_PERIOD_ENDED);
+     * the E05-S1 check on the version's basis (409 with the groups). A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.domain.exception.AgreementContentException       a document value breaks its rule
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  the agreement or its lead is
+     *                                                                                     not visible
+     * @throws org.springframework.dao.ConcurrencyFailureException                         the agreement changed between
+     *                                                                                     its read and the write
+     */
+    void activate(AgreementActivateCommand command, StaffViewer actor);
 
     /**
      * Stores the 7-day lapses that are due (brokerage-agreement BR-10, US-2 AC-3; E05-S5 spec S5-D8): at most
