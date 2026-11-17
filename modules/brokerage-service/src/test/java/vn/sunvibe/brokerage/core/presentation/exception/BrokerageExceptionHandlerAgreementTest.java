@@ -83,6 +83,18 @@ class BrokerageExceptionHandlerAgreementTest {
                         "This value is not accepted.")));
     }
 
+    /** E05-S6 spec S6-D16: the activation's refusals with their status, code and fixed message, and no entry. */
+    @Test
+    void handleRefused_activationReasons_statusCodeMessageNoEntry() {
+        assertBody(handler.handleRefused(AgreementRefusedException.notIndependent()), HttpStatus.FORBIDDEN,
+                "AGREEMENT_ACTIVATOR_NOT_INDEPENDENT", "Only a manager who did not draft this version and is not the"
+                        + " lead's assigned Sale may decide its activation.", List.of());
+        assertBody(handler.handleRefused(AgreementRefusedException.notAwaitingActivation()), HttpStatus.CONFLICT,
+                "AGREEMENT_NOT_AWAITING_ACTIVATION", "This version is not waiting for activation.", List.of());
+        assertBody(handler.handleRefused(AgreementRefusedException.periodEnded()), HttpStatus.CONFLICT,
+                "AGREEMENT_VERSION_PERIOD_ENDED", "This version's period has ended.", List.of());
+    }
+
     @Test
     void handlePeriod_field_validationFailedWithThatField() {
         assertBody(handler.handlePeriod(new AgreementPeriodException("endDate")), HttpStatus.BAD_REQUEST,
