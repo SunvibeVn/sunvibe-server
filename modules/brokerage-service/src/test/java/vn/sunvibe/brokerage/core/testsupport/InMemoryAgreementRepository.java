@@ -2,18 +2,22 @@ package vn.sunvibe.brokerage.core.testsupport;
 
 import org.springframework.dao.OptimisticLockingFailureException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementExistsException;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecisionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswerType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -137,6 +141,63 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
             change.run();
         }
         return selected;
+    }
+
+    /** The stored agreements of those ids, in the order given, each once; an unknown id is left out. */
+    @Override
+    public List<BrokerageAgreement> findAllById(Collection<String> ids) {
+        calls.add("findAllById");
+        return new LinkedHashSet<>(ids).stream().map(agreements::get).filter(Objects::nonNull).toList();
+    }
+
+    /** Whether the agreement is stored; nothing is locked in memory. */
+    @Override
+    public boolean lockForShare(String agreementId) {
+        calls.add("lockForShare");
+        return agreements.containsKey(agreementId);
+    }
+
+    /** The agreements whose OWNER_CONFIRMED version was confirmed at or before the bound, oldest first, then id. */
+    @Override
+    public List<String> dueActivationLapseAgreementIds(Instant answeredAtOrBefore, int limit) {
+        calls.add("dueActivationLapseAgreementIds");
+        Map<String, Instant> answeredById = new HashMap<>();
+        for (BrokerageAgreement agreement : agreements.values()) {
+            agreement.getVersions().stream()
+                    .filter(version -> version.getStatus() == VersionStatus.OWNER_CONFIRMED
+                            && version.getOwnerAnswerOrNull() != null
+                            && version.getOwnerAnswerOrNull().type() == OwnerAnswerType.CONFIRMED
+                            && !version.getOwnerAnswerOrNull().answeredAt().isAfter(answeredAtOrBefore))
+                    .findFirst()
+                    .ifPresent(version -> answeredById.put(agreement.getId(),
+                            version.getOwnerAnswerOrNull().answeredAt()));
+        }
+        return answeredById.entrySet().stream()
+                .sorted(Map.Entry.<String, Instant>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
+                .map(Map.Entry::getKey)
+                .limit(limit)
+                .toList();
+    }
+
+    /** The agreements whose ACTIVATED version holds its record and starts on or before the bound, oldest first. */
+    @Override
+    public List<String> dueStartAgreementIds(LocalDate startOnOrBefore, int limit) {
+        calls.add("dueStartAgreementIds");
+        Map<String, LocalDate> startById = new HashMap<>();
+        for (BrokerageAgreement agreement : agreements.values()) {
+            agreement.getVersions().stream()
+                    .filter(version -> version.getStatus() == VersionStatus.ACTIVATED
+                            && version.getActivationOrNull() != null
+                            && version.getActivationOrNull().type() == ActivationDecisionType.ACTIVATED
+                            && !version.getPeriod().startDate().isAfter(startOnOrBefore))
+                    .findFirst()
+                    .ifPresent(version -> startById.put(agreement.getId(), version.getPeriod().startDate()));
+        }
+        return startById.entrySet().stream()
+                .sorted(Map.Entry.<String, LocalDate>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
+                .map(Map.Entry::getKey)
+                .limit(limit)
+                .toList();
     }
 
     /** Runs once, right after the next due-lapse selection: a change another transaction commits in between. */

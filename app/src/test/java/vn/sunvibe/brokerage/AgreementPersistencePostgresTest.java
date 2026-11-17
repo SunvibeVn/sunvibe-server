@@ -33,6 +33,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.PostgresContainerConfig;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementExistsException;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationRefusalType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AdvertisingScope;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementAccessType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
@@ -53,6 +56,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SignedDocument;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
@@ -1045,6 +1049,286 @@ class AgreementPersistencePostgresTest {
 		assertTrue(indexes.get("idx_brokerage_agreements_owner_user_id").contains("(owner_user_id)"), indexes.toString());
 		String lapse = indexes.get("idx_brokerage_agreement_versions_awaiting_owner_sent_at");
 		assertTrue(lapse.contains("(sent_at)") && lapse.contains("WHERE") && lapse.contains("AWAITING_OWNER"), lapse);
+	}
+
+	// ==================== E05-S6: the activation record, its selections and the set reads (5.3) ====================
+
+	private static final String ACTIVATION_CHECK = "ck_brokerage_agreement_versions_activation";
+	private static final String DOCUMENT = "signed_document_number = 'HDMG-1', signed_document_date = DATE '2026-11-16',"
+			+ " sunvibe_signatory_name = 'A', sunvibe_signatory_title = 'B'";
+	private static final String DECIDED = "activation_decided_by = '01JMANAGER0000000000000000',"
+			+ " activation_decided_at = now()";
+
+	/** E05-S6 spec S6-D14: either no decision, or a whole activation or refusal on a version its owner confirmed. */
+	@Test
+	void activationCheck_combinations_acceptedOrRefused() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "ACTIVE",
+				"EFFECTIVE");
+		created.add(agreementId);
+		String versionId = versionIdOf(agreementId, 1);
+		String activation = "activation_decision = 'ACTIVATED', activation_statement_version = 'brokerage-activation-2026-11', "
+				+ DOCUMENT + ", " + DECIDED;
+
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, activation));
+		setVersion(versionId, "sent_at = now() - interval '2 days', owner_answer = 'CONFIRMED',"
+				+ " owner_answered_by = '01JOWNER000000000000000000', owner_answered_at = now() - interval '1 day',"
+				+ " owner_statement_version = 'brokerage-agreement-2026-11'");
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, activation
+				+ ", activation_refusal_type = 'DOCUMENT_DIFFERS'"));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, activation + ", activation_refusal_note = 'x'"));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "activation_decision = 'ACTIVATED',"
+				+ " activation_statement_version = 'brokerage-activation-2026-11', " + DECIDED));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId,
+				"activation_decision = 'REFUSED', activation_refusal_type = 'DOCUMENT_DIFFERS', " + DECIDED));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "status = 'ACTIVATION_REFUSED',"
+				+ " activation_decision = 'REFUSED', activation_refusal_type = 'DOCUMENT_DIFFERS',"
+				+ " signed_document_number = 'HDMG-1', " + DECIDED));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "status = 'OWNER_CONFIRMED', " + activation));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "signed_document_number = 'HDMG-1'"));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "activation_decision = 'MAYBE',"
+				+ " activation_refusal_type = 'DOCUMENT_DIFFERS', " + DECIDED));
+
+		assertDoesNotThrow(() -> setVersion(versionId, activation));
+		assertEquals("HDMG-1", jdbc.queryForObject("SELECT signed_document_number FROM brokerage_agreement_versions"
+				+ " WHERE id = ?", String.class, versionId));
+		assertDoesNotThrow(() -> setVersion(versionId, "status = 'ACTIVATION_REFUSED', activation_decision = 'REFUSED',"
+				+ " activation_statement_version = NULL, signed_document_number = NULL, signed_document_date = NULL,"
+				+ " sunvibe_signatory_name = NULL, sunvibe_signatory_title = NULL,"
+				+ " activation_refusal_type = 'SIGNER_NOT_OWNER', activation_refusal_note = NULL"));
+	}
+
+	@Test
+	void update_activationRecords_readBackEqual() {
+		Instant sent = now().minus(2, ChronoUnit.HOURS);
+		Instant answered = now().minus(1, ChronoUnit.HOURS);
+		Instant decided = now();
+		BrokerageAgreement toActivate = confirmedAgreement(sent, answered);
+		BrokerageAgreement toRefuseWithNote = confirmedAgreement(sent, answered);
+		BrokerageAgreement toRefuseWithout = confirmedAgreement(sent, answered);
+		ActivationDecision activation = ActivationDecision.activated("01JMANAGERA000000000000000", decided,
+				ActivationStatement.VERSION, new SignedDocument("HDMG-2026/014", LocalDate.parse("2026-11-16"),
+						"Nguyen Van A", "Director"));
+		ActivationDecision withNote = ActivationDecision.refused("01JMANAGERB000000000000000", decided,
+				ActivationRefusalType.DOCUMENT_DIFFERS, "  Rent differs.  ");
+		ActivationDecision withoutNote = ActivationDecision.refused("01JMANAGERB000000000000000", decided,
+				ActivationRefusalType.SIGNER_NOT_OWNER, null);
+
+		tx(() -> {
+			agreements.update(agreements.findById(toActivate.getId()).orElseThrow().activate(1, activation, decided));
+			agreements.update(agreements.findById(toRefuseWithNote.getId()).orElseThrow()
+					.refuseActivation(1, withNote, decided));
+			agreements.update(agreements.findById(toRefuseWithout.getId()).orElseThrow()
+					.refuseActivation(1, withoutNote, decided));
+			return null;
+		});
+		BrokerageAgreement activated = tx(() -> agreements.findById(toActivate.getId())).orElseThrow();
+		BrokerageAgreement refused = tx(() -> agreements.findById(toRefuseWithNote.getId())).orElseThrow();
+		BrokerageAgreement refusedWithout = tx(() -> agreements.findById(toRefuseWithout.getId())).orElseThrow();
+
+		assertEquals(AgreementStatus.ACTIVE, activated.getStatus());
+		assertEquals(VersionStatus.ACTIVATED, activated.getVersions().get(0).getStatus());
+		assertEquals(activation, activated.getVersions().get(0).getActivationOrNull());
+		assertEquals(OwnerAnswer.confirmed("01JOWNERA00000000000000000", AgreementStatement.VERSION, answered),
+				activated.getVersions().get(0).getOwnerAnswerOrNull());
+		assertEquals(AgreementStatus.DRAFTING, refused.getStatus());
+		assertEquals(VersionStatus.ACTIVATION_REFUSED, refused.getVersions().get(0).getStatus());
+		assertEquals(withNote, refused.getVersions().get(0).getActivationOrNull());
+		assertEquals("Rent differs.", refused.getVersions().get(0).getActivationOrNull().refusalNoteOrNull());
+		assertEquals(withoutNote, refusedWithout.getVersions().get(0).getActivationOrNull());
+		Map<String, Object> row = jdbc.queryForMap("SELECT activation_decision, activation_decided_by,"
+				+ " activation_decided_at, activation_statement_version, signed_document_number, signed_document_date,"
+				+ " sunvibe_signatory_name, sunvibe_signatory_title, activation_refusal_type, activation_refusal_note"
+				+ " FROM brokerage_agreement_versions WHERE agreement_id = ?", toActivate.getId());
+		assertEquals("ACTIVATED", row.get("activation_decision"));
+		assertEquals("01JMANAGERA000000000000000", row.get("activation_decided_by"));
+		assertEquals(decided, ((Timestamp) row.get("activation_decided_at")).toInstant());
+		assertEquals("brokerage-activation-2026-11", row.get("activation_statement_version"));
+		assertEquals("HDMG-2026/014", row.get("signed_document_number"));
+		assertEquals(Date.valueOf("2026-11-16"), row.get("signed_document_date"));
+		assertEquals("Nguyen Van A", row.get("sunvibe_signatory_name"));
+		assertEquals("Director", row.get("sunvibe_signatory_title"));
+		assertNull(row.get("activation_refusal_type"));
+		assertNull(row.get("activation_refusal_note"));
+	}
+
+	@Test
+	void indexes_partialOnConfirmedAndActivated() {
+		Map<String, String> indexes = new HashMap<>();
+		jdbc.queryForList("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname IN"
+						+ " ('idx_brokerage_agreement_versions_confirmed_answered_at',"
+						+ " 'idx_brokerage_agreement_versions_activated_start_date')")
+				.forEach(row -> indexes.put((String) row.get("indexname"), (String) row.get("indexdef")));
+
+		assertEquals(2, indexes.size(), indexes.toString());
+		String confirmed = indexes.get("idx_brokerage_agreement_versions_confirmed_answered_at");
+		assertTrue(confirmed.contains("(owner_answered_at)") && confirmed.contains("WHERE")
+				&& confirmed.contains("OWNER_CONFIRMED"), confirmed);
+		String activated = indexes.get("idx_brokerage_agreement_versions_activated_start_date");
+		assertTrue(activated.contains("(start_date)") && activated.contains("WHERE")
+				&& activated.contains("'ACTIVATED'"), activated);
+	}
+
+	/**
+	 * E05-S6 spec S6-D5: the lapse job's second selection. Written and read in a transaction that rolls back, with a
+	 * bound years back, so the lapse job of this context never sees the rows.
+	 */
+	@Test
+	void dueActivationLapseAgreementIds_confirmedOldestFirstWithinLimit() {
+		Instant bound = now().minus(3650, ChronoUnit.DAYS);
+
+		List<List<String>> answers = rolledBack(() -> {
+			String first = confirmedFixture(bound.minus(3, ChronoUnit.HOURS));
+			String tiedA = confirmedFixture(bound.minus(1, ChronoUnit.HOURS));
+			String tiedB = confirmedFixture(bound.minus(1, ChronoUnit.HOURS));
+			String atTheBound = confirmedFixture(bound);
+			confirmedFixture(bound.plusSeconds(1));
+			String rejected = confirmedFixture(bound.minus(5, ChronoUnit.HOURS));
+			jdbc.update("UPDATE brokerage_agreement_versions SET status = 'OWNER_REJECTED', owner_answer = 'REJECTED',"
+					+ " owner_statement_version = NULL WHERE agreement_id = ?", rejected);
+			String rejectedAnswer = confirmedFixture(bound.minus(5, ChronoUnit.HOURS));
+			jdbc.update("UPDATE brokerage_agreement_versions SET owner_answer = 'REJECTED',"
+					+ " owner_statement_version = NULL WHERE agreement_id = ?", rejectedAnswer);
+			String lapsed = confirmedFixture(bound.minus(5, ChronoUnit.HOURS));
+			jdbc.update("UPDATE brokerage_agreement_versions SET status = 'LAPSED' WHERE agreement_id = ?", lapsed);
+			AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "AWAITING_CONFIRMATION",
+					"OWNER_CONFIRMED");
+			List<String> tied = List.of(tiedA, tiedB).stream().sorted().toList();
+			return List.of(List.of(first, tied.get(0), tied.get(1), atTheBound),
+					agreements.dueActivationLapseAgreementIds(bound, 10),
+					agreements.dueActivationLapseAgreementIds(bound, 2));
+		});
+
+		assertEquals(answers.get(0), answers.get(1));
+		assertEquals(answers.get(0).subList(0, 2), answers.get(2));
+	}
+
+	/** E05-S6 spec S6-D6: the start job's selection, in a transaction that rolls back, with start dates long past. */
+	@Test
+	void dueStartAgreementIds_activatedWithRecordOldestStartFirst() {
+		LocalDate bound = LocalDate.parse("2005-06-30");
+
+		List<List<String>> answers = rolledBack(() -> {
+			String first = activatedFixture(LocalDate.parse("2003-01-01"), "ACTIVATED", true);
+			String tiedA = activatedFixture(LocalDate.parse("2004-01-01"), "ACTIVATED", true);
+			String tiedB = activatedFixture(LocalDate.parse("2004-01-01"), "ACTIVATED", true);
+			String atTheBound = activatedFixture(bound, "ACTIVATED", true);
+			activatedFixture(bound.plusDays(1), "ACTIVATED", true);
+			activatedFixture(LocalDate.parse("2002-01-01"), "ACTIVATED", false);
+			activatedFixture(LocalDate.parse("2002-01-01"), "EFFECTIVE", true);
+			List<String> tied = List.of(tiedA, tiedB).stream().sorted().toList();
+			return List.of(List.of(first, tied.get(0), tied.get(1), atTheBound),
+					agreements.dueStartAgreementIds(bound, 10), agreements.dueStartAgreementIds(bound, 2));
+		});
+
+		assertEquals(answers.get(0), answers.get(1));
+		assertEquals(answers.get(0).subList(0, 2), answers.get(2));
+	}
+
+	/** E05-S6 spec S6-D9: a set of agreements with their versions, fee rows and tier rows; an unknown id left out. */
+	@Test
+	void findAllById_setWithVersionsAndFees() {
+		BrokerageAgreement first = sentAgreement(now().minus(1, ChronoUnit.HOURS));
+		BrokerageAgreement second = sentAgreement(now().minus(2, ChronoUnit.HOURS));
+		String fixture = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		created.add(fixture);
+
+		List<BrokerageAgreement> found = tx(() -> agreements.findAllById(List.of(first.getId(), second.getId(), fixture,
+				ids.generateId())));
+
+		assertEquals(Set.of(first.getId(), second.getId(), fixture),
+				Set.copyOf(found.stream().map(BrokerageAgreement::getId).toList()));
+		for (BrokerageAgreement agreement : found) {
+			BrokerageAgreement one = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+			assertEquals(one.getVersions().size(), agreement.getVersions().size());
+			assertEquals(one.getVersions().get(0).getTerms(), agreement.getVersions().get(0).getTerms());
+			assertEquals(one.getVersions().get(0).getFee(), agreement.getVersions().get(0).getFee());
+			assertEquals(one.getRowVersionOrNull(), agreement.getRowVersionOrNull());
+		}
+		BrokerageAgreement firstFound = found.stream().filter(each -> each.getId().equals(first.getId())).findFirst()
+				.orElseThrow();
+		assertEquals(FEE_POLICY, firstFound.getVersions().get(0).getFee());
+		assertEquals(1, firstFound.getVersions().get(0).getTerms().mandatoryFeesOrNull().size());
+		assertEquals(List.of(), tx(() -> agreements.findAllById(List.of())));
+	}
+
+	/** E05-S6 spec S6-D11: the agreement row locked FOR SHARE inside a read-write transaction; false when none. */
+	@Test
+	void lockForShare_existingTrueUnknownFalse() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		created.add(agreementId);
+
+		assertTrue(tx(() -> agreements.lockForShare(agreementId)));
+		assertEquals(Boolean.FALSE, tx(() -> agreements.lockForShare(ids.generateId())));
+	}
+
+	/**
+	 * E05-S6 spec S6-D2, plan E05S6-P6: the authors of version n are the actors of CREATED, DRAFT_EDITED, DRAFT_OPENED
+	 * and VERSION_SENT rows of versions 1 to n, each once; other events, rows without an actor and later versions are
+	 * left out.
+	 */
+	@Test
+	void versionAuthors_fourTypesUpToVersion_distinctNonNullActors() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		created.add(agreementId);
+		Instant at = now();
+		tx(() -> {
+			trail.recordEvent(agreementId, 1, AgreementEventType.CREATED, "A", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.DRAFT_EDITED, "B", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.DRAFT_EDITED, "B", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.VERSION_SENT, "C", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.OWNER_CONFIRMED, "O", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.VERSION_LAPSED, null, at);
+			trail.recordEvent(agreementId, 2, AgreementEventType.DRAFT_OPENED, "D", at);
+			trail.recordEvent(agreementId, 2, AgreementEventType.DRAFT_EDITED, "E", at);
+			trail.recordEvent(agreementId, 2, AgreementEventType.ACTIVATED, "M", at);
+			trail.recordEvent(agreementId, 2, AgreementEventType.ACTIVATION_REFUSED, "N", at);
+			trail.recordEvent(agreementId, 3, AgreementEventType.DRAFT_EDITED, "F", at);
+			return null;
+		});
+
+		assertEquals(Set.of("A", "B", "C", "D", "E"), tx(() -> trail.versionAuthors(agreementId, 2)));
+		assertEquals(Set.of("A", "B", "C"), tx(() -> trail.versionAuthors(agreementId, 1)));
+		assertEquals(Set.of(), tx(() -> trail.versionAuthors(ids.generateId(), 5)));
+	}
+
+	/** An agreement created, completed, sent at {@code sent} and confirmed by its owner at {@code answered}. */
+	private BrokerageAgreement confirmedAgreement(Instant sent, Instant answered) {
+		BrokerageAgreement agreement = sentAgreement(sent);
+		tx(() -> {
+			agreements.update(agreements.findById(agreement.getId()).orElseThrow()
+					.confirmByOwner(1, "01JOWNERA00000000000000000", AgreementStatement.VERSION, answered));
+			return null;
+		});
+		return agreement;
+	}
+
+	/** A fixture agreement awaiting confirmation, its version 1 confirmed by its owner at {@code answeredAt}. */
+	private String confirmedFixture(Instant answeredAt) {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(),
+				"AWAITING_CONFIRMATION", "OWNER_CONFIRMED");
+		created.add(agreementId);
+		jdbc.update("UPDATE brokerage_agreement_versions SET sent_at = ?, owner_answer = 'CONFIRMED',"
+				+ " owner_answered_by = '01JOWNER000000000000000000', owner_answered_at = ?,"
+				+ " owner_statement_version = 'brokerage-agreement-2026-11' WHERE agreement_id = ?",
+				Timestamp.from(answeredAt.minus(1, ChronoUnit.HOURS)), Timestamp.from(answeredAt), agreementId);
+		return agreementId;
+	}
+
+	/**
+	 * A fixture ACTIVE agreement whose version 1, confirmed, starts on {@code start} (its period one year long) in the
+	 * given status, with an activation record when asked.
+	 */
+	private String activatedFixture(LocalDate start, String versionStatus, boolean withRecord) {
+		String agreementId = confirmedFixture(now().minus(400, ChronoUnit.DAYS));
+		jdbc.update("UPDATE brokerage_agreements SET status = 'ACTIVE' WHERE id = ?", agreementId);
+		jdbc.update("UPDATE brokerage_agreement_versions SET status = ?, start_date = ?, end_date = ? WHERE agreement_id = ?",
+				versionStatus, Date.valueOf(start), Date.valueOf(start.plusMonths(12).minusDays(1)), agreementId);
+		if (withRecord) {
+			jdbc.update("UPDATE brokerage_agreement_versions SET activation_decision = 'ACTIVATED',"
+					+ " activation_statement_version = 'brokerage-activation-2026-11', " + DOCUMENT + ", " + DECIDED
+					+ " WHERE agreement_id = ?", agreementId);
+		}
+		return agreementId;
 	}
 
 	/** An agreement created, its draft completed and sent at {@code sent}, through the aggregate. */

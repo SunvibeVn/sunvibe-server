@@ -10,6 +10,7 @@ import vn.sunvibe.brokerage.core.domain.repository.AgreementTrailDomainRepositor
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Set;
 
 /**
  * Repository Implementation - the insert-only trail of the agreements. Plain SQL: these rows are never read back as
@@ -46,5 +47,14 @@ public class AgreementTrailRepositoryAdapter implements AgreementTrailDomainRepo
                 + " values (?, ?, ?, ?)", agreementIds.stream()
                 .map(agreementId -> new Object[]{userId, agreementId, action.name(), time})
                 .toList());
+    }
+
+    /** One statement over the index on agreement_id (E05-S6 plan E05S6-P6); no entity reads the history. */
+    @Override
+    public Set<String> versionAuthors(String agreementId, int upToVersionNo) {
+        return Set.copyOf(jdbc.queryForList("select distinct actor_user_id from brokerage_agreement_events"
+                + " where agreement_id = ? and version_no <= ? and event_type in ('CREATED', 'DRAFT_EDITED',"
+                + " 'DRAFT_OPENED', 'VERSION_SENT') and actor_user_id is not null", String.class, agreementId,
+                upToVersionNo));
     }
 }

@@ -2,6 +2,7 @@ package vn.sunvibe.brokerage.core.infrastructure.persistence.mapper.manual;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
@@ -13,6 +14,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SignedDocument;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.infrastructure.persistence.entity.AgreementVersionEntity;
@@ -65,6 +67,8 @@ public class AgreementEntityMapper {
         FeeFormula renewal = fee.renewalOrNull();
         EarlyLeaseEndRefund early = fee.earlyLeaseEndOrNull();
         OwnerAnswer answer = version.getOwnerAnswerOrNull();
+        ActivationDecision decision = version.getActivationOrNull();
+        SignedDocument document = decision == null ? null : decision.signedDocumentOrNull();
         AgreementVersionEntity entity = AgreementVersionEntity.builder()
                 .id(version.getId())
                 .agreement(agreement)
@@ -102,6 +106,16 @@ public class AgreementEntityMapper {
                 .ownerAnsweredAt(answer == null ? null : answer.answeredAt())
                 .ownerStatementVersion(answer == null ? null : answer.statementVersionOrNull())
                 .ownerRejectionReason(answer == null ? null : answer.rejectionReasonOrNull())
+                .activationDecision(decision == null ? null : decision.type())
+                .activationDecidedBy(decision == null ? null : decision.userId())
+                .activationDecidedAt(decision == null ? null : decision.decidedAt())
+                .activationStatementVersion(decision == null ? null : decision.statementVersionOrNull())
+                .signedDocumentNumber(document == null ? null : document.number())
+                .signedDocumentDate(document == null ? null : document.signedOn())
+                .sunvibeSignatoryName(document == null ? null : document.sunvibeSignatoryName())
+                .sunvibeSignatoryTitle(document == null ? null : document.sunvibeSignatoryTitle())
+                .activationRefusalType(decision == null ? null : decision.refusalTypeOrNull())
+                .activationRefusalNote(decision == null ? null : decision.refusalNoteOrNull())
                 .build();
         List<MandatoryFee> fees = terms.mandatoryFeesOrNull() == null ? List.of() : terms.mandatoryFeesOrNull();
         for (int index = 0; index < fees.size(); index++) {
@@ -164,7 +178,34 @@ public class AgreementEntityMapper {
         return AgreementVersion.load(version.getId(), version.getVersionNo(), version.getStatus(),
                 new AgreementPeriod(version.getStartDate(), version.getEndDate()), version.getBasisLeadId(),
                 version.getBasisIntakeId(), version.getCreatedByUserId(), version.getCreatedAt(),
-                version.getUpdatedAt(), consent, terms, fee, version.getSentAt(), ownerAnswer(version));
+                version.getUpdatedAt(), consent, terms, fee, version.getSentAt(), ownerAnswer(version),
+                activation(version));
+    }
+
+    /**
+     * The stored activation decision; null when no activation column is set. A stored combination outside the rules of
+     * E05-S6 spec S6-D14 is a data fault, never a request error; the message names no stored value (brokerage-agreement
+     * BR-17).
+     */
+    private static ActivationDecision activation(AgreementVersionEntity version) {
+        boolean documentStored = version.getSignedDocumentNumber() != null || version.getSignedDocumentDate() != null
+                || version.getSunvibeSignatoryName() != null || version.getSunvibeSignatoryTitle() != null;
+        if (version.getActivationDecision() == null && version.getActivationDecidedBy() == null
+                && version.getActivationDecidedAt() == null && version.getActivationStatementVersion() == null
+                && !documentStored && version.getActivationRefusalType() == null
+                && version.getActivationRefusalNote() == null) {
+            return null;
+        }
+        try {
+            SignedDocument document = documentStored ? new SignedDocument(version.getSignedDocumentNumber(),
+                    version.getSignedDocumentDate(), version.getSunvibeSignatoryName(),
+                    version.getSunvibeSignatoryTitle()) : null;
+            return new ActivationDecision(version.getActivationDecision(), version.getActivationDecidedBy(),
+                    version.getActivationDecidedAt(), version.getActivationStatementVersion(), document,
+                    version.getActivationRefusalType(), version.getActivationRefusalNote());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("A stored agreement version breaks the activation rules.", e);
+        }
     }
 
     /**
