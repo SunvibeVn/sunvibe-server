@@ -25,6 +25,7 @@ import vn.sunvibe.brokerage.core.presentation.converter.AgreementResponseConvert
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftSubmissionRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementNewDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
@@ -148,6 +149,38 @@ public class BrokerageAgreementController {
     public void updateDraft(@PathVariable("agreementId") String agreementId,
                             @Valid @RequestBody BrokerageAgreementDraftRequest request) {
         commands.editDraft(requests.toDraftCommand(agreementId, request), viewers.current());
+    }
+
+    @PostMapping("/{agreementId}/draft")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "openBrokerageAgreementDraft",
+            summary = "Open the next draft version, a copy of the latest one, after the owner declined it or did not"
+                    + " answer in time, against the data version read")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The draft was opened; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (entry expectedDataVersion) or"
+                    + " MALFORMED_REQUEST (the body or the number cannot be read)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff; AGREEMENT_NOT_ASSIGNEE:"
+                    + " the caller is not the basis lead's assigned Sale",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_NEW_DRAFT_NOT_ALLOWED (a version still waits for"
+                    + " the owner or for activation, or the agreement is not drafting; no entry),"
+                    + " CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed"
+                    + " in between) or AGREEMENT_NOT_ELIGIBLE (one reasonGroups.<GROUP> entry per group, in the order"
+                    + " BASIS, PROPERTY, UNIT, OWNER)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void openDraft(@PathVariable("agreementId") String agreementId,
+                          @Valid @RequestBody BrokerageAgreementNewDraftRequest request) {
+        commands.openDraft(requests.toOpenDraftCommand(agreementId, request), viewers.current());
     }
 
     @PostMapping("/{agreementId}/draft/submission")

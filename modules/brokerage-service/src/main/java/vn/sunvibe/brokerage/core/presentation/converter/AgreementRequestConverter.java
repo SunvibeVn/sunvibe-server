@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
@@ -31,6 +32,7 @@ import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeF
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeePolicyInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeTierInput;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementNewDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementRejectionRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementTermsInput;
 
@@ -92,6 +94,11 @@ public class AgreementRequestConverter {
             throw AgreementRefusedException.invalid("versions", null);
         }
         return new AgreementConfirmCommand(request.currentPassword(), request.statementVersion(), versions);
+    }
+
+    /** The new draft command (E05-S5 spec S5-D10); the bean constraints have already held. */
+    public AgreementOpenDraftCommand toOpenDraftCommand(String agreementId, BrokerageAgreementNewDraftRequest request) {
+        return new AgreementOpenDraftCommand(agreementId, request.expectedDataVersion());
     }
 
     /** The owner's rejection (E05-S5 spec S5-D7); the reason as written, the use case trims and checks it. */

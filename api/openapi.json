@@ -2889,6 +2889,94 @@
       }
     },
     "/api/v1/staff/brokerage-agreements/{agreementId}/draft" : {
+      "post" : {
+        "operationId" : "openBrokerageAgreementDraft",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementNewDraftRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The draft was opened; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (entry expectedDataVersion) or MALFORMED_REQUEST (the body or the number cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff; AGREEMENT_NOT_ASSIGNEE: the caller is not the basis lead's assigned Sale"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NEW_DRAFT_NOT_ALLOWED (a version still waits for the owner or for activation, or the agreement is not drafting; no entry), CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed in between) or AGREEMENT_NOT_ELIGIBLE (one reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY, UNIT, OWNER)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Open the next draft version, a copy of the latest one, after the owner declined it or did not answer in time, against the data version read",
+        "tags" : [ "Brokerage agreement" ]
+      },
       "put" : {
         "operationId" : "updateBrokerageAgreementDraft",
         "parameters" : [ {
@@ -9757,6 +9845,18 @@
           }
         },
         "required" : [ "fromMonths", "percent" ]
+      },
+      "BrokerageAgreementNewDraftRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedDataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The dataVersion of the detail the caller read",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "expectedDataVersion" ]
       },
       "BrokerageAgreementOwnerItem" : {
         "type" : "object",
