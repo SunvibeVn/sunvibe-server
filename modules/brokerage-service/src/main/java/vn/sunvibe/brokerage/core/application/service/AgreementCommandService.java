@@ -1,5 +1,6 @@
 package vn.sunvibe.brokerage.core.application.service;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -388,6 +389,48 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         agreements.update(opened);
         trail.recordEvent(agreement.getId(), opened.getVersions().getLast().getVersionNo(),
                 AgreementEventType.DRAFT_OPENED, actor.userId(), now);
+    }
+
+    /**
+     * One run of the lapse job (E05-S5 spec S5-D8, plan E05S5-P4): one selection of at most 100 due agreements, then per
+     * agreement a short transaction of its own with one agreement read, the guarded update and one history insert. No
+     * lead lock: like the owner's commands it writes only through the agreement row's guarded update. No ShedLock: two
+     * instances' runs that load one row compute the same lapse, and the loser of the row-version race writes nothing, its
+     * history row included, because the update comes first.
+     */
+    @Override
+    public int storeDueLapses() {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        // brokerage-agreement BR-10: a version not answered within 7 days of its sending lapses.
+        List<String> due = agreements.dueLapseAgreementIds(now.minus(AgreementVersion.ANSWER_WINDOW),
+                MAX_LAPSES_PER_RUN);
+        int stored = 0;
+        for (String agreementId : due) {
+            try {
+                if (Boolean.TRUE.equals(transactions.execute(status -> storeDueLapse(agreementId, now)))) {
+                    stored++;
+                }
+            } catch (OptimisticLockingFailureException lost) {
+                // Another instance's run, the owner's answer or the Sale's command committed first: its state is what
+                // the next run reads, and this agreement's transaction rolled back whole (spec S5-D8 step 4).
+            }
+        }
+        return stored;
+    }
+
+    /**
+     * brokerage-agreement BR-5 (E05-S2 spec S2-D4, E05-S5 spec S5-D8): the lapse is a stored transition, written when it
+     * is due; nothing when the agreement was answered, lapsed or given a new draft since the selection.
+     */
+    private boolean storeDueLapse(String agreementId, Instant now) {
+        BrokerageAgreement agreement = agreements.findById(agreementId).orElse(null);
+        AgreementVersion due = agreement == null ? null : agreement.dueLapseOrNull(now);
+        if (due == null) {
+            return false;
+        }
+        agreements.update(agreement.withDueLapse(now));
+        trail.recordEvent(agreementId, due.getVersionNo(), AgreementEventType.VERSION_LAPSED, null, due.answerByOrNull());
+        return true;
     }
 
     /**

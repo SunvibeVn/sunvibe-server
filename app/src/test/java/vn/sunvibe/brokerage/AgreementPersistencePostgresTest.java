@@ -635,7 +635,7 @@ class AgreementPersistencePostgresTest {
 	void update_feePolicyWithTiers_readsBackEqual() {
 		Instant created = Instant.parse("2026-11-20T03:15:00.123456Z");
 		Instant edited = Instant.parse("2026-11-21T04:00:00.654321Z");
-		Instant sent = Instant.parse("2026-11-22T05:30:00.987654Z");
+		Instant sent = Instant.now().truncatedTo(ChronoUnit.MICROS).minus(1, ChronoUnit.HOURS);
 		BrokerageAgreement agreement = draft(ids.generateId(), "P101", created);
 		tx(() -> {
 			agreements.create(agreement);

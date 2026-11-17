@@ -28,6 +28,7 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
     private final Map<String, BrokerageAgreement> agreements = new LinkedHashMap<>();
     private final List<String> calls = new ArrayList<>();
     private final Map<String, RuntimeException> failNextUpdate = new HashMap<>();
+    private Runnable afterNextSelection;
     private boolean moveAfterNextRead;
 
     /** Stores an agreement as if an earlier transaction had written it; not recorded as a call. */
@@ -125,11 +126,23 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
                     .findFirst()
                     .ifPresent(version -> sentById.put(agreement.getId(), version.getSentAtOrNull()));
         }
-        return sentById.entrySet().stream()
+        List<String> selected = sentById.entrySet().stream()
                 .sorted(Map.Entry.<String, Instant>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
                 .map(Map.Entry::getKey)
                 .limit(limit)
                 .toList();
+        Runnable change = afterNextSelection;
+        afterNextSelection = null;
+        if (change != null) {
+            change.run();
+        }
+        return selected;
+    }
+
+    /** Runs once, right after the next due-lapse selection: a change another transaction commits in between. */
+    public InMemoryAgreementRepository afterNextSelection(Runnable change) {
+        afterNextSelection = change;
+        return this;
     }
 
     /** The next update of that agreement throws this failure and stores nothing, as a lost or failed write does. */

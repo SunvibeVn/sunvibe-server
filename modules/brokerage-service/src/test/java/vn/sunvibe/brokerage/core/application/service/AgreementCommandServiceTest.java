@@ -1127,6 +1127,79 @@ class AgreementCommandServiceTest {
         assertEquals(VersionStatus.DRAFT, stored.getVersions().get(1).getStatus());
     }
 
+    // ==================== E05-S5: the lapse job's store (spec S5-D8, 5.3a) ====================
+
+    /** LP-2 (unit part): a due lapse stored with its history row at the deadline, no actor, nothing else. */
+    @Test
+    void storeDueLapses_due_storedWithLapseRowAtAnswerBy() {
+        Instant sentAt = clock().minus(Duration.ofDays(7)).minusSeconds(1);
+        storeSent(AGREEMENT, "U1", sentAt);
+
+        int stored = service().storeDueLapses();
+
+        assertEquals(1, stored);
+        BrokerageAgreement agreement = agreements.findById(AGREEMENT).orElseThrow();
+        assertEquals(AgreementStatus.DRAFTING, agreement.getStatus());
+        assertEquals(1L, agreement.getRowVersionOrNull());
+        AgreementVersion version = agreement.getVersions().get(0);
+        assertEquals(VersionStatus.LAPSED, version.getStatus());
+        assertEquals(null, version.getOwnerAnswerOrNull());
+        assertEquals(List.of(new RecordingAgreementTrail.Event(AGREEMENT, 1, AgreementEventType.VERSION_LAPSED, null,
+                sentAt.plus(Duration.ofDays(7)))), trail.events());
+        assertEquals(List.of(), trail.accesses());
+        assertEquals(List.of(), notices.agreementPending());
+        assertEquals(List.of(), calls);
+    }
+
+    /** E05-S5 spec S5-D8: an agreement answered between the selection and its load is left as it is. */
+    @Test
+    void storeDueLapses_answeredMeanwhile_nothingWritten() {
+        storeSent(AGREEMENT, "U1", clock().minus(Duration.ofDays(7)).minusSeconds(1));
+        agreements.afterNextSelection(() -> storeAnswered(AGREEMENT, VersionStatus.OWNER_CONFIRMED,
+                AgreementStatus.AWAITING_CONFIRMATION));
+
+        int stored = service().storeDueLapses();
+
+        assertEquals(0, stored);
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+        assertEquals(VersionStatus.OWNER_CONFIRMED,
+                agreements.findById(AGREEMENT).orElseThrow().getVersions().get(0).getStatus());
+    }
+
+    /** LP-3 (unit part): a lost row-version race on one agreement is skipped and the run goes on to the next. */
+    @Test
+    void storeDueLapses_lostRace_skippedRunGoesOn() {
+        storeSent(AGREEMENT, "U1", clock().minus(Duration.ofDays(7)).minus(2, ChronoUnit.HOURS));
+        storeSent(AGREEMENT_2, "U2", clock().minus(Duration.ofDays(7)).minus(1, ChronoUnit.HOURS));
+        agreements.failNextUpdate(AGREEMENT, new OptimisticLockingFailureException("another run committed first"));
+
+        int stored = service().storeDueLapses();
+
+        assertEquals(1, stored);
+        assertEquals(List.of(AGREEMENT_2), trail.events().stream().map(RecordingAgreementTrail.Event::agreementId)
+                .toList());
+        assertEquals(VersionStatus.AWAITING_OWNER,
+                agreements.findById(AGREEMENT).orElseThrow().getVersions().get(0).getStatus());
+        assertEquals(VersionStatus.LAPSED,
+                agreements.findById(AGREEMENT_2).orElseThrow().getVersions().get(0).getStatus());
+    }
+
+    /** java-core.md: only the lost race is skipped; any other failure ends the run, and the next run repeats it. */
+    @Test
+    void storeDueLapses_otherFailure_endsTheRun() {
+        storeSent(AGREEMENT, "U1", clock().minus(Duration.ofDays(7)).minus(2, ChronoUnit.HOURS));
+        storeSent(AGREEMENT_2, "U2", clock().minus(Duration.ofDays(7)).minus(1, ChronoUnit.HOURS));
+        agreements.failNextUpdate(AGREEMENT, new IllegalStateException("the store refused"));
+
+        assertThrows(IllegalStateException.class, () -> service().storeDueLapses());
+
+        assertEquals(List.of(), trail.events());
+        assertEquals(VersionStatus.AWAITING_OWNER,
+                agreements.findById(AGREEMENT_2).orElseThrow().getVersions().get(0).getStatus());
+        assertEquals(1, agreements.count("update"));
+    }
+
     /** Stores {@link #AGREEMENT} on U1 with its version 1 sent an hour ago and answered by the owner as given. */
     private void storeAnswered(String agreementId, VersionStatus versionStatus, AgreementStatus status) {
         Instant sentAt = clock().minus(2, ChronoUnit.HOURS);
