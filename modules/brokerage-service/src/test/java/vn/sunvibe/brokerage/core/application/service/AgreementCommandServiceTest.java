@@ -1,14 +1,19 @@
 package vn.sunvibe.brokerage.core.application.service;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.transaction.support.TransactionTemplate;
+import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Entry;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Reason;
 import vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException;
+import vn.sunvibe.brokerage.core.application.shared.external.account.PasswordCheck;
 import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasisFacts;
 import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasisFacts.Holding;
 import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasisFacts.Unit;
@@ -16,6 +21,7 @@ import vn.sunvibe.brokerage.core.application.usecase.AgreementCreateResult;
 import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementPeriodException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
@@ -29,6 +35,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
@@ -39,12 +46,17 @@ import vn.sunvibe.brokerage.core.testsupport.FixedAgreementSwitches;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryAgreementRepository;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryBasisLeadPort;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryIntakeBasisPort;
+import vn.sunvibe.brokerage.core.testsupport.NoDatabaseTransactions;
+import vn.sunvibe.brokerage.core.testsupport.RecordingAccountPasswordPort;
 import vn.sunvibe.brokerage.core.testsupport.RecordingAgreementTrail;
 import vn.sunvibe.brokerage.core.testsupport.RecordingOwnerAccountPort;
 import vn.sunvibe.brokerage.core.testsupport.RecordingOwnerNoticePort;
+import vn.sunvibe.shared.time.AppClock;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -85,10 +97,12 @@ class AgreementCommandServiceTest {
     private final RecordingAgreementTrail trail = new RecordingAgreementTrail();
     private final Iterator<String> ids = List.of("A1", "V1", "A2", "V2", "A3", "V3").iterator();
     private final RecordingOwnerNoticePort notices = new RecordingOwnerNoticePort();
+    private final RecordingAccountPasswordPort passwords = new RecordingAccountPasswordPort();
     private FixedAgreementSwitches switches = new FixedAgreementSwitches();
 
     private AgreementCommandService service() {
-        return new AgreementCommandService(leads, bases, accounts, agreements, trail, ids::next, notices, switches);
+        return new AgreementCommandService(leads, bases, accounts, agreements, trail, ids::next, notices, switches,
+                passwords, new TransactionTemplate(new NoDatabaseTransactions()));
     }
 
     @Test
@@ -160,7 +174,7 @@ class AgreementCommandServiceTest {
     void create_leadNotVisible_notFound() {
         InMemoryBasisLeadPort hidden = new InMemoryBasisLeadPort(calls).lead(LEAD, SALE, "M");
         AgreementCommandService service = new AgreementCommandService(hidden, bases, accounts, agreements, trail,
-                ids::next, notices, switches);
+                ids::next, notices, switches, passwords, new TransactionTemplate(new NoDatabaseTransactions()));
 
         assertThrows(BrokerageNotFoundException.class, () -> service.create(command("U1"), VIEWER));
 
@@ -188,7 +202,7 @@ class AgreementCommandServiceTest {
     void create_noBasis_notEligibleBasisOnly() {
         InMemoryIntakeBasisPort none = new InMemoryIntakeBasisPort(calls);
         AgreementCommandService service = new AgreementCommandService(leads, none, accounts, agreements, trail,
-                ids::next, notices, switches);
+                ids::next, notices, switches, passwords, new TransactionTemplate(new NoDatabaseTransactions()));
 
         AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
                 () -> service.create(command("U1"), VIEWER));
@@ -242,7 +256,7 @@ class AgreementCommandServiceTest {
         InMemoryAgreementRepository cancelled = new InMemoryAgreementRepository()
                 .store(stored("A8", "L9", AgreementStatus.CANCELLED, VersionStatus.CANCELLED));
         AgreementCommandService service = new AgreementCommandService(leads, bases, accounts, cancelled, trail,
-                ids::next, notices, switches);
+                ids::next, notices, switches, passwords, new TransactionTemplate(new NoDatabaseTransactions()));
         assertEquals(new AgreementCreateResult("A1"), service.create(command("U1"), VIEWER));
         assertEquals(2, cancelled.all().size());
     }
@@ -395,7 +409,8 @@ class AgreementCommandServiceTest {
         storeDraft("U1", AgreementStatus.DRAFTING, VersionStatus.DRAFT);
         InMemoryIntakeBasisPort none = new InMemoryIntakeBasisPort(calls);
         assertEquals(List.of("reasonGroups.BASIS"), refusedDraftFields(
-                new AgreementCommandService(leads, none, accounts, agreements, trail, ids::next, notices, switches)));
+                new AgreementCommandService(leads, none, accounts, agreements, trail, ids::next, notices, switches,
+                        passwords, new TransactionTemplate(new NoDatabaseTransactions()))));
 
         calls.clear();
         bases.basis(LEAD, new IntakeBasisFacts("I2", "P1", "USABLE", BASIS.units(), OWNER, HOLDINGS));
@@ -709,6 +724,212 @@ class AgreementCommandServiceTest {
         assertEquals(CONSENT, kept.getPhotoConsent());
         assertEquals(TERMS, kept.getTerms());
         assertEquals(FEE, kept.getFee());
+    }
+
+    // ==================== E05-S5: the owner's confirmation (spec 3.2, S5-D4 to S5-D6) ====================
+
+    private static final String AGREEMENT_2 = "01JAGRE0000000000000000002";
+
+    /** OC-1, OC-2: each version recorded on its own, with its own history row, in agreement id order. */
+    @Test
+    void confirmByOwner_answerable_eachRecordedWithItsRow() {
+        bases.basis(LEAD, basis("USABLE", new Unit("U1", "P101", List.of()), new Unit("U3", "P103", List.of())));
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+        storeSent(AGREEMENT_2, "U3", clock().minus(2, ChronoUnit.HOURS));
+
+        service().confirmByOwner(confirm(AGREEMENT_2, AGREEMENT), OWNER);
+
+        assertEquals(2, trail.events().size());
+        RecordingAgreementTrail.Event first = trail.events().get(0);
+        Instant at = first.at();
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT, 1, AgreementEventType.OWNER_CONFIRMED, OWNER, at),
+                first);
+        assertEquals(new RecordingAgreementTrail.Event(AGREEMENT_2, 1, AgreementEventType.OWNER_CONFIRMED, OWNER, at),
+                trail.events().get(1));
+        for (String id : List.of(AGREEMENT, AGREEMENT_2)) {
+            BrokerageAgreement stored = agreements.findById(id).orElseThrow();
+            assertEquals(AgreementStatus.AWAITING_CONFIRMATION, stored.getStatus(), id);
+            assertEquals(1L, stored.getRowVersionOrNull(), id);
+            assertEquals(at, stored.getUpdatedAt(), id);
+            AgreementVersion version = stored.getVersions().get(0);
+            assertEquals(VersionStatus.OWNER_CONFIRMED, version.getStatus(), id);
+            assertEquals(OwnerAnswer.confirmed(OWNER, AgreementStatement.VERSION, at), version.getOwnerAnswerOrNull());
+            assertEquals(CONSENT, version.getPhotoConsent());
+            assertEquals(TERMS, version.getTerms());
+            assertEquals(FEE, version.getFee());
+        }
+        assertEquals(0, at.getNano() % 1_000);
+        assertEquals(List.of(), notices.agreementPending());
+        assertEquals(List.of(), trail.accesses());
+        assertEquals(List.of(new RecordingAccountPasswordPort.Check(OWNER, false)), passwords.checks());
+    }
+
+    /** OC-5, US-2 AC-1: one not-found for every caller and id that is not the caller's sent version, before the password. */
+    @Test
+    void confirmByOwner_notBound_notFoundBeforePassword() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+        storeSent(AGREEMENT_2, "U1", null);
+        accounts.answer("O2", true);
+        List<Executable> notFound = List.of(
+                () -> service().confirmByOwner(confirm(AGREEMENT), "O2"),
+                () -> service().confirmByOwner(items(new AgreementVersionInput("a1", 1)), OWNER),
+                () -> service().confirmByOwner(items(new AgreementVersionInput("01jagre0000000000000000001", 1)), OWNER),
+                () -> service().confirmByOwner(confirm("01JAGRE0000000000000000009"), OWNER),
+                () -> service().confirmByOwner(items(new AgreementVersionInput(AGREEMENT, 2)), OWNER),
+                () -> service().confirmByOwner(confirm(AGREEMENT_2), OWNER),
+                () -> service().confirmByOwner(confirm(AGREEMENT, "01JAGRE0000000000000000009"), OWNER));
+
+        for (int index = 0; index < notFound.size(); index++) {
+            assertThrows(BrokerageNotFoundException.class, notFound.get(index), "case " + index);
+        }
+        accounts.answer(OWNER, false);
+        assertThrows(BrokerageNotFoundException.class, () -> service().confirmByOwner(confirm(AGREEMENT), OWNER));
+
+        assertEquals(List.of(), passwords.checks());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void confirmByOwner_outdatedStatement_conflictBeforePassword() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().confirmByOwner(new AgreementConfirmCommand("secret", "old",
+                        List.of(new AgreementVersionInput(AGREEMENT, 1))), OWNER));
+
+        assertEquals(Reason.AGREEMENT_STATEMENT_OUTDATED, refused.reason());
+        assertEquals(409, refused.reason().status());
+        assertEquals("The confirmation text has changed. Read it again.", refused.getMessage());
+        assertEquals(List.of(), refused.entries());
+        assertEquals(List.of(), passwords.checks());
+        assertEquals(0, agreements.count("update"));
+    }
+
+    /** OC-3: a wrong password answers on the field alone and writes nothing. */
+    @Test
+    void confirmByOwner_wrongPassword_validationOnCurrentPassword() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+        passwords.answer(PasswordCheck.Outcome.WRONG);
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().confirmByOwner(confirm(AGREEMENT), OWNER));
+
+        assertEquals(Reason.VALIDATION_FAILED, refused.reason());
+        assertEquals(List.of(new Entry("currentPassword", null)), refused.entries());
+        assertEquals(List.of(new RecordingAccountPasswordPort.Check(OWNER, false)), passwords.checks());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    @Test
+    void confirmByOwner_locked_accountLocked() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+        passwords.answer(PasswordCheck.Outcome.LOCKED);
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().confirmByOwner(confirm(AGREEMENT), OWNER));
+
+        assertEquals(Reason.ACCOUNT_LOCKED, refused.reason());
+        assertEquals(423, refused.reason().status());
+        assertEquals("Too many wrong passwords. Try again later.", refused.getMessage());
+        assertEquals(List.of(), refused.entries());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+    }
+
+    /** E05-S5 spec S5-D4: the password runs outside any transaction, so a refused command keeps auth's count. */
+    @Test
+    void confirmByOwner_passwordCheckedOutsideTransaction() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+        NoDatabaseTransactions transactions = new NoDatabaseTransactions();
+        AgreementCommandService service = new AgreementCommandService(leads, bases, accounts, agreements, trail,
+                ids::next, notices, switches, passwords, new TransactionTemplate(transactions));
+
+        service.confirmByOwner(confirm(AGREEMENT), OWNER);
+
+        assertEquals(List.of(new RecordingAccountPasswordPort.Check(OWNER, false)), passwords.checks());
+        assertEquals(2, transactions.begun);
+    }
+
+    /** OC-2, OC-6: a batch with one version past its deadline refuses on that item alone and writes nothing at all. */
+    @Test
+    void confirmByOwner_notAwaiting_entryPerFailingItem() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+        storeSent(AGREEMENT_2, "U1", clock().minus(Duration.ofDays(7)).minusSeconds(1));
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().confirmByOwner(confirm(AGREEMENT, AGREEMENT_2), OWNER));
+
+        assertEquals(Reason.AGREEMENT_NOT_AWAITING_OWNER, refused.reason());
+        assertEquals("This version is not waiting for your answer.", refused.getMessage());
+        assertEquals(List.of(new Entry("versions[1]", null)), refused.entries());
+        assertEquals("This version cannot be answered now.", refused.reason().entryMessageOrNull());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+
+        Instant answered = clock().minus(30, ChronoUnit.MINUTES);
+        agreements.store(BrokerageAgreement.load(AGREEMENT, "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, OWNER,
+                LEAD, AgreementStatus.AWAITING_CONFIRMATION, "S9", answered, answered, 1L, List.of(AgreementVersion.load(
+                        "V1", 1, VersionStatus.OWNER_CONFIRMED, new AgreementPeriod(START, START.plusMonths(6)), LEAD,
+                        "I1", "S9", answered, answered, CONSENT, TERMS, FEE, clock().minus(1, ChronoUnit.HOURS),
+                        OwnerAnswer.confirmed(OWNER, AgreementStatement.VERSION, answered)))));
+        AgreementRefusedException answeredRefusal = assertThrows(AgreementRefusedException.class,
+                () -> service().confirmByOwner(confirm(AGREEMENT), OWNER));
+        assertEquals(List.of(new Entry("versions[0]", null)), answeredRefusal.entries());
+        assertEquals(OwnerAnswer.confirmed(OWNER, AgreementStatement.VERSION, answered),
+                agreements.findById(AGREEMENT).orElseThrow().getVersions().get(0).getOwnerAnswerOrNull());
+    }
+
+    /** OC-4, US-2 AC-5: the basis, the stops and the owner are checked again at confirmation, per item. */
+    @Test
+    void confirmByOwner_stopped_reasonGroupsPerItem() {
+        storeSent(AGREEMENT, "U1", clock().minus(1, ChronoUnit.HOURS));
+        bases.basis(LEAD, basis("SUSPENDED", new Unit("U1", "P101", List.of())));
+
+        AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                () -> service().confirmByOwner(confirm(AGREEMENT), OWNER));
+
+        assertEquals(Reason.AGREEMENT_NOT_ELIGIBLE, refused.reason());
+        assertEquals(List.of(new Entry("versions[0].reasonGroups.BASIS", null)), refused.entries());
+        assertEquals(0, agreements.count("update"));
+        assertEquals(List.of(), trail.events());
+
+        bases.basis(LEAD, basis("USABLE", new Unit("U1", "P101", List.of("AVAILABILITY_DIFFERS"))));
+        service().confirmByOwner(confirm(AGREEMENT), OWNER);
+        assertEquals(VersionStatus.OWNER_CONFIRMED,
+                agreements.findById(AGREEMENT).orElseThrow().getVersions().get(0).getStatus());
+    }
+
+    /** The command confirming version 1 of each agreement, with the current statement. */
+    private static AgreementConfirmCommand confirm(String... agreementIds) {
+        return items(java.util.Arrays.stream(agreementIds).map(id -> new AgreementVersionInput(id, 1))
+                .toArray(AgreementVersionInput[]::new));
+    }
+
+    private static AgreementConfirmCommand items(AgreementVersionInput... versions) {
+        return new AgreementConfirmCommand("secret", AgreementStatement.VERSION, List.of(versions));
+    }
+
+    /**
+     * Stores an agreement of {@link #OWNER} on the unit, AWAITING_CONFIRMATION, its version 1 complete, AWAITING_OWNER and
+     * sent at {@code sentAtOrNull} (never sent when null), row version 0.
+     */
+    private BrokerageAgreement storeSent(String agreementId, String unitId, Instant sentAtOrNull) {
+        Instant at = (sentAtOrNull == null ? clock() : sentAtOrNull).minus(1, ChronoUnit.HOURS);
+        Instant updated = sentAtOrNull == null ? at : sentAtOrNull;
+        BrokerageAgreement agreement = BrokerageAgreement.load(agreementId, unitId, "P101", "P1",
+                TransactionType.LONG_TERM_RENT, OWNER, LEAD, AgreementStatus.AWAITING_CONFIRMATION, "S9", at, updated, 0L,
+                List.of(AgreementVersion.load("V" + agreementId, 1, VersionStatus.AWAITING_OWNER,
+                        new AgreementPeriod(START, START.plusMonths(6)), LEAD, "I1", "S9", at, updated, CONSENT, TERMS,
+                        FEE, sentAtOrNull)));
+        agreements.store(agreement);
+        return agreement;
+    }
+
+    /** The service's clock, as it reads it (E05-S5 spec S5-D19). */
+    private static Instant clock() {
+        return AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
     }
 
     private enum BrokerageFeeOf { COMPLETE, WITHOUT_DUE_DAYS }

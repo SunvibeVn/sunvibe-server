@@ -1,5 +1,6 @@
 package vn.sunvibe.brokerage.core.application.usecase;
 
+import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
@@ -53,4 +54,20 @@ public interface AgreementCommandUseCase {
      *                                                                                     its read and the write
      */
     void sendDraft(AgreementSendCommand command, StaffViewer actor);
+
+    /**
+     * The owner confirms one or several versions sent to them with their current password (brokerage-agreement US-2
+     * AC-2, AC-4, AC-5; E05-S5 spec S5-D4 to S5-D6): each version OWNER_CONFIRMED with its own answer and history row,
+     * all or nothing. The first failing step answers: the caller is an eligible owner and every item names a version of
+     * theirs that was sent (404, one answer for every case); the statement version is current (409); the password (400 on
+     * currentPassword, 423 when locked), checked outside any transaction so its count stays; then in one transaction each
+     * version still waits for the owner within its 7 days (409, an entry per failing item), the E05-S1 check on each
+     * version's basis (409, entries per item), and the writes. A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  not the caller's sent version
+     * @throws org.springframework.dao.ConcurrencyFailureException                         an agreement changed between
+     *                                                                                     its read and the write
+     */
+    void confirmByOwner(AgreementConfirmCommand command, String ownerUserId);
 }

@@ -1,16 +1,20 @@
 package vn.sunvibe.brokerage.core.application.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
+import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException;
 import vn.sunvibe.brokerage.core.application.shared.AgreementSwitches;
+import vn.sunvibe.brokerage.core.application.shared.external.account.AccountPasswordPort;
 import vn.sunvibe.brokerage.core.application.shared.external.account.OwnerAccountPort;
 import vn.sunvibe.brokerage.core.application.shared.external.account.OwnerNoticePort;
+import vn.sunvibe.brokerage.core.application.shared.external.account.PasswordCheck;
 import vn.sunvibe.brokerage.core.application.shared.external.lead.BasisLeadFacts;
 import vn.sunvibe.brokerage.core.application.shared.external.lead.BasisLeadPort;
 import vn.sunvibe.brokerage.core.application.shared.external.property.IntakeBasisFacts;
@@ -20,6 +24,7 @@ import vn.sunvibe.brokerage.core.application.usecase.AgreementCreateResult;
 import vn.sunvibe.brokerage.core.application.usecase.StaffViewer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
@@ -33,10 +38,16 @@ import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 /**
  * Use Case Implementation - the commands of a brokerage agreement (E05-S2 spec 3.1, 5.2). The create is one read-write
@@ -49,11 +60,11 @@ import java.util.Set;
  * agreement's row; no agreement command locks a lead row while it holds an agreement row (spec S2-D4).
  */
 @Service
-@RequiredArgsConstructor
 public class AgreementCommandService implements AgreementCommandUseCase {
 
     private static final List<String> TRANSACTION_TYPES = Arrays.stream(TransactionType.values()).map(Enum::name)
             .toList();
+    private static final String PASSWORD_FIELD = "currentPassword";
 
     private final BasisLeadPort leads;
     private final IntakeBasisPort bases;
@@ -63,6 +74,29 @@ public class AgreementCommandService implements AgreementCommandUseCase {
     private final IdGenerator<String> ids;
     private final OwnerNoticePort notices;
     private final AgreementSwitches switches;
+    private final AccountPasswordPort passwords;
+    /** The owner's writes, and each agreement of the lapse job, in a transaction of their own (plan E05S5-P4). */
+    private final TransactionTemplate transactions;
+    /** The owner's bound check, read-only, over the same transaction manager. */
+    private final TransactionTemplate reads;
+
+    public AgreementCommandService(BasisLeadPort leads, IntakeBasisPort bases, OwnerAccountPort accounts,
+                                   AgreementDomainRepository agreements, AgreementTrailDomainRepository trail,
+                                   IdGenerator<String> ids, OwnerNoticePort notices, AgreementSwitches switches,
+                                   AccountPasswordPort passwords, TransactionTemplate transactions) {
+        this.leads = leads;
+        this.bases = bases;
+        this.accounts = accounts;
+        this.agreements = agreements;
+        this.trail = trail;
+        this.ids = ids;
+        this.notices = notices;
+        this.switches = switches;
+        this.passwords = passwords;
+        this.transactions = transactions;
+        this.reads = new TransactionTemplate(transactions.getTransactionManager());
+        this.reads.setReadOnly(true);
+    }
 
     @Override
     @Transactional
@@ -140,7 +174,7 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         if (!command.expectedDataVersion().equals(agreement.getRowVersionOrNull())) {
             throw AgreementRefusedException.stale();
         }
-        List<ReasonGroup> groups = draftGroups(agreement, draft, lead);
+        List<ReasonGroup> groups = draftGroups(agreement, draft, lead.leadId());
         if (!groups.isEmpty()) {
             throw AgreementRefusedException.notEligible(groups);
         }
@@ -186,7 +220,7 @@ public class AgreementCommandService implements AgreementCommandUseCase {
             throw AgreementRefusedException.incomplete(missing);
         }
         // brokerage-agreement E-2: nothing is sent on a basis that no longer allows an agreement.
-        List<ReasonGroup> groups = draftGroups(agreement, draft, lead);
+        List<ReasonGroup> groups = draftGroups(agreement, draft, lead.leadId());
         if (!groups.isEmpty()) {
             throw AgreementRefusedException.notEligible(groups);
         }
@@ -203,13 +237,107 @@ public class AgreementCommandService implements AgreementCommandUseCase {
     }
 
     /**
-     * The E05-S1 check rerun on the draft's own basis (E05-S3 spec S3-D3 step 7), the groups in their order: BASIS
-     * alone when the lead's latest completed intake is not the draft's (brokerage-agreement BR-2: a version rests on one
-     * basis, so no owner is read); else the groups the create computes, plus OWNER when the declared owner of that basis
-     * is no longer the agreement's owner party (BR-1, BR-4).
+     * Statements (E05-S5 spec S5-D6, plan E05S5-P4): in a read-only transaction, auth's owner standing and one agreement
+     * read per item; outside any transaction, auth's password check in its own transaction; then in one transaction one
+     * agreement read per item, the basis and owner reads of the E05-S1 check per item, and per item the guarded update
+     * of the agreement row with its version row and one history insert. No lead row is locked: the owner's commands
+     * write only the agreement rows, through the guarded update, so they never wait on a staff command in the opposite
+     * order. No notice, no access row, no lead change (brokerage-agreement BR-17, BR-18).
      */
-    private List<ReasonGroup> draftGroups(BrokerageAgreement agreement, AgreementVersion draft, BasisLeadFacts lead) {
-        IntakeBasisFacts basis = bases.latestBasis(lead.leadId()).orElse(null);
+    @Override
+    public void confirmByOwner(AgreementConfirmCommand command, String ownerUserId) {
+        // brokerage-agreement US-2 AC-1: every other caller and id gets one not-found, before the password is counted.
+        reads.executeWithoutResult(status -> command.versions()
+                .forEach(item -> boundVersion(ownerUserId, item.agreementId(), item.versionNo())));
+        // brokerage-agreement BR-10: the owner confirms the statement the server holds now.
+        if (!AgreementStatement.VERSION.equals(command.statementVersion())) {
+            throw AgreementRefusedException.statementOutdated();
+        }
+        // brokerage-agreement BR-10: the current password is re-entered; outside any transaction of this command, so a
+        // refused confirmation keeps auth's count (E05-S5 spec S5-D4).
+        PasswordCheck check = passwords.check(ownerUserId, command.currentPassword());
+        if (check.outcome() == PasswordCheck.Outcome.WRONG) {
+            throw AgreementRefusedException.invalid(PASSWORD_FIELD, null);
+        }
+        if (check.outcome() == PasswordCheck.Outcome.LOCKED) {
+            throw AgreementRefusedException.accountLocked();
+        }
+        transactions.executeWithoutResult(status -> confirmItems(command.versions(), ownerUserId));
+    }
+
+    /**
+     * Steps 5 to 7 of E05-S5 spec S5-D6 with one {@code now}: the items in agreement id order, so two batches over the
+     * same agreements write their rows in one order; every refusal comes before the first write.
+     */
+    private void confirmItems(List<AgreementVersionInput> items, String ownerUserId) {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        List<Integer> order = IntStream.range(0, items.size()).boxed()
+                .sorted(Comparator.comparing(index -> items.get(index).agreementId())).toList();
+        Map<Integer, BrokerageAgreement> read = new LinkedHashMap<>();
+        List<Integer> notAwaiting = new ArrayList<>();
+        for (int index : order) {
+            AgreementVersionInput item = items.get(index);
+            BrokerageAgreement agreement = agreements.findById(item.agreementId())
+                    .orElseThrow(BrokerageNotFoundException::new);
+            read.put(index, agreement);
+            // brokerage-agreement BR-5, BR-10: only the version waiting for the owner, within its 7 days.
+            if (versionOf(agreement, item.versionNo()).filter(version -> version.answerableAt(now)).isEmpty()) {
+                notAwaiting.add(index);
+            }
+        }
+        if (!notAwaiting.isEmpty()) {
+            throw AgreementRefusedException.notAwaitingOwner(notAwaiting);
+        }
+        // brokerage-agreement US-2 AC-5, E-2: the basis, the BR-3 stops and the owner are checked again for each item.
+        Map<Integer, List<ReasonGroup>> stopped = new LinkedHashMap<>();
+        read.forEach((index, agreement) -> {
+            AgreementVersion version = versionOf(agreement, items.get(index).versionNo()).orElseThrow();
+            List<ReasonGroup> groups = draftGroups(agreement, version, version.getBasisLeadId());
+            if (!groups.isEmpty()) {
+                stopped.put(index, groups);
+            }
+        });
+        if (!stopped.isEmpty()) {
+            throw AgreementRefusedException.notEligibleItems(stopped);
+        }
+        // brokerage-agreement US-2 AC-4: each version is recorded on its own, with its own history row.
+        read.forEach((index, agreement) -> {
+            int versionNo = items.get(index).versionNo();
+            agreements.update(agreement.confirmByOwner(versionNo, ownerUserId, AgreementStatement.VERSION, now));
+            trail.recordEvent(agreement.getId(), versionNo, AgreementEventType.OWNER_CONFIRMED, ownerUserId, now);
+        });
+    }
+
+    /**
+     * brokerage-agreement US-2 AC-1 (E05-S5 spec S5-D6 step 2, S5-D18): the caller is an eligible owner, the id is well
+     * formed, the agreement exists, is the caller's, and holds that version sent to them; else one not-found for every
+     * case, which reads the agreement row by id for every caller.
+     */
+    private BrokerageAgreement boundVersion(String ownerUserId, String agreementId, int versionNo) {
+        if (!accounts.eligibleOwner(ownerUserId) || agreementId == null
+                || !AgreementQueryService.AGREEMENT_ID.matcher(agreementId).matches()) {
+            throw new BrokerageNotFoundException();
+        }
+        BrokerageAgreement agreement = agreements.findById(agreementId).orElseThrow(BrokerageNotFoundException::new);
+        if (!agreement.getOwnerUserId().equals(ownerUserId) || versionOf(agreement, versionNo)
+                .filter(version -> version.getSentAtOrNull() != null).isEmpty()) {
+            throw new BrokerageNotFoundException();
+        }
+        return agreement;
+    }
+
+    private static Optional<AgreementVersion> versionOf(BrokerageAgreement agreement, int versionNo) {
+        return agreement.getVersions().stream().filter(version -> version.getVersionNo() == versionNo).findFirst();
+    }
+
+    /**
+     * The E05-S1 check rerun on the version's own basis (E05-S3 spec S3-D3 step 7; E05-S5 spec S5-D6 step 6), the groups
+     * in their order: BASIS alone when the lead's latest completed intake is not the version's (brokerage-agreement BR-2:
+     * a version rests on one basis, so no owner is read); else the groups the create computes, plus OWNER when the
+     * declared owner of that basis is no longer the agreement's owner party (BR-1, BR-4).
+     */
+    private List<ReasonGroup> draftGroups(BrokerageAgreement agreement, AgreementVersion draft, String basisLeadId) {
+        IntakeBasisFacts basis = bases.latestBasis(basisLeadId).orElse(null);
         if (basis == null || !basis.intakeId().equals(draft.getBasisIntakeId())) {
             return List.of(ReasonGroup.BASIS);
         }
