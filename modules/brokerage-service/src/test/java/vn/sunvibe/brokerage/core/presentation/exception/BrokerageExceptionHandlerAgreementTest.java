@@ -18,6 +18,7 @@ import vn.sunvibe.shared.dto.response.error.ValidationError;
 import vn.sunvibe.shared.logging.CorrelationId;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -57,6 +58,29 @@ class BrokerageExceptionHandlerAgreementTest {
                         ValidationError.of("reasonGroups.OWNER", "This group stops the agreement.")));
         assertBody(handler.handleRefused(AgreementRefusedException.exists()), HttpStatus.CONFLICT, "AGREEMENT_EXISTS",
                 "This unit already has an agreement in progress.", List.of());
+    }
+
+    /** E05-S5 spec S5-D14: the owner's refusals with their status, code, fixed message and entries. */
+    @Test
+    void refused_ownerReasons_statusCodeAndEntries() {
+        assertBody(handler.handleRefused(AgreementRefusedException.accountLocked()), HttpStatus.LOCKED, "ACCOUNT_LOCKED",
+                "Too many wrong passwords. Try again later.", List.of());
+        assertBody(handler.handleRefused(AgreementRefusedException.notAwaitingOwner(List.of(1))), HttpStatus.CONFLICT,
+                "AGREEMENT_NOT_AWAITING_OWNER", "This version is not waiting for your answer.",
+                List.of(ValidationError.of("versions[1]", "This version cannot be answered now.")));
+        assertBody(handler.handleRefused(AgreementRefusedException.notAwaitingOwner(List.of())), HttpStatus.CONFLICT,
+                "AGREEMENT_NOT_AWAITING_OWNER", "This version is not waiting for your answer.", List.of());
+        assertBody(handler.handleRefused(AgreementRefusedException.notEligibleItems(Map.of(0, List.of(ReasonGroup.UNIT)))),
+                HttpStatus.CONFLICT, "AGREEMENT_NOT_ELIGIBLE", "This unit cannot get an agreement now.",
+                List.of(ValidationError.of("versions[0].reasonGroups.UNIT", "This group stops the agreement.")));
+        assertBody(handler.handleRefused(AgreementRefusedException.statementOutdated()), HttpStatus.CONFLICT,
+                "AGREEMENT_STATEMENT_OUTDATED", "The confirmation text has changed. Read it again.", List.of());
+        assertBody(handler.handleRefused(AgreementRefusedException.newDraftNotAllowed()), HttpStatus.CONFLICT,
+                "AGREEMENT_NEW_DRAFT_NOT_ALLOWED", "A new draft can be opened only when no version is pending.",
+                List.of());
+        assertBody(handler.handleContent(new AgreementContentException("reason")), HttpStatus.BAD_REQUEST,
+                "VALIDATION_FAILED", "Validation failed.", List.of(ValidationError.of("reason",
+                        "This value is not accepted.")));
     }
 
     @Test
