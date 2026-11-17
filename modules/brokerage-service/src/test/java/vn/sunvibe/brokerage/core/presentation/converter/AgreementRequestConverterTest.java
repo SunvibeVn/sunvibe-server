@@ -1,20 +1,25 @@
 package vn.sunvibe.brokerage.core.presentation.converter;
 
 import org.junit.jupiter.api.Test;
+import vn.sunvibe.brokerage.core.application.command.AgreementActivateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRefuseActivationCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Entry;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException.Reason;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationRefusalType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndRefund;
 import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRefusalRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementConfirmationItemInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementConfirmationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
@@ -83,6 +88,35 @@ class AgreementRequestConverterTest {
                 converter.toRejectCommand(AGREEMENT, new BrokerageAgreementRejectionRequest(2, "  The rent is too low.  ")));
         assertEquals(new AgreementRejectCommand(AGREEMENT, 1, null),
                 converter.toRejectCommand(AGREEMENT, new BrokerageAgreementRejectionRequest(1, null)));
+    }
+
+    // ==================== E05-S6: the activation and its refusal (spec S6-D1, S6-D4) ====================
+
+    /** The activation's values as sent; the use case trims them and checks them with its own clock. */
+    @Test
+    void toActivateCommand_valuesAsSent() {
+        assertEquals(new AgreementActivateCommand(AGREEMENT, 7L, 2, "brokerage-activation-2026-11", " HDMG-2026/014 ",
+                        LocalDate.parse("2026-11-16"), "Nguyen Van A", "Director"),
+                converter.toActivateCommand(AGREEMENT, new BrokerageAgreementActivationRequest(7L, 2,
+                        "brokerage-activation-2026-11", " HDMG-2026/014 ", LocalDate.parse("2026-11-16"),
+                        "Nguyen Van A", "Director")));
+    }
+
+    /** RF-1, spec S6-D4: another refusal type is refused on reasonType with the two allowed values. */
+    @Test
+    void toRefuseActivationCommand_unknownType_invalidWithAllowedValues() {
+        for (String type : List.of("OTHER", "document_differs", "")) {
+            AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
+                    () -> converter.toRefuseActivationCommand(AGREEMENT,
+                            new BrokerageAgreementActivationRefusalRequest(0L, 1, type, null)), type);
+            assertEquals(Reason.VALIDATION_FAILED, refused.reason());
+            assertEquals(List.of(new Entry("reasonType", List.of("DOCUMENT_DIFFERS", "SIGNER_NOT_OWNER"))),
+                    refused.entries());
+        }
+        assertEquals(new AgreementRefuseActivationCommand(AGREEMENT, 3L, 1, ActivationRefusalType.SIGNER_NOT_OWNER,
+                        "  Not the owner.  "),
+                converter.toRefuseActivationCommand(AGREEMENT, new BrokerageAgreementActivationRefusalRequest(3L, 1,
+                        "SIGNER_NOT_OWNER", "  Not the owner.  ")));
     }
 
     @Test

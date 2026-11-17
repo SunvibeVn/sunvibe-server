@@ -1,15 +1,18 @@
 package vn.sunvibe.brokerage.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.brokerage.core.application.command.AgreementActivateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementRefuseActivationCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationRefusalType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ChargeUnit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
@@ -23,6 +26,8 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRefusalRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementConfirmationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDepositInput;
@@ -37,6 +42,7 @@ import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementReje
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementTermsInput;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -49,6 +55,8 @@ public class AgreementRequestConverter {
 
     private static final String TERMS = "terms.";
     private static final String FEE_POLICY = "feePolicy.";
+    private static final List<String> REFUSAL_TYPES = Arrays.stream(ActivationRefusalType.values()).map(Enum::name)
+            .toList();
 
     public AgreementCreateCommand toCommand(BrokerageAgreementCreateRequest request) {
         return new AgreementCreateCommand(request.leadId(), request.unitId(), request.transactionType(),
@@ -104,6 +112,29 @@ public class AgreementRequestConverter {
     /** The owner's rejection (E05-S5 spec S5-D7); the reason as written, the use case trims and checks it. */
     public AgreementRejectCommand toRejectCommand(String agreementId, BrokerageAgreementRejectionRequest request) {
         return new AgreementRejectCommand(agreementId, request.versionNo(), request.reason());
+    }
+
+    /**
+     * The activation (E05-S6 spec S6-D1); the values as sent, the bean constraints have already held: the use case
+     * trims and checks the document with its own clock reading.
+     */
+    public AgreementActivateCommand toActivateCommand(String agreementId, BrokerageAgreementActivationRequest request) {
+        return new AgreementActivateCommand(agreementId, request.expectedDataVersion(), request.versionNo(),
+                request.statementVersion(), request.documentNumber(), request.signedOn(),
+                request.sunvibeSignatoryName(), request.sunvibeSignatoryTitle());
+    }
+
+    /**
+     * The refusal of an activation (E05-S6 spec S6-D4); the note as written, the use case trims and checks it.
+     *
+     * @throws AgreementRefusedException a refusal type that is not one of the two, with the allowed values
+     */
+    public AgreementRefuseActivationCommand toRefuseActivationCommand(String agreementId,
+                                                                      BrokerageAgreementActivationRefusalRequest request) {
+        ActivationRefusalType type = ActivationRefusalType.of(request.reasonType())
+                .orElseThrow(() -> AgreementRefusedException.invalid("reasonType", REFUSAL_TYPES));
+        return new AgreementRefuseActivationCommand(agreementId, request.expectedDataVersion(), request.versionNo(),
+                type, request.note());
     }
 
     /**

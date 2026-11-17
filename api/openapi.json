@@ -2888,6 +2888,186 @@
         "tags" : [ "Brokerage agreement" ]
       }
     },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/activation" : {
+      "post" : {
+        "operationId" : "activateBrokerageAgreementVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementActivationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The version was activated: ACTIVATED until its start, else EFFECTIVE, and the agreement ACTIVE; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: expectedDataVersion, versionNo, statementVersion, documentNumber, signedOn (2000-01-01 to today in Vietnam), sunvibeSignatoryName, sunvibeSignatoryTitle) or MALFORMED_REQUEST (the body, the date or a number cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not a SALE_LEADER, SALES_MANAGER or ADMIN; AGREEMENT_ACTIVATOR_NOT_INDEPENDENT: the caller is the basis lead's assignee or an author of the version"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NOT_AWAITING_ACTIVATION (the version is not the confirmed one awaiting activation, or its 14 days have passed; no entry), CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed in between), AGREEMENT_STATEMENT_OUTDATED (the activation statement changed; no entry), AGREEMENT_VERSION_PERIOD_ENDED (the end date has passed; no entry) or AGREEMENT_NOT_ELIGIBLE (one reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY, UNIT, OWNER)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Activate the version the owner confirmed, against the signed document, the activation statement and the data version read",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/activation-refusal" : {
+      "post" : {
+        "operationId" : "refuseBrokerageAgreementActivation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementActivationRefusalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The activation was refused and the agreement is drafting again; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: expectedDataVersion, versionNo, reasonType with its allowedValues, note) or MALFORMED_REQUEST (the body or a number cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not a SALE_LEADER, SALES_MANAGER or ADMIN; AGREEMENT_ACTIVATOR_NOT_INDEPENDENT: the caller is the basis lead's assignee or an author of the version"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_NOT_AWAITING_ACTIVATION (the version is not the confirmed one awaiting activation, or its 14 days have passed; no entry) or CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed in between)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Refuse to activate the version the owner confirmed, with a reason type and an optional note, against the data version read",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/brokerage-agreements/{agreementId}/draft" : {
       "post" : {
         "operationId" : "openBrokerageAgreementDraft",
@@ -2974,7 +3154,7 @@
             "description" : "INTERNAL_ERROR"
           }
         },
-        "summary" : "Open the next draft version, a copy of the latest one, after the owner declined it or did not answer in time, against the data version read",
+        "summary" : "Open the next draft version, a copy of the latest one, once the latest version did not take effect (the owner declined it or did not answer in time, or a manager refused its activation or did not activate it in time), against the data version read",
         "tags" : [ "Brokerage agreement" ]
       },
       "put" : {
@@ -9302,6 +9482,167 @@
         },
         "required" : [ "expectedLeadVersion", "startAt" ]
       },
+      "BrokerageAgreementActivationRefusalRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedDataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The dataVersion of the detail the caller read",
+            "minimum" : 0
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Optional and private; trimmed, and stored only when not blank; no control or bidirectional formatting character",
+            "example" : "The rent differs.",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "reasonType" : {
+            "type" : "string",
+            "description" : "DOCUMENT_DIFFERS: the signed document differs from the version; SIGNER_NOT_OWNER: the owner's side was not signed by the owner who confirmed it",
+            "enum" : [ "DOCUMENT_DIFFERS", "SIGNER_NOT_OWNER" ]
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The number of the version awaiting activation",
+            "maximum" : 10000,
+            "minimum" : 1
+          }
+        },
+        "required" : [ "expectedDataVersion", "reasonType", "versionNo" ]
+      },
+      "BrokerageAgreementActivationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "documentNumber" : {
+            "type" : "string",
+            "description" : "The signed document's number as written on it; private; 1 to 50 characters after trimming, no control or bidirectional formatting character",
+            "example" : "HDMG-2026/014",
+            "maxLength" : 50,
+            "minLength" : 1
+          },
+          "expectedDataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The dataVersion of the detail the caller read",
+            "minimum" : 0
+          },
+          "signedOn" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The date the document was signed, a calendar date in Vietnam from 2000-01-01 to today",
+            "example" : "2026-11-16"
+          },
+          "statementVersion" : {
+            "type" : "string",
+            "description" : "The activation statement version the manager made",
+            "example" : "brokerage-activation-2026-11",
+            "maxLength" : 40,
+            "minLength" : 1
+          },
+          "sunvibeSignatoryName" : {
+            "type" : "string",
+            "description" : "Sunvibe's signatory's name as written on the document; private; 1 to 100 characters after trimming, no control or bidirectional formatting character",
+            "example" : "Nguyen Van A",
+            "maxLength" : 100,
+            "minLength" : 1
+          },
+          "sunvibeSignatoryTitle" : {
+            "type" : "string",
+            "description" : "Sunvibe's signatory's title as written on the document; private; 1 to 100 characters after trimming, no control or bidirectional formatting character",
+            "example" : "Director",
+            "maxLength" : 100,
+            "minLength" : 1
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The number of the version awaiting activation the manager compared",
+            "maximum" : 10000,
+            "minimum" : 1
+          }
+        },
+        "required" : [ "documentNumber", "expectedDataVersion", "signedOn", "statementVersion", "sunvibeSignatoryName", "sunvibeSignatoryTitle", "versionNo" ]
+      },
+      "BrokerageAgreementAdvertising" : {
+        "type" : "object",
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean",
+            "description" : "True exactly when reasonGroups is empty"
+          },
+          "endDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The end date of the version that counts, a calendar date in Vietnam time; null without one"
+          },
+          "endsAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "The start of the day after that end date in Vietnam; null without one"
+          },
+          "pendingVersion" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementAdvertisingPendingVersion"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The activated version that has not started yet; null without one"
+          },
+          "photoConsent" : {
+            "$ref" : "#/components/schemas/BrokerageAgreementAdvertisingPhotoConsent"
+          },
+          "reasonGroups" : {
+            "type" : "array",
+            "description" : "The groups of reasons that stop the advertising, in this order; empty when allowed; NOT_STARTED alone means the activated version has not started yet",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NO_AGREEMENT", "NOT_IN_EFFECT", "NOT_STARTED", "SUSPENDED", "ENDED", "BASIS", "PROPERTY", "UNIT", "OWNER" ]
+            }
+          },
+          "termsInEffect" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementTerms"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The rental terms of the version in effect; null without one or once ended"
+          }
+        }
+      },
+      "BrokerageAgreementAdvertisingPendingVersion" : {
+        "type" : "object",
+        "properties" : {
+          "startDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "A calendar date in Vietnam time"
+          },
+          "startsAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "The start of that date in Vietnam"
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/BrokerageAgreementTerms"
+          }
+        }
+      },
+      "BrokerageAgreementAdvertisingPhotoConsent" : {
+        "type" : "object",
+        "properties" : {
+          "exterior" : {
+            "type" : "boolean",
+            "description" : "Photos of the exterior may be public now"
+          },
+          "interior" : {
+            "type" : "boolean",
+            "description" : "Photos of the interior and common areas may be public now"
+          }
+        }
+      },
       "BrokerageAgreementConfirmationItemInput" : {
         "type" : "object",
         "properties" : {
@@ -9445,6 +9786,18 @@
       "BrokerageAgreementDetail" : {
         "type" : "object",
         "properties" : {
+          "activationStatement" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementStatement"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The activation statement of the version awaiting activation now; null when none awaits activation"
+          },
+          "advertising" : {
+            "$ref" : "#/components/schemas/BrokerageAgreementAdvertising",
+            "description" : "Whether Sunvibe may advertise the unit now under this agreement, computed at this read; always sent"
+          },
           "agreementId" : {
             "type" : "string"
           },
@@ -9486,6 +9839,10 @@
           "viewerIsAssignedSale" : {
             "type" : "boolean",
             "description" : "Whether the caller is the basis lead's assigned Sale, who edits the draft; a hint, the server decides"
+          },
+          "viewerMayDecideActivation" : {
+            "type" : "boolean",
+            "description" : "Whether the caller holds SALE_LEADER, SALES_MANAGER or ADMIN and is neither the basis lead's assignee nor an author of the version awaiting activation; a hint, the server decides; always sent"
           }
         }
       },
@@ -10105,6 +10462,19 @@
       "BrokerageAgreementVersion" : {
         "type" : "object",
         "properties" : {
+          "activateBy" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "Until when a manager may activate the version: 14 days after the owner's confirmation, exclusive, whatever its status now; null when the owner did not confirm it"
+          },
+          "activation" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementVersionActivation"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "A manager's activation decision; staff only, always null in the owner's read"
+          },
           "advertisingScope" : {
             "type" : "string",
             "description" : "The advertising permission: sunvibe.vn and staff sending the listing link, for the version's period (brokerage-agreement BR-9)",
@@ -10164,6 +10534,45 @@
           "versionNo" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "BrokerageAgreementVersionActivation" : {
+        "type" : "object",
+        "properties" : {
+          "decidedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "decision" : {
+            "type" : "string",
+            "enum" : [ "ACTIVATED", "REFUSED" ]
+          },
+          "documentNumber" : {
+            "type" : [ "string", "null" ],
+            "description" : "The signed document's number; set for ACTIVATED"
+          },
+          "refusalNote" : {
+            "type" : [ "string", "null" ],
+            "description" : "The manager's note; set for REFUSED when one was given"
+          },
+          "refusalType" : {
+            "type" : [ "string", "null" ],
+            "description" : "Why the activation was refused; set for REFUSED",
+            "enum" : [ "DOCUMENT_DIFFERS", "SIGNER_NOT_OWNER", null ]
+          },
+          "signedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The signing date, a calendar date in Vietnam time; set for ACTIVATED"
+          },
+          "sunvibeSignatoryName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Sunvibe's signatory's name as written; set for ACTIVATED"
+          },
+          "sunvibeSignatoryTitle" : {
+            "type" : [ "string", "null" ],
+            "description" : "Sunvibe's signatory's title as written; set for ACTIVATED"
           }
         }
       },

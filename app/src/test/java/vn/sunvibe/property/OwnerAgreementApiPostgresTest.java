@@ -288,9 +288,9 @@ class OwnerAgreementApiPostgresTest extends IntakeApiTestBase {
 			assertEquals(property.get("ward"), textOrNull(item.path("wardName")));
 			assertEquals(1, item.path("versions").size());
 			JsonNode version = item.path("versions").path(0);
-			assertEquals(List.of("advertisingScope", "answerBy", "createdAt", "endDate", "exteriorPhotoConsent",
-					"feePolicy", "ownerAnsweredAt", "ownerRejectionReason", "photoConsent", "sentAt", "startDate",
-					"status", "terms", "versionNo"), sortedKeys(version));
+			assertEquals(List.of("activateBy", "activation", "advertisingScope", "answerBy", "createdAt", "endDate",
+					"exteriorPhotoConsent", "feePolicy", "ownerAnsweredAt", "ownerRejectionReason", "photoConsent",
+					"sentAt", "startDate", "status", "terms", "versionNo"), sortedKeys(version));
 			assertEquals("AWAITING_OWNER", version.path("status").asString());
 			assertEquals(Instant.parse(version.path("sentAt").asString()).plus(Duration.ofDays(7)),
 					Instant.parse(version.path("answerBy").asString()));

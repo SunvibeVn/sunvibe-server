@@ -579,6 +579,136 @@ class BrokerageOpenApiTest {
 		assertEquals(0, request.path("properties").path("expectedDataVersion").path("minimum").asInt());
 	}
 
+	/** E05-S6 spec section 4, SD-2: the activation and its refusal, each with its id, tag, request schema and codes. */
+	@Test
+	void openApi_activationPaths_operationsSchemasCodes() {
+		Map<String, String> operations = Map.of(
+				"/api/v1/staff/brokerage-agreements/{agreementId}/activation", "activateBrokerageAgreementVersion",
+				"/api/v1/staff/brokerage-agreements/{agreementId}/activation-refusal", "refuseBrokerageAgreementActivation");
+		Map<String, String> requests = Map.of(
+				"activateBrokerageAgreementVersion", "BrokerageAgreementActivationRequest",
+				"refuseBrokerageAgreementActivation", "BrokerageAgreementActivationRefusalRequest");
+		for (Map.Entry<String, String> operation : operations.entrySet()) {
+			JsonNode path = contract.path("paths").path(operation.getKey());
+			assertEquals(List.of("post"), names(path), operation.getKey());
+			JsonNode post = path.path("post");
+			assertEquals(operation.getValue(), post.path("operationId").asString());
+			assertEquals("[\"Brokerage agreement\"]", post.path("tags").toString());
+			assertTrue(post.path("security").isMissingNode(), post.toString());
+			List<String> withTheId = new ArrayList<>();
+			contract.path("paths").properties().forEach(entry -> entry.getValue().properties().forEach(each -> {
+				if (operation.getValue().equals(each.getValue().path("operationId").asString())) {
+					withTheId.add(each.getKey() + " " + entry.getKey());
+				}
+			}));
+			assertEquals(List.of("post " + operation.getKey()), withTheId);
+			assertEquals("#/components/schemas/" + requests.get(operation.getValue()),
+					post.path("requestBody").path("content").path("application/json").path("schema").path("$ref").asString());
+			JsonNode responses = post.path("responses");
+			assertEquals(List.of("204", "400", "401", "403", "404", "409", "500"), names(responses).stream().sorted().toList());
+			assertTrue(responses.path("204").path("content").isMissingNode(), responses.path("204").toString());
+			for (String status : List.of("400", "401", "403", "404", "409", "500")) {
+				assertEquals("#/components/schemas/ErrorResponse", schemaRef(responses.path(status)), status);
+			}
+			for (String code : List.of("FORBIDDEN", "AGREEMENT_ACTIVATOR_NOT_INDEPENDENT")) {
+				assertTrue(responses.path("403").path("description").asString().contains(code), code);
+			}
+			for (String code : List.of("AGREEMENT_NOT_AWAITING_ACTIVATION", "CONCURRENT_MODIFICATION")) {
+				assertTrue(responses.path("409").path("description").asString().contains(code), code);
+			}
+			assertTrue(responses.path("400").path("description").asString().contains("VALIDATION_FAILED"));
+			assertTrue(responses.path("404").path("description").asString().contains("NOT_FOUND"));
+		}
+		JsonNode activation409 = contract.path("paths").path("/api/v1/staff/brokerage-agreements/{agreementId}/activation")
+				.path("post").path("responses").path("409").path("description");
+		for (String code : List.of("AGREEMENT_STATEMENT_OUTDATED", "AGREEMENT_VERSION_PERIOD_ENDED",
+				"AGREEMENT_NOT_ELIGIBLE")) {
+			assertTrue(activation409.asString().contains(code), code);
+		}
+
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode activation = schemas.path("BrokerageAgreementActivationRequest");
+		assertEquals(List.of("documentNumber", "expectedDataVersion", "signedOn", "statementVersion",
+				"sunvibeSignatoryName", "sunvibeSignatoryTitle", "versionNo"), requiredOf(activation));
+		JsonNode properties = activation.path("properties");
+		assertEquals("int64", properties.path("expectedDataVersion").path("format").asString());
+		assertEquals(0, properties.path("expectedDataVersion").path("minimum").asInt());
+		assertBounds(properties.path("versionNo"), 1, 10_000, false);
+		assertEquals(40, properties.path("statementVersion").path("maxLength").asInt());
+		assertEquals(50, properties.path("documentNumber").path("maxLength").asInt());
+		assertEquals("date", properties.path("signedOn").path("format").asString());
+		assertEquals(100, properties.path("sunvibeSignatoryName").path("maxLength").asInt());
+		assertEquals(100, properties.path("sunvibeSignatoryTitle").path("maxLength").asInt());
+		for (String text : List.of("statementVersion", "documentNumber", "sunvibeSignatoryName", "sunvibeSignatoryTitle")) {
+			assertEquals(1, properties.path(text).path("minLength").asInt(), text);
+		}
+
+		JsonNode refusal = schemas.path("BrokerageAgreementActivationRefusalRequest");
+		assertEquals(List.of("expectedDataVersion", "reasonType", "versionNo"), requiredOf(refusal));
+		assertEquals("[\"DOCUMENT_DIFFERS\",\"SIGNER_NOT_OWNER\"]",
+				refusal.path("properties").path("reasonType").path("enum").toString());
+		assertEquals("[\"string\",\"null\"]", refusal.path("properties").path("note").path("type").toString());
+		assertEquals(500, refusal.path("properties").path("note").path("maxLength").asInt());
+		assertBounds(refusal.path("properties").path("versionNo"), 1, 10_000, false);
+	}
+
+	/**
+	 * E05-S6 spec S6-D8, S6-D21, SD-2: the detail's and the version's new properties and the four new schemas are in no
+	 * required list; each nullable property says so and each closed string lists its values.
+	 */
+	@Test
+	void openApi_newResponseProperties_optionalNullableWithValues() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode detail = schemas.path("BrokerageAgreementDetail");
+		assertTrue(detail.path("required").isMissingNode(), detail.toString());
+		assertEquals("#/components/schemas/BrokerageAgreementAdvertising",
+				detail.path("properties").path("advertising").path("$ref").asString());
+		assertEquals("boolean", detail.path("properties").path("viewerMayDecideActivation").path("type").asString());
+		assertNullableRef("BrokerageAgreementStatement", detail.path("properties").path("activationStatement"));
+
+		JsonNode version = schemas.path("BrokerageAgreementVersion");
+		assertTrue(version.path("required").isMissingNode(), version.toString());
+		assertEquals("[\"string\",\"null\"]", version.path("properties").path("activateBy").path("type").toString());
+		assertEquals("date-time", version.path("properties").path("activateBy").path("format").asString());
+		assertNullableRef("BrokerageAgreementVersionActivation", version.path("properties").path("activation"));
+
+		for (String name : List.of("BrokerageAgreementAdvertising", "BrokerageAgreementAdvertisingPhotoConsent",
+				"BrokerageAgreementAdvertisingPendingVersion", "BrokerageAgreementVersionActivation")) {
+			assertTrue(schemas.path(name).isObject(), name);
+			assertTrue(schemas.path(name).path("required").isMissingNode(), name + " " + schemas.path(name));
+		}
+		JsonNode advertising = schemas.path("BrokerageAgreementAdvertising").path("properties");
+		assertEquals(List.of("allowed", "endDate", "endsAt", "pendingVersion", "photoConsent", "reasonGroups",
+				"termsInEffect"), names(advertising).stream().sorted().toList());
+		assertEquals("boolean", advertising.path("allowed").path("type").asString());
+		assertEquals("[\"NO_AGREEMENT\",\"NOT_IN_EFFECT\",\"NOT_STARTED\",\"SUSPENDED\",\"ENDED\",\"BASIS\",\"PROPERTY\","
+				+ "\"UNIT\",\"OWNER\"]", advertising.path("reasonGroups").path("items").path("enum").toString());
+		assertEquals("[\"string\",\"null\"]", advertising.path("endDate").path("type").toString());
+		assertEquals("date", advertising.path("endDate").path("format").asString());
+		assertEquals("[\"string\",\"null\"]", advertising.path("endsAt").path("type").toString());
+		assertEquals("#/components/schemas/BrokerageAgreementAdvertisingPhotoConsent",
+				advertising.path("photoConsent").path("$ref").asString());
+		assertNullableRef("BrokerageAgreementTerms", advertising.path("termsInEffect"));
+		assertNullableRef("BrokerageAgreementAdvertisingPendingVersion", advertising.path("pendingVersion"));
+
+		JsonNode photo = schemas.path("BrokerageAgreementAdvertisingPhotoConsent").path("properties");
+		assertEquals(List.of("exterior", "interior"), names(photo).stream().sorted().toList());
+		JsonNode pending = schemas.path("BrokerageAgreementAdvertisingPendingVersion").path("properties");
+		assertEquals(List.of("startDate", "startsAt", "terms"), names(pending).stream().sorted().toList());
+		assertEquals("#/components/schemas/BrokerageAgreementTerms", pending.path("terms").path("$ref").asString());
+
+		JsonNode activation = schemas.path("BrokerageAgreementVersionActivation").path("properties");
+		assertEquals(List.of("decidedAt", "decision", "documentNumber", "refusalNote", "refusalType", "signedOn",
+				"sunvibeSignatoryName", "sunvibeSignatoryTitle"), names(activation).stream().sorted().toList());
+		assertEquals("[\"ACTIVATED\",\"REFUSED\"]", activation.path("decision").path("enum").toString());
+		assertTrue(activation.path("refusalType").path("enum").toString()
+				.contains("\"DOCUMENT_DIFFERS\",\"SIGNER_NOT_OWNER\""), activation.path("refusalType").toString());
+		for (String nullable : List.of("documentNumber", "signedOn", "sunvibeSignatoryName", "sunvibeSignatoryTitle",
+				"refusalType", "refusalNote")) {
+			assertTrue(activation.path(nullable).path("type").toString().contains("null"), nullable);
+		}
+	}
+
 	private static void assertNullableRef(String schema, JsonNode property) {
 		assertEquals("[{\"$ref\":\"#/components/schemas/" + schema + "\"},{\"type\":\"null\"}]",
 				property.path("anyOf").toString(), property.toString());

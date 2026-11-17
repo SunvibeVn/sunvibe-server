@@ -182,12 +182,13 @@ class AgreementDraftAccessApiPostgresTest extends IntakeApiTestBase {
 		Result answer = detail(sale, done.agreementId());
 
 		assertEquals(200, answer.status(), answer.rawBody());
-		assertEquals(List.of("agreementId", "basisLeadId", "createdAt", "dataVersion", "status", "transactionType",
-				"unitCode", "unitId", "versions", "viewerIsAssignedSale"), sortedKeys(answer.body()));
+		assertEquals(List.of("activationStatement", "advertising", "agreementId", "basisLeadId", "createdAt", "dataVersion",
+				"status", "transactionType", "unitCode", "unitId", "versions", "viewerIsAssignedSale",
+				"viewerMayDecideActivation"), sortedKeys(answer.body()));
 		tools.jackson.databind.JsonNode version = answer.body().path("versions").path(0);
-		assertEquals(List.of("advertisingScope", "answerBy", "createdAt", "endDate", "exteriorPhotoConsent", "feePolicy",
-				"ownerAnsweredAt", "ownerRejectionReason", "photoConsent", "sentAt", "startDate", "status", "terms",
-				"versionNo"), sortedKeys(version));
+		assertEquals(List.of("activateBy", "activation", "advertisingScope", "answerBy", "createdAt", "endDate",
+				"exteriorPhotoConsent", "feePolicy", "ownerAnsweredAt", "ownerRejectionReason", "photoConsent", "sentAt",
+				"startDate", "status", "terms", "versionNo"), sortedKeys(version));
 		assertEquals(List.of("deposit", "mandatoryFees", "minimumTermMonths", "monthlyRent", "paymentPeriodMonths"),
 				sortedKeys(version.path("terms")));
 	}

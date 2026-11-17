@@ -22,6 +22,8 @@ import vn.sunvibe.brokerage.core.application.usecase.AgreementCommandUseCase;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementQueryUseCase;
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementRequestConverter;
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementResponseConverter;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRefusalRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftSubmissionRequest;
@@ -33,9 +35,10 @@ import vn.sunvibe.brokerage.core.presentation.resolver.StaffViewerResolver;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 
 /**
- * Brokerage agreements in the staff workspace (brokerage-agreement US-1 AC-1 to AC-5, US-4 AC-3 part; E05-S2 spec 4,
- * E05-S3 spec 4, E05-S4 spec 4). {@code /api/v1/staff/**} has no path rule, so this class carries the staff rule; the
- * lead's visibility and the assignee are checked in the use cases, and the actor is the principal, never a body field
+ * Brokerage agreements in the staff workspace (brokerage-agreement US-1 AC-1 to AC-5, US-3, US-4 AC-1 to AC-3 part;
+ * E05-S2 spec 4, E05-S3 spec 4, E05-S4 spec 4, E05-S6 spec 4). {@code /api/v1/staff/**} has no path rule, so this class
+ * carries the staff rule and the activation's two operations a narrower method rule; the lead's visibility, the assignee
+ * and the activator's independence are checked in the use cases, and the actor is the principal, never a body field
  * (brokerage-agreement BR-16). Every path runs without open-in-view (ADR-012 decision 8).
  */
 @RestController
@@ -154,8 +157,9 @@ public class BrokerageAgreementController {
     @PostMapping("/{agreementId}/draft")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(operationId = "openBrokerageAgreementDraft",
-            summary = "Open the next draft version, a copy of the latest one, after the owner declined it or did not"
-                    + " answer in time, against the data version read")
+            summary = "Open the next draft version, a copy of the latest one, once the latest version did not take effect"
+                    + " (the owner declined it or did not answer in time, or a manager refused its activation or did not"
+                    + " activate it in time), against the data version read")
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "The draft was opened; no body (read the detail again)"),
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (entry expectedDataVersion) or"
@@ -216,5 +220,83 @@ public class BrokerageAgreementController {
     public void submitDraft(@PathVariable("agreementId") String agreementId,
                             @Valid @RequestBody BrokerageAgreementDraftSubmissionRequest request) {
         commands.sendDraft(requests.toSendCommand(agreementId, request), viewers.current());
+    }
+
+    /**
+     * brokerage-agreement BR-11, BR-16 (E05-S6 spec S6-D1 step 2): only a manager role decides an activation; the
+     * independence from the version's authors and the lead's assignee is checked in the use case.
+     */
+    @PostMapping("/{agreementId}/activation")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SALE_LEADER','SALES_MANAGER','ADMIN')")
+    @Operation(operationId = "activateBrokerageAgreementVersion",
+            summary = "Activate the version the owner confirmed, against the signed document, the activation statement"
+                    + " and the data version read")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The version was activated: ACTIVATED until its start, else"
+                    + " EFFECTIVE, and the agreement ACTIVE; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (one entry per field: expectedDataVersion,"
+                    + " versionNo, statementVersion, documentNumber, signedOn (2000-01-01 to today in Vietnam),"
+                    + " sunvibeSignatoryName, sunvibeSignatoryTitle) or MALFORMED_REQUEST (the body, the date or a"
+                    + " number cannot be read)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not a SALE_LEADER, SALES_MANAGER or"
+                    + " ADMIN; AGREEMENT_ACTIVATOR_NOT_INDEPENDENT: the caller is the basis lead's assignee or an author"
+                    + " of the version",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_NOT_AWAITING_ACTIVATION (the version is not the"
+                    + " confirmed one awaiting activation, or its 14 days have passed; no entry),"
+                    + " CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed"
+                    + " in between), AGREEMENT_STATEMENT_OUTDATED (the activation statement changed; no entry),"
+                    + " AGREEMENT_VERSION_PERIOD_ENDED (the end date has passed; no entry) or AGREEMENT_NOT_ELIGIBLE (one"
+                    + " reasonGroups.<GROUP> entry per group, in the order BASIS, PROPERTY, UNIT, OWNER)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void activate(@PathVariable("agreementId") String agreementId,
+                         @Valid @RequestBody BrokerageAgreementActivationRequest request) {
+        commands.activate(requests.toActivateCommand(agreementId, request), viewers.current());
+    }
+
+    /** brokerage-agreement US-3 AC-3, E-7 (E05-S6 spec S6-D4): the same role rule as the activation. */
+    @PostMapping("/{agreementId}/activation-refusal")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SALE_LEADER','SALES_MANAGER','ADMIN')")
+    @Operation(operationId = "refuseBrokerageAgreementActivation",
+            summary = "Refuse to activate the version the owner confirmed, with a reason type and an optional note,"
+                    + " against the data version read")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The activation was refused and the agreement is drafting"
+                    + " again; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (one entry per field: expectedDataVersion,"
+                    + " versionNo, reasonType with its allowedValues, note) or MALFORMED_REQUEST (the body or a number"
+                    + " cannot be read)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not a SALE_LEADER, SALES_MANAGER or"
+                    + " ADMIN; AGREEMENT_ACTIVATOR_NOT_INDEPENDENT: the caller is the basis lead's assignee or an author"
+                    + " of the version",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_NOT_AWAITING_ACTIVATION (the version is not the"
+                    + " confirmed one awaiting activation, or its 14 days have passed; no entry) or"
+                    + " CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed"
+                    + " in between)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void refuseActivation(@PathVariable("agreementId") String agreementId,
+                                 @Valid @RequestBody BrokerageAgreementActivationRefusalRequest request) {
+        commands.refuseActivation(requests.toRefuseActivationCommand(agreementId, request), viewers.current());
     }
 }

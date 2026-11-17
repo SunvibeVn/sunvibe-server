@@ -47,6 +47,13 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	/** The owner's rejection of a sent version (E05-S5 spec S5-D15); the staff POST .../draft is covered by the draft pattern. */
 	static final String ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN = "/api/v1/me/brokerage-agreements/*/rejection";
 
+	/** The activation of a confirmed version (E05-S6 spec S6-D18). */
+	static final String BROKERAGE_AGREEMENT_ACTIVATION_PATTERN = "/api/v1/staff/brokerage-agreements/*/activation";
+
+	/** The refusal of an activation (E05-S6 spec S6-D18). */
+	static final String BROKERAGE_AGREEMENT_ACTIVATION_REFUSAL_PATTERN =
+			"/api/v1/staff/brokerage-agreements/*/activation-refusal";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -64,6 +71,7 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 						BROKERAGE_ELIGIBILITY_PATTERN, BROKERAGE_AGREEMENTS_PATTERN, BROKERAGE_AGREEMENT_PATTERN,
 						BROKERAGE_AGREEMENT_DRAFT_PATTERN, BROKERAGE_AGREEMENT_SURVEY_TERMS_PATTERN,
 						BROKERAGE_AGREEMENT_SUBMISSION_PATTERN, ME_BROKERAGE_AGREEMENTS_PATTERN,
-						ME_BROKERAGE_AGREEMENT_CONFIRMATIONS_PATTERN, ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN);
+						ME_BROKERAGE_AGREEMENT_CONFIRMATIONS_PATTERN, ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN,
+						BROKERAGE_AGREEMENT_ACTIVATION_PATTERN, BROKERAGE_AGREEMENT_ACTIVATION_REFUSAL_PATTERN);
 	}
 }
