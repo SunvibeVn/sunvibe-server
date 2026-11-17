@@ -9,6 +9,7 @@ import vn.sunvibe.brokerage.core.domain.repository.AgreementTrailDomainRepositor
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Collection;
 
 /**
  * Repository Implementation - the insert-only trail of the agreements. Plain SQL: these rows are never read back as
@@ -32,5 +33,18 @@ public class AgreementTrailRepositoryAdapter implements AgreementTrailDomainRepo
     public void recordAccess(String userId, String agreementId, AgreementAccessType action, Instant at) {
         jdbc.update("insert into brokerage_agreement_access_logs (user_id, agreement_id, action, accessed_at)"
                 + " values (?, ?, ?, ?)", userId, agreementId, action.name(), Timestamp.from(at));
+    }
+
+    /** One JDBC batch of the inserts {@link #recordAccess} writes one by one. */
+    @Override
+    public void recordAccesses(String userId, Collection<String> agreementIds, AgreementAccessType action, Instant at) {
+        if (agreementIds.isEmpty()) {
+            return;
+        }
+        Timestamp time = Timestamp.from(at);
+        jdbc.batchUpdate("insert into brokerage_agreement_access_logs (user_id, agreement_id, action, accessed_at)"
+                + " values (?, ?, ?, ?)", agreementIds.stream()
+                .map(agreementId -> new Object[]{userId, agreementId, action.name(), time})
+                .toList());
     }
 }

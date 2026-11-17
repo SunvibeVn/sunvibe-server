@@ -121,6 +121,29 @@ class RateLimitRulesConfigTest {
 		assertEquals(rulesWithBucket(load("application.yml")).size(), properties.rules().size());
 	}
 
+	/** E05-S5 spec S5-D4, OC-3: the owner's agreement commands take 10 per 15 minutes per address, in their own bucket. */
+	@Test
+	void meBrokerageAgreementRule_postTenPerFifteenMinutes() throws IOException {
+		List<String> rules = rulesWithBucket(load("application.yml"));
+
+		assertTrue(rules.contains("POST /api/v1/me/brokerage-agreements/** 10 15m me-brokerage-agreement"),
+				rules.toString());
+		assertEquals(1, rules.stream().filter(rule -> rule.endsWith(" me-brokerage-agreement")).count(),
+				"bucket me-brokerage-agreement is used by its one path only");
+		assertTrue(rules.stream().noneMatch(rule -> rule.split(" ")[1].equals("/api/v1/me/brokerage-agreements")),
+				"the owner's read stays unlimited");
+
+		RateLimitProperties properties = new Binder(ConfigurationPropertySources.from(load("application.yml")))
+				.bind("app.security.rate-limit", RateLimitProperties.class)
+				.orElseThrow(() -> new AssertionError("rate-limit properties not bound"));
+		RateLimitProperties.Rule rule = properties.rules().stream()
+				.filter(each -> each.path().equals("/api/v1/me/brokerage-agreements/**"))
+				.findFirst().orElseThrow();
+		assertEquals("me-brokerage-agreement", rule.bucket());
+		assertEquals(10, rule.limit());
+		assertEquals(Duration.ofMinutes(15), rule.window());
+	}
+
 	/** Each rule as "METHOD path limit window bucket", in file order; the bucket is "null" when absent. */
 	private static List<String> rulesWithBucket(List<PropertySource<?>> sources) {
 		List<String> rules = rules(sources);

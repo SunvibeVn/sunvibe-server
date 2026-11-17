@@ -69,6 +69,50 @@ class OpenInViewExceptMediaContentConfigTest {
 				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/brokerage-eligibility")));
 	}
 
+	/** E05-S3 spec S3-D16, ADR-012 decision 8: the draft write and the survey reference run without open-in-view. */
+	@Test
+	void draftAndSurveyTermsPaths_haveNoEntityManagerBound() {
+		MappedInterceptor openInView = openInView();
+
+		assertFalse(openInView.matches(request("PUT", "/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft")));
+		assertFalse(openInView.matches(request("GET",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/survey-terms")));
+	}
+
+	/** E05-S4 spec S4-D12, ADR-012 decision 8: the draft submission runs without open-in-view. */
+	@Test
+	void excluded_listsTheSubmissionPattern() {
+		MappedInterceptor openInView = openInView();
+
+		assertEquals("/api/v1/staff/brokerage-agreements/*/draft/submission",
+				OpenInViewExceptMediaContentConfig.BROKERAGE_AGREEMENT_SUBMISSION_PATTERN);
+		assertFalse(openInView.matches(request("POST",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft/submission")));
+		assertTrue(openInView.matches(request("GET",
+				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake")));
+	}
+
+	/** E05-S5 spec S5-D15, PLAN3-D7 (1): the owner's three agreement paths run without open-in-view. */
+	@Test
+	void excluded_listsTheOwnerAgreementPatterns() {
+		MappedInterceptor openInView = openInView();
+
+		assertEquals("/api/v1/me/brokerage-agreements",
+				OpenInViewExceptMediaContentConfig.ME_BROKERAGE_AGREEMENTS_PATTERN);
+		assertEquals("/api/v1/me/brokerage-agreements/confirmations",
+				OpenInViewExceptMediaContentConfig.ME_BROKERAGE_AGREEMENT_CONFIRMATIONS_PATTERN);
+		assertEquals("/api/v1/me/brokerage-agreements/*/rejection",
+				OpenInViewExceptMediaContentConfig.ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN);
+		assertFalse(openInView.matches(request("GET", "/api/v1/me/brokerage-agreements")));
+		assertFalse(openInView.matches(request("POST", "/api/v1/me/brokerage-agreements/confirmations")));
+		assertFalse(openInView.matches(request("POST",
+				"/api/v1/me/brokerage-agreements/01JAGREEMENT00000000000000/rejection")));
+		assertFalse(openInView.matches(request("POST",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft")));
+		assertTrue(openInView.matches(request("GET", "/api/v1/me")));
+		assertTrue(openInView.matches(request("GET", "/api/v1/me/property-confirmations")));
+	}
+
 	private MappedInterceptor openInView() {
 		assertEquals(1, interceptors.size());
 		MappedInterceptor mapped = assertInstanceOf(MappedInterceptor.class, interceptors.get(0));
