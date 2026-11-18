@@ -29,4 +29,16 @@ class AgreementQueryRecordsTest {
         statuses.add(AgreementStatus.SUSPENDED);
         assertEquals(Set.of(AgreementStatus.ACTIVE), query.statuses());
     }
+
+    @Test
+    void agreementHistoryQuery_outOfBounds_refused() {
+        String id = "01JAGREEMENT00000000000001";
+        assertThrows(IllegalArgumentException.class, () -> new AgreementHistoryQuery(id, 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> new AgreementHistoryQuery(id, 0, 101));
+        assertThrows(IllegalArgumentException.class, () -> new AgreementHistoryQuery(id, -1, 50));
+        assertThrows(IllegalArgumentException.class, () -> new AgreementHistoryQuery(id, 10000, 50));
+        assertThrows(NullPointerException.class, () -> new AgreementHistoryQuery(null, 0, 50));
+        assertDoesNotThrow(() -> new AgreementHistoryQuery(id, 0, 1));
+        assertDoesNotThrow(() -> new AgreementHistoryQuery(id, 9999, 100));
+    }
 }
