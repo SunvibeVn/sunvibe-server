@@ -13,6 +13,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
@@ -33,9 +34,10 @@ import java.util.Set;
 
 /**
  * ADR-010 error bodies of the brokerage agreement endpoints: the eligibility read (E05-S1 spec 4, plan decision
- * E05S1-P5) and the agreement create and detail (E05-S2 spec 4, plan decision E05S2-P2). No message quotes a value of
- * the request or of a row; an entry names a field or a reason group only. The class runs before the global handler, and
- * within it the most specific exception type wins over the catch-all.
+ * E05S1-P5), the agreement create and detail (E05-S2 spec 4, plan decision E05S2-P2), and the agreement list and history
+ * with their query parameters (E05-S7 spec S7-D13). No message quotes a value of the request or of a row; an entry names
+ * a field, a parameter or a reason group only. The class runs before the global handler, and within it the most specific
+ * exception type wins over the catch-all.
  */
 @RestControllerAdvice(basePackageClasses = BrokerageEligibilityController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -95,6 +97,17 @@ public class BrokerageExceptionHandler {
         }
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED,
                 VALIDATION_FAILED_MESSAGE, entries));
+    }
+
+    /**
+     * A query parameter whose value is not of its type, such as a page that is not an integer or a flag that is not a
+     * boolean (E05-S7 spec S7-D13 (3)): the same body as a value out of bounds, one entry naming the parameter, never its
+     * value, and no log line.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(ErrorCode.VALIDATION_FAILED,
+                VALIDATION_FAILED_MESSAGE, List.of(ValidationError.of(e.getName(), FIELD_MESSAGE))));
     }
 
     /** A body, or a date in it, that cannot be read; no entry, since its text is the caller's. */

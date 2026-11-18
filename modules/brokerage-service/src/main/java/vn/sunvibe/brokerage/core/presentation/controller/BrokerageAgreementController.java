@@ -1,6 +1,8 @@
 package vn.sunvibe.brokerage.core.presentation.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,9 +18,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCommandUseCase;
+import vn.sunvibe.brokerage.core.application.usecase.AgreementHistoryUseCase;
+import vn.sunvibe.brokerage.core.application.usecase.AgreementListUseCase;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementQueryUseCase;
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementRequestConverter;
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementResponseConverter;
@@ -30,9 +35,13 @@ import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraf
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementNewDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementHistoryResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementPageResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
 import vn.sunvibe.brokerage.core.presentation.resolver.StaffViewerResolver;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
+
+import java.util.List;
 
 /**
  * Brokerage agreements in the staff workspace (brokerage-agreement US-1 AC-1 to AC-5, US-3, US-4 AC-1 to AC-3 part;
@@ -52,6 +61,8 @@ public class BrokerageAgreementController {
 
     private final AgreementCommandUseCase commands;
     private final AgreementQueryUseCase queries;
+    private final AgreementListUseCase lists;
+    private final AgreementHistoryUseCase histories;
     private final StaffViewerResolver viewers;
     private final AgreementRequestConverter requests;
     private final AgreementResponseConverter responses;
@@ -81,6 +92,45 @@ public class BrokerageAgreementController {
         return responses.toCreated(commands.create(requests.toCommand(request), viewers.current()));
     }
 
+    /**
+     * The agreements in the caller's scope (brokerage-agreement US-4 AC-3, BR-16; E05-S7 spec S7-D1 to S7-D6, S7-D13).
+     * Each parameter is bound alone with no bean constraint: the converter refuses a bound or a code with the module's
+     * one body, and a value of the wrong type reaches the exception handler, never a 500.
+     */
+    @GetMapping
+    @Operation(operationId = "listBrokerageAgreements", summary = "The brokerage agreements in the caller's scope, each"
+            + " with its state and its advertising answer at the read; the read is not logged")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "One page: newest first, then by id; with endsWithin30Days,"
+                    + " soonest end date first, then by id"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: one entry naming the parameter, never its"
+                    + " value: status (with its allowedValues), page, size or endsWithin30Days",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public BrokerageAgreementPageResponse list(
+            @Parameter(description = "Keep only the agreements in these stored states (repeat the parameter); every"
+                    + " state when left out", array = @ArraySchema(schema = @Schema(allowableValues = {"DRAFTING",
+                    "AWAITING_CONFIRMATION", "ACTIVE", "SUSPENDED", "EXPIRED", "TERMINATED", "CANCELLED"})))
+            @RequestParam(name = "status", required = false) List<String> status,
+            @Parameter(description = "Keep only the agreements in effect whose right ends within the next 30 days"
+                    + " (Vietnam time)", schema = @Schema(type = "boolean", defaultValue = "false"))
+            @RequestParam(name = "endsWithin30Days", defaultValue = "false") boolean endsWithin30Days,
+            @Parameter(description = "Zero-based page number, 0 to 9999", schema = @Schema(type = "integer",
+                    format = "int32", minimum = "0", maximum = "9999", defaultValue = "0"))
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @Parameter(description = "Agreements per page, 1 to 50", schema = @Schema(type = "integer",
+                    format = "int32", minimum = "1", maximum = "50", defaultValue = "20"))
+            @RequestParam(name = "size", defaultValue = "20") int size) {
+        return responses.toAgreementPage(lists.list(requests.toListQuery(status, endsWithin30Days, page, size),
+                viewers.current()));
+    }
+
     @GetMapping("/{agreementId}")
     @Operation(operationId = "getBrokerageAgreement", summary = "The detail of a brokerage agreement; each read is logged")
     @ApiResponses({
@@ -95,6 +145,40 @@ public class BrokerageAgreementController {
     })
     public BrokerageAgreementDetailResponse detail(@PathVariable("agreementId") String agreementId) {
         return responses.toDetail(queries.detail(agreementId, viewers.current()));
+    }
+
+    /**
+     * The history of an agreement (brokerage-agreement US-4 AC-4, BR-16, BR-17; E05-S7 spec S7-D7, S7-D8, S7-D13). The
+     * parameters are checked before the agreement is looked up, so a refusal tells nothing of the agreement.
+     */
+    @GetMapping("/{agreementId}/history")
+    @Operation(operationId = "getBrokerageAgreementHistory", summary = "The events of a brokerage agreement, newest first:"
+            + " what happened, the version, who acted and when; no reason; the read is not logged")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "One page of the agreement's events, newest first"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: one entry naming the parameter, never its"
+                    + " value: page or size",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public BrokerageAgreementHistoryResponse history(
+            @PathVariable("agreementId") String agreementId,
+            @Parameter(description = "Zero-based page number, 0 to 9999", schema = @Schema(type = "integer",
+                    format = "int32", minimum = "0", maximum = "9999", defaultValue = "0"))
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @Parameter(description = "Events per page, 1 to 100", schema = @Schema(type = "integer",
+                    format = "int32", minimum = "1", maximum = "100", defaultValue = "50"))
+            @RequestParam(name = "size", defaultValue = "50") int size) {
+        return responses.toHistory(histories.history(requests.toHistoryQuery(agreementId, page, size),
+                viewers.current()));
     }
 
     @GetMapping("/{agreementId}/survey-terms")

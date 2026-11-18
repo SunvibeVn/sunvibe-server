@@ -2,6 +2,8 @@ package vn.sunvibe.brokerage.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.query.AgreementDetailView;
+import vn.sunvibe.brokerage.core.application.query.AgreementHistoryView;
+import vn.sunvibe.brokerage.core.application.query.AgreementPageView;
 import vn.sunvibe.brokerage.core.application.query.OwnerAgreementsView;
 import vn.sunvibe.brokerage.core.application.query.SurveyTermsView;
 import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightView;
@@ -25,8 +27,13 @@ import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFee
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeePolicyResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeTierResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementHistoryEntryResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementHistoryResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementListAdvertisingResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementListItemResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementOwnerItemResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementOwnerListResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementPageResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementStatementResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementRentResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
@@ -134,6 +141,28 @@ public class AgreementResponseConverter {
                         .toList(),
                 formulaOrNull.amountOrNull(), formulaOrNull.amountOrNull() == null ? null : VND,
                 formulaOrNull.freeReasonOrNull());
+    }
+
+    /**
+     * The staff list (E05-S7 spec S7-D5, section 4): each row with its advertising flag, groups and dates only; the
+     * start date is that of the activated version not in effect yet, as the detail's pending version gives it.
+     */
+    public BrokerageAgreementPageResponse toAgreementPage(AgreementPageView view) {
+        return new BrokerageAgreementPageResponse(view.items().stream()
+                .map(item -> new BrokerageAgreementListItemResponse(item.agreementId(), item.unitCodeOrNull(),
+                        item.transactionType().name(), item.status().name(), item.latestVersionNo(),
+                        item.latestVersionStatus().name(), item.createdAt(),
+                        new BrokerageAgreementListAdvertisingResponse(item.advertisingAllowed(), item.reasonGroups(),
+                                item.endDateOrNull(), item.endsAtOrNull(), item.startDateOrNull())))
+                .toList(), view.page(), view.size(), view.totalElements());
+    }
+
+    /** The history (E05-S7 spec S7-D7, section 4): each event's code, version, actor type and staff name, and time. */
+    public BrokerageAgreementHistoryResponse toHistory(AgreementHistoryView view) {
+        return new BrokerageAgreementHistoryResponse(view.entries().stream()
+                .map(entry -> new BrokerageAgreementHistoryEntryResponse(entry.type(), entry.versionNoOrNull(),
+                        entry.actorType().name(), entry.actorNameOrNull(), entry.occurredAt()))
+                .toList(), view.page(), view.size(), view.totalElements());
     }
 
     public BrokerageAgreementSurveyTermsResponse toSurveyTerms(SurveyTermsView view) {
