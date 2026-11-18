@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCommandUseCase;
+import vn.sunvibe.brokerage.core.application.usecase.AgreementHistoryUseCase;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementListUseCase;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementQueryUseCase;
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementRequestConverter;
@@ -34,6 +35,7 @@ import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraf
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementNewDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementHistoryResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementPageResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
 import vn.sunvibe.brokerage.core.presentation.resolver.StaffViewerResolver;
@@ -60,6 +62,7 @@ public class BrokerageAgreementController {
     private final AgreementCommandUseCase commands;
     private final AgreementQueryUseCase queries;
     private final AgreementListUseCase lists;
+    private final AgreementHistoryUseCase histories;
     private final StaffViewerResolver viewers;
     private final AgreementRequestConverter requests;
     private final AgreementResponseConverter responses;
@@ -142,6 +145,40 @@ public class BrokerageAgreementController {
     })
     public BrokerageAgreementDetailResponse detail(@PathVariable("agreementId") String agreementId) {
         return responses.toDetail(queries.detail(agreementId, viewers.current()));
+    }
+
+    /**
+     * The history of an agreement (brokerage-agreement US-4 AC-4, BR-16, BR-17; E05-S7 spec S7-D7, S7-D8, S7-D13). The
+     * parameters are checked before the agreement is looked up, so a refusal tells nothing of the agreement.
+     */
+    @GetMapping("/{agreementId}/history")
+    @Operation(operationId = "getBrokerageAgreementHistory", summary = "The events of a brokerage agreement, newest first:"
+            + " what happened, the version, who acted and when; no reason; the read is not logged")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "One page of the agreement's events, newest first"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED: one entry naming the parameter, never its"
+                    + " value: page or size",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public BrokerageAgreementHistoryResponse history(
+            @PathVariable("agreementId") String agreementId,
+            @Parameter(description = "Zero-based page number, 0 to 9999", schema = @Schema(type = "integer",
+                    format = "int32", minimum = "0", maximum = "9999", defaultValue = "0"))
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @Parameter(description = "Events per page, 1 to 100", schema = @Schema(type = "integer",
+                    format = "int32", minimum = "1", maximum = "100", defaultValue = "50"))
+            @RequestParam(name = "size", defaultValue = "50") int size) {
+        return responses.toHistory(histories.history(requests.toHistoryQuery(agreementId, page, size),
+                viewers.current()));
     }
 
     @GetMapping("/{agreementId}/survey-terms")

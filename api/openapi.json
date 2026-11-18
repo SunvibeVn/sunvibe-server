@@ -3439,6 +3439,107 @@
         "tags" : [ "Brokerage agreement" ]
       }
     },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/history" : {
+      "get" : {
+        "operationId" : "getBrokerageAgreementHistory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Zero-based page number, 0 to 9999",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0,
+            "maximum" : 9999,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "Events per page, 1 to 100",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BrokerageAgreementHistory"
+                }
+              }
+            },
+            "description" : "One page of the agreement's events, newest first"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED: one entry naming the parameter, never its value: page or size"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "The events of a brokerage agreement, newest first: what happened, the version, who acted and when; no reason; the read is not logged",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/brokerage-agreements/{agreementId}/survey-terms" : {
       "get" : {
         "operationId" : "getBrokerageAgreementSurveyTerms",
@@ -10305,6 +10406,60 @@
           }
         },
         "required" : [ "fromMonths", "percent" ]
+      },
+      "BrokerageAgreementHistory" : {
+        "type" : "object",
+        "properties" : {
+          "entries" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementHistoryEntry"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The zero-based page answered"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The size asked for"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Every stored event of the agreement"
+          }
+        }
+      },
+      "BrokerageAgreementHistoryEntry" : {
+        "type" : "object",
+        "properties" : {
+          "actorName" : {
+            "type" : [ "string", "null" ],
+            "description" : "The staff member's full name; null for the owner, for Sunvibe's job and for an account the server does not know"
+          },
+          "actorType" : {
+            "type" : "string",
+            "description" : "Who acted: a staff member, the owner, or Sunvibe's own job",
+            "enum" : [ "STAFF", "OWNER", "SYSTEM" ]
+          },
+          "occurredAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "The event; OTHER for one this version of the server does not know",
+            "enum" : [ "CREATED", "DRAFT_EDITED", "VERSION_SENT", "OWNER_CONFIRMED", "OWNER_REJECTED", "VERSION_LAPSED", "DRAFT_OPENED", "ACTIVATED", "ACTIVATION_REFUSED", "VERSION_STARTED", "OTHER" ]
+          },
+          "versionNo" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "The version the event is about; null for none"
+          }
+        }
       },
       "BrokerageAgreementListAdvertising" : {
         "type" : "object",

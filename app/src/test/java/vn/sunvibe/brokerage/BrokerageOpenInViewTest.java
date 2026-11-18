@@ -164,6 +164,20 @@ class BrokerageOpenInViewTest {
 		assertEquals(1, openInViewInterceptors(intakeBlock));
 	}
 
+	/** E05-S7 spec S7-D11, OV-1: the history of an agreement runs without open-in-view. */
+	@Test
+	void historyGet_noOpenInViewInterceptor() throws Exception {
+		HandlerExecutionChain history = chain("GET",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/history");
+		HandlerMethod handler = assertInstanceOf(HandlerMethod.class, history.getHandler());
+		assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+		assertEquals("history", handler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(history));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
 	private HandlerExecutionChain chain(String method, String path) throws Exception {
 		MockHttpServletRequest request = new MockHttpServletRequest(method, path);
 		request.setRequestURI(path);

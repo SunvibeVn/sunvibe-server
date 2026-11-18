@@ -2,6 +2,7 @@ package vn.sunvibe.brokerage.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.query.AgreementDetailView;
+import vn.sunvibe.brokerage.core.application.query.AgreementHistoryView;
 import vn.sunvibe.brokerage.core.application.query.AgreementPageView;
 import vn.sunvibe.brokerage.core.application.query.OwnerAgreementsView;
 import vn.sunvibe.brokerage.core.application.query.SurveyTermsView;
@@ -26,6 +27,8 @@ import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFee
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeePolicyResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementFeeTierResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementHistoryEntryResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementHistoryResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementListAdvertisingResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementListItemResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementOwnerItemResponse;
@@ -151,6 +154,14 @@ public class AgreementResponseConverter {
                         item.latestVersionStatus().name(), item.createdAt(),
                         new BrokerageAgreementListAdvertisingResponse(item.advertisingAllowed(), item.reasonGroups(),
                                 item.endDateOrNull(), item.endsAtOrNull(), item.startDateOrNull())))
+                .toList(), view.page(), view.size(), view.totalElements());
+    }
+
+    /** The history (E05-S7 spec S7-D7, section 4): each event's code, version, actor type and staff name, and time. */
+    public BrokerageAgreementHistoryResponse toHistory(AgreementHistoryView view) {
+        return new BrokerageAgreementHistoryResponse(view.entries().stream()
+                .map(entry -> new BrokerageAgreementHistoryEntryResponse(entry.type(), entry.versionNoOrNull(),
+                        entry.actorType().name(), entry.actorNameOrNull(), entry.occurredAt()))
                 .toList(), view.page(), view.size(), view.totalElements());
     }
 

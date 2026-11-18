@@ -54,6 +54,9 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	static final String BROKERAGE_AGREEMENT_ACTIVATION_REFUSAL_PATTERN =
 			"/api/v1/staff/brokerage-agreements/*/activation-refusal";
 
+	/** The history of an agreement (E05-S7 spec S7-D11). */
+	static final String BROKERAGE_AGREEMENT_HISTORY_PATTERN = "/api/v1/staff/brokerage-agreements/*/history";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -72,6 +75,7 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 						BROKERAGE_AGREEMENT_DRAFT_PATTERN, BROKERAGE_AGREEMENT_SURVEY_TERMS_PATTERN,
 						BROKERAGE_AGREEMENT_SUBMISSION_PATTERN, ME_BROKERAGE_AGREEMENTS_PATTERN,
 						ME_BROKERAGE_AGREEMENT_CONFIRMATIONS_PATTERN, ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN,
-						BROKERAGE_AGREEMENT_ACTIVATION_PATTERN, BROKERAGE_AGREEMENT_ACTIVATION_REFUSAL_PATTERN);
+						BROKERAGE_AGREEMENT_ACTIVATION_PATTERN, BROKERAGE_AGREEMENT_ACTIVATION_REFUSAL_PATTERN,
+						BROKERAGE_AGREEMENT_HISTORY_PATTERN);
 	}
 }

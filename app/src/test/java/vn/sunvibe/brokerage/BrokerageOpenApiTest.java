@@ -795,6 +795,69 @@ class BrokerageOpenApiTest {
 		assertEquals("date-time", advertising.path("endsAt").path("format").asString());
 	}
 
+	/**
+	 * E05-S7 spec section 4, S7-D7, S7-D13, OA-1: the history's id, tag, two parameters with their bounds and defaults,
+	 * and its answers, with no MALFORMED_REQUEST documented.
+	 */
+	@Test
+	void openApi_historyOperation_parametersAndAnswers() {
+		String historyPath = "/api/v1/staff/brokerage-agreements/{agreementId}/history";
+		JsonNode path = contract.path("paths").path(historyPath);
+		assertEquals(List.of("get"), names(path));
+		JsonNode get = path.path("get");
+		assertEquals("getBrokerageAgreementHistory", get.path("operationId").asString());
+		assertEquals("[\"Brokerage agreement\"]", get.path("tags").toString());
+		assertTrue(get.path("security").isMissingNode(), get.toString());
+		assertEquals(List.of("get " + historyPath), operationsWithId("getBrokerageAgreementHistory"));
+
+		Map<String, JsonNode> parameters = parameters(get);
+		assertEquals(List.of("agreementId", "page", "size"), parameters.keySet().stream().sorted().toList());
+		assertEquals("path", parameters.get("agreementId").path("in").asString());
+		assertIntegerParameter(parameters.get("page"), 0, 9999, 0);
+		assertIntegerParameter(parameters.get("size"), 1, 100, 50);
+		for (String name : List.of("page", "size")) {
+			assertEquals("query", parameters.get(name).path("in").asString(), name);
+			assertTrue(!parameters.get(name).path("required").asBoolean(), name);
+		}
+
+		JsonNode responses = get.path("responses");
+		assertEquals(List.of("200", "400", "401", "403", "404", "500"), names(responses).stream().sorted().toList());
+		assertEquals("#/components/schemas/BrokerageAgreementHistory", schemaRef(responses.path("200")));
+		for (String code : List.of("400", "401", "403", "404", "500")) {
+			assertEquals("#/components/schemas/ErrorResponse", schemaRef(responses.path(code)), code);
+		}
+		assertTrue(responses.path("400").path("description").asString().contains("VALIDATION_FAILED"));
+		assertTrue(responses.path("404").path("description").asString().contains("NOT_FOUND"));
+		assertTrue(!responses.toString().contains("MALFORMED_REQUEST"), responses.toString());
+	}
+
+	/** E05-S7 spec section 4, S7-D7, S7-D8, OA-1: the two history schemas, their closed values and nullable fields. */
+	@Test
+	void openApi_historySchemas_enumsAndNullables() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		for (String name : List.of("BrokerageAgreementHistory", "BrokerageAgreementHistoryEntry")) {
+			assertTrue(schemas.path(name).isObject(), name);
+			assertTrue(schemas.path(name).path("required").isMissingNode(), name + " " + schemas.path(name));
+		}
+		JsonNode history = schemas.path("BrokerageAgreementHistory").path("properties");
+		assertEquals(List.of("entries", "page", "size", "totalElements"), names(history).stream().sorted().toList());
+		assertEquals("#/components/schemas/BrokerageAgreementHistoryEntry",
+				history.path("entries").path("items").path("$ref").asString());
+		assertEquals("int64", history.path("totalElements").path("format").asString());
+
+		JsonNode entry = schemas.path("BrokerageAgreementHistoryEntry").path("properties");
+		assertEquals(List.of("actorName", "actorType", "occurredAt", "type", "versionNo"),
+				names(entry).stream().sorted().toList());
+		assertEquals("[\"CREATED\",\"DRAFT_EDITED\",\"VERSION_SENT\",\"OWNER_CONFIRMED\",\"OWNER_REJECTED\","
+				+ "\"VERSION_LAPSED\",\"DRAFT_OPENED\",\"ACTIVATED\",\"ACTIVATION_REFUSED\",\"VERSION_STARTED\",\"OTHER\"]",
+				entry.path("type").path("enum").toString());
+		assertEquals("[\"STAFF\",\"OWNER\",\"SYSTEM\"]", entry.path("actorType").path("enum").toString());
+		assertEquals("[\"integer\",\"null\"]", entry.path("versionNo").path("type").toString());
+		assertEquals("int32", entry.path("versionNo").path("format").asString());
+		assertEquals("[\"string\",\"null\"]", entry.path("actorName").path("type").toString());
+		assertEquals("date-time", entry.path("occurredAt").path("format").asString());
+	}
+
 	private List<String> operationsWithId(String operationId) {
 		List<String> withTheId = new ArrayList<>();
 		contract.path("paths").properties().forEach(entry -> entry.getValue().properties().forEach(operation -> {
