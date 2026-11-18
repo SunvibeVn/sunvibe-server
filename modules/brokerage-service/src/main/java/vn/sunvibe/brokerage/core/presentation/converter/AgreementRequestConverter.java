@@ -11,8 +11,11 @@ import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
+import vn.sunvibe.brokerage.core.application.usecase.AgreementHistoryQuery;
+import vn.sunvibe.brokerage.core.application.usecase.AgreementListQuery;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationRefusalType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ChargeUnit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
@@ -43,7 +46,9 @@ import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementTerm
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -56,6 +61,9 @@ public class AgreementRequestConverter {
     private static final String TERMS = "terms.";
     private static final String FEE_POLICY = "feePolicy.";
     private static final List<String> REFUSAL_TYPES = Arrays.stream(ActivationRefusalType.values()).map(Enum::name)
+            .toList();
+    /** The seven agreement codes in their order (E05-S2 spec S2-D4), the allowed values of a refused state. */
+    private static final List<String> AGREEMENT_STATUSES = Arrays.stream(AgreementStatus.values()).map(Enum::name)
             .toList();
 
     public AgreementCreateCommand toCommand(BrokerageAgreementCreateRequest request) {
@@ -135,6 +143,46 @@ public class AgreementRequestConverter {
                 .orElseThrow(() -> AgreementRefusedException.invalid("reasonType", REFUSAL_TYPES));
         return new AgreementRefuseActivationCommand(agreementId, request.expectedDataVersion(), request.versionNo(),
                 type, request.note());
+    }
+
+    /**
+     * The list's query parameters (E05-S7 spec S7-D13 (2)); repeats of a state keep one, no state is every state.
+     *
+     * @throws AgreementRefusedException on the first refused parameter in the order status, page, size: a state that is
+     *                                   not exactly one of the seven codes, with those codes; a page outside 0..9999 or a
+     *                                   size outside 1..50, without allowed values
+     */
+    public AgreementListQuery toListQuery(List<String> statusOrNull, boolean endsWithin30Days, int page, int size) {
+        Set<AgreementStatus> statuses = EnumSet.noneOf(AgreementStatus.class);
+        for (String code : statusOrNull == null ? List.<String>of() : statusOrNull) {
+            if (code == null || !AGREEMENT_STATUSES.contains(code)) {
+                throw AgreementRefusedException.invalid("status", AGREEMENT_STATUSES);
+            }
+            statuses.add(AgreementStatus.valueOf(code));
+        }
+        checkBounds(page, AgreementListQuery.MAX_PAGE, size, AgreementListQuery.MAX_SIZE);
+        return new AgreementListQuery(statuses, endsWithin30Days, page, size);
+    }
+
+    /**
+     * The history's query parameters (E05-S7 spec S7-D13 (2)), checked before any lookup, so a refusal is the same for
+     * every agreement id; the id as given.
+     *
+     * @throws AgreementRefusedException a page outside 0..9999 or a size outside 1..100, page first, without allowed
+     *                                   values
+     */
+    public AgreementHistoryQuery toHistoryQuery(String agreementId, int page, int size) {
+        checkBounds(page, AgreementHistoryQuery.MAX_PAGE, size, AgreementHistoryQuery.MAX_SIZE);
+        return new AgreementHistoryQuery(agreementId, page, size);
+    }
+
+    private static void checkBounds(int page, int maxPage, int size, int maxSize) {
+        if (page < 0 || page > maxPage) {
+            throw AgreementRefusedException.invalid("page", null);
+        }
+        if (size < 1 || size > maxSize) {
+            throw AgreementRefusedException.invalid("size", null);
+        }
     }
 
     /**
