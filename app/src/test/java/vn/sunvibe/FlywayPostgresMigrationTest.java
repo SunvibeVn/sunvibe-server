@@ -123,8 +123,10 @@ class FlywayPostgresMigrationTest {
 						"V202611181001__validate_brokerage_agreement_version_activation.sql",
 						"V202611181002__index_brokerage_agreement_versions_confirmed_answered_at.sql",
 						"V202611181003__index_brokerage_agreement_versions_activated_start_date.sql",
+						"V202611181100__index_brokerage_agreements_created_at.sql",
+						"V202611181101__index_brokerage_agreement_versions_in_effect_end_date.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 78, applied.size()));
+				applied.subList(applied.size() - 80, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */
