@@ -230,13 +230,14 @@ class AgreementAccessApiPostgresTest extends IntakeApiTestBase {
 
 		assertEquals(200, answer.status(), answer.rawBody());
 		JsonNode detail = answer.body();
-		assertEquals(List.of("agreementId", "basisLeadId", "createdAt", "dataVersion", "status", "transactionType",
-				"unitCode", "unitId", "versions", "viewerIsAssignedSale"), sortedKeys(detail));
+		assertEquals(List.of("activationStatement", "advertising", "agreementId", "basisLeadId", "createdAt", "dataVersion",
+				"status", "transactionType", "unitCode", "unitId", "versions", "viewerIsAssignedSale",
+				"viewerMayDecideActivation"), sortedKeys(detail));
 		assertEquals(1, detail.path("versions").size(), answer.rawBody());
 		JsonNode version = detail.path("versions").path(0);
-		assertEquals(List.of("advertisingScope", "answerBy", "createdAt", "endDate", "exteriorPhotoConsent", "feePolicy",
-				"ownerAnsweredAt", "ownerRejectionReason", "photoConsent", "sentAt", "startDate", "status", "terms",
-				"versionNo"), sortedKeys(version));
+		assertEquals(List.of("activateBy", "activation", "advertisingScope", "answerBy", "createdAt", "endDate",
+				"exteriorPhotoConsent", "feePolicy", "ownerAnsweredAt", "ownerRejectionReason", "photoConsent", "sentAt",
+				"startDate", "status", "terms", "versionNo"), sortedKeys(version));
 		assertEquals(id, detail.path("agreementId").asString());
 		assertEquals("DRAFTING", detail.path("status").asString());
 		assertEquals("LONG_TERM_RENT", detail.path("transactionType").asString());

@@ -1,7 +1,9 @@
 package vn.sunvibe.brokerage.core.infrastructure.persistence.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
@@ -10,6 +12,7 @@ import vn.sunvibe.brokerage.core.infrastructure.persistence.entity.AgreementVers
 import vn.sunvibe.brokerage.core.infrastructure.persistence.entity.BrokerageAgreementEntity;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -66,6 +69,37 @@ public interface BrokerageAgreementJpaRepository extends JpaRepository<Brokerage
             + " where v.status = vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus.AWAITING_OWNER"
             + " and v.sentAt <= :bound order by v.sentAt asc, v.agreement.id asc")
     List<String> findDueLapseIds(@Param("bound") Instant sentAtOrBefore, Pageable page);
+
+    /**
+     * The ids of the agreements whose version, confirmed by its owner, was confirmed at or before the bound, oldest
+     * confirmation first, then by id (E05-S6 spec S6-D5); one version is pending per agreement at most, so no id
+     * repeats. JPQL with the status literal, as {@link #findDueLapseIds}, so PostgreSQL may use the partial index.
+     */
+    @Query("select v.agreement.id from AgreementVersionEntity v"
+            + " where v.status = vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus.OWNER_CONFIRMED"
+            + " and v.ownerAnswer = vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswerType.CONFIRMED"
+            + " and v.ownerAnsweredAt <= :bound order by v.ownerAnsweredAt asc, v.agreement.id asc")
+    List<String> findDueActivationLapseIds(@Param("bound") Instant answeredAtOrBefore, Pageable page);
+
+    /**
+     * The ids of the agreements whose ACTIVATED version holds its activation record and starts on or before the bound,
+     * oldest start first, then by id (E05-S6 spec S6-D6). JPQL with the status literal, so PostgreSQL may use the
+     * partial index.
+     */
+    @Query("select v.agreement.id from AgreementVersionEntity v"
+            + " where v.status = vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus.ACTIVATED"
+            + " and v.activationDecision"
+            + " = vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecisionType.ACTIVATED"
+            + " and v.startDate <= :bound order by v.startDate asc, v.agreement.id asc")
+    List<String> findDueStartIds(@Param("bound") LocalDate startOnOrBefore, Pageable page);
+
+    /**
+     * The agreement's id read with a FOR SHARE lock on its row (E05-S6 spec S6-D11): a guarded update of the row waits
+     * until the reader's transaction ends; another share lock does not wait.
+     */
+    @Lock(LockModeType.PESSIMISTIC_READ)
+    @Query("select a.id from BrokerageAgreementEntity a where a.id = :id")
+    Optional<String> lockForShare(@Param("id") String agreementId);
 
     /** The agreements of those units and that type in those statuses, as ids only. */
     @Query("select a.id as agreementId, a.unitId as unitId, a.basisLeadId as basisLeadId"

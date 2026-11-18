@@ -13,4 +13,11 @@ public interface OwnerNoticePort {
      * only invites a sign-in and names no term, unit, address, amount or agreement.
      */
     void agreementPending(String ownerUserId);
+
+    /**
+     * brokerage-agreement US-3 AC-5, BR-17 (E05-S6 spec S6-D13): a neutral notice that a brokerage agreement the account
+     * confirmed was signed and activated; it only invites a sign-in and names no term, unit, address, amount or contract
+     * number.
+     */
+    void agreementActivated(String ownerUserId);
 }

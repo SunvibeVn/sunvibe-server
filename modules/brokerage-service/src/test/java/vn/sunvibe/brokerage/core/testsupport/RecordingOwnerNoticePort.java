@@ -9,6 +9,7 @@ import java.util.List;
 public final class RecordingOwnerNoticePort implements OwnerNoticePort {
 
     private final List<String> agreementPending = new ArrayList<>();
+    private final List<String> agreementActivated = new ArrayList<>();
 
     @Override
     public void agreementPending(String ownerUserId) {
@@ -18,5 +19,15 @@ public final class RecordingOwnerNoticePort implements OwnerNoticePort {
     /** The user ids of the AGREEMENT_PENDING notices asked for so far. */
     public List<String> agreementPending() {
         return List.copyOf(agreementPending);
+    }
+
+    @Override
+    public void agreementActivated(String ownerUserId) {
+        agreementActivated.add(ownerUserId);
+    }
+
+    /** The user ids of the AGREEMENT_ACTIVATED notices asked for so far. */
+    public List<String> agreementActivated() {
+        return List.copyOf(agreementActivated);
     }
 }

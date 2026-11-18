@@ -6,8 +6,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 /**
- * One version of a brokerage agreement with its content (E05-S2 spec 4; E05-S3 spec 4, S3-D14; E05-S4 spec S4-D10) and
- * the owner's answer (E05-S5 spec S5-D13); the staff detail and the owner's read share it.
+ * One version of a brokerage agreement with its content (E05-S2 spec 4; E05-S3 spec 4, S3-D14; E05-S4 spec S4-D10),
+ * the owner's answer (E05-S5 spec S5-D13) and its activation (E05-S6 spec S6-D21); the staff detail and the owner's read
+ * share it, and the owner's read answers the activation null.
  */
 @Schema(name = "BrokerageAgreementVersion")
 public record BrokerageAgreementVersionResponse(
@@ -37,7 +38,13 @@ public record BrokerageAgreementVersionResponse(
         @Schema(nullable = true, description = "When the owner confirmed or declined the version; null otherwise")
         Instant ownerAnsweredAt,
         @Schema(nullable = true, description = "The owner's private reason for declining; null when none was given")
-        String ownerRejectionReason) {
+        String ownerRejectionReason,
+        @Schema(nullable = true, description = "Until when a manager may activate the version: 14 days after the owner's"
+                + " confirmation, exclusive, whatever its status now; null when the owner did not confirm it")
+        Instant activateBy,
+        @Schema(nullable = true, description = "A manager's activation decision; staff only, always null in the owner's"
+                + " read")
+        BrokerageAgreementVersionActivationResponse activation) {
 
     /** brokerage-agreement BR-17: the owner's reason stays out of every log line. */
     @Override

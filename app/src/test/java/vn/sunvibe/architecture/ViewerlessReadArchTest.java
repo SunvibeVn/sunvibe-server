@@ -13,6 +13,7 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 
 import vn.sunvibe.auth.core.application.usecase.role.OwnerStandingUseCase;
+import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightUseCase;
 import vn.sunvibe.property.core.application.usecase.intake.CompletedIntakeUseCase;
 import vn.sunvibe.property.core.application.usecase.intake.IntakeOriginUseCase;
 import vn.sunvibe.property.core.application.usecase.intake.PropertyOwnershipUseCase;
@@ -31,7 +32,7 @@ class ViewerlessReadArchTest {
 
 	private static final List<Class<?>> VIEWERLESS_READS = List.of(CompletedIntakeUseCase.class, UnitIntakeUseCase.class,
 			PropertyOwnershipUseCase.class, SourceStandingUseCase.class, OwnerStandingUseCase.class,
-			IntakeOriginUseCase.class, UnitLocationUseCase.class);
+			IntakeOriginUseCase.class, UnitLocationUseCase.class, AdvertisingRightUseCase.class);
 
 	private static JavaClasses classes;
 

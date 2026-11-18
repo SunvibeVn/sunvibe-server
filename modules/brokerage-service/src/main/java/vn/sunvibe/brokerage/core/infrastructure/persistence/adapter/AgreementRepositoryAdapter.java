@@ -16,9 +16,12 @@ import vn.sunvibe.brokerage.core.infrastructure.persistence.mapper.manual.Agreem
 import vn.sunvibe.brokerage.core.infrastructure.persistence.repository.BrokerageAgreementJpaRepository;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -123,6 +126,45 @@ public class AgreementRepositoryAdapter implements AgreementDomainRepository {
     @Override
     public List<String> dueLapseAgreementIds(Instant sentAtOrBefore, int limit) {
         return jpaRepository.findDueLapseIds(sentAtOrBefore, PageRequest.of(0, limit));
+    }
+
+    /**
+     * Three statements for the whole set, as {@link #sentToOwner} reads it: the agreements with their versions, then the
+     * versions' fee rows and their fee tier rows into the same persistence context.
+     */
+    @Override
+    public List<BrokerageAgreement> findAllById(Collection<String> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<String> agreementIds = List.copyOf(new LinkedHashSet<>(ids));
+        List<BrokerageAgreementEntity> entities = jpaRepository.findWithVersionsIn(agreementIds);
+        if (entities.isEmpty()) {
+            return List.of();
+        }
+        jpaRepository.fetchVersionFeesIn(agreementIds);
+        jpaRepository.fetchVersionFeeTiersIn(agreementIds);
+        List<BrokerageAgreement> found = new ArrayList<>();
+        for (BrokerageAgreementEntity entity : entities) {
+            found.add(mapper.toDomain(entity));
+            entityManager.detach(entity);
+        }
+        return found;
+    }
+
+    @Override
+    public boolean lockForShare(String agreementId) {
+        return jpaRepository.lockForShare(agreementId).isPresent();
+    }
+
+    @Override
+    public List<String> dueActivationLapseAgreementIds(Instant answeredAtOrBefore, int limit) {
+        return jpaRepository.findDueActivationLapseIds(answeredAtOrBefore, PageRequest.of(0, limit));
+    }
+
+    @Override
+    public List<String> dueStartAgreementIds(LocalDate startOnOrBefore, int limit) {
+        return jpaRepository.findDueStartIds(startOnOrBefore, PageRequest.of(0, limit));
     }
 
     /** Whether the failed write broke the named constraint, read from the Hibernate cause. */

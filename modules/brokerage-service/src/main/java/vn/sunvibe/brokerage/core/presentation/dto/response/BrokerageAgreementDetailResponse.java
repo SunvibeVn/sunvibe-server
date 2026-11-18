@@ -31,5 +31,14 @@ public record BrokerageAgreementDetailResponse(
         long dataVersion,
         @Schema(description = "Whether the caller is the basis lead's assigned Sale, who edits the draft; a hint, the"
                 + " server decides")
-        boolean viewerIsAssignedSale) {
+        boolean viewerIsAssignedSale,
+        @Schema(description = "Whether Sunvibe may advertise the unit now under this agreement, computed at this read;"
+                + " always sent")
+        BrokerageAgreementAdvertisingResponse advertising,
+        @Schema(description = "Whether the caller holds SALE_LEADER, SALES_MANAGER or ADMIN and is neither the basis lead's"
+                + " assignee nor an author of the version awaiting activation; a hint, the server decides; always sent")
+        boolean viewerMayDecideActivation,
+        @Schema(nullable = true, description = "The activation statement of the version awaiting activation now; null"
+                + " when none awaits activation")
+        BrokerageAgreementStatementResponse activationStatement) {
 }

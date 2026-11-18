@@ -28,7 +28,11 @@ public final class AgreementRefusedException extends RuntimeException {
                 "This version cannot be answered now."),
         AGREEMENT_STATEMENT_OUTDATED(409, "The confirmation text has changed. Read it again.", null),
         ACCOUNT_LOCKED(423, "Too many wrong passwords. Try again later.", null),
-        AGREEMENT_NEW_DRAFT_NOT_ALLOWED(409, "A new draft can be opened only when no version is pending.", null);
+        AGREEMENT_NEW_DRAFT_NOT_ALLOWED(409, "A new draft can be opened only when no version is pending.", null),
+        AGREEMENT_ACTIVATOR_NOT_INDEPENDENT(403, "Only a manager who did not draft this version and is not the lead's"
+                + " assigned Sale may decide its activation.", null),
+        AGREEMENT_NOT_AWAITING_ACTIVATION(409, "This version is not waiting for activation.", null),
+        AGREEMENT_VERSION_PERIOD_ENDED(409, "This version's period has ended.", null);
 
         private final int status;
         private final String message;
@@ -150,6 +154,27 @@ public final class AgreementRefusedException extends RuntimeException {
      */
     public static AgreementRefusedException newDraftNotAllowed() {
         return new AgreementRefusedException(Reason.AGREEMENT_NEW_DRAFT_NOT_ALLOWED, List.of());
+    }
+
+    /**
+     * brokerage-agreement BR-11, BR-16 (E05-S6 spec S6-D2): the caller drafted the version (an author of versions 1 to
+     * n) or is the basis lead's current assignee; no entry.
+     */
+    public static AgreementRefusedException notIndependent() {
+        return new AgreementRefusedException(Reason.AGREEMENT_ACTIVATOR_NOT_INDEPENDENT, List.of());
+    }
+
+    /**
+     * brokerage-agreement BR-5, BR-11 (E05-S6 spec S6-D1 step 6): the version is not the confirmed one awaiting
+     * activation, or its 14 days have passed; no entry.
+     */
+    public static AgreementRefusedException notAwaitingActivation() {
+        return new AgreementRefusedException(Reason.AGREEMENT_NOT_AWAITING_ACTIVATION, List.of());
+    }
+
+    /** brokerage-agreement US-3 AC-4 (E05-S6 spec S6-D1 step 9): the end of the version's end date has passed. */
+    public static AgreementRefusedException periodEnded() {
+        return new AgreementRefusedException(Reason.AGREEMENT_VERSION_PERIOD_ENDED, List.of());
     }
 
     /**

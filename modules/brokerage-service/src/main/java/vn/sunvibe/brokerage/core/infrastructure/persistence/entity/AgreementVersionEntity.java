@@ -16,6 +16,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecisionType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationRefusalType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
 import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
@@ -30,8 +32,8 @@ import java.util.List;
 
 /**
  * JPA Entity - a version of a brokerage agreement (E05-S2 spec 5.3) with its content (E05-S3 spec S3-D9), its fee
- * policy and its sending time (E05-S4 spec S4-D4) and the owner's answer (E05-S5 spec S5-D11), written through its
- * agreement.
+ * policy and its sending time (E05-S4 spec S4-D4), the owner's answer (E05-S5 spec S5-D11) and a manager's activation
+ * decision (E05-S6 spec S6-D14), written through its agreement.
  */
 @Entity
 @Table(name = "brokerage_agreement_versions")
@@ -168,6 +170,43 @@ public class AgreementVersionEntity {
     private String ownerRejectionReason;
 
     /**
+     * A manager's activation decision, null until made (E05-S6 spec S6-D14); the next nine columns belong to it. The
+     * document's values and the refusal note are private (brokerage-agreement BR-17): {@link #toString()} holds the id
+     * only.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "activation_decision", length = 10)
+    private ActivationDecisionType activationDecision;
+
+    @Column(name = "activation_decided_by", length = 26)
+    private String activationDecidedBy;
+
+    @Column(name = "activation_decided_at")
+    private Instant activationDecidedAt;
+
+    @Column(name = "activation_statement_version", length = 40)
+    private String activationStatementVersion;
+
+    @Column(name = "signed_document_number", length = 50)
+    private String signedDocumentNumber;
+
+    @Column(name = "signed_document_date")
+    private LocalDate signedDocumentDate;
+
+    @Column(name = "sunvibe_signatory_name", length = 100)
+    private String sunvibeSignatoryName;
+
+    @Column(name = "sunvibe_signatory_title", length = 100)
+    private String sunvibeSignatoryTitle;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "activation_refusal_type", length = 30)
+    private ActivationRefusalType activationRefusalType;
+
+    @Column(name = "activation_refusal_note", length = 500)
+    private String activationRefusalNote;
+
+    /**
      * The fee's and the renewal's percentage tiers, matched by key (version, renewal, number) on a merge as the fee rows
      * are: a start moves between rows by an update, so no unique index on the start exists (E05-S4 spec S4-D4).
      */
@@ -179,5 +218,17 @@ public class AgreementVersionEntity {
     @Override
     public String toString() {
         return "AgreementVersionEntity[" + id + "]";
+    }
+
+    /**
+     * Lombok fills in this builder; its own text replaces the generated one, which would list every value, the private
+     * ones included (brokerage-agreement BR-17: the document, the signatory, the note and the terms stay out of logs).
+     */
+    public static class AgreementVersionEntityBuilder {
+
+        @Override
+        public String toString() {
+            return "AgreementVersionEntityBuilder[hidden]";
+        }
     }
 }

@@ -4,13 +4,19 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.query.AgreementDetailView;
 import vn.sunvibe.brokerage.core.application.query.OwnerAgreementsView;
 import vn.sunvibe.brokerage.core.application.query.SurveyTermsView;
+import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightView;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCreateResult;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndRefund;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SignedDocument;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementAdvertisingPendingVersionResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementAdvertisingPhotoConsentResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementAdvertisingResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDepositResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
@@ -26,6 +32,7 @@ import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementRen
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementTermSourceResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementTermsResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementVersionActivationResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementVersionResponse;
 
 /** The agreement results and views to their responses; a pure function of its argument. */
@@ -40,10 +47,50 @@ public class AgreementResponseConverter {
     }
 
     public BrokerageAgreementDetailResponse toDetail(AgreementDetailView view) {
+        AgreementDetailView.ActivationStatementView statement = view.activationStatementOrNull();
         return new BrokerageAgreementDetailResponse(view.agreementId(), view.status().name(),
                 view.transactionType().name(), view.unitId(), view.unitCodeOrNull(), view.basisLeadId(), view.createdAt(),
                 view.versions().stream().map(AgreementResponseConverter::version).toList(),
-                view.dataVersion(), view.viewerIsAssignedSale());
+                view.dataVersion(), view.viewerIsAssignedSale(), advertising(view.advertising()),
+                view.viewerMayDecideActivation(),
+                statement == null ? null : new BrokerageAgreementStatementResponse(statement.version(), statement.text()));
+    }
+
+    /** brokerage-agreement BR-12 (E05-S6 spec S6-D7, S6-D8): the answer as codes and plain values. */
+    private static BrokerageAgreementAdvertisingResponse advertising(AdvertisingRightView answer) {
+        return new BrokerageAgreementAdvertisingResponse(answer.allowed(), answer.reasonGroups(), answer.endDateOrNull(),
+                answer.endsAtOrNull(),
+                new BrokerageAgreementAdvertisingPhotoConsentResponse(answer.interiorPhotos(), answer.exteriorPhotos()),
+                answer.termsInEffectOrNull() == null ? null : terms(answer.termsInEffectOrNull()),
+                answer.pendingStartDateOrNull() == null ? null : new BrokerageAgreementAdvertisingPendingVersionResponse(
+                        answer.pendingStartDateOrNull(), answer.pendingStartsAtOrNull(),
+                        terms(answer.pendingTermsOrNull())));
+    }
+
+    private static BrokerageAgreementTermsResponse terms(AdvertisingRightView.Terms terms) {
+        AdvertisingRightView.Deposit deposit = terms.depositOrNull();
+        return new BrokerageAgreementTermsResponse(
+                terms.monthlyRentOrNull() == null ? null
+                        : new BrokerageAgreementRentResponse(terms.monthlyRentOrNull(), VND, "MONTH"),
+                deposit == null ? null : new BrokerageAgreementDepositResponse(deposit.basis(), deposit.monthsOrNull(),
+                        deposit.amountOrNull(), deposit.amountOrNull() == null ? null : VND),
+                terms.minimumTermMonthsOrNull(), terms.paymentPeriodMonthsOrNull(),
+                terms.mandatoryFees().stream().map(fee -> new BrokerageAgreementFeeResponse(fee.name(), fee.basis(),
+                        fee.amountOrNull(), fee.amountOrNull() == null ? null : VND, fee.chargeUnitOrNull())).toList());
+    }
+
+    /** E05-S6 spec S6-D21: a manager's decision without its user id; null when there is none or for the owner. */
+    private static BrokerageAgreementVersionActivationResponse activation(ActivationDecision decisionOrNull) {
+        if (decisionOrNull == null) {
+            return null;
+        }
+        SignedDocument document = decisionOrNull.signedDocumentOrNull();
+        return new BrokerageAgreementVersionActivationResponse(decisionOrNull.type().name(), decisionOrNull.decidedAt(),
+                document == null ? null : document.number(), document == null ? null : document.signedOn(),
+                document == null ? null : document.sunvibeSignatoryName(),
+                document == null ? null : document.sunvibeSignatoryTitle(),
+                decisionOrNull.refusalTypeOrNull() == null ? null : decisionOrNull.refusalTypeOrNull().name(),
+                decisionOrNull.refusalNoteOrNull());
     }
 
     /** The owner's read (E05-S5 spec S5-D1, 4): the same version schema as the staff detail (spec S5-D13). */
@@ -63,7 +110,8 @@ public class AgreementResponseConverter {
                 version.endDate(), version.createdAt(), version.advertisingScope().name(),
                 version.photoConsent().interiorOrNull(), version.photoConsent().exterior(), terms(version.terms()),
                 feePolicy(version.fee()), version.sentAtOrNull(), version.answerByOrNull(),
-                version.ownerAnsweredAtOrNull(), version.ownerRejectionReasonOrNull());
+                version.ownerAnsweredAtOrNull(), version.ownerRejectionReasonOrNull(), version.activateByOrNull(),
+                activation(version.activationOrNull()));
     }
 
     /** brokerage-agreement BR-7: the fixed payer and moment, and every part, null when not entered (spec S4-D10). */

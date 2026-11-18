@@ -60,4 +60,12 @@ class AuthOwnerNoticeAdapterTest {
 
 		assertEquals(List.of("01OWNER AGREEMENT_PENDING"), calls);
 	}
+
+	/** E05-S6 spec S6-D13, NT-1: the activation notice forwards the owner with its own kind. */
+	@Test
+	void agreementActivated_notifiesWithItsKind() {
+		adapter.agreementActivated("01OWNER");
+
+		assertEquals(List.of("01OWNER AGREEMENT_ACTIVATED"), calls);
+	}
 }

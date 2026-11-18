@@ -5,6 +5,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Set;
 
 /**
  * The insert-only trail of the agreements: their history and their access log. Rows hold no free text and no value
@@ -28,4 +29,11 @@ public interface AgreementTrailDomainRepository {
      * read answers several agreements at once). Nothing for an empty collection.
      */
     void recordAccesses(String userId, Collection<String> agreementIds, AgreementAccessType action, Instant at);
+
+    /**
+     * The authors of version {@code upToVersionNo} of the agreement (E05-S6 spec S6-D2): every actor of a CREATED,
+     * DRAFT_EDITED, DRAFT_OPENED or VERSION_SENT row of versions 1 to that number, each once, since a new draft starts
+     * as a copy of the latest version. Empty for an unknown agreement.
+     */
+    Set<String> versionAuthors(String agreementId, int upToVersionNo);
 }
