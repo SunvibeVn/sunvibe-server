@@ -16,4 +16,13 @@ public interface BasisLeadPort {
      * @param expandedAuthorities the user's authorities, already expanded through the role hierarchy
      */
     Optional<BasisLeadFacts> findVisible(String leadId, String userId, Set<String> expandedAuthorities);
+
+    /**
+     * The lead as {@link #findVisible} answers it, read under a row lock held to the end of the caller's transaction, so
+     * a reassignment, a hold or a closing of the lead waits for the caller or is seen by it. Only inside a transaction;
+     * used by an assignee command (brokerage-agreement BR-16, E05-S2 spec S2-D2).
+     *
+     * @param expandedAuthorities the user's authorities, already expanded through the role hierarchy
+     */
+    Optional<BasisLeadFacts> findVisibleForUpdate(String leadId, String userId, Set<String> expandedAuthorities);
 }

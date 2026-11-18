@@ -15,9 +15,9 @@ import vn.sunvibe.auth.core.domain.exception.share.AuthValidationException;
 import vn.sunvibe.auth.core.domain.model.auth.EmailNotification;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.RoleName;
-import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.Email;
 import vn.sunvibe.auth.core.domain.model.user.vo.UserId;
+import vn.sunvibe.auth.core.domain.policy.role.OwnerStandingPolicy;
 import vn.sunvibe.auth.core.domain.repository.auth.EmailNotificationRepository;
 import vn.sunvibe.auth.core.domain.repository.user.AccountStanding;
 import vn.sunvibe.auth.core.domain.repository.user.LockedUser;
@@ -28,7 +28,6 @@ import vn.sunvibe.shared.time.AppClock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * The owner named on property create (auth-roles BR-7, BR-8): eligible if the account may sign in and holds no
@@ -111,9 +110,8 @@ public class OwnerAccountService implements OwnerAccountUseCase {
             return new OwnerStanding(false, NO_ROW);
         }
         AccountStanding row = standing.get();
-        boolean mayAuthenticate = row.deletedAt() == null
-                && !AppUser.SIGN_IN_BLOCKED_STATUSES.contains(UserStatus.valueOf(row.userStatus()));
-        return new OwnerStanding(mayAuthenticate && !holdsStaffRole(userRepository.findRoleNames(id)),
+        boolean mayAuthenticate = OwnerStandingPolicy.mayAuthenticate(row);
+        return new OwnerStanding(mayAuthenticate && !OwnerStandingPolicy.holdsStaffRole(userRepository.findRoleNames(id)),
                 row.signInLosses());
     }
 
@@ -137,9 +135,5 @@ public class OwnerAccountService implements OwnerAccountUseCase {
 
     private static boolean mayOwn(AppUser user) {
         return user.canAuthenticate() && !user.isStaff();
-    }
-
-    private static boolean holdsStaffRole(Set<String> roleNames) {
-        return RoleName.STAFF.stream().anyMatch(role -> roleNames.contains(role.name()));
     }
 }

@@ -124,7 +124,8 @@ public class ChecklistViewAssembler {
         Readiness readiness = ReadinessCalculator.of(documents(states), difference, earlier, evidence.photosOrNull(),
                 new SubmissionContext(switches.uploadsOn(), checklistSwitches.submissionEnabled(),
                         hasScheduled(ofLead)));
-        ChecklistReviewView review = reviews.read(viewer, lead, ofLead, checklist, visit, states, readiness);
+        ChecklistReviewView review = reviews.read(viewer, lead, ofLead, checklist, visit, states, readiness,
+                evidence.photosOrNull());
         ChecklistMediaView mediaView = new ChecklistMediaView(evidence.photosOrNull() != null,
                 MediaViewerRights.uploadEnabled(switches.uploadsOn(), health.read(), editability),
                 evidence.setVersion());

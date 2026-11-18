@@ -393,7 +393,8 @@ class BrokerageEligibilityApiPostgresTest extends IntakeApiTestBase {
 		assertEquals(List.of("basisState", "units", "viewerIsAssignedSale"), sortedKeys(answer.body()));
 		assertFalse(answer.body().path("units").isEmpty(), body);
 		for (JsonNode unit : answer.body().path("units")) {
-			assertEquals(List.of("eligible", "reasonGroups", "unitCode", "unitId"), sortedKeys(unit));
+			assertEquals(List.of("agreementId", "eligible", "reasonGroups", "unfinishedAgreement", "unitCode", "unitId"),
+					sortedKeys(unit));
 		}
 	}
 

@@ -13,7 +13,8 @@ public class EligibilityResponseConverter {
     public BrokerageEligibilityResponse toResponse(EligibilityView view) {
         return new BrokerageEligibilityResponse(view.basisState(), view.viewerIsAssignedSale(), view.units().stream()
                 .map(unit -> new BrokerageEligibilityUnitResponse(unit.unitId(), unit.unitCodeOrNull(), unit.eligible(),
-                        unit.reasonGroups().stream().map(ReasonGroup::name).toList()))
+                        unit.reasonGroups().stream().map(ReasonGroup::name).toList(), unit.unfinishedAgreement(),
+                        unit.agreementIdOrNull()))
                 .toList());
     }
 }

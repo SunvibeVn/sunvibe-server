@@ -26,6 +26,12 @@ public interface InventoryIntakeJpaRepository extends JpaRepository<InventoryInt
 
     List<InventoryIntakeEntity> findByResultPropertyIdAndStatus(String resultPropertyId, IntakeStatus status);
 
+    List<InventoryIntakeEntity> findByIdIn(Collection<String> ids);
+
+    List<InventoryIntakeEntity> findByLeadIdInOrderByLeadIdAscIntakeNoAsc(Collection<String> leadIds);
+
+    List<InventoryIntakeEntity> findByResultPropertyIdInAndStatus(Collection<String> resultPropertyIds, IntakeStatus status);
+
     List<InventoryIntakeEntity> findByWardCodeAndStatusNotIn(String wardCode, Collection<IntakeStatus> statuses);
 
     @Query("select coalesce(max(i.intakeNo), 0) + 1 from InventoryIntakeEntity i where i.leadId = :leadId")

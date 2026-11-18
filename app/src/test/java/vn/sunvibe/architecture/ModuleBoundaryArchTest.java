@@ -33,6 +33,8 @@ class ModuleBoundaryArchTest {
 	private static final String FEATURE_CORE = "vn.sunvibe.*.core..";
 	private static final String SHARED = "vn.sunvibe.shared..";
 	private static final String INTEGRATION = "vn.sunvibe.integration..";
+	// The transactional outbox of ADR-014 (decision 1): an app package that uses no feature class.
+	private static final String OUTBOX = "vn.sunvibe.outbox..";
 
 	// The only feature classes an app class outside vn.sunvibe.integration may use (owner 2026-10-16).
 	// A new entry needs an ADR-009 change first (../docs/decisions/ADR-009-cross-module-ports.md).
@@ -66,8 +68,8 @@ class ModuleBoundaryArchTest {
 
 	@Test
 	void importedClasses_outsideTheCheckedPackages_noneFound() {
-		// The rules below assume every class is shared, a feature core, or an app class in config/integration.
-		assertThat(classes.that(not(resideInAnyPackage(SHARED, FEATURE_CORE, "vn.sunvibe.config..", INTEGRATION))
+		// The rules below assume every class is shared, a feature core, or an app class in config/integration/outbox.
+		assertThat(classes.that(not(resideInAnyPackage(SHARED, FEATURE_CORE, "vn.sunvibe.config..", INTEGRATION, OUTBOX))
 				.and(not(belongToAnyOf(SunvibeServerApplication.class)))))
 				.extracting(JavaClass::getName)
 				.isEmpty();
@@ -100,7 +102,7 @@ class ModuleBoundaryArchTest {
 	@Test
 	void featureAndSharedClasses_useAppClasses_isForbidden() {
 		noClasses().that().resideInAnyPackage(SHARED, FEATURE_CORE)
-				.should().dependOnClassesThat(resideInAnyPackage("vn.sunvibe.config..", INTEGRATION)
+				.should().dependOnClassesThat(resideInAnyPackage("vn.sunvibe.config..", INTEGRATION, OUTBOX)
 						.or(belongToAnyOf(SunvibeServerApplication.class)))
 				.because("ADR-009/ADR-003: only app depends on modules, never the other way round")
 				.check(classes);

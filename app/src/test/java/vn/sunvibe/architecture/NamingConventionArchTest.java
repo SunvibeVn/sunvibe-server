@@ -26,6 +26,7 @@ import jakarta.persistence.AttributeConverter;
 
 import vn.sunvibe.acquisition.core.domain.model.lead.OwnerLead;
 import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.property.core.domain.model.property.Property;
 import vn.sunvibe.property.core.domain.model.unit.Unit;
 import vn.sunvibe.shared.security.CurrentPrincipal;
@@ -65,7 +66,8 @@ class NamingConventionArchTest {
 	/** N-14: the aggregates the {@code *LayerArchTest} classes name. */
 	private static final Set<String> AGGREGATES = Set.of(
 			AppUser.class.getName(), OwnerLead.class.getName(), Property.class.getName(), Unit.class.getName(),
-			SurveyAppointment.class.getName(), SurveyChecklist.class.getName(), SurveyMedia.class.getName());
+			SurveyAppointment.class.getName(), SurveyChecklist.class.getName(), SurveyMedia.class.getName(),
+			BrokerageAgreement.class.getName());
 
 	private static JavaClasses classes;
 

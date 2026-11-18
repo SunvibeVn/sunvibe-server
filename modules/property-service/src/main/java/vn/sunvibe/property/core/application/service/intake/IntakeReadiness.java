@@ -2,6 +2,7 @@ package vn.sunvibe.property.core.application.service.intake;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import vn.sunvibe.property.core.application.shared.external.lead.IntakeLead;
 import vn.sunvibe.property.core.application.shared.external.survey.IntakeSource;
 import vn.sunvibe.property.core.application.shared.external.survey.IntakeSourcePort;
 import vn.sunvibe.property.core.application.shared.external.user.OwnerStandingFacts;
@@ -33,6 +34,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
 /**
@@ -44,6 +47,10 @@ import java.util.stream.Collectors;
  * They are read from the rows that record them, never from another lead's computed state: another lead's hold or closure
  * neither starts nor ends one, and an owner's withdrawal ends when the property's owner confirms again on a completed
  * result of the property.
+ * <p>
+ * One rule, two loaders (E05-S6b, S6b-D6): the instance methods read one lead's rows, in a fixed order, and hand them to the
+ * package-private static methods, which turn loaded rows into the readiness; the set read of units loads the same tables
+ * for many leads at once and calls the same static methods.
  */
 @Component
 @RequiredArgsConstructor
@@ -71,8 +78,7 @@ public class IntakeReadiness {
         ReadinessPolicy.Result result = ReadinessPolicy.of(facts(state, row, standing));
         List<UnitMapping> mapped = mappings.findByIntakeId(row.getId());
         UnitStopPolicy.Facts stops = stops(state, row, mapped, owner, standing, now);
-        return new IntakeBlockView.Readiness(result.state().name(), result.reasons().stream().map(ReadinessReason::name).toList(),
-                row.getSourceChecklistId(), units(state, row, mapped, stops), ReadinessPolicy.MISSING_FOR_BROKERAGE);
+        return readiness(result, row, units(state, row, mapped, stops));
     }
 
     public ReadinessPolicy.Result result(IntakeState state) {
@@ -90,21 +96,10 @@ public class IntakeReadiness {
     }
 
     private ReadinessPolicy.Facts facts(IntakeState state, InventoryIntake row, OwnerStandingFacts standing) {
-        Set<String> marked = state.marks().stream().map(IntakeSource.MarkedRevision::revisionId).collect(Collectors.toSet());
-        boolean onCurrentSource = state.source().map(IntakeSource::revisionId)
-                .filter(row.getSourceChecklistId()::equals).isPresent();
-        String reason = onCurrentSource ? state.source().map(IntakeSource::reasonOrNull).orElse(null) : null;
-        return new ReadinessPolicy.Facts(state.lead().status(), marked.contains(row.getSourceChecklistId()),
-                row.getIntentCycle() != state.lead().intentCycle(), "EVIDENCE_GONE".equals(reason),
-                "EVIDENCE_HELD".equals(reason), proofStands(row), standing.eligible(),
-                IntakeEvaluator.wholeLeadRestricted(state.suspensions()));
-    }
-
-    /** Spec 4.11: withdrawn, voided or made before the account's last loss of sign-in reads as not confirmed. */
-    private boolean proofStands(InventoryIntake row) {
-        Optional<OwnerProof> proof = row.getProofId() == null ? Optional.empty() : proofs.findById(row.getProofId());
-        return proof.filter(OwnerProof::inForce)
-                .filter(found -> found.getSignInLosses() == users.ownerStanding(found.getUserId()).signInLosses()).isPresent();
+        boolean stands = proofStands(proofOf(row), userId -> users.ownerStanding(userId).signInLosses());
+        return readinessFacts(state.lead(), state.source().map(IntakeSource::revisionId).orElse(null),
+                state.source().map(IntakeSource::reasonOrNull).orElse(null), state.marks(), state.suspensions(), row, stands,
+                standing.eligible());
     }
 
     /**
@@ -118,22 +113,107 @@ public class IntakeReadiness {
         String propertyId = row.getResultPropertyId();
         String self = state.lead().leadId();
         List<InventoryIntake> onProperty = intakes.findCompletedByResult(propertyId);
-        Map<String, Set<String>> unitsByIntake = mappings.findByUnitIds(mapped.stream().map(UnitMapping::unitId).toList())
-                .stream().collect(Collectors.groupingBy(UnitMapping::intakeId,
-                        Collectors.mapping(UnitMapping::unitId, Collectors.toSet())));
+        Map<String, Set<String>> unitsByIntake = unitsByIntake(mappings.findByUnitIds(mapped.stream()
+                .map(UnitMapping::unitId).toList()));
         Map<String, OwnerProof> proofByRow = new HashMap<>();
         onProperty.forEach(result -> proofByRow.put(result.getId(), proofOf(result)));
+        Map<String, List<IntakeSource.MarkedRevision>> marksByLead = new HashMap<>();
+        Map<String, List<IntakeSuspension>> suspensionsByLead = new HashMap<>();
+        for (String leadId : otherLeadIds(onProperty, self)) {
+            marksByLead.put(leadId, sources.markedRevisions(leadId));
+            suspensionsByLead.put(leadId, suspensions.findByLeadId(leadId));
+        }
+        boolean holdsAlone = ownerHoldsAlone(owner,
+                () -> inventory.currentOwnerIds(propertyId, IntakeCommandSupport.today(now)));
+        boolean disputed = disputes.ownerDisputed(propertyId, owner);
+        boolean ruledOut = disputes.resultRuledOut(propertyId, self);
+        return stopFacts(self, owner, standing.eligible(), onProperty, unitsByIntake, proofByRow, marksByLead,
+                suspensionsByLead, holdsAlone, disputed, ruledOut);
+    }
+
+    private OwnerProof proofOf(InventoryIntake row) {
+        return row.getProofId() == null ? null : proofs.findById(row.getProofId()).orElse(null);
+    }
+
+    private List<IntakeBlockView.ReadinessUnit> units(IntakeState state, InventoryIntake row, List<UnitMapping> mapped,
+                                                      UnitStopPolicy.Facts stops) {
+        Map<String, InventoryReadRepository.UnitFacts> units = inventory.units(mapped.stream().map(UnitMapping::unitId).toList())
+                .stream().collect(Collectors.toMap(InventoryReadRepository.UnitFacts::id, Function.identity()));
+        return readinessUnits(row, mapped, units, state.suspensions(), stops);
+    }
+
+    // ==================== the rule, fed by loaded rows (S6b-D6) ====================
+
+    /**
+     * The facts of the lead-level state of a result (property-create intake spec 4.11): the lead's status, a mark on the
+     * result's source, a moved intent cycle, the lost or held evidence of the current source when the result stands on it,
+     * the proof, the owner's eligibility and a whole-lead suspension.
+     *
+     * @param currentRevisionIdOrNull the revision of the lead's current source; null when it has none
+     * @param currentReasonOrNull     why that source is not usable; null when it is or when there is none
+     * @param proofStands             {@link #proofStands} of the proof the result names
+     */
+    static ReadinessPolicy.Facts readinessFacts(IntakeLead lead, String currentRevisionIdOrNull, String currentReasonOrNull,
+                                                List<IntakeSource.MarkedRevision> marks,
+                                                List<IntakeSuspension> leadSuspensions, InventoryIntake row,
+                                                boolean proofStands, boolean ownerEligible) {
+        Set<String> marked = marks.stream().map(IntakeSource.MarkedRevision::revisionId).collect(Collectors.toSet());
+        boolean onCurrentSource = row.getSourceChecklistId().equals(currentRevisionIdOrNull);
+        String reason = onCurrentSource ? currentReasonOrNull : null;
+        return new ReadinessPolicy.Facts(lead.status(), marked.contains(row.getSourceChecklistId()),
+                row.getIntentCycle() != lead.intentCycle(), "EVIDENCE_GONE".equals(reason),
+                "EVIDENCE_HELD".equals(reason), proofStands, ownerEligible,
+                IntakeEvaluator.wholeLeadRestricted(leadSuspensions));
+    }
+
+    /**
+     * Spec 4.11: withdrawn, voided or made before the account's last loss of sign-in reads as not confirmed. The account's
+     * losses are asked for a proof in force only.
+     */
+    static boolean proofStands(OwnerProof proofOrNull, ToIntFunction<String> signInLossesOf) {
+        return Optional.ofNullable(proofOrNull).filter(OwnerProof::inForce)
+                .filter(found -> found.getSignInLosses() == signInLossesOf.applyAsInt(found.getUserId())).isPresent();
+    }
+
+    /** The other leads with a COMPLETED result on the property, each once, sorted. */
+    static List<String> otherLeadIds(List<InventoryIntake> onProperty, String selfLeadId) {
+        return onProperty.stream().map(InventoryIntake::getLeadId).filter(leadId -> !leadId.equals(selfLeadId))
+                .distinct().sorted().toList();
+    }
+
+    /** The units each intake maps, among the mappings given. */
+    static Map<String, Set<String>> unitsByIntake(List<UnitMapping> mappings) {
+        return mappings.stream().collect(Collectors.groupingBy(UnitMapping::intakeId,
+                Collectors.mapping(UnitMapping::unitId, Collectors.toSet())));
+    }
+
+    /**
+     * brokerage-agreement BR-3 (e): the OWNER rows valid today name the property's owner and nobody else. They are read
+     * only when the property has an owner.
+     */
+    static boolean ownerHoldsAlone(String ownerOrNull, Supplier<List<String>> currentOwnerIds) {
+        return ownerOrNull != null && currentOwnerIds.get().equals(List.of(ownerOrNull));
+    }
+
+    /**
+     * brokerage-agreement BR-3, BR-18 (SV-215): the facts of the stops from the loaded rows of the property: its COMPLETED
+     * results, the units they map, the proof each names (or null), and each other lead's marks and suspensions.
+     */
+    static UnitStopPolicy.Facts stopFacts(String selfLeadId, String ownerOrNull, boolean ownerEligible,
+                                          List<InventoryIntake> onProperty, Map<String, Set<String>> unitsByIntake,
+                                          Map<String, OwnerProof> proofByRow,
+                                          Map<String, List<IntakeSource.MarkedRevision>> marksByLead,
+                                          Map<String, List<IntakeSuspension>> suspensionsByLead, boolean ownerHoldsAlone,
+                                          boolean ownerDisputed, boolean resultRuledOut) {
         List<UnitStopPolicy.Completion> completions = new ArrayList<>();
-        onProperty.stream().filter(result -> result.getLeadId().equals(self)).forEach(result -> completions.add(
+        onProperty.stream().filter(result -> result.getLeadId().equals(selfLeadId)).forEach(result -> completions.add(
                 new UnitStopPolicy.Completion(false, unitsByIntake.getOrDefault(result.getId(), Set.of()),
                         result.getCompletedAt(), false, null,
-                        UnitStopPolicy.ownerConfirmedAt(proofByRow.get(result.getId()), owner))));
-        List<String> otherLeadIds = onProperty.stream().map(InventoryIntake::getLeadId).filter(leadId -> !leadId.equals(self))
-                .distinct().sorted().toList();
+                        UnitStopPolicy.ownerConfirmedAt(proofByRow.get(result.getId()), ownerOrNull))));
         List<UnitStopPolicy.OtherLead> otherLeads = new ArrayList<>();
-        for (String leadId : otherLeadIds) {
-            List<IntakeSource.MarkedRevision> marks = sources.markedRevisions(leadId);
-            List<IntakeSuspension> ofLead = suspensions.findByLeadId(leadId);
+        for (String leadId : otherLeadIds(onProperty, selfLeadId)) {
+            List<IntakeSource.MarkedRevision> marks = marksByLead.getOrDefault(leadId, List.of());
+            List<IntakeSuspension> ofLead = suspensionsByLead.getOrDefault(leadId, List.of());
             List<InventoryIntake> results = onProperty.stream().filter(result -> result.getLeadId().equals(leadId)).toList();
             InventoryIntake latest = results.stream().max(Comparator.comparing(InventoryIntake::getCompletedAt)
                     .thenComparing(InventoryIntake::getId)).orElseThrow();
@@ -146,33 +226,29 @@ public class IntakeReadiness {
                 completions.add(new UnitStopPolicy.Completion(true, unitsByIntake.getOrDefault(result.getId(), Set.of()),
                         result.getCompletedAt(), mark.map(item -> IntakeEvaluator.reconciliationKind(item.kind())).orElse(false),
                         mark.map(IntakeSource.MarkedRevision::markedAt).orElse(null),
-                        UnitStopPolicy.ownerConfirmedAt(proofByRow.get(result.getId()), owner)));
+                        UnitStopPolicy.ownerConfirmedAt(proofByRow.get(result.getId()), ownerOrNull)));
             }
         }
-        boolean holdsAlone = owner != null
-                && inventory.currentOwnerIds(propertyId, IntakeCommandSupport.today(now)).equals(List.of(owner));
-        return new UnitStopPolicy.Facts(standing.eligible(), holdsAlone, disputes.ownerDisputed(propertyId, owner),
-                disputes.resultRuledOut(propertyId, self), otherLeads, completions);
+        return new UnitStopPolicy.Facts(ownerEligible, ownerHoldsAlone, ownerDisputed, resultRuledOut, otherLeads,
+                completions);
     }
 
-    private OwnerProof proofOf(InventoryIntake row) {
-        return row.getProofId() == null ? null : proofs.findById(row.getProofId()).orElse(null);
-    }
-
-    private static Set<String> suspendedUnits(List<IntakeSuspension> ofLead) {
-        return ofLead.stream().filter(IntakeSuspension::isActive).map(IntakeSuspension::getUnitIdOrNull)
-                .filter(Objects::nonNull).collect(Collectors.toSet());
-    }
-
-    private List<IntakeBlockView.ReadinessUnit> units(IntakeState state, InventoryIntake row, List<UnitMapping> mapped,
-                                                      UnitStopPolicy.Facts stops) {
-        Map<String, InventoryReadRepository.UnitFacts> units = inventory.units(mapped.stream().map(UnitMapping::unitId).toList())
-                .stream().collect(Collectors.toMap(InventoryReadRepository.UnitFacts::id, Function.identity()));
-        Set<String> restricted = suspendedUnits(state.suspensions());
+    /**
+     * The units of a result with their reasons: this lead's own unit suspension, then a difference of availability on a
+     * link, then the stops of brokerage-agreement BR-3 from another lead or the property.
+     *
+     * @param mapped    the mappings of the result whose units are answered
+     * @param unitsById the stored units, by id; a unit missing here has no code and no availability difference
+     */
+    static List<IntakeBlockView.ReadinessUnit> readinessUnits(InventoryIntake row, List<UnitMapping> mapped,
+                                                              Map<String, InventoryReadRepository.UnitFacts> unitsById,
+                                                              List<IntakeSuspension> leadSuspensions,
+                                                              UnitStopPolicy.Facts stops) {
+        Set<String> restricted = suspendedUnits(leadSuspensions);
         boolean link = row.getTarget() != null && row.getTarget().mode() == TargetMode.LINK;
         List<IntakeBlockView.ReadinessUnit> views = new ArrayList<>();
         for (UnitMapping mapping : mapped) {
-            InventoryReadRepository.UnitFacts unit = units.get(mapping.unitId());
+            InventoryReadRepository.UnitFacts unit = unitsById.get(mapping.unitId());
             List<String> reasons = new ArrayList<>();
             if (restricted.contains(mapping.unitId())) {
                 reasons.add(ReadinessReason.RESTRICTED.name());
@@ -186,6 +262,18 @@ public class IntakeReadiness {
                     List.copyOf(reasons)));
         }
         return List.copyOf(views);
+    }
+
+    /** The readiness of a result as the block and the published read show it. */
+    static IntakeBlockView.Readiness readiness(ReadinessPolicy.Result result, InventoryIntake row,
+                                               List<IntakeBlockView.ReadinessUnit> units) {
+        return new IntakeBlockView.Readiness(result.state().name(), result.reasons().stream().map(ReadinessReason::name).toList(),
+                row.getSourceChecklistId(), units, ReadinessPolicy.MISSING_FOR_BROKERAGE);
+    }
+
+    private static Set<String> suspendedUnits(List<IntakeSuspension> ofLead) {
+        return ofLead.stream().filter(IntakeSuspension::isActive).map(IntakeSuspension::getUnitIdOrNull)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
     }
 
     /** property-create intake spec 4.9: on a link nothing is written to the unit; a difference shows here. */

@@ -1,6 +1,7 @@
 package vn.sunvibe.property;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Timestamp;
@@ -23,6 +24,8 @@ import vn.sunvibe.property.core.application.usecase.intake.CompletedIntakeUseCas
 import vn.sunvibe.property.core.application.usecase.intake.CompletedIntakeView;
 import vn.sunvibe.property.core.application.usecase.intake.CompletedIntakeView.OwnershipHolding;
 import vn.sunvibe.property.core.application.usecase.intake.InventoryIntakeReadinessUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.PropertyOwnershipUseCase;
+import vn.sunvibe.property.core.application.usecase.intake.PropertyOwnershipView;
 import vn.sunvibe.property.core.domain.policy.intake.AddressNormalizer;
 import vn.sunvibe.property.core.domain.repository.InventoryReadRepository;
 import vn.sunvibe.property.core.domain.repository.InventoryReadRepository.HoldingFacts;
@@ -43,6 +46,9 @@ class CompletedIntakePostgresTest extends IntakeApiTestBase {
 
 	@Autowired
 	private InventoryReadRepository inventory;
+
+	@Autowired
+	private PropertyOwnershipUseCase ownership;
 
 	@Override
 	String phonePrefix() {
@@ -218,5 +224,69 @@ class CompletedIntakePostgresTest extends IntakeApiTestBase {
 						new HoldingFacts(d, "CO_OWNER", "UNVERIFIED"))
 				.sorted(Comparator.comparing(HoldingFacts::userId).thenComparing(HoldingFacts::relationType)).toList();
 		assertEquals(expected, inventory.holdingsOn(id, day));
+	}
+
+	// ==================== read 1b of E05-S6b: parity with latest (SR-5) ====================
+
+	@Test
+	void latest_basisIds_ofTheLatestCompletedRow_ownershipOfMatches() throws Exception {
+		Done done = done();
+
+		assertOwnershipOfMatches(done.leadId());
+	}
+
+	@Test
+	void latest_holdings_everyRowValidTodayOnly_ownershipOfMatches() throws Exception {
+		Done done = done();
+		String b = ids.generateId();
+		String c = ids.generateId();
+		String d = ids.generateId();
+		ownershipRow(done.propertyId(), b, "OWNER", LocalDate.of(2026, 1, 1), today().minusDays(1));
+		ownershipRow(done.propertyId(), c, "OWNER", today().plusDays(1), null);
+		ownershipRow(done.propertyId(), d, "AUTHORIZED_REPRESENTATIVE", LocalDate.of(2026, 1, 1), null);
+		jdbc.update("update property_ownerships set verification_state = 'REJECTED' where property_id = ? and user_id = ?",
+				done.propertyId(), done.owner().userId());
+
+		assertOwnershipOfMatches(done.leadId());
+	}
+
+	@Test
+	void ownershipOf_unknownMalformedRepeatedOrEmpty_leftOut() throws Exception {
+		Done done = done();
+
+		List<PropertyOwnershipView> answered = ownership.ownershipOf(Arrays.asList(done.propertyId(), done.propertyId(),
+				"01JUNKNOWN0000000000000000", "not-a-ulid", null));
+
+		assertEquals(List.of(done.propertyId()), answered.stream().map(PropertyOwnershipView::propertyId).toList());
+		assertEquals(List.of(), ownership.ownershipOf(List.of()));
+	}
+
+	@Test
+	void ownershipOf_toString_hidesUserIds() throws Exception {
+		Done done = done();
+
+		PropertyOwnershipView view = ownership.ownershipOf(List.of(done.propertyId())).getFirst();
+
+		assertTrue(view.toString().contains(done.propertyId()), view.toString());
+		assertFalse(view.toString().contains(done.owner().userId()), view.toString());
+		assertFalse(view.holdings().isEmpty());
+		for (PropertyOwnershipView.Holding holding : view.holdings()) {
+			assertFalse(view.toString().contains(holding.userId()), view.toString());
+			assertFalse(holding.toString().contains(holding.userId()), holding.toString());
+		}
+	}
+
+	/** Read 1b of the basis property answers the owner and holdings that latest answers, in the same test. */
+	private void assertOwnershipOfMatches(String leadId) {
+		CompletedIntakeView view = completedIntakes.latest(leadId).orElseThrow();
+
+		List<PropertyOwnershipView> answered = ownership.ownershipOf(List.of(view.propertyId()));
+
+		assertEquals(1, answered.size());
+		PropertyOwnershipView only = answered.getFirst();
+		assertEquals(view.propertyId(), only.propertyId());
+		assertEquals(view.ownerIdOrNull(), only.ownerIdOrNull());
+		assertEquals(view.holdings().stream().map(holding -> new PropertyOwnershipView.Holding(holding.userId(),
+				holding.relationType(), holding.verificationState())).toList(), only.holdings());
 	}
 }

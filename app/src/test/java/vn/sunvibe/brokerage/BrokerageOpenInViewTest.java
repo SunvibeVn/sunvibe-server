@@ -17,7 +17,11 @@ import org.springframework.web.servlet.handler.WebRequestHandlerInterceptorAdapt
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.util.ServletRequestPathUtils;
 
+import vn.sunvibe.brokerage.core.presentation.controller.BrokerageAgreementController;
 import vn.sunvibe.brokerage.core.presentation.controller.BrokerageEligibilityController;
+import vn.sunvibe.brokerage.core.presentation.controller.MeBrokerageAgreementController;
+
+import java.util.Map;
 
 /**
  * The brokerage eligibility read runs without open-in-view, while the intake block keeps it (E05-S1 spec S1-D8, EL-11;
@@ -44,6 +48,143 @@ class BrokerageOpenInViewTest {
 
 		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
 		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S2 spec S2-D13, AD-11: the agreement create and detail run without open-in-view. */
+	@Test
+	void handlerChain_agreementPaths_noOpenInView() throws Exception {
+		HandlerExecutionChain create = chain("POST", "/api/v1/staff/brokerage-agreements");
+		HandlerMethod createHandler = assertInstanceOf(HandlerMethod.class, create.getHandler());
+		assertEquals(BrokerageAgreementController.class, createHandler.getBeanType());
+		assertEquals("create", createHandler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(create));
+
+		HandlerExecutionChain detail = chain("GET", "/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000");
+		HandlerMethod detailHandler = assertInstanceOf(HandlerMethod.class, detail.getHandler());
+		assertEquals(BrokerageAgreementController.class, detailHandler.getBeanType());
+		assertEquals("detail", detailHandler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(detail));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S3 spec S3-D16, ED-13: the draft write and the survey reference run without open-in-view. */
+	@Test
+	void handlerChain_draftAndSurveyTermsPaths_noOpenInView() throws Exception {
+		HandlerExecutionChain draft = chain("PUT", "/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft");
+		HandlerMethod draftHandler = assertInstanceOf(HandlerMethod.class, draft.getHandler());
+		assertEquals(BrokerageAgreementController.class, draftHandler.getBeanType());
+		assertEquals("updateDraft", draftHandler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(draft));
+
+		HandlerExecutionChain surveyTerms = chain("GET",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/survey-terms");
+		HandlerMethod surveyHandler = assertInstanceOf(HandlerMethod.class, surveyTerms.getHandler());
+		assertEquals(BrokerageAgreementController.class, surveyHandler.getBeanType());
+		assertEquals("surveyTerms", surveyHandler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(surveyTerms));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S4 spec S4-D12, SD-10: the draft submission runs without open-in-view. */
+	@Test
+	void submission_noOpenInViewInterceptor() throws Exception {
+		HandlerExecutionChain submission = chain("POST",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft/submission");
+		HandlerMethod handler = assertInstanceOf(HandlerMethod.class, submission.getHandler());
+		assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+		assertEquals("submitDraft", handler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(submission));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S5 spec S5-D15, SD-1: the owner's three paths run without open-in-view. */
+	@Test
+	void ownerPaths_noOpenInViewInterceptor() throws Exception {
+		Map<String, String> handlers = Map.of(
+				"GET /api/v1/me/brokerage-agreements", "list",
+				"POST /api/v1/me/brokerage-agreements/confirmations", "confirm",
+				"POST /api/v1/me/brokerage-agreements/01JAGREEMENT00000000000000/rejection", "reject");
+		for (Map.Entry<String, String> expected : handlers.entrySet()) {
+			String[] request = expected.getKey().split(" ");
+			HandlerExecutionChain owner = chain(request[0], request[1]);
+			HandlerMethod handler = assertInstanceOf(HandlerMethod.class, owner.getHandler());
+			assertEquals(MeBrokerageAgreementController.class, handler.getBeanType());
+			assertEquals(expected.getValue(), handler.getMethod().getName());
+			assertEquals(0, openInViewInterceptors(owner), expected.getKey());
+		}
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S5 spec S5-D15, SD-1: the staff new draft is a POST on the draft pattern, already excluded. */
+	@Test
+	void newDraftPost_noOpenInViewInterceptor() throws Exception {
+		HandlerExecutionChain draft = chain("POST", "/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/draft");
+		HandlerMethod handler = assertInstanceOf(HandlerMethod.class, draft.getHandler());
+		assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+		assertEquals("openDraft", handler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(draft));
+	}
+
+	/** E05-S6 spec S6-D18, SD-1: the activation and its refusal run without open-in-view. */
+	@Test
+	void activationPaths_noOpenInViewInterceptor() throws Exception {
+		Map<String, String> handlers = Map.of(
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/activation", "activate",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/activation-refusal", "refuseActivation");
+		for (Map.Entry<String, String> expected : handlers.entrySet()) {
+			HandlerExecutionChain chain = chain("POST", expected.getKey());
+			HandlerMethod handler = assertInstanceOf(HandlerMethod.class, chain.getHandler());
+			assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+			assertEquals(expected.getValue(), handler.getMethod().getName());
+			assertEquals(0, openInViewInterceptors(chain), expected.getKey());
+		}
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S7 spec S7-D11, OV-1: the list is a GET on the collection path, already excluded, and runs without it. */
+	@Test
+	void listGet_noOpenInViewInterceptor() throws Exception {
+		HandlerExecutionChain list = chain("GET", "/api/v1/staff/brokerage-agreements");
+		HandlerMethod handler = assertInstanceOf(HandlerMethod.class, list.getHandler());
+		assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+		assertEquals("list", handler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(list));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	/** E05-S7 spec S7-D11, OV-1: the history of an agreement runs without open-in-view. */
+	@Test
+	void historyGet_noOpenInViewInterceptor() throws Exception {
+		HandlerExecutionChain history = chain("GET",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/history");
+		HandlerMethod handler = assertInstanceOf(HandlerMethod.class, history.getHandler());
+		assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+		assertEquals("history", handler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(history));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
+	private HandlerExecutionChain chain(String method, String path) throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest(method, path);
+		request.setRequestURI(path);
+		ServletRequestPathUtils.parseAndCache(request);
+		HandlerExecutionChain chain = handlerMapping.getHandler(request);
+		assertNotNull(chain, method + " " + path);
+		return chain;
 	}
 
 	private HandlerExecutionChain chain(String path) throws Exception {

@@ -43,7 +43,8 @@ public interface LeadIntakeUseCase {
 
     /**
      * The facts of these leads with no viewer, in one read each kind. Only for what no staff member asks directly: the owner
-     * commands, the manager's owner check and the duplicate signal, whose candidates a SALE's own view hides (property-create intake spec 4.10).
+     * commands, the manager's owner check and the duplicate signal, whose candidates a SALE's own view hides (property-create intake spec 4.10),
+     * and brokerage's group (ii) for listing's commands (brokerage-agreement E05-S6 spec S6-D10).
      * Only inside the caller's transaction; an unknown or malformed id is absent.
      */
     Map<String, LeadIntakeFacts> systemFacts(Collection<String> leadIds);

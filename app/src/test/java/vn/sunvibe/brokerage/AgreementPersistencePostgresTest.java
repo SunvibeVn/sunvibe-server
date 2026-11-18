@@ -1,0 +1,1514 @@
+package vn.sunvibe.brokerage;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import vn.sunvibe.PostgresContainerConfig;
+import vn.sunvibe.brokerage.core.domain.exception.AgreementExistsException;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationRefusalType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AdvertisingScope;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementAccessType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.ChargeUnit;
+import vn.sunvibe.brokerage.core.domain.model.agreement.DepositBasis;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndRefund;
+import vn.sunvibe.brokerage.core.domain.model.agreement.EarlyLeaseEndType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeBasis;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
+import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
+import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SignedDocument;
+import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
+import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
+import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
+import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
+import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository.UnfinishedAgreement;
+import vn.sunvibe.brokerage.core.domain.repository.AgreementTrailDomainRepository;
+import vn.sunvibe.shared.generator.id.IdGenerator;
+
+/**
+ * The agreement tables, their constraints and the repositories on a real PostgreSQL (E05-S2 spec 5.3, AD-4, AD-13;
+ * brokerage-agreement BR-1, BR-5, BR-6, BR-17). The annotations are those of {@link vn.sunvibe.FlywayPostgresMigrationTest},
+ * so both share one context. Needs Docker.
+ */
+@SpringBootTest(properties = {
+		"spring.flyway.enabled=true",
+		"spring.jpa.hibernate.ddl-auto=validate" })
+@ActiveProfiles("test")
+@Import(PostgresContainerConfig.class)
+class AgreementPersistencePostgresTest {
+
+	private static final String UNFINISHED_INDEX = "uq_brokerage_agreements_unfinished_unit";
+	private static final String PENDING_INDEX = "uq_brokerage_agreement_versions_pending";
+	private static final AgreementPeriod PERIOD =
+			new AgreementPeriod(LocalDate.parse("2027-01-01"), LocalDate.parse("2027-12-31"));
+
+	@Autowired
+	private AgreementDomainRepository agreements;
+
+	@Autowired
+	private AgreementTrailDomainRepository trail;
+
+	@Autowired
+	private JdbcTemplate jdbc;
+
+	@Autowired
+	private IdGenerator<String> ids;
+
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+
+	private final List<String> created = new ArrayList<>();
+
+	@AfterEach
+	void deleteRows() {
+		AgreementFixture.delete(jdbc, created);
+		created.clear();
+	}
+
+	@Test
+	void create_thenFindById_roundTripsToTheMicrosecond() {
+		Instant now = Instant.parse("2026-11-20T03:15:00.123456789Z").truncatedTo(ChronoUnit.MICROS);
+		BrokerageAgreement agreement = draft(ids.generateId(), "P101", now);
+
+		tx(() -> {
+			agreements.create(agreement);
+			return null;
+		});
+		BrokerageAgreement read = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+
+		assertEquals(agreement.getId(), read.getId());
+		assertEquals(agreement.getUnitId(), read.getUnitId());
+		assertEquals("P101", read.getUnitCodeOrNull());
+		assertEquals(agreement.getPropertyId(), read.getPropertyId());
+		assertEquals(TransactionType.LONG_TERM_RENT, read.getTransactionType());
+		assertEquals(agreement.getOwnerUserId(), read.getOwnerUserId());
+		assertEquals(agreement.getBasisLeadId(), read.getBasisLeadId());
+		assertEquals(agreement.getStatus(), read.getStatus());
+		assertEquals(agreement.getCreatedByUserId(), read.getCreatedByUserId());
+		assertEquals(now, read.getCreatedAt());
+		assertEquals(now, read.getUpdatedAt());
+		assertEquals(0L, read.getRowVersionOrNull());
+		assertEquals(1, read.getVersions().size());
+		AgreementVersion written = agreement.getVersions().get(0);
+		AgreementVersion version = read.getVersions().get(0);
+		assertEquals(written.getId(), version.getId());
+		assertEquals(1, version.getVersionNo());
+		assertEquals(written.getStatus(), version.getStatus());
+		assertEquals(PERIOD, version.getPeriod());
+		assertEquals(written.getBasisLeadId(), version.getBasisLeadId());
+		assertEquals(written.getBasisIntakeId(), version.getBasisIntakeId());
+		assertEquals(written.getCreatedByUserId(), version.getCreatedByUserId());
+		assertEquals(now, version.getCreatedAt());
+		assertEquals(now, version.getUpdatedAt());
+	}
+
+	@Test
+	void create_unitWithoutCode_keepsNullCode() {
+		BrokerageAgreement agreement = draft(ids.generateId(), null, now());
+
+		tx(() -> {
+			agreements.create(agreement);
+			return null;
+		});
+
+		assertNull(tx(() -> agreements.findById(agreement.getId())).orElseThrow().getUnitCodeOrNull());
+		assertNull(jdbc.queryForObject("SELECT unit_code FROM brokerage_agreements WHERE id = ?", String.class,
+				agreement.getId()));
+	}
+
+	@Test
+	void create_secondUnfinishedOnTheUnit_agreementExistsException() {
+		String unit = ids.generateId();
+		BrokerageAgreement first = draft(unit, "P101", now());
+		BrokerageAgreement second = draft(unit, "P101", now());
+		tx(() -> {
+			agreements.create(first);
+			return null;
+		});
+
+		assertThrows(AgreementExistsException.class, () -> tx(() -> {
+			agreements.create(second);
+			return null;
+		}));
+
+		assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM brokerage_agreements WHERE unit_id = ?",
+				Integer.class, unit));
+		assertEquals(1, jdbc.queryForObject("SELECT count(*) FROM brokerage_agreement_versions v"
+				+ " JOIN brokerage_agreements a ON a.id = v.agreement_id WHERE a.unit_id = ?", Integer.class, unit));
+		assertEquals(0, AgreementFixture.rows(jdbc, "brokerage_agreements", second.getId()));
+	}
+
+	@Test
+	void unfinishedIndex_finalStatesFreeTheSlot() {
+		Map<String, String> unfinished = Map.of("DRAFTING", "DRAFT", "AWAITING_CONFIRMATION", "AWAITING_OWNER",
+				"ACTIVE", "EFFECTIVE", "SUSPENDED", "EFFECTIVE");
+		for (Map.Entry<String, String> state : unfinished.entrySet()) {
+			String unit = ids.generateId();
+			created.add(AgreementFixture.insert(jdbc, ids, unit, ids.generateId(), state.getKey(), state.getValue()));
+
+			DataIntegrityViolationException refused = assertThrows(DataIntegrityViolationException.class,
+					() -> AgreementFixture.insert(jdbc, ids, unit, ids.generateId(), "DRAFTING", "DRAFT"),
+					state.getKey());
+			assertTrue(refused.getMessage().contains(UNFINISHED_INDEX), refused.getMessage());
+		}
+		for (String finalState : List.of("EXPIRED", "TERMINATED", "CANCELLED")) {
+			String unit = ids.generateId();
+			created.add(AgreementFixture.insert(jdbc, ids, unit, ids.generateId(), finalState, "CANCELLED"));
+
+			created.add(assertDoesNotThrow(
+					() -> AgreementFixture.insert(jdbc, ids, unit, ids.generateId(), "DRAFTING", "DRAFT"), finalState));
+		}
+	}
+
+	@Test
+	void pendingIndex_lapsedEffectiveCancelledFreeTheSlot() {
+		for (String pending : List.of("DRAFT", "AWAITING_OWNER", "OWNER_CONFIRMED", "ACTIVATED")) {
+			String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+					pending);
+			created.add(agreementId);
+
+			DataIntegrityViolationException refused = assertThrows(DataIntegrityViolationException.class,
+					() -> insertVersion(agreementId, 2, "DRAFT", "2027-01-01", "2027-12-31"), pending);
+			assertTrue(refused.getMessage().contains(PENDING_INDEX), refused.getMessage());
+		}
+		for (String done : List.of("LAPSED", "EFFECTIVE", "CANCELLED", "SUPERSEDED")) {
+			String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "ACTIVE", done);
+			created.add(agreementId);
+
+			assertDoesNotThrow(() -> insertVersion(agreementId, 2, "DRAFT", "2027-01-01", "2027-12-31"), done);
+		}
+	}
+
+	@Test
+	void checks_refuseUnknownCodesAndPeriods() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "CANCELLED",
+				"CANCELLED");
+		created.add(agreementId);
+
+		assertRefused("ck_brokerage_agreements_status", () -> insertAgreement(ids.generateId(), "UNKNOWN",
+				"LONG_TERM_RENT"));
+		assertRefused("ck_brokerage_agreements_transaction_type", () -> insertAgreement(ids.generateId(), "DRAFTING",
+				"SALE"));
+		assertRefused("ck_brokerage_agreement_versions_status",
+				() -> insertVersion(agreementId, 2, "UNKNOWN", "2027-01-01", "2027-12-31"));
+		assertRefused("ck_brokerage_agreement_versions_number",
+				() -> insertVersion(agreementId, 0, "CANCELLED", "2027-01-01", "2027-12-31"));
+		assertRefused("ck_brokerage_agreement_versions_period",
+				() -> insertVersion(agreementId, 2, "CANCELLED", "2027-01-02", "2027-01-01"));
+	}
+
+	@Test
+	void periodCheck_twelveMonthBoundaries_asPlusMonths() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "CANCELLED",
+				"CANCELLED");
+		created.add(agreementId);
+
+		assertRefused("ck_brokerage_agreement_versions_period",
+				() -> insertVersion(agreementId, 2, "SUPERSEDED", "2028-02-29", "2029-03-01"));
+		assertDoesNotThrow(() -> insertVersion(agreementId, 2, "SUPERSEDED", "2028-02-29", "2029-02-28"));
+		assertDoesNotThrow(() -> insertVersion(agreementId, 3, "SUPERSEDED", "2027-01-01", "2028-01-01"));
+		assertRefused("ck_brokerage_agreement_versions_period",
+				() -> insertVersion(agreementId, 4, "SUPERSEDED", "2027-01-01", "2028-01-02"));
+	}
+
+	@Test
+	void unfinishedOf_onlyUnfinishedOfTheType() {
+		String u1 = ids.generateId();
+		String u2 = ids.generateId();
+		String u3 = ids.generateId();
+		String u4 = ids.generateId();
+		String l1 = ids.generateId();
+		String l3 = ids.generateId();
+		String id1 = AgreementFixture.insert(jdbc, ids, u1, l1, "DRAFTING", "DRAFT");
+		String id2 = AgreementFixture.insert(jdbc, ids, u2, ids.generateId(), "CANCELLED", "CANCELLED");
+		String id3 = AgreementFixture.insert(jdbc, ids, u3, l3, "ACTIVE", "EFFECTIVE");
+		created.addAll(List.of(id1, id2, id3));
+
+		List<UnfinishedAgreement> found = tx(() -> agreements.unfinishedOf(List.of(u1, u2, u3, u4),
+				TransactionType.LONG_TERM_RENT));
+
+		assertEquals(Set.of(new UnfinishedAgreement(id1, u1, l1), new UnfinishedAgreement(id3, u3, l3)),
+				Set.copyOf(found));
+		assertEquals(2, found.size());
+		assertEquals(List.of(), tx(() -> agreements.unfinishedOf(List.of(), TransactionType.LONG_TERM_RENT)));
+	}
+
+	@Test
+	void trail_recordsEventAndAccessRows() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+				"DRAFT");
+		created.add(agreementId);
+		Instant at = now();
+
+		tx(() -> {
+			trail.recordEvent(agreementId, 1, AgreementEventType.CREATED, "01JACTOR0000000000000000AA", at);
+			trail.recordAccess("01JUSER00000000000000000AA", agreementId, AgreementAccessType.DETAIL_READ, at);
+			return null;
+		});
+
+		List<Map<String, Object>> events = jdbc.queryForList("SELECT version_no, event_type, actor_user_id, occurred_at"
+				+ " FROM brokerage_agreement_events WHERE agreement_id = ?", agreementId);
+		assertEquals(1, events.size());
+		assertEquals(1, events.get(0).get("version_no"));
+		assertEquals("CREATED", events.get(0).get("event_type"));
+		assertEquals("01JACTOR0000000000000000AA", events.get(0).get("actor_user_id"));
+		assertEquals(at, ((Timestamp) events.get(0).get("occurred_at")).toInstant());
+		List<Map<String, Object>> accesses = jdbc.queryForList("SELECT user_id, action, accessed_at"
+				+ " FROM brokerage_agreement_access_logs WHERE agreement_id = ?", agreementId);
+		assertEquals(1, accesses.size());
+		assertEquals("01JUSER00000000000000000AA", accesses.get(0).get("user_id"));
+		assertEquals("DETAIL_READ", accesses.get(0).get("action"));
+		assertEquals(at, ((Timestamp) accesses.get(0).get("accessed_at")).toInstant());
+	}
+
+	// ==================== E05-S3: the version content, its fee rows and the guarded update (ED-15) ====================
+
+	@Test
+	void update_contentAndThreeFees_roundTripsToTheMicrosecond() {
+		Instant created = Instant.parse("2026-11-20T03:15:00.123456Z");
+		Instant edited = Instant.parse("2026-11-21T04:00:00.654321Z");
+		BrokerageAgreement agreement = draft(ids.generateId(), "P101", created);
+		tx(() -> {
+			agreements.create(agreement);
+			return null;
+		});
+		PhotoConsent consent = new PhotoConsent(true, true);
+		VersionTerms terms = new VersionTerms(8_000_000L, new TermsDeposit(DepositBasis.MONTHS, 2, null), 12, 1,
+				List.of(new MandatoryFee("Electricity", FeeBasis.AMOUNT, 3_500L, ChargeUnit.PER_KWH),
+						new MandatoryFee("Water", FeeBasis.PROVIDER_TARIFF, null, null),
+						new MandatoryFee("Internet", FeeBasis.INCLUDED, null, null)));
+		AgreementPeriod period = new AgreementPeriod(LocalDate.parse("2027-02-01"), LocalDate.parse("2028-01-31"));
+
+		tx(() -> {
+			BrokerageAgreement read = agreements.findById(agreement.getId()).orElseThrow();
+			agreements.update(read.editDraft(period, consent, terms, BrokerageFee.NONE, edited));
+			return null;
+		});
+		BrokerageAgreement read = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+
+		assertEquals(agreement.getId(), read.getId());
+		assertEquals(agreement.getUnitId(), read.getUnitId());
+		assertEquals("P101", read.getUnitCodeOrNull());
+		assertEquals(agreement.getPropertyId(), read.getPropertyId());
+		assertEquals(agreement.getOwnerUserId(), read.getOwnerUserId());
+		assertEquals(agreement.getBasisLeadId(), read.getBasisLeadId());
+		assertEquals(agreement.getStatus(), read.getStatus());
+		assertEquals(agreement.getCreatedByUserId(), read.getCreatedByUserId());
+		assertEquals(created, read.getCreatedAt());
+		assertEquals(edited, read.getUpdatedAt());
+		assertEquals(1L, read.getRowVersionOrNull());
+		assertEquals(1, read.getVersions().size());
+		AgreementVersion written = agreement.getVersions().get(0);
+		AgreementVersion version = read.getVersions().get(0);
+		assertEquals(written.getId(), version.getId());
+		assertEquals(1, version.getVersionNo());
+		assertEquals(written.getStatus(), version.getStatus());
+		assertEquals(written.getBasisLeadId(), version.getBasisLeadId());
+		assertEquals(written.getBasisIntakeId(), version.getBasisIntakeId());
+		assertEquals(written.getCreatedByUserId(), version.getCreatedByUserId());
+		assertEquals(created, version.getCreatedAt());
+		assertEquals(edited, version.getUpdatedAt());
+		assertEquals(period, version.getPeriod());
+		assertEquals(consent, version.getPhotoConsent());
+		assertEquals(terms, version.getTerms());
+		assertEquals(List.of("Electricity", "Water", "Internet"),
+				version.getTerms().mandatoryFeesOrNull().stream().map(MandatoryFee::name).toList());
+		assertEquals(1L, jdbc.queryForObject("SELECT version FROM brokerage_agreements WHERE id = ?", Long.class,
+				agreement.getId()));
+		assertEquals(List.of("1|Electricity|AMOUNT|3500|PER_KWH", "2|Water|PROVIDER_TARIFF|null|null",
+				"3|Internet|INCLUDED|null|null"), feeRows(written.getId()));
+	}
+
+	/** testing.md: the save of a loaded aggregate, its child rows seeded first. */
+	@Test
+	void update_versionWithFeeRows_replacesThemKeepsTheRest() {
+		BrokerageAgreement agreement = draft(ids.generateId(), "P101", now().minusSeconds(60));
+		BrokerageAgreement other = draft(ids.generateId(), "P102", now().minusSeconds(60));
+		tx(() -> {
+			agreements.create(agreement);
+			agreements.create(other);
+			return null;
+		});
+		String versionId = agreement.getVersions().get(0).getId();
+		String otherVersionId = other.getVersions().get(0).getId();
+		for (String id : List.of(versionId, otherVersionId)) {
+			jdbc.update("UPDATE brokerage_agreement_versions SET mandatory_fees_stated = TRUE WHERE id = ?", id);
+			insertFee(id, 1, "Electricity", "AMOUNT", 3_500L, "PER_KWH");
+			insertFee(id, 2, "Water", "PROVIDER_TARIFF", null, null);
+			insertFee(id, 3, "Internet", "INCLUDED", null, null);
+		}
+		Map<String, Object> agreementBefore = agreementRow(agreement.getId());
+		Map<String, Object> versionBefore = versionIdentity(versionId);
+		Map<String, Object> otherBefore = agreementRow(other.getId());
+		List<String> otherFees = feeRows(otherVersionId);
+
+		edit(agreement.getId(), List.of(new MandatoryFee("Power", FeeBasis.AMOUNT, 4_000L, ChargeUnit.PER_KWH),
+				new MandatoryFee("Water", FeeBasis.PROVIDER_TARIFF, null, null)));
+		assertEquals(List.of("1|Power|AMOUNT|4000|PER_KWH", "2|Water|PROVIDER_TARIFF|null|null"), feeRows(versionId));
+
+		edit(agreement.getId(), List.of(new MandatoryFee("Power", FeeBasis.INCLUDED, null, null),
+				new MandatoryFee("Water", FeeBasis.AMOUNT, 15_000L, ChargeUnit.PER_M3),
+				new MandatoryFee("Parking", FeeBasis.AMOUNT, 100_000L, ChargeUnit.PER_VEHICLE_PER_MONTH),
+				new MandatoryFee("Cleaning", FeeBasis.AMOUNT, 50_000L, ChargeUnit.PER_PERSON_PER_MONTH)));
+		assertEquals(List.of("1|Power|INCLUDED|null|null", "2|Water|AMOUNT|15000|PER_M3",
+				"3|Parking|AMOUNT|100000|PER_VEHICLE_PER_MONTH", "4|Cleaning|AMOUNT|50000|PER_PERSON_PER_MONTH"),
+				feeRows(versionId));
+		assertTrue(feesStated(versionId));
+
+		edit(agreement.getId(), null);
+		assertEquals(List.of(), feeRows(versionId));
+		assertEquals(false, feesStated(versionId));
+		assertNull(tx(() -> agreements.findById(agreement.getId())).orElseThrow().getVersions().get(0).getTerms()
+				.mandatoryFeesOrNull());
+
+		edit(agreement.getId(), List.of());
+		assertEquals(List.of(), feeRows(versionId));
+		assertTrue(feesStated(versionId));
+		assertEquals(List.of(), tx(() -> agreements.findById(agreement.getId())).orElseThrow().getVersions().get(0)
+				.getTerms().mandatoryFeesOrNull());
+
+		Map<String, Object> agreementAfter = agreementRow(agreement.getId());
+		assertEquals(4L, agreementAfter.remove("version"));
+		agreementAfter.remove("updated_at");
+		agreementBefore.remove("version");
+		agreementBefore.remove("updated_at");
+		assertEquals(agreementBefore, agreementAfter);
+		assertEquals(versionBefore, versionIdentity(versionId));
+		assertEquals(otherBefore, agreementRow(other.getId()));
+		assertEquals(otherFees, feeRows(otherVersionId));
+	}
+
+	@Test
+	void update_staleRowVersion_concurrencyFailure() {
+		BrokerageAgreement agreement = draft(ids.generateId(), "P101", now().minusSeconds(60));
+		tx(() -> {
+			agreements.create(agreement);
+			return null;
+		});
+		BrokerageAgreement first = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+		BrokerageAgreement second = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+		VersionTerms firstTerms = new VersionTerms(8_000_000L, null, null, null, null);
+		VersionTerms secondTerms = new VersionTerms(9_000_000L, null, null, null, null);
+
+		tx(() -> {
+			agreements.update(first.editDraft(PERIOD, PhotoConsent.NONE, firstTerms, BrokerageFee.NONE, now()));
+			return null;
+		});
+
+		assertThrows(ConcurrencyFailureException.class, () -> tx(() -> {
+			agreements.update(second.editDraft(PERIOD, PhotoConsent.NONE, secondTerms, BrokerageFee.NONE, now()));
+			return null;
+		}));
+		BrokerageAgreement stored = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+		assertEquals(firstTerms, stored.getVersions().get(0).getTerms());
+		assertEquals(1L, stored.getRowVersionOrNull());
+	}
+
+	@Test
+	void contentChecks_refuseValuesOutsideTheRules() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+				"DRAFT");
+		created.add(agreementId);
+		String versionId = jdbc.queryForObject("SELECT id FROM brokerage_agreement_versions WHERE agreement_id = ?",
+				String.class, agreementId);
+
+		assertRefused("ck_brokerage_agreement_versions_exterior_photo", () -> setVersion(versionId,
+				"photo_consent = NULL, exterior_photo_consent = TRUE"));
+		assertRefused("ck_brokerage_agreement_versions_exterior_photo", () -> setVersion(versionId,
+				"photo_consent = FALSE, exterior_photo_consent = TRUE"));
+		assertRefused("ck_brokerage_agreement_versions_monthly_rent", () -> setVersion(versionId,
+				"monthly_rent_amount = 0"));
+		assertRefused("ck_brokerage_agreement_versions_deposit", () -> setVersion(versionId,
+				"deposit_basis = 'MONTHS', deposit_months = 2, deposit_amount = 1000"));
+		assertRefused("ck_brokerage_agreement_versions_deposit", () -> setVersion(versionId,
+				"deposit_basis = 'MONTHS', deposit_months = 13"));
+		assertRefused("ck_brokerage_agreement_versions_deposit", () -> setVersion(versionId,
+				"deposit_basis = 'AMOUNT', deposit_months = 2, deposit_amount = 1000"));
+		assertRefused("ck_brokerage_agreement_versions_deposit", () -> setVersion(versionId,
+				"deposit_basis = 'AMOUNT', deposit_amount = -1"));
+		assertRefused("ck_brokerage_agreement_versions_deposit", () -> setVersion(versionId,
+				"deposit_basis = 'MONTHS'"));
+		assertRefused("ck_brokerage_agreement_versions_deposit", () -> setVersion(versionId,
+				"deposit_basis = 'AMOUNT'"));
+		assertRefused("ck_brokerage_agreement_versions_deposit", () -> setVersion(versionId, "deposit_months = 2"));
+		assertRefused("ck_brokerage_agreement_versions_deposit", () -> setVersion(versionId,
+				"deposit_basis = 'WEEKS', deposit_months = 2"));
+		assertRefused("ck_brokerage_agreement_versions_minimum_term", () -> setVersion(versionId,
+				"minimum_term_months = 121"));
+		assertRefused("ck_brokerage_agreement_versions_minimum_term", () -> setVersion(versionId,
+				"minimum_term_months = 0"));
+		assertRefused("ck_brokerage_agreement_versions_payment_period", () -> setVersion(versionId,
+				"payment_period_months = 13"));
+		assertRefused("ck_brokerage_agreement_versions_payment_period", () -> setVersion(versionId,
+				"payment_period_months = 0"));
+		assertRefused("ck_brokerage_agreement_version_fees_amount",
+				() -> insertFee(versionId, 1, "Electricity", "AMOUNT", 3_500L, null));
+		assertRefused("ck_brokerage_agreement_version_fees_amount",
+				() -> insertFee(versionId, 1, "Electricity", "AMOUNT", 0L, "PER_KWH"));
+		assertRefused("ck_brokerage_agreement_version_fees_amount",
+				() -> insertFee(versionId, 1, "Electricity", "AMOUNT", null, "PER_KWH"));
+		assertRefused("ck_brokerage_agreement_version_fees_amount",
+				() -> insertFee(versionId, 1, "Water", "INCLUDED", 3_500L, null));
+		assertRefused("ck_brokerage_agreement_version_fees_amount",
+				() -> insertFee(versionId, 1, "Water", "PROVIDER_TARIFF", null, "PER_M3"));
+		assertRefused("ck_brokerage_agreement_version_fees_number",
+				() -> insertFee(versionId, 21, "Water", "INCLUDED", null, null));
+		assertRefused("ck_brokerage_agreement_version_fees_number",
+				() -> insertFee(versionId, 0, "Water", "INCLUDED", null, null));
+		assertRefused("ck_brokerage_agreement_version_fees_basis",
+				() -> insertFee(versionId, 1, "Parking", "NOT_OFFERED", null, null));
+		assertRefused("ck_brokerage_agreement_version_fees_charge_unit",
+				() -> insertFee(versionId, 1, "Water", "AMOUNT", 3_500L, "PER_WEEK"));
+		assertDoesNotThrow(() -> setVersion(versionId, "photo_consent = TRUE, exterior_photo_consent = TRUE,"
+				+ " monthly_rent_amount = 999999999999999, deposit_basis = 'AMOUNT', deposit_amount = 0,"
+				+ " minimum_term_months = 120, payment_period_months = 12"));
+		assertDoesNotThrow(() -> insertFee(versionId, 20, "Water", "AMOUNT", 999_999_999_999_999L, "ONE_OFF"));
+	}
+
+	@Test
+	void versionDelete_cascadesToItsFees() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+				"DRAFT");
+		created.add(agreementId);
+		String versionId = jdbc.queryForObject("SELECT id FROM brokerage_agreement_versions WHERE agreement_id = ?",
+				String.class, agreementId);
+		insertFee(versionId, 1, "Water", "INCLUDED", null, null);
+		insertFee(versionId, 2, "Internet", "PROVIDER_TARIFF", null, null);
+
+		jdbc.update("DELETE FROM brokerage_agreement_versions WHERE id = ?", versionId);
+
+		assertEquals(List.of(), feeRows(versionId));
+	}
+
+	/** spec S3-D9: a version stored before E05-S3 (E05-S2's drafts on staging) reads as nothing entered yet. */
+	@Test
+	void storedRowWithoutContent_readsNothingEntered() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+				"DRAFT");
+		created.add(agreementId);
+
+		AgreementVersion version = tx(() -> agreements.findById(agreementId)).orElseThrow().getVersions().get(0);
+
+		assertEquals(PhotoConsent.NONE, version.getPhotoConsent());
+		assertEquals(VersionTerms.NONE, version.getTerms());
+		assertEquals(AdvertisingScope.SUNVIBE_CHANNELS, version.getAdvertisingScope());
+	}
+
+	// ==================== E05-S4: the fee policy, its tiers and the sending time (SD-12) ====================
+
+	private static final BrokerageFee FEE_POLICY = new BrokerageFee(
+			FeeFormula.of(FeeFormulaType.PERCENT_OF_RENT, List.of(new FeeTier(1, 50), new FeeTier(12, 100)), null, null),
+			7, FeeFormula.of(FeeFormulaType.PERCENT_OF_RENT, List.of(new FeeTier(1, 30)), null, null),
+			new EarlyLeaseEndRefund(EarlyLeaseEndType.PARTIAL_REFUND, 50, 3), 90);
+
+	@Test
+	void feeChecks_refuseOutOfRuleRows() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+				"DRAFT");
+		created.add(agreementId);
+		String versionId = jdbc.queryForObject("SELECT id FROM brokerage_agreement_versions WHERE agreement_id = ?",
+				String.class, agreementId);
+
+		String formula = "ck_brokerage_agreement_versions_fee_formula";
+		assertRefused(formula, () -> setVersion(versionId,
+				"fee_formula_type = 'PERCENT_OF_RENT', fee_fixed_amount = 1000"));
+		assertRefused(formula, () -> setVersion(versionId,
+				"fee_formula_type = 'PERCENT_OF_RENT', fee_free_reason = 'Reason'"));
+		assertRefused(formula, () -> setVersion(versionId, "fee_formula_type = 'FIXED_AMOUNT', fee_fixed_amount = 0"));
+		assertRefused(formula, () -> setVersion(versionId, "fee_formula_type = 'FIXED_AMOUNT'"));
+		assertRefused(formula, () -> setVersion(versionId,
+				"fee_formula_type = 'FIXED_AMOUNT', fee_fixed_amount = 1000, fee_free_reason = 'Reason'"));
+		assertRefused(formula, () -> setVersion(versionId, "fee_formula_type = 'FREE'"));
+		assertRefused(formula, () -> setVersion(versionId,
+				"fee_formula_type = 'FREE', fee_free_reason = 'Reason', fee_fixed_amount = 1000"));
+		assertRefused(formula, () -> setVersion(versionId, "fee_formula_type = 'NOT_CHARGED'"));
+		assertRefused(formula, () -> setVersion(versionId, "fee_formula_type = 'MONTHLY'"));
+		assertRefused(formula, () -> setVersion(versionId, "fee_fixed_amount = 1000"));
+		assertRefused(formula, () -> setVersion(versionId, "fee_free_reason = 'Reason'"));
+		assertRefused("ck_brokerage_agreement_versions_fee_due_days", () -> setVersion(versionId, "fee_due_days = 31"));
+		assertRefused("ck_brokerage_agreement_versions_fee_due_days", () -> setVersion(versionId, "fee_due_days = -1"));
+		String renewal = "ck_brokerage_agreement_versions_renewal_fee";
+		assertRefused(renewal, () -> setVersion(versionId, "renewal_fee_type = 'FIXED_AMOUNT'"));
+		assertRefused(renewal, () -> setVersion(versionId,
+				"renewal_fee_type = 'FIXED_AMOUNT', renewal_fee_fixed_amount = 0"));
+		assertRefused(renewal, () -> setVersion(versionId,
+				"renewal_fee_type = 'NOT_CHARGED', renewal_fee_fixed_amount = 1000"));
+		assertRefused(renewal, () -> setVersion(versionId,
+				"renewal_fee_type = 'PERCENT_OF_RENT', renewal_fee_fixed_amount = 1000"));
+		assertRefused(renewal, () -> setVersion(versionId, "renewal_fee_type = 'FREE'"));
+		assertRefused(renewal, () -> setVersion(versionId, "renewal_fee_fixed_amount = 1000"));
+		String early = "ck_brokerage_agreement_versions_early_lease_end";
+		assertRefused(early, () -> setVersion(versionId,
+				"early_lease_end_type = 'PARTIAL_REFUND', early_lease_end_refund_percent = 50"));
+		assertRefused(early, () -> setVersion(versionId,
+				"early_lease_end_type = 'PARTIAL_REFUND', early_lease_end_within_months = 3"));
+		assertRefused(early, () -> setVersion(versionId, "early_lease_end_type = 'PARTIAL_REFUND',"
+				+ " early_lease_end_refund_percent = 101, early_lease_end_within_months = 3"));
+		assertRefused(early, () -> setVersion(versionId, "early_lease_end_type = 'PARTIAL_REFUND',"
+				+ " early_lease_end_refund_percent = 50, early_lease_end_within_months = 13"));
+		assertRefused(early, () -> setVersion(versionId,
+				"early_lease_end_type = 'NO_REFUND', early_lease_end_refund_percent = 50"));
+		assertRefused(early, () -> setVersion(versionId, "early_lease_end_within_months = 3"));
+		assertRefused("ck_brokerage_agreement_versions_protection_days",
+				() -> setVersion(versionId, "protection_days = 181"));
+		assertRefused("ck_brokerage_agreement_versions_protection_days",
+				() -> setVersion(versionId, "protection_days = -1"));
+		assertRefused("ck_brokerage_agreement_version_fee_tiers_percent", () -> insertTier(versionId, false, 1, 1, 0));
+		assertRefused("ck_brokerage_agreement_version_fee_tiers_percent", () -> insertTier(versionId, false, 1, 1, 301));
+		assertRefused("ck_brokerage_agreement_version_fee_tiers_from_months",
+				() -> insertTier(versionId, false, 1, 0, 50));
+		assertRefused("ck_brokerage_agreement_version_fee_tiers_from_months",
+				() -> insertTier(versionId, false, 1, 121, 50));
+		assertRefused("ck_brokerage_agreement_version_fee_tiers_number", () -> insertTier(versionId, false, 0, 1, 50));
+		assertRefused("ck_brokerage_agreement_version_fee_tiers_number", () -> insertTier(versionId, true, 6, 1, 50));
+		assertRefused("ck_brokerage_agreement_versions_sent", () -> setVersion(versionId, "sent_at = now()"));
+
+		assertDoesNotThrow(() -> setVersion(versionId, "fee_formula_type = 'FIXED_AMOUNT',"
+				+ " fee_fixed_amount = 999999999999999, fee_due_days = 0, renewal_fee_type = 'FIXED_AMOUNT',"
+				+ " renewal_fee_fixed_amount = 1, early_lease_end_type = 'PARTIAL_REFUND',"
+				+ " early_lease_end_refund_percent = 100, early_lease_end_within_months = 12, protection_days = 180"));
+		assertDoesNotThrow(() -> setVersion(versionId, "fee_formula_type = 'FREE', fee_fixed_amount = NULL,"
+				+ " fee_free_reason = 'First unit', fee_due_days = 30, renewal_fee_type = 'NOT_CHARGED',"
+				+ " renewal_fee_fixed_amount = NULL, early_lease_end_type = 'NO_REFUND',"
+				+ " early_lease_end_refund_percent = NULL, early_lease_end_within_months = NULL, protection_days = 0"));
+		assertDoesNotThrow(() -> insertTier(versionId, false, 5, 120, 300));
+		assertDoesNotThrow(() -> insertTier(versionId, true, 1, 1, 1));
+		// no unique index over the starts (spec S4-D4): the aggregate holds their order
+		assertDoesNotThrow(() -> insertTier(versionId, false, 4, 120, 10));
+		assertDoesNotThrow(() -> setVersion(versionId, "status = 'AWAITING_OWNER', sent_at = now()"));
+	}
+
+	@Test
+	void feeTiers_deletedWithTheirVersion() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+				"DRAFT");
+		created.add(agreementId);
+		String versionId = jdbc.queryForObject("SELECT id FROM brokerage_agreement_versions WHERE agreement_id = ?",
+				String.class, agreementId);
+		insertTier(versionId, false, 1, 1, 50);
+		insertTier(versionId, false, 2, 12, 100);
+		insertTier(versionId, true, 1, 1, 30);
+
+		jdbc.update("DELETE FROM brokerage_agreement_versions WHERE id = ?", versionId);
+
+		assertEquals(List.of(), tierRows(versionId));
+	}
+
+	@Test
+	void update_feePolicyWithTiers_readsBackEqual() {
+		Instant created = Instant.parse("2026-11-20T03:15:00.123456Z");
+		Instant edited = Instant.parse("2026-11-21T04:00:00.654321Z");
+		Instant sent = Instant.now().truncatedTo(ChronoUnit.MICROS).minus(1, ChronoUnit.HOURS);
+		BrokerageAgreement agreement = draft(ids.generateId(), "P101", created);
+		tx(() -> {
+			agreements.create(agreement);
+			return null;
+		});
+		VersionTerms terms = new VersionTerms(8_000_000L, new TermsDeposit(DepositBasis.MONTHS, 2, null), 12, 1, List.of(
+				new MandatoryFee("Electricity", FeeBasis.AMOUNT, 3_500L, ChargeUnit.PER_KWH)));
+		PhotoConsent consent = new PhotoConsent(true, false);
+
+		tx(() -> {
+			BrokerageAgreement read = agreements.findById(agreement.getId()).orElseThrow();
+			agreements.update(read.editDraft(PERIOD, consent, terms, FEE_POLICY, edited));
+			return null;
+		});
+		AgreementVersion version = tx(() -> agreements.findById(agreement.getId())).orElseThrow().getVersions().get(0);
+		String versionId = version.getId();
+
+		assertEquals(FEE_POLICY, version.getFee());
+		assertEquals(terms, version.getTerms());
+		assertEquals(edited, version.getUpdatedAt());
+		assertNull(version.getSentAtOrNull());
+		assertEquals(List.of("false|1|1|50", "false|2|12|100", "true|1|1|30"), tierRows(versionId));
+		Map<String, Object> row = jdbc.queryForMap("SELECT * FROM brokerage_agreement_versions WHERE id = ?", versionId);
+		assertEquals("PERCENT_OF_RENT", row.get("fee_formula_type"));
+		assertNull(row.get("fee_fixed_amount"));
+		assertNull(row.get("fee_free_reason"));
+		assertEquals(7, row.get("fee_due_days"));
+		assertEquals("PERCENT_OF_RENT", row.get("renewal_fee_type"));
+		assertNull(row.get("renewal_fee_fixed_amount"));
+		assertEquals("PARTIAL_REFUND", row.get("early_lease_end_type"));
+		assertEquals(50, row.get("early_lease_end_refund_percent"));
+		assertEquals(3, row.get("early_lease_end_within_months"));
+		assertEquals(90, row.get("protection_days"));
+		assertNull(row.get("sent_at"));
+
+		BrokerageFee other = new BrokerageFee(FeeFormula.of(FeeFormulaType.FREE, null, null, "First unit"), 0,
+				FeeFormula.of(FeeFormulaType.FIXED_AMOUNT, null, 999_999_999_999_999L, null),
+				new EarlyLeaseEndRefund(EarlyLeaseEndType.NO_REFUND, null, null), 0);
+		editFee(agreement.getId(), other);
+		assertEquals(other, tx(() -> agreements.findById(agreement.getId())).orElseThrow().getVersions().get(0).getFee());
+		assertEquals(List.of(), tierRows(versionId));
+
+		editFee(agreement.getId(), FEE_POLICY);
+		tx(() -> {
+			agreements.update(agreements.findById(agreement.getId()).orElseThrow().sendDraft(sent));
+			return null;
+		});
+		BrokerageAgreement read = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+		AgreementVersion sentVersion = read.getVersions().get(0);
+
+		assertEquals(AgreementStatus.AWAITING_CONFIRMATION, read.getStatus());
+		assertEquals(sent, read.getUpdatedAt());
+		assertEquals(VersionStatus.AWAITING_OWNER, sentVersion.getStatus());
+		assertEquals(sent, sentVersion.getSentAtOrNull());
+		assertEquals(sent, sentVersion.getUpdatedAt());
+		assertEquals(FEE_POLICY, sentVersion.getFee());
+		assertEquals(terms, sentVersion.getTerms());
+		assertEquals(consent, sentVersion.getPhotoConsent());
+		assertEquals(List.of("false|1|1|50", "false|2|12|100", "true|1|1|30"), tierRows(versionId));
+		assertEquals(List.of("1|Electricity|AMOUNT|3500|PER_KWH"), feeRows(versionId));
+		assertEquals(sent, jdbc.queryForObject("SELECT sent_at FROM brokerage_agreement_versions WHERE id = ?",
+				Timestamp.class, versionId).toInstant());
+	}
+
+	/** testing.md: the save of a loaded aggregate, its child rows seeded first. */
+	@Test
+	void update_seededTiersAndFees_replacesTiersKeepsFees() {
+		BrokerageAgreement agreement = draft(ids.generateId(), "P101", now().minusSeconds(60));
+		BrokerageAgreement other = draft(ids.generateId(), "P102", now().minusSeconds(60));
+		tx(() -> {
+			agreements.create(agreement);
+			agreements.create(other);
+			return null;
+		});
+		String versionId = agreement.getVersions().get(0).getId();
+		String otherVersionId = other.getVersions().get(0).getId();
+		for (String id : List.of(versionId, otherVersionId)) {
+			seedPercentPolicy(id, List.of(1, 12, 24), List.of(1, 6));
+			jdbc.update("UPDATE brokerage_agreement_versions SET mandatory_fees_stated = TRUE WHERE id = ?", id);
+			insertFee(id, 1, "Electricity", "AMOUNT", 3_500L, "PER_KWH");
+			insertFee(id, 2, "Water", "PROVIDER_TARIFF", null, null);
+		}
+		AgreementVersion seeded = tx(() -> agreements.findById(agreement.getId())).orElseThrow().getVersions().get(0);
+		assertEquals(List.of(1, 12, 24), seeded.getFee().formulaOrNull().tiers().stream().map(FeeTier::fromMonths)
+				.toList());
+		assertEquals(List.of(1, 6), seeded.getFee().renewalOrNull().tiers().stream().map(FeeTier::fromMonths).toList());
+		Map<String, Object> versionBefore = versionIdentity(versionId);
+		Map<String, Object> otherBefore = agreementRow(other.getId());
+		List<String> otherTiers = tierRows(otherVersionId);
+		List<String> otherFees = feeRows(otherVersionId);
+
+		editFee(agreement.getId(), new BrokerageFee(
+				FeeFormula.of(FeeFormulaType.PERCENT_OF_RENT, List.of(new FeeTier(1, 60)), null, null), 7,
+				FeeFormula.of(FeeFormulaType.NOT_CHARGED, null, null, null), null, null));
+
+		assertEquals(List.of("false|1|1|60"), tierRows(versionId));
+		assertEquals(List.of("1|Electricity|AMOUNT|3500|PER_KWH", "2|Water|PROVIDER_TARIFF|null|null"),
+				feeRows(versionId));
+		assertEquals(versionBefore, versionIdentity(versionId));
+		assertEquals(otherBefore, agreementRow(other.getId()));
+		assertEquals(otherTiers, tierRows(otherVersionId));
+		assertEquals(otherFees, feeRows(otherVersionId));
+	}
+
+	/** spec S4-D4: an ordinary edit moves a start from one row to another inside one flush; no unique index refuses it. */
+	@Test
+	void update_tierStartsMovedBetweenRows_exactlyTheNewList() {
+		List<List<List<Integer>>> cases = List.of(
+				List.of(List.of(1, 12), List.of(1, 6, 12)),
+				List.of(List.of(1, 6, 12), List.of(1, 12, 24)),
+				List.of(List.of(1, 6, 12), List.of(1, 12)));
+		for (List<List<Integer>> movement : cases) {
+			BrokerageAgreement agreement = draft(ids.generateId(), "P101", now().minusSeconds(60));
+			tx(() -> {
+				agreements.create(agreement);
+				return null;
+			});
+			String versionId = agreement.getVersions().get(0).getId();
+			seedPercentPolicy(versionId, movement.get(0), List.of());
+			List<FeeTier> saved = movement.get(1).stream().map(start -> new FeeTier(start, start + 40)).toList();
+
+			editFee(agreement.getId(), new BrokerageFee(FeeFormula.of(FeeFormulaType.PERCENT_OF_RENT, saved, null, null),
+					7, null, null, null));
+
+			List<String> expected = new ArrayList<>();
+			for (int index = 0; index < saved.size(); index++) {
+				expected.add("false|" + (index + 1) + "|" + saved.get(index).fromMonths() + "|"
+						+ saved.get(index).percent());
+			}
+			assertEquals(expected, tierRows(versionId), movement.toString());
+			assertEquals(saved, tx(() -> agreements.findById(agreement.getId())).orElseThrow().getVersions().get(0)
+					.getFee().formulaOrNull().tiers(), movement.toString());
+		}
+	}
+
+	@Test
+	void update_feePolicyStaleRowVersion_fails() {
+		BrokerageAgreement agreement = draft(ids.generateId(), "P101", now().minusSeconds(60));
+		tx(() -> {
+			agreements.create(agreement);
+			return null;
+		});
+		BrokerageAgreement first = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+		BrokerageAgreement second = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+		BrokerageFee secondFee = new BrokerageFee(FeeFormula.of(FeeFormulaType.FIXED_AMOUNT, null, 2_000_000L, null),
+				null, null, null, null);
+
+		tx(() -> {
+			agreements.update(first.editDraft(PERIOD, PhotoConsent.NONE, VersionTerms.NONE, FEE_POLICY, now()));
+			return null;
+		});
+
+		assertThrows(ConcurrencyFailureException.class, () -> tx(() -> {
+			agreements.update(second.editDraft(PERIOD, PhotoConsent.NONE, VersionTerms.NONE, secondFee, now()));
+			return null;
+		}));
+		BrokerageAgreement stored = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+		assertEquals(FEE_POLICY, stored.getVersions().get(0).getFee());
+		assertEquals(1L, stored.getRowVersionOrNull());
+		assertEquals(List.of("false|1|1|50", "false|2|12|100", "true|1|1|30"),
+				tierRows(agreement.getVersions().get(0).getId()));
+	}
+
+	/** spec S4-D4: a version stored before E05-S4 reads as no fee policy entered and never sent. */
+	@Test
+	void storedRowWithoutFeePolicy_readsNothingEnteredNotSent() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+				"DRAFT");
+		created.add(agreementId);
+
+		AgreementVersion version = tx(() -> agreements.findById(agreementId)).orElseThrow().getVersions().get(0);
+
+		assertEquals(BrokerageFee.NONE, version.getFee());
+		assertNull(version.getSentAtOrNull());
+	}
+
+	// ==================== E05-S5: the owner's answer, the owner's and the due agreements (5.3) ====================
+
+	private static final String OWNER_ANSWER_CHECK = "ck_brokerage_agreement_versions_owner_answer";
+
+	@Test
+	void ownerAnswerCheck_refusesBrokenRows() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING",
+				"OWNER_REJECTED");
+		created.add(agreementId);
+		String versionId = versionIdOf(agreementId, 1);
+		String by = "owner_answered_by = '01JOWNER000000000000000000', owner_answered_at = now()";
+
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId, "owner_answer = 'REJECTED', " + by));
+		setVersion(versionId, "sent_at = now() - interval '1 day'");
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId,
+				"owner_answer = 'REJECTED', owner_answered_at = now()"));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId,
+				"owner_answer = 'REJECTED', owner_answered_by = '01JOWNER000000000000000000'"));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId, by));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId, "owner_answer = 'MAYBE', " + by));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId,
+				"status = 'OWNER_CONFIRMED', owner_answer = 'CONFIRMED', " + by));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId, "status = 'OWNER_CONFIRMED',"
+				+ " owner_answer = 'CONFIRMED', owner_statement_version = 'brokerage-agreement-2026-11',"
+				+ " owner_rejection_reason = 'Too low', " + by));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId,
+				"owner_answer = 'REJECTED', owner_statement_version = 'brokerage-agreement-2026-11', " + by));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId, "owner_rejection_reason = 'Too low'"));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId,
+				"owner_statement_version = 'brokerage-agreement-2026-11'"));
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionId,
+				"status = 'AWAITING_OWNER', owner_answer = 'REJECTED', " + by));
+		String draftAgreement = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		created.add(draftAgreement);
+		assertRefused(OWNER_ANSWER_CHECK, () -> setVersion(versionIdOf(draftAgreement, 1),
+				"owner_answer = 'REJECTED', " + by));
+
+		assertDoesNotThrow(() -> setVersion(versionId,
+				"owner_answer = 'REJECTED', owner_rejection_reason = 'Too low', " + by));
+		assertDoesNotThrow(() -> setVersion(versionId, "status = 'OWNER_CONFIRMED', owner_answer = 'CONFIRMED',"
+				+ " owner_statement_version = 'brokerage-agreement-2026-11', owner_rejection_reason = NULL, " + by));
+	}
+
+	@Test
+	void update_ownerAnswers_readBackEqual() {
+		Instant sent = now().minus(1, ChronoUnit.HOURS);
+		Instant answered = now();
+		BrokerageAgreement confirmed = sentAgreement(sent);
+		BrokerageAgreement rejected = sentAgreement(sent);
+
+		tx(() -> {
+			agreements.update(agreements.findById(confirmed.getId()).orElseThrow()
+					.confirmByOwner(1, "01JOWNERA00000000000000000", AgreementStatement.VERSION, answered));
+			agreements.update(agreements.findById(rejected.getId()).orElseThrow()
+					.rejectByOwner(1, "01JOWNERB00000000000000000", "  The rent is too low.  ", answered));
+			return null;
+		});
+		BrokerageAgreement readConfirmed = tx(() -> agreements.findById(confirmed.getId())).orElseThrow();
+		BrokerageAgreement readRejected = tx(() -> agreements.findById(rejected.getId())).orElseThrow();
+
+		assertEquals(AgreementStatus.AWAITING_CONFIRMATION, readConfirmed.getStatus());
+		AgreementVersion confirmedVersion = readConfirmed.getVersions().get(0);
+		assertEquals(VersionStatus.OWNER_CONFIRMED, confirmedVersion.getStatus());
+		assertEquals(OwnerAnswer.confirmed("01JOWNERA00000000000000000", AgreementStatement.VERSION, answered),
+				confirmedVersion.getOwnerAnswerOrNull());
+		assertEquals(sent, confirmedVersion.getSentAtOrNull());
+		assertEquals(answered, confirmedVersion.getUpdatedAt());
+		assertEquals(FEE_POLICY, confirmedVersion.getFee());
+		assertEquals(AgreementStatus.DRAFTING, readRejected.getStatus());
+		AgreementVersion rejectedVersion = readRejected.getVersions().get(0);
+		assertEquals(VersionStatus.OWNER_REJECTED, rejectedVersion.getStatus());
+		assertEquals(OwnerAnswer.rejected("01JOWNERB00000000000000000", "The rent is too low.", answered),
+				rejectedVersion.getOwnerAnswerOrNull());
+		Map<String, Object> row = jdbc.queryForMap("SELECT owner_answer, owner_answered_by, owner_answered_at,"
+				+ " owner_statement_version, owner_rejection_reason FROM brokerage_agreement_versions WHERE id = ?",
+				rejectedVersion.getId());
+		assertEquals("REJECTED", row.get("owner_answer"));
+		assertEquals("01JOWNERB00000000000000000", row.get("owner_answered_by"));
+		assertEquals(answered, ((Timestamp) row.get("owner_answered_at")).toInstant());
+		assertNull(row.get("owner_statement_version"));
+		assertEquals("The rent is too low.", row.get("owner_rejection_reason"));
+	}
+
+	@Test
+	void update_secondVersionAdded_bothReadBack() {
+		BrokerageAgreement agreement = sentAgreement(now().minus(1, ChronoUnit.HOURS));
+		tx(() -> {
+			agreements.update(agreements.findById(agreement.getId()).orElseThrow()
+					.rejectByOwner(1, "01JOWNERA00000000000000000", null, now()));
+			return null;
+		});
+		String secondId = ids.generateId();
+
+		tx(() -> {
+			agreements.update(agreements.findById(agreement.getId()).orElseThrow()
+					.openDraft(secondId, "01JSALE0000000000000000000", now()));
+			return null;
+		});
+		BrokerageAgreement read = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+
+		assertEquals(2, read.getVersions().size());
+		AgreementVersion first = read.getVersions().get(0);
+		AgreementVersion second = read.getVersions().get(1);
+		assertEquals(VersionStatus.OWNER_REJECTED, first.getStatus());
+		assertEquals(secondId, second.getId());
+		assertEquals(2, second.getVersionNo());
+		assertEquals(VersionStatus.DRAFT, second.getStatus());
+		assertEquals("01JSALE0000000000000000000", second.getCreatedByUserId());
+		assertEquals(first.getPeriod(), second.getPeriod());
+		assertEquals(first.getPhotoConsent(), second.getPhotoConsent());
+		assertEquals(first.getTerms(), second.getTerms());
+		assertEquals(FEE_POLICY, second.getFee());
+		assertEquals(first.getBasisLeadId(), second.getBasisLeadId());
+		assertEquals(first.getBasisIntakeId(), second.getBasisIntakeId());
+		assertNull(second.getSentAtOrNull());
+		assertNull(second.getOwnerAnswerOrNull());
+		assertEquals(feeRows(first.getId()), feeRows(secondId));
+		assertEquals(tierRows(first.getId()), tierRows(secondId));
+		assertEquals(List.of("false|1|1|50", "false|2|12|100", "true|1|1|30"), tierRows(secondId));
+		assertEquals(second, read.draft().orElseThrow());
+	}
+
+	@Test
+	void sentToOwner_newestSendingFirstThenIdAndLimit() {
+		String owner = ids.generateId();
+		Instant now = now();
+		String oldest = sentFixture(owner, now.minus(3, ChronoUnit.MINUTES));
+		String newer = sentFixture(owner, now.minus(1, ChronoUnit.MINUTES));
+		String sameAsNewer = sentFixture(owner, now.minus(1, ChronoUnit.MINUTES));
+		String middle = sentFixture(owner, now.minus(2, ChronoUnit.MINUTES));
+		String secondVersion = sentFixture(owner, now.minus(10, ChronoUnit.MINUTES));
+		jdbc.update("UPDATE brokerage_agreement_versions SET status = 'OWNER_REJECTED' WHERE agreement_id = ?",
+				secondVersion);
+		insertSentVersion(secondVersion, 2, "AWAITING_OWNER", now.minus(30, ChronoUnit.SECONDS));
+		List<String> tied = List.of(newer, sameAsNewer).stream().sorted().toList();
+
+		List<BrokerageAgreement> all = tx(() -> agreements.sentToOwner(owner, 10));
+		List<BrokerageAgreement> three = tx(() -> agreements.sentToOwner(owner, 3));
+
+		assertEquals(List.of(secondVersion, tied.get(0), tied.get(1), middle, oldest),
+				all.stream().map(BrokerageAgreement::getId).toList());
+		assertEquals(List.of(secondVersion, tied.get(0), tied.get(1)),
+				three.stream().map(BrokerageAgreement::getId).toList());
+		assertEquals(List.of(1, 2), all.get(0).getVersions().stream().map(AgreementVersion::getVersionNo).toList());
+		assertEquals(now.minus(30, ChronoUnit.SECONDS), all.get(0).getVersions().get(1).getSentAtOrNull());
+	}
+
+	@Test
+	void sentToOwner_onlySentAndOwn() {
+		String owner = ids.generateId();
+		String other = ids.generateId();
+		String sent = sentFixture(owner, now().minus(1, ChronoUnit.MINUTES));
+		sentFixture(other, now().minus(1, ChronoUnit.MINUTES));
+		String draft = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		String neverSent = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "AWAITING_CONFIRMATION",
+				"AWAITING_OWNER");
+		created.addAll(List.of(draft, neverSent));
+		jdbc.update("UPDATE brokerage_agreements SET owner_user_id = ? WHERE id IN (?, ?)", owner, draft, neverSent);
+
+		List<BrokerageAgreement> found = tx(() -> agreements.sentToOwner(owner, 10));
+
+		assertEquals(List.of(sent), found.stream().map(BrokerageAgreement::getId).toList());
+		assertEquals(List.of(), tx(() -> agreements.sentToOwner(ids.generateId(), 10)));
+	}
+
+	/**
+	 * E05-S5 spec S5-D8: the job's selection. The due rows are written and read inside one transaction that rolls back,
+	 * so the lapse job of this context never sees them; the bound lies years back, where no other row is.
+	 */
+	@Test
+	void dueLapseAgreementIds_awaitingAndOldEnough_oldestFirstWithLimit() {
+		Instant bound = now().minus(3650, ChronoUnit.DAYS);
+
+		List<List<String>> answers = rolledBack(() -> {
+			String owner = ids.generateId();
+			String first = sentFixture(owner, bound.minus(3, ChronoUnit.HOURS));
+			String tiedA = sentFixture(owner, bound.minus(1, ChronoUnit.HOURS));
+			String tiedB = sentFixture(owner, bound.minus(1, ChronoUnit.HOURS));
+			String atTheBound = sentFixture(owner, bound);
+			String confirmed = sentFixture(owner, bound.minus(5, ChronoUnit.HOURS));
+			jdbc.update("UPDATE brokerage_agreement_versions SET status = 'OWNER_CONFIRMED' WHERE agreement_id = ?",
+					confirmed);
+			sentFixture(owner, bound.plusSeconds(1));
+			AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+			AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "AWAITING_CONFIRMATION",
+					"AWAITING_OWNER");
+			List<String> tied = List.of(tiedA, tiedB).stream().sorted().toList();
+			return List.of(List.of(first, tied.get(0), tied.get(1), atTheBound),
+					agreements.dueLapseAgreementIds(bound, 10), agreements.dueLapseAgreementIds(bound, 2));
+		});
+
+		assertEquals(answers.get(0), answers.get(1));
+		assertEquals(answers.get(0).subList(0, 2), answers.get(2));
+	}
+
+	@Test
+	void recordAccesses_oneRowPerAgreement() {
+		String first = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		String second = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		created.addAll(List.of(first, second));
+		Instant at = now();
+
+		tx(() -> {
+			trail.recordAccesses("01JOWNER000000000000000000", List.of(first, second),
+					AgreementAccessType.OWNER_DETAIL_READ, at);
+			return null;
+		});
+
+		for (String agreementId : List.of(first, second)) {
+			List<Map<String, Object>> rows = jdbc.queryForList("SELECT user_id, action, accessed_at"
+					+ " FROM brokerage_agreement_access_logs WHERE agreement_id = ?", agreementId);
+			assertEquals(1, rows.size(), agreementId);
+			assertEquals("01JOWNER000000000000000000", rows.get(0).get("user_id"));
+			assertEquals("OWNER_DETAIL_READ", rows.get(0).get("action"));
+			assertEquals(at, ((Timestamp) rows.get(0).get("accessed_at")).toInstant());
+		}
+		assertDoesNotThrow(() -> tx(() -> {
+			trail.recordAccesses("01JOWNER000000000000000000", List.of(), AgreementAccessType.OWNER_DETAIL_READ, at);
+			return null;
+		}));
+	}
+
+	@Test
+	void ownerAndLapseIndexes_exist() {
+		Map<String, String> indexes = new HashMap<>();
+		jdbc.queryForList("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname IN"
+						+ " ('idx_brokerage_agreements_owner_user_id', 'idx_brokerage_agreement_versions_awaiting_owner_sent_at')")
+				.forEach(row -> indexes.put((String) row.get("indexname"), (String) row.get("indexdef")));
+
+		assertEquals(2, indexes.size(), indexes.toString());
+		assertTrue(indexes.get("idx_brokerage_agreements_owner_user_id").contains("(owner_user_id)"), indexes.toString());
+		String lapse = indexes.get("idx_brokerage_agreement_versions_awaiting_owner_sent_at");
+		assertTrue(lapse.contains("(sent_at)") && lapse.contains("WHERE") && lapse.contains("AWAITING_OWNER"), lapse);
+	}
+
+	// ==================== E05-S6: the activation record, its selections and the set reads (5.3) ====================
+
+	private static final String ACTIVATION_CHECK = "ck_brokerage_agreement_versions_activation";
+	private static final String DOCUMENT = "signed_document_number = 'HDMG-1', signed_document_date = DATE '2026-11-16',"
+			+ " sunvibe_signatory_name = 'A', sunvibe_signatory_title = 'B'";
+	private static final String DECIDED = "activation_decided_by = '01JMANAGER0000000000000000',"
+			+ " activation_decided_at = now()";
+
+	/** E05-S6 spec S6-D14: either no decision, or a whole activation or refusal on a version its owner confirmed. */
+	@Test
+	void activationCheck_combinations_acceptedOrRefused() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "ACTIVE",
+				"EFFECTIVE");
+		created.add(agreementId);
+		String versionId = versionIdOf(agreementId, 1);
+		String activation = "activation_decision = 'ACTIVATED', activation_statement_version = 'brokerage-activation-2026-11', "
+				+ DOCUMENT + ", " + DECIDED;
+
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, activation));
+		setVersion(versionId, "sent_at = now() - interval '2 days', owner_answer = 'CONFIRMED',"
+				+ " owner_answered_by = '01JOWNER000000000000000000', owner_answered_at = now() - interval '1 day',"
+				+ " owner_statement_version = 'brokerage-agreement-2026-11'");
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, activation
+				+ ", activation_refusal_type = 'DOCUMENT_DIFFERS'"));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, activation + ", activation_refusal_note = 'x'"));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "activation_decision = 'ACTIVATED',"
+				+ " activation_statement_version = 'brokerage-activation-2026-11', " + DECIDED));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId,
+				"activation_decision = 'REFUSED', activation_refusal_type = 'DOCUMENT_DIFFERS', " + DECIDED));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "status = 'ACTIVATION_REFUSED',"
+				+ " activation_decision = 'REFUSED', activation_refusal_type = 'DOCUMENT_DIFFERS',"
+				+ " signed_document_number = 'HDMG-1', " + DECIDED));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "status = 'OWNER_CONFIRMED', " + activation));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "signed_document_number = 'HDMG-1'"));
+		assertRefused(ACTIVATION_CHECK, () -> setVersion(versionId, "activation_decision = 'MAYBE',"
+				+ " activation_refusal_type = 'DOCUMENT_DIFFERS', " + DECIDED));
+
+		assertDoesNotThrow(() -> setVersion(versionId, activation));
+		assertEquals("HDMG-1", jdbc.queryForObject("SELECT signed_document_number FROM brokerage_agreement_versions"
+				+ " WHERE id = ?", String.class, versionId));
+		assertDoesNotThrow(() -> setVersion(versionId, "status = 'ACTIVATION_REFUSED', activation_decision = 'REFUSED',"
+				+ " activation_statement_version = NULL, signed_document_number = NULL, signed_document_date = NULL,"
+				+ " sunvibe_signatory_name = NULL, sunvibe_signatory_title = NULL,"
+				+ " activation_refusal_type = 'SIGNER_NOT_OWNER', activation_refusal_note = NULL"));
+	}
+
+	@Test
+	void update_activationRecords_readBackEqual() {
+		Instant sent = now().minus(2, ChronoUnit.HOURS);
+		Instant answered = now().minus(1, ChronoUnit.HOURS);
+		Instant decided = now();
+		BrokerageAgreement toActivate = confirmedAgreement(sent, answered);
+		BrokerageAgreement toRefuseWithNote = confirmedAgreement(sent, answered);
+		BrokerageAgreement toRefuseWithout = confirmedAgreement(sent, answered);
+		ActivationDecision activation = ActivationDecision.activated("01JMANAGERA000000000000000", decided,
+				ActivationStatement.VERSION, new SignedDocument("HDMG-2026/014", LocalDate.parse("2026-11-16"),
+						"Nguyen Van A", "Director"));
+		ActivationDecision withNote = ActivationDecision.refused("01JMANAGERB000000000000000", decided,
+				ActivationRefusalType.DOCUMENT_DIFFERS, "  Rent differs.  ");
+		ActivationDecision withoutNote = ActivationDecision.refused("01JMANAGERB000000000000000", decided,
+				ActivationRefusalType.SIGNER_NOT_OWNER, null);
+
+		tx(() -> {
+			agreements.update(agreements.findById(toActivate.getId()).orElseThrow().activate(1, activation, decided));
+			agreements.update(agreements.findById(toRefuseWithNote.getId()).orElseThrow()
+					.refuseActivation(1, withNote, decided));
+			agreements.update(agreements.findById(toRefuseWithout.getId()).orElseThrow()
+					.refuseActivation(1, withoutNote, decided));
+			return null;
+		});
+		BrokerageAgreement activated = tx(() -> agreements.findById(toActivate.getId())).orElseThrow();
+		BrokerageAgreement refused = tx(() -> agreements.findById(toRefuseWithNote.getId())).orElseThrow();
+		BrokerageAgreement refusedWithout = tx(() -> agreements.findById(toRefuseWithout.getId())).orElseThrow();
+
+		assertEquals(AgreementStatus.ACTIVE, activated.getStatus());
+		assertEquals(VersionStatus.ACTIVATED, activated.getVersions().get(0).getStatus());
+		assertEquals(activation, activated.getVersions().get(0).getActivationOrNull());
+		assertEquals(OwnerAnswer.confirmed("01JOWNERA00000000000000000", AgreementStatement.VERSION, answered),
+				activated.getVersions().get(0).getOwnerAnswerOrNull());
+		assertEquals(AgreementStatus.DRAFTING, refused.getStatus());
+		assertEquals(VersionStatus.ACTIVATION_REFUSED, refused.getVersions().get(0).getStatus());
+		assertEquals(withNote, refused.getVersions().get(0).getActivationOrNull());
+		assertEquals("Rent differs.", refused.getVersions().get(0).getActivationOrNull().refusalNoteOrNull());
+		assertEquals(withoutNote, refusedWithout.getVersions().get(0).getActivationOrNull());
+		Map<String, Object> row = jdbc.queryForMap("SELECT activation_decision, activation_decided_by,"
+				+ " activation_decided_at, activation_statement_version, signed_document_number, signed_document_date,"
+				+ " sunvibe_signatory_name, sunvibe_signatory_title, activation_refusal_type, activation_refusal_note"
+				+ " FROM brokerage_agreement_versions WHERE agreement_id = ?", toActivate.getId());
+		assertEquals("ACTIVATED", row.get("activation_decision"));
+		assertEquals("01JMANAGERA000000000000000", row.get("activation_decided_by"));
+		assertEquals(decided, ((Timestamp) row.get("activation_decided_at")).toInstant());
+		assertEquals("brokerage-activation-2026-11", row.get("activation_statement_version"));
+		assertEquals("HDMG-2026/014", row.get("signed_document_number"));
+		assertEquals(Date.valueOf("2026-11-16"), row.get("signed_document_date"));
+		assertEquals("Nguyen Van A", row.get("sunvibe_signatory_name"));
+		assertEquals("Director", row.get("sunvibe_signatory_title"));
+		assertNull(row.get("activation_refusal_type"));
+		assertNull(row.get("activation_refusal_note"));
+	}
+
+	@Test
+	void indexes_partialOnConfirmedAndActivated() {
+		Map<String, String> indexes = new HashMap<>();
+		jdbc.queryForList("SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname IN"
+						+ " ('idx_brokerage_agreement_versions_confirmed_answered_at',"
+						+ " 'idx_brokerage_agreement_versions_activated_start_date')")
+				.forEach(row -> indexes.put((String) row.get("indexname"), (String) row.get("indexdef")));
+
+		assertEquals(2, indexes.size(), indexes.toString());
+		String confirmed = indexes.get("idx_brokerage_agreement_versions_confirmed_answered_at");
+		assertTrue(confirmed.contains("(owner_answered_at)") && confirmed.contains("WHERE")
+				&& confirmed.contains("OWNER_CONFIRMED"), confirmed);
+		String activated = indexes.get("idx_brokerage_agreement_versions_activated_start_date");
+		assertTrue(activated.contains("(start_date)") && activated.contains("WHERE")
+				&& activated.contains("'ACTIVATED'"), activated);
+	}
+
+	/**
+	 * E05-S6 spec S6-D5: the lapse job's second selection. Written and read in a transaction that rolls back, with a
+	 * bound years back, so the lapse job of this context never sees the rows.
+	 */
+	@Test
+	void dueActivationLapseAgreementIds_confirmedOldestFirstWithinLimit() {
+		Instant bound = now().minus(3650, ChronoUnit.DAYS);
+
+		List<List<String>> answers = rolledBack(() -> {
+			String first = confirmedFixture(bound.minus(3, ChronoUnit.HOURS));
+			String tiedA = confirmedFixture(bound.minus(1, ChronoUnit.HOURS));
+			String tiedB = confirmedFixture(bound.minus(1, ChronoUnit.HOURS));
+			String atTheBound = confirmedFixture(bound);
+			confirmedFixture(bound.plusSeconds(1));
+			String rejected = confirmedFixture(bound.minus(5, ChronoUnit.HOURS));
+			jdbc.update("UPDATE brokerage_agreement_versions SET status = 'OWNER_REJECTED', owner_answer = 'REJECTED',"
+					+ " owner_statement_version = NULL WHERE agreement_id = ?", rejected);
+			String rejectedAnswer = confirmedFixture(bound.minus(5, ChronoUnit.HOURS));
+			jdbc.update("UPDATE brokerage_agreement_versions SET owner_answer = 'REJECTED',"
+					+ " owner_statement_version = NULL WHERE agreement_id = ?", rejectedAnswer);
+			String lapsed = confirmedFixture(bound.minus(5, ChronoUnit.HOURS));
+			jdbc.update("UPDATE brokerage_agreement_versions SET status = 'LAPSED' WHERE agreement_id = ?", lapsed);
+			AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "AWAITING_CONFIRMATION",
+					"OWNER_CONFIRMED");
+			List<String> tied = List.of(tiedA, tiedB).stream().sorted().toList();
+			return List.of(List.of(first, tied.get(0), tied.get(1), atTheBound),
+					agreements.dueActivationLapseAgreementIds(bound, 10),
+					agreements.dueActivationLapseAgreementIds(bound, 2));
+		});
+
+		assertEquals(answers.get(0), answers.get(1));
+		assertEquals(answers.get(0).subList(0, 2), answers.get(2));
+	}
+
+	/** E05-S6 spec S6-D6: the start job's selection, in a transaction that rolls back, with start dates long past. */
+	@Test
+	void dueStartAgreementIds_activatedWithRecordOldestStartFirst() {
+		LocalDate bound = LocalDate.parse("2005-06-30");
+
+		List<List<String>> answers = rolledBack(() -> {
+			String first = activatedFixture(LocalDate.parse("2003-01-01"), "ACTIVATED", true);
+			String tiedA = activatedFixture(LocalDate.parse("2004-01-01"), "ACTIVATED", true);
+			String tiedB = activatedFixture(LocalDate.parse("2004-01-01"), "ACTIVATED", true);
+			String atTheBound = activatedFixture(bound, "ACTIVATED", true);
+			activatedFixture(bound.plusDays(1), "ACTIVATED", true);
+			activatedFixture(LocalDate.parse("2002-01-01"), "ACTIVATED", false);
+			activatedFixture(LocalDate.parse("2002-01-01"), "EFFECTIVE", true);
+			List<String> tied = List.of(tiedA, tiedB).stream().sorted().toList();
+			return List.of(List.of(first, tied.get(0), tied.get(1), atTheBound),
+					agreements.dueStartAgreementIds(bound, 10), agreements.dueStartAgreementIds(bound, 2));
+		});
+
+		assertEquals(answers.get(0), answers.get(1));
+		assertEquals(answers.get(0).subList(0, 2), answers.get(2));
+	}
+
+	/** E05-S6 spec S6-D9: a set of agreements with their versions, fee rows and tier rows; an unknown id left out. */
+	@Test
+	void findAllById_setWithVersionsAndFees() {
+		BrokerageAgreement first = sentAgreement(now().minus(1, ChronoUnit.HOURS));
+		BrokerageAgreement second = sentAgreement(now().minus(2, ChronoUnit.HOURS));
+		String fixture = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		created.add(fixture);
+
+		List<BrokerageAgreement> found = tx(() -> agreements.findAllById(List.of(first.getId(), second.getId(), fixture,
+				ids.generateId())));
+
+		assertEquals(Set.of(first.getId(), second.getId(), fixture),
+				Set.copyOf(found.stream().map(BrokerageAgreement::getId).toList()));
+		for (BrokerageAgreement agreement : found) {
+			BrokerageAgreement one = tx(() -> agreements.findById(agreement.getId())).orElseThrow();
+			assertEquals(one.getVersions().size(), agreement.getVersions().size());
+			assertEquals(one.getVersions().get(0).getTerms(), agreement.getVersions().get(0).getTerms());
+			assertEquals(one.getVersions().get(0).getFee(), agreement.getVersions().get(0).getFee());
+			assertEquals(one.getRowVersionOrNull(), agreement.getRowVersionOrNull());
+		}
+		BrokerageAgreement firstFound = found.stream().filter(each -> each.getId().equals(first.getId())).findFirst()
+				.orElseThrow();
+		assertEquals(FEE_POLICY, firstFound.getVersions().get(0).getFee());
+		assertEquals(1, firstFound.getVersions().get(0).getTerms().mandatoryFeesOrNull().size());
+		assertEquals(List.of(), tx(() -> agreements.findAllById(List.of())));
+	}
+
+	/** E05-S6 spec S6-D11: the agreement row locked FOR SHARE inside a read-write transaction; false when none. */
+	@Test
+	void lockForShare_existingTrueUnknownFalse() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		created.add(agreementId);
+
+		assertTrue(tx(() -> agreements.lockForShare(agreementId)));
+		assertEquals(Boolean.FALSE, tx(() -> agreements.lockForShare(ids.generateId())));
+	}
+
+	/**
+	 * E05-S6 spec S6-D2, plan E05S6-P6: the authors of version n are the actors of CREATED, DRAFT_EDITED, DRAFT_OPENED
+	 * and VERSION_SENT rows of versions 1 to n, each once; other events, rows without an actor and later versions are
+	 * left out.
+	 */
+	@Test
+	void versionAuthors_fourTypesUpToVersion_distinctNonNullActors() {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(), "DRAFTING", "DRAFT");
+		created.add(agreementId);
+		Instant at = now();
+		tx(() -> {
+			trail.recordEvent(agreementId, 1, AgreementEventType.CREATED, "A", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.DRAFT_EDITED, "B", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.DRAFT_EDITED, "B", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.VERSION_SENT, "C", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.OWNER_CONFIRMED, "O", at);
+			trail.recordEvent(agreementId, 1, AgreementEventType.VERSION_LAPSED, null, at);
+			trail.recordEvent(agreementId, 2, AgreementEventType.DRAFT_OPENED, "D", at);
+			trail.recordEvent(agreementId, 2, AgreementEventType.DRAFT_EDITED, "E", at);
+			trail.recordEvent(agreementId, 2, AgreementEventType.ACTIVATED, "M", at);
+			trail.recordEvent(agreementId, 2, AgreementEventType.ACTIVATION_REFUSED, "N", at);
+			trail.recordEvent(agreementId, 3, AgreementEventType.DRAFT_EDITED, "F", at);
+			return null;
+		});
+
+		assertEquals(Set.of("A", "B", "C", "D", "E"), tx(() -> trail.versionAuthors(agreementId, 2)));
+		assertEquals(Set.of("A", "B", "C"), tx(() -> trail.versionAuthors(agreementId, 1)));
+		assertEquals(Set.of(), tx(() -> trail.versionAuthors(ids.generateId(), 5)));
+	}
+
+	/** An agreement created, completed, sent at {@code sent} and confirmed by its owner at {@code answered}. */
+	private BrokerageAgreement confirmedAgreement(Instant sent, Instant answered) {
+		BrokerageAgreement agreement = sentAgreement(sent);
+		tx(() -> {
+			agreements.update(agreements.findById(agreement.getId()).orElseThrow()
+					.confirmByOwner(1, "01JOWNERA00000000000000000", AgreementStatement.VERSION, answered));
+			return null;
+		});
+		return agreement;
+	}
+
+	/** A fixture agreement awaiting confirmation, its version 1 confirmed by its owner at {@code answeredAt}. */
+	private String confirmedFixture(Instant answeredAt) {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(),
+				"AWAITING_CONFIRMATION", "OWNER_CONFIRMED");
+		created.add(agreementId);
+		jdbc.update("UPDATE brokerage_agreement_versions SET sent_at = ?, owner_answer = 'CONFIRMED',"
+				+ " owner_answered_by = '01JOWNER000000000000000000', owner_answered_at = ?,"
+				+ " owner_statement_version = 'brokerage-agreement-2026-11' WHERE agreement_id = ?",
+				Timestamp.from(answeredAt.minus(1, ChronoUnit.HOURS)), Timestamp.from(answeredAt), agreementId);
+		return agreementId;
+	}
+
+	/**
+	 * A fixture ACTIVE agreement whose version 1, confirmed, starts on {@code start} (its period one year long) in the
+	 * given status, with an activation record when asked.
+	 */
+	private String activatedFixture(LocalDate start, String versionStatus, boolean withRecord) {
+		String agreementId = confirmedFixture(now().minus(400, ChronoUnit.DAYS));
+		jdbc.update("UPDATE brokerage_agreements SET status = 'ACTIVE' WHERE id = ?", agreementId);
+		jdbc.update("UPDATE brokerage_agreement_versions SET status = ?, start_date = ?, end_date = ? WHERE agreement_id = ?",
+				versionStatus, Date.valueOf(start), Date.valueOf(start.plusMonths(12).minusDays(1)), agreementId);
+		if (withRecord) {
+			jdbc.update("UPDATE brokerage_agreement_versions SET activation_decision = 'ACTIVATED',"
+					+ " activation_statement_version = 'brokerage-activation-2026-11', " + DOCUMENT + ", " + DECIDED
+					+ " WHERE agreement_id = ?", agreementId);
+		}
+		return agreementId;
+	}
+
+	/** An agreement created, its draft completed and sent at {@code sent}, through the aggregate. */
+	private BrokerageAgreement sentAgreement(Instant sent) {
+		BrokerageAgreement agreement = draft(ids.generateId(), "P101", sent.minus(1, ChronoUnit.HOURS));
+		VersionTerms terms = new VersionTerms(8_000_000L, new TermsDeposit(DepositBasis.MONTHS, 2, null), 12, 1, List.of(
+				new MandatoryFee("Electricity", FeeBasis.AMOUNT, 3_500L, ChargeUnit.PER_KWH)));
+		tx(() -> {
+			agreements.create(agreement);
+			return null;
+		});
+		tx(() -> {
+			BrokerageAgreement read = agreements.findById(agreement.getId()).orElseThrow();
+			agreements.update(read.editDraft(PERIOD, new PhotoConsent(true, false), terms, FEE_POLICY,
+					sent.minus(30, ChronoUnit.MINUTES)));
+			return null;
+		});
+		tx(() -> {
+			agreements.update(agreements.findById(agreement.getId()).orElseThrow().sendDraft(sent));
+			return null;
+		});
+		return agreement;
+	}
+
+	/** A fixture agreement of this owner, its version 1 AWAITING_OWNER and sent at {@code sentAt}. */
+	private String sentFixture(String ownerUserId, Instant sentAt) {
+		String agreementId = AgreementFixture.insert(jdbc, ids, ids.generateId(), ids.generateId(),
+				"AWAITING_CONFIRMATION", "AWAITING_OWNER");
+		created.add(agreementId);
+		jdbc.update("UPDATE brokerage_agreements SET owner_user_id = ? WHERE id = ?", ownerUserId, agreementId);
+		jdbc.update("UPDATE brokerage_agreement_versions SET sent_at = ? WHERE agreement_id = ?",
+				Timestamp.from(sentAt), agreementId);
+		return agreementId;
+	}
+
+	/** A further version of a fixture agreement, on the agreement's basis lead, sent at {@code sentAt}. */
+	private void insertSentVersion(String agreementId, int versionNo, String status, Instant sentAt) {
+		String lead = jdbc.queryForObject("SELECT basis_lead_id FROM brokerage_agreements WHERE id = ?", String.class,
+				agreementId);
+		Timestamp now = Timestamp.from(now());
+		jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date,"
+				+ " end_date, basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at, sent_at)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ids.generateId(), agreementId, versionNo, status,
+				Date.valueOf("2027-01-01"), Date.valueOf("2027-12-31"), lead, AgreementFixture.FIXTURE_INTAKE,
+				AgreementFixture.FIXTURE_USER, now, now, Timestamp.from(sentAt));
+	}
+
+	private String versionIdOf(String agreementId, int versionNo) {
+		return jdbc.queryForObject("SELECT id FROM brokerage_agreement_versions WHERE agreement_id = ? AND version_no = ?",
+				String.class, agreementId, versionNo);
+	}
+
+	/** Runs the work in a transaction that rolls back, so nothing it writes is ever seen by another transaction. */
+	private <T> T rolledBack(Supplier<T> work) {
+		return new TransactionTemplate(transactionManager).execute(status -> {
+			status.setRollbackOnly();
+			return work.get();
+		});
+	}
+
+	/** Reads the agreement, replaces its draft's fee policy (the rest as stored) and writes it in one transaction. */
+	private void editFee(String agreementId, BrokerageFee fee) {
+		tx(() -> {
+			BrokerageAgreement read = agreements.findById(agreementId).orElseThrow();
+			AgreementVersion draft = read.draft().orElseThrow();
+			agreements.update(read.editDraft(draft.getPeriod(), draft.getPhotoConsent(), draft.getTerms(), fee, now()));
+			return null;
+		});
+	}
+
+	/** Seeds a percentage fee with these starts (percent = start + 10) and, when given, a percentage renewal. */
+	private void seedPercentPolicy(String versionId, List<Integer> feeStarts, List<Integer> renewalStarts) {
+		setVersion(versionId, "fee_formula_type = 'PERCENT_OF_RENT', fee_due_days = 7, renewal_fee_type = "
+				+ (renewalStarts.isEmpty() ? "NULL" : "'PERCENT_OF_RENT'") + ", early_lease_end_type = 'NO_REFUND',"
+				+ " protection_days = 30");
+		for (int index = 0; index < feeStarts.size(); index++) {
+			insertTier(versionId, false, index + 1, feeStarts.get(index), feeStarts.get(index) + 10);
+		}
+		for (int index = 0; index < renewalStarts.size(); index++) {
+			insertTier(versionId, true, index + 1, renewalStarts.get(index), renewalStarts.get(index) + 5);
+		}
+	}
+
+	private void insertTier(String versionId, boolean renewal, int tierNo, int fromMonths, int percent) {
+		jdbc.update("INSERT INTO brokerage_agreement_version_fee_tiers (version_id, renewal, tier_no, from_months,"
+				+ " percent) VALUES (?, ?, ?, ?, ?)", versionId, renewal, tierNo, fromMonths, percent);
+	}
+
+	/** The version's tier rows as "renewal|tier_no|from_months|percent", the fee's first, by number. */
+	private List<String> tierRows(String versionId) {
+		return jdbc.query("SELECT renewal, tier_no, from_months, percent FROM brokerage_agreement_version_fee_tiers"
+				+ " WHERE version_id = ? ORDER BY renewal, tier_no", (row, index) -> row.getBoolean("renewal") + "|"
+						+ row.getInt("tier_no") + "|" + row.getInt("from_months") + "|" + row.getInt("percent"),
+				versionId);
+	}
+
+	/** Reads the agreement, replaces its draft's fee list (the rest as stored) and writes it in one transaction. */
+	private void edit(String agreementId, List<MandatoryFee> feesOrNull) {
+		tx(() -> {
+			BrokerageAgreement read = agreements.findById(agreementId).orElseThrow();
+			AgreementVersion draft = read.draft().orElseThrow();
+			agreements.update(read.editDraft(draft.getPeriod(), draft.getPhotoConsent(),
+					new VersionTerms(null, null, null, null, feesOrNull), BrokerageFee.NONE, now()));
+			return null;
+		});
+	}
+
+	private void insertFee(String versionId, int feeNo, String name, String basis, Long amount, String chargeUnit) {
+		jdbc.update("INSERT INTO brokerage_agreement_version_fees (version_id, fee_no, name, basis, amount, charge_unit)"
+				+ " VALUES (?, ?, ?, ?, ?, ?)", versionId, feeNo, name, basis,
+				amount == null ? null : BigDecimal.valueOf(amount), chargeUnit);
+	}
+
+	private void setVersion(String versionId, String assignments) {
+		jdbc.update("UPDATE brokerage_agreement_versions SET " + assignments + " WHERE id = ?", versionId);
+	}
+
+	/** The version's fee rows as "fee_no|name|basis|amount|charge_unit", by number. */
+	private List<String> feeRows(String versionId) {
+		return jdbc.query("SELECT fee_no, name, basis, amount, charge_unit FROM brokerage_agreement_version_fees"
+				+ " WHERE version_id = ? ORDER BY fee_no", (row, index) -> row.getInt("fee_no") + "|"
+						+ row.getString("name") + "|" + row.getString("basis") + "|"
+						+ (row.getBigDecimal("amount") == null ? "null" : row.getBigDecimal("amount").toPlainString())
+						+ "|" + row.getString("charge_unit"), versionId);
+	}
+
+	private boolean feesStated(String versionId) {
+		return jdbc.queryForObject("SELECT mandatory_fees_stated FROM brokerage_agreement_versions WHERE id = ?",
+				Boolean.class, versionId);
+	}
+
+	private Map<String, Object> agreementRow(String agreementId) {
+		return new HashMap<>(jdbc.queryForMap("SELECT * FROM brokerage_agreements WHERE id = ?",
+				agreementId));
+	}
+
+	private Map<String, Object> versionIdentity(String versionId) {
+		return jdbc.queryForMap("SELECT id, agreement_id, version_no, status, basis_lead_id, basis_intake_id,"
+				+ " created_by_user_id, created_at FROM brokerage_agreement_versions WHERE id = ?", versionId);
+	}
+
+	private BrokerageAgreement draft(String unitId, String unitCodeOrNull, Instant now) {
+		String lead = ids.generateId();
+		BrokerageAgreement agreement = BrokerageAgreement.create(ids.generateId(), unitId, unitCodeOrNull,
+				ids.generateId(), TransactionType.LONG_TERM_RENT, ids.generateId(), lead, ids.generateId(),
+				ids.generateId(), PERIOD, ids.generateId(), now);
+		created.add(agreement.getId());
+		return agreement;
+	}
+
+	private void insertAgreement(String unitId, String status, String transactionType) {
+		String agreementId = ids.generateId();
+		Timestamp now = Timestamp.from(now());
+		created.add(agreementId);
+		jdbc.update("INSERT INTO brokerage_agreements (id, unit_id, property_id, transaction_type, owner_user_id,"
+				+ " basis_lead_id, status, created_by_user_id, created_at, updated_at) VALUES (?, ?, 'P-FIXTURE', ?, ?,"
+				+ " ?, ?, ?, ?, ?)", agreementId, unitId, transactionType, AgreementFixture.FIXTURE_USER,
+				ids.generateId(), status, AgreementFixture.FIXTURE_USER, now, now);
+	}
+
+	private void insertVersion(String agreementId, int versionNo, String status, String start, String end) {
+		Timestamp now = Timestamp.from(now());
+		jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date,"
+				+ " end_date, basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at)"
+				+ " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", ids.generateId(), agreementId, versionNo, status,
+				Date.valueOf(start), Date.valueOf(end), ids.generateId(), AgreementFixture.FIXTURE_INTAKE,
+				AgreementFixture.FIXTURE_USER, now, now);
+	}
+
+	private static void assertRefused(String constraint, Runnable insert) {
+		DataIntegrityViolationException refused = assertThrows(DataIntegrityViolationException.class, insert::run,
+				constraint);
+		assertTrue(refused.getMessage().contains(constraint), refused.getMessage());
+	}
+
+	private <T> T tx(Supplier<T> work) {
+		return new TransactionTemplate(transactionManager).execute(status -> work.get());
+	}
+
+	private static Instant now() {
+		return Instant.now().truncatedTo(ChronoUnit.MICROS);
+	}
+}

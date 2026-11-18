@@ -30,6 +30,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * What every intake command shares (property-create intake spec 4.1, 5.3, 5.4): the lock order lead, intake, then request,
@@ -58,6 +61,21 @@ public class IntakeCommandSupport {
     /** A-7: the calendar day of a time, in Vietnam. */
     public static LocalDate today(Instant now) {
         return LocalDate.ofInstant(now, VIETNAM);
+    }
+
+    /**
+     * The ids of a set read (ADR-012 decision 2): null elements and repeats dropped, in the caller's order, and refused
+     * above {@code max} before any statement. The message is fixed, so it carries no id.
+     *
+     * @throws NullPointerException     for a null collection
+     * @throws IllegalArgumentException for more than {@code max} distinct ids
+     */
+    static List<String> boundedIds(Collection<String> ids, int max, String message) {
+        List<String> distinct = ids.stream().filter(Objects::nonNull).distinct().toList();
+        if (distinct.size() > max) {
+            throw new IllegalArgumentException(message);
+        }
+        return distinct;
     }
 
     /** The lead under FOR NO KEY UPDATE: the first load of an assignee command (property-create intake spec 5.3). */

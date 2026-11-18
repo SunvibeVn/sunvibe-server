@@ -13,6 +13,7 @@ import vn.sunvibe.property.core.infrastructure.persistence.mapper.manual.IntakeE
 import vn.sunvibe.property.core.infrastructure.persistence.repository.intake.DuplicateCaseJpaRepository;
 
 import java.sql.Timestamp;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -71,6 +72,17 @@ public class DuplicateCaseRepositoryAdapter implements DuplicateCaseDomainReposi
     @Override
     public List<DuplicateCase> findNamingProperty(String propertyId) {
         return jpaRepository.findByCandidatePropertyIdOrderByCreatedAtAscIdAsc(propertyId).stream().map(this::read).toList();
+    }
+
+    @Override
+    public List<DuplicateCase> findForIntakes(Collection<String> intakeIds) {
+        return intakeIds.isEmpty() ? List.of() : jpaRepository.findForIntakes(intakeIds).stream().map(this::read).toList();
+    }
+
+    @Override
+    public List<DuplicateCase> findNamingProperties(Collection<String> propertyIds) {
+        return propertyIds.isEmpty() ? List.of()
+                : jpaRepository.findByCandidatePropertyIdInOrderByCreatedAtAscIdAsc(propertyIds).stream().map(this::read).toList();
     }
 
     @Override

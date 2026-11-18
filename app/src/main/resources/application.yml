@@ -80,6 +80,21 @@ logging:
     org.hibernate.SQL: WARN
 # ── App / Security ────────────────────────────────────────────
 app:
+  # The transactional outbox (ADR-014): bounds are checked at start-up (OutboxConfig)
+  outbox:
+    worker:
+      enabled: true          # false in the test profile: tests drive the worker's runs
+    delivery:
+      poll-interval: 5s      # 1s to 60s
+      batch-size: 10         # 1 to 50, per consumer and run
+      timeout: 10s           # 1s to 60s, shorter than the lease
+      lease-margin: 30s      # 5s to 5m; lease = batch-size x timeout + lease-margin
+    cleanup:
+      interval: 1h           # how often DONE rows are deleted
+      done-retention: 7d     # DONE rows kept this long
+    status:
+      interval: 5m           # how often the OUTBOX_STATUS line is logged
+      queue-age-alert: 5m    # OUTBOX_QUEUE_STALE past this; an unknown consumer's row goes DEAD past it
   cors:
     allowed-origins: http://localhost:3000
   mail:
@@ -181,6 +196,8 @@ app:
         # Owner confirmations and the owner request (property-create intake spec 7.4)
         - { method: POST, path: "/api/v1/me/property-confirmations/**", limit: 10, window: 15m, bucket: me-property-confirmation }
         - { method: POST, path: "/api/v1/staff/owner-leads/*/inventory-intake/owner-confirmation", limit: 30, window: 1h, bucket: owner-confirmation-request }
+        # The owner's brokerage agreement confirmation (with the password) and rejection (brokerage-agreement E05-S5 spec S5-D4)
+        - { method: POST, path: "/api/v1/me/brokerage-agreements/**", limit: 10, window: 15m, bucket: me-brokerage-agreement }
   sms:
     # SMS provider for OTPs: none (default; the phone channel must then not be on) or log, which prints OTPs to the
     # log and runs only in the dev, test and lan profiles. No real provider exists yet.
@@ -208,6 +225,13 @@ app:
       enabled: ${PROPERTY_INTAKE_ENABLED:false}
     direct-create:
       enabled: ${PROPERTY_DIRECT_CREATE_ENABLED:true}
+  brokerage:
+    owner-sending:
+      # Sending an agreement version to its owner (brokerage-agreement BR-19, E05-S4 spec S4-D8): off by default, so no
+      # real owner is reached before the owner closes the legal evidence gap SV-180 (brief Q-1). While off, the send
+      # answers 409 AGREEMENT_SENDING_NOT_AVAILABLE and writes nothing; drafting and reading work as before. Turning it
+      # on in an environment is the owner's act, with BROKERAGE_OWNER_SENDING_ENABLED=true.
+      enabled: ${BROKERAGE_OWNER_SENDING_ENABLED:false}
   survey:
     checklist:
       # Survey checklist submission and review (survey-checklist submission spec A-3): off until the owner opens review;

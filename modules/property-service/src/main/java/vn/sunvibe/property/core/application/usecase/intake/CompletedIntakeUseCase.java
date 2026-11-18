@@ -7,7 +7,8 @@ import java.util.Optional;
  * in one transaction (brokerage-agreement eligibility, E05-S1 spec 5.4). Published for brokerage-service (ADR-009).
  * <p>
  * It has no viewer of its own: it is called only by an operation that has already checked that the caller may see the
- * lead, and its adapter never exposes it over HTTP.
+ * lead, and its adapter never exposes it over HTTP. Only an adapter in vn.sunvibe.integration calls it
+ * (ViewerlessReadArchTest).
  */
 public interface CompletedIntakeUseCase {
 
