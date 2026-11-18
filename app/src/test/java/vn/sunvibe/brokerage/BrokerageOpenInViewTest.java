@@ -151,6 +151,19 @@ class BrokerageOpenInViewTest {
 		assertEquals(1, openInViewInterceptors(intakeBlock));
 	}
 
+	/** E05-S7 spec S7-D11, OV-1: the list is a GET on the collection path, already excluded, and runs without it. */
+	@Test
+	void listGet_noOpenInViewInterceptor() throws Exception {
+		HandlerExecutionChain list = chain("GET", "/api/v1/staff/brokerage-agreements");
+		HandlerMethod handler = assertInstanceOf(HandlerMethod.class, list.getHandler());
+		assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+		assertEquals("list", handler.getMethod().getName());
+		assertEquals(0, openInViewInterceptors(list));
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
 	private HandlerExecutionChain chain(String method, String path) throws Exception {
 		MockHttpServletRequest request = new MockHttpServletRequest(method, path);
 		request.setRequestURI(path);

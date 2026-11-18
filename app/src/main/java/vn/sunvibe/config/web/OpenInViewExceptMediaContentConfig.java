@@ -23,7 +23,7 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	/** The brokerage agreement eligibility read of a lead (E05-S1 spec S1-D8). */
 	static final String BROKERAGE_ELIGIBILITY_PATTERN = "/api/v1/staff/owner-leads/*/brokerage-eligibility";
 
-	/** The brokerage agreement create (E05-S2 spec S2-D13). */
+	/** The brokerage agreement create (E05-S2 spec S2-D13) and the staff agreement list, a GET (E05-S7 spec S7-D11). */
 	static final String BROKERAGE_AGREEMENTS_PATTERN = "/api/v1/staff/brokerage-agreements";
 
 	/** The brokerage agreement detail read (E05-S2 spec S2-D13). */

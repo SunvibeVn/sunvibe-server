@@ -98,7 +98,7 @@ class BrokerageOpenApiTest {
 	void openApi_agreementOperations_idsTagsAndAnswers() {
 		JsonNode collection = contract.path("paths").path("/api/v1/staff/brokerage-agreements");
 		JsonNode item = contract.path("paths").path("/api/v1/staff/brokerage-agreements/{agreementId}");
-		assertEquals(List.of("post"), names(collection));
+		assertEquals(List.of("get", "post"), names(collection).stream().sorted().toList());
 		assertEquals(List.of("get"), names(item));
 		JsonNode post = collection.path("post");
 		JsonNode get = item.path("get");
@@ -707,6 +707,117 @@ class BrokerageOpenApiTest {
 				"refusalType", "refusalNote")) {
 			assertTrue(activation.path(nullable).path("type").toString().contains("null"), nullable);
 		}
+	}
+
+	// ==================== E05-S7 (OA-1) ====================
+
+	/**
+	 * E05-S7 spec section 4, S7-D1, S7-D13, A-2, OA-1: the list's id, tag, four parameters with their bounds and defaults,
+	 * status an array of the seven codes, and its answers, with no MALFORMED_REQUEST documented.
+	 */
+	@Test
+	void openApi_listOperation_parametersAndAnswers() {
+		String collectionPath = "/api/v1/staff/brokerage-agreements";
+		JsonNode get = contract.path("paths").path(collectionPath).path("get");
+		assertEquals("listBrokerageAgreements", get.path("operationId").asString());
+		assertEquals("[\"Brokerage agreement\"]", get.path("tags").toString());
+		assertTrue(get.path("security").isMissingNode(), get.toString());
+		assertEquals(List.of("get " + collectionPath), operationsWithId("listBrokerageAgreements"));
+
+		Map<String, JsonNode> parameters = parameters(get);
+		assertEquals(List.of("endsWithin30Days", "page", "size", "status"),
+				parameters.keySet().stream().sorted().toList());
+		for (JsonNode parameter : parameters.values()) {
+			assertEquals("query", parameter.path("in").asString(), parameter.toString());
+			assertTrue(!parameter.path("required").asBoolean(), parameter.toString());
+		}
+		JsonNode status = parameters.get("status").path("schema");
+		assertEquals("array", status.path("type").asString(), status.toString());
+		assertEquals("[\"DRAFTING\",\"AWAITING_CONFIRMATION\",\"ACTIVE\",\"SUSPENDED\",\"EXPIRED\",\"TERMINATED\",\"CANCELLED\"]",
+				status.path("items").path("enum").toString(), status.toString());
+		JsonNode ending = parameters.get("endsWithin30Days").path("schema");
+		assertEquals("boolean", ending.path("type").asString(), ending.toString());
+		assertEquals("false", ending.path("default").asString(), ending.toString());
+		assertIntegerParameter(parameters.get("page"), 0, 9999, 0);
+		assertIntegerParameter(parameters.get("size"), 1, 50, 20);
+
+		JsonNode responses = get.path("responses");
+		assertEquals(List.of("200", "400", "401", "403", "500"), names(responses).stream().sorted().toList());
+		assertEquals("#/components/schemas/BrokerageAgreementPage", schemaRef(responses.path("200")));
+		for (String code : List.of("400", "401", "403", "500")) {
+			assertEquals("#/components/schemas/ErrorResponse", schemaRef(responses.path(code)), code);
+		}
+		assertTrue(responses.path("400").path("description").asString().contains("VALIDATION_FAILED"));
+		assertTrue(!responses.toString().contains("MALFORMED_REQUEST"), responses.toString());
+	}
+
+	/** E05-S7 spec section 4, S7-D5, OA-1: the three list schemas, their closed values and nullable fields. */
+	@Test
+	void openApi_listSchemas_enumsDatesAndNullables() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		for (String name : List.of("BrokerageAgreementPage", "BrokerageAgreementListItem",
+				"BrokerageAgreementListAdvertising")) {
+			assertTrue(schemas.path(name).isObject(), name);
+			assertTrue(schemas.path(name).path("required").isMissingNode(), name + " " + schemas.path(name));
+		}
+		JsonNode page = schemas.path("BrokerageAgreementPage").path("properties");
+		assertEquals(List.of("items", "page", "size", "totalElements"), names(page).stream().sorted().toList());
+		assertEquals("#/components/schemas/BrokerageAgreementListItem", page.path("items").path("items").path("$ref").asString());
+		assertEquals("int32", page.path("page").path("format").asString());
+		assertEquals("int32", page.path("size").path("format").asString());
+		assertEquals("int64", page.path("totalElements").path("format").asString());
+
+		JsonNode item = schemas.path("BrokerageAgreementListItem").path("properties");
+		assertEquals(List.of("advertising", "agreementId", "createdAt", "latestVersionNo", "latestVersionStatus", "status",
+				"transactionType", "unitCode"), names(item).stream().sorted().toList());
+		assertEquals("[\"string\",\"null\"]", item.path("unitCode").path("type").toString());
+		assertEquals("[\"LONG_TERM_RENT\"]", item.path("transactionType").path("enum").toString());
+		assertEquals("[\"DRAFTING\",\"AWAITING_CONFIRMATION\",\"ACTIVE\",\"SUSPENDED\",\"EXPIRED\",\"TERMINATED\",\"CANCELLED\"]",
+				item.path("status").path("enum").toString());
+		assertEquals("int32", item.path("latestVersionNo").path("format").asString());
+		assertEquals("[\"DRAFT\",\"AWAITING_OWNER\",\"OWNER_CONFIRMED\",\"ACTIVATED\",\"EFFECTIVE\",\"SUPERSEDED\","
+				+ "\"OWNER_REJECTED\",\"LAPSED\",\"ACTIVATION_REFUSED\",\"CANCELLED\"]",
+				item.path("latestVersionStatus").path("enum").toString());
+		assertEquals("date-time", item.path("createdAt").path("format").asString());
+		assertEquals("#/components/schemas/BrokerageAgreementListAdvertising", item.path("advertising").path("$ref").asString());
+
+		JsonNode advertising = schemas.path("BrokerageAgreementListAdvertising").path("properties");
+		assertEquals(List.of("allowed", "endDate", "endsAt", "reasonGroups", "startDate"),
+				names(advertising).stream().sorted().toList());
+		assertEquals("boolean", advertising.path("allowed").path("type").asString());
+		assertEquals("[\"NO_AGREEMENT\",\"NOT_IN_EFFECT\",\"NOT_STARTED\",\"SUSPENDED\",\"ENDED\",\"BASIS\",\"PROPERTY\","
+				+ "\"UNIT\",\"OWNER\"]", advertising.path("reasonGroups").path("items").path("enum").toString());
+		for (String date : List.of("endDate", "startDate")) {
+			assertEquals("[\"string\",\"null\"]", advertising.path(date).path("type").toString(), date);
+			assertEquals("date", advertising.path(date).path("format").asString(), date);
+		}
+		assertEquals("[\"string\",\"null\"]", advertising.path("endsAt").path("type").toString());
+		assertEquals("date-time", advertising.path("endsAt").path("format").asString());
+	}
+
+	private List<String> operationsWithId(String operationId) {
+		List<String> withTheId = new ArrayList<>();
+		contract.path("paths").properties().forEach(entry -> entry.getValue().properties().forEach(operation -> {
+			if (operationId.equals(operation.getValue().path("operationId").asString())) {
+				withTheId.add(operation.getKey() + " " + entry.getKey());
+			}
+		}));
+		return withTheId;
+	}
+
+	private static Map<String, JsonNode> parameters(JsonNode operation) {
+		Map<String, JsonNode> parameters = new java.util.LinkedHashMap<>();
+		operation.path("parameters").forEach(parameter -> parameters.put(parameter.path("name").asString(), parameter));
+		return parameters;
+	}
+
+	private static void assertIntegerParameter(JsonNode parameter, int minimum, int maximum, int defaultValue) {
+		JsonNode schema = parameter.path("schema");
+		assertEquals("integer", schema.path("type").asString(), parameter.toString());
+		assertEquals("int32", schema.path("format").asString(), parameter.toString());
+		assertEquals(minimum, schema.path("minimum").asInt(), parameter.toString());
+		assertEquals(maximum, schema.path("maximum").asInt(), parameter.toString());
+		assertEquals(defaultValue, schema.path("default").asInt(-1), parameter.toString());
 	}
 
 	private static void assertNullableRef(String schema, JsonNode property) {
