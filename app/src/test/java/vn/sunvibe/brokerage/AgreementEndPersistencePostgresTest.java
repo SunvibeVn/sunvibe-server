@@ -1,6 +1,7 @@
 package vn.sunvibe.brokerage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,7 +50,10 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.domain.model.agreement.WithdrawalChannel;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementSuspension;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SuspensionReasonType;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
+import vn.sunvibe.brokerage.core.domain.repository.AgreementSuspensionDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 
 /**
@@ -78,6 +82,9 @@ class AgreementEndPersistencePostgresTest {
 
 	@Autowired
 	private AgreementDomainRepository agreements;
+
+	@Autowired
+	private AgreementSuspensionDomainRepository suspensionRecords;
 
 	@Autowired
 	private JdbcTemplate jdbc;
@@ -259,6 +266,88 @@ class AgreementEndPersistencePostgresTest {
 				assertNull(agreement.getTerminationOrNull(), agreement.getId());
 			}
 		}
+	}
+
+	// ==================== the suspension records (spec S8-D6, 5.3) ====================
+
+	@Test
+	void suspensionRepository_openThenRelease_closedWithWhoWhenReason() {
+		String agreementId = fixture("SUSPENDED", "EFFECTIVE");
+		Instant suspendedAt = now().minus(2, ChronoUnit.HOURS);
+		Instant releasedAt = now();
+		AgreementSuspension opened = AgreementSuspension.open(ids.generateId(), agreementId,
+				SuspensionReasonType.DISPUTE, "A dispute on the rent.", MANAGER, suspendedAt);
+
+		tx(() -> {
+			suspensionRecords.open(opened);
+			return null;
+		});
+		boolean released = tx(() -> suspensionRecords.release(agreementId, "01JRELEASER000000000000000", releasedAt,
+				"The owner agreed."));
+		List<AgreementSuspension> read = tx(() -> suspensionRecords.newestOf(agreementId, 20));
+
+		assertTrue(released);
+		assertEquals(List.of(opened.released("01JRELEASER000000000000000", releasedAt, "The owner agreed.")), read);
+	}
+
+	@Test
+	void suspensionRepository_releaseWithoutOpen_false() {
+		String agreementId = fixture("ACTIVE", "EFFECTIVE");
+		insertSuspension(agreementId, now().minus(1, ChronoUnit.HOURS), MANAGER, now(), "Checked.");
+
+		assertFalse(tx(() -> suspensionRecords.release(agreementId, MANAGER, now(), "Again.")));
+		assertEquals("Checked.", jdbc.queryForObject("SELECT release_reason FROM brokerage_agreement_suspensions"
+				+ " WHERE agreement_id = ?", String.class, agreementId));
+	}
+
+	/** S8-D6: the partial unique index refuses a second open record; the adapter answers IllegalStateException. */
+	@Test
+	void suspensionRepository_secondOpen_illegalState() {
+		String agreementId = fixture("SUSPENDED", "EFFECTIVE");
+		insertSuspension(agreementId, now().minus(1, ChronoUnit.HOURS), null, null, null);
+
+		assertThrows(IllegalStateException.class, () -> tx(() -> {
+			suspensionRecords.open(AgreementSuspension.open(ids.generateId(), agreementId,
+					SuspensionReasonType.COMPLAINT, null, MANAGER, now()));
+			return null;
+		}));
+		assertEquals(1, suspensions(agreementId));
+	}
+
+	@Test
+	void suspensionRepository_newestOf_newestFirstBounded() {
+		String agreementId = fixture("SUSPENDED", "EFFECTIVE");
+		Instant first = now().minus(3, ChronoUnit.HOURS);
+		insertSuspension(agreementId, first, MANAGER, first.plus(10, ChronoUnit.MINUTES), "First lifted.");
+		insertSuspension(agreementId, first.plus(1, ChronoUnit.HOURS), MANAGER, first.plus(70, ChronoUnit.MINUTES),
+				"Second lifted.");
+		insertSuspension(agreementId, first.plus(2, ChronoUnit.HOURS), null, null, null);
+
+		List<AgreementSuspension> two = tx(() -> suspensionRecords.newestOf(agreementId, 2));
+
+		assertEquals(List.of(first.plus(2, ChronoUnit.HOURS), first.plus(1, ChronoUnit.HOURS)),
+				two.stream().map(AgreementSuspension::suspendedAt).toList());
+		assertTrue(two.getFirst().isOpen());
+		assertEquals("Second lifted.", two.get(1).releaseReasonOrNull());
+	}
+
+	/** persistence.md: two records of one microsecond keep one order, by the greater id first. */
+	@Test
+	void suspensionRepository_newestOf_sameSuspendedAt_idDescending() {
+		String agreementId = fixture("ACTIVE", "EFFECTIVE");
+		Instant at = now().minus(1, ChronoUnit.HOURS);
+		insertSuspension(agreementId, at, MANAGER, at.plus(1, ChronoUnit.MINUTES), "One.");
+		insertSuspension(agreementId, at, MANAGER, at.plus(2, ChronoUnit.MINUTES), "Two.");
+		List<String> expected = jdbc.queryForList("SELECT id FROM brokerage_agreement_suspensions WHERE agreement_id = ?"
+				+ " ORDER BY id DESC", String.class, agreementId);
+
+		List<String> first = tx(() -> suspensionRecords.newestOf(agreementId, 20)).stream()
+				.map(AgreementSuspension::id).toList();
+		List<String> second = tx(() -> suspensionRecords.newestOf(agreementId, 20)).stream()
+				.map(AgreementSuspension::id).toList();
+
+		assertEquals(expected, first);
+		assertEquals(expected, second);
 	}
 
 	/** A fixture agreement of a new unit and lead in that state, with its version 1 in that state. */
