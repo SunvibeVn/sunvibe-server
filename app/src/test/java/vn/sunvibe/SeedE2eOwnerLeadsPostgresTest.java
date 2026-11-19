@@ -875,6 +875,78 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
+	 * listing-publish E06-S1 spec E06S1-D13, plan decision E06S1-P12: the listing of an agreement the seed deletes goes
+	 * with it, its history and revisions first, so the listing E2E test can run again; a listing of an agreement outside
+	 * the fixture is kept.
+	 */
+	@Test
+	void reseed_afterAListing_clearsItsRows() throws Exception {
+		String agreement = "01JE2EAGREEMENT00000000115";
+		String version = "01JE2EAGRVERSION0000000115";
+		String listing = "01JE2ELISTING0000000000015";
+		String foreignAgreement = "01JE2EOTHERAGREEMENT000002";
+		String foreignListing = "01JE2EOTHERLISTING00000001";
+		try {
+			seedAccounts();
+			assertEquals(0, runLeads("local").getExitCode());
+			String l15 = LEAD_IDS.get(14);
+			Timestamp now = Timestamp.from(Instant.now());
+			// A DRAFTING agreement with its version 1 DRAFT on L15, as reseed_afterAnAgreement_clearsItsRows builds it.
+			jdbc.update("INSERT INTO brokerage_agreements (id, unit_id, unit_code, property_id, transaction_type,"
+					+ " owner_user_id, basis_lead_id, status, created_by_user_id, created_at, updated_at, version) VALUES (?, ?,"
+					+ " 'SV-HOU-999915', 'e2e00000-0000-0000-0000-000000000015', 'LONG_TERM_RENT', ?, ?, 'DRAFTING', ?, ?, ?, 0)",
+					agreement, "01JE2EAGRUNIT0000000000115", CUSTOMER_ID, l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date, end_date,"
+					+ " basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at) VALUES (?, ?, 1, 'DRAFT',"
+					+ " DATE '2027-01-01', DATE '2027-12-31', ?, '01JE2EINTAKE00000000000015', ?, ?, ?)", version, agreement,
+					l15, SALE_ID, now, now);
+			// A listing with revision 1 and its CREATED row under that agreement, and one under an agreement outside it.
+			for (String[] row : List.of(new String[] {listing, agreement, "TD-E2EL-STAB", "01JE2ELISTINGREV0000000015",
+					"01JE2ELISTINGHIS0000000015"}, new String[] {foreignListing, foreignAgreement, "TD-E2EF-RGNB",
+					"01JE2EOTHERLISTREV00000001", "01JE2EOTHERLISTHIS00000001"})) {
+				jdbc.update("INSERT INTO listings (id, code, unit_id, transaction_type, agreement_id, state, created_by,"
+						+ " created_at, updated_at) VALUES (?, ?, '01JE2EAGRUNIT0000000000115', 'LONG_TERM_RENT', ?,"
+						+ " 'UNPUBLISHED', ?, ?, ?)", row[0], row[2], row[1], SALE_ID, now, now);
+				jdbc.update("INSERT INTO listing_revisions (id, listing_id, revision_no, status, created_by, created_at,"
+						+ " updated_at) VALUES (?, ?, 1, 'DRAFT', ?, ?, ?)", row[3], row[0], SALE_ID, now, now);
+				jdbc.update("INSERT INTO listing_history (id, listing_id, action, revision_no, actor_user_id, occurred_at)"
+						+ " VALUES (?, ?, 'CREATED', 1, ?, ?)", row[4], row[0], SALE_ID, now);
+			}
+			List<String> foreignRows = List.of(
+					jdbc.queryForObject("SELECT l::text FROM listings l WHERE id = ?", String.class, foreignListing),
+					jdbc.queryForObject("SELECT r::text FROM listing_revisions r WHERE listing_id = ?", String.class,
+							foreignListing),
+					jdbc.queryForObject("SELECT h::text FROM listing_history h WHERE listing_id = ?", String.class,
+							foreignListing));
+
+			ExecResult again = runLeads("local");
+
+			assertEquals(0, again.getExitCode(), "re-run after a listing failed: " + again.getStderr());
+			assertEquals(SEEDED, printedCounts(again));
+			for (String table : List.of("listing_history", "listing_revisions")) {
+				assertEquals(0, count("SELECT count(*) FROM " + table + " WHERE listing_id = '" + listing + "'"), table);
+			}
+			assertEquals(0, count("SELECT count(*) FROM listings WHERE id = '" + listing + "'"));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreements WHERE id = '" + agreement + "'"));
+			assertEquals(foreignRows, List.of(
+					jdbc.queryForObject("SELECT l::text FROM listings l WHERE id = ?", String.class, foreignListing),
+					jdbc.queryForObject("SELECT r::text FROM listing_revisions r WHERE listing_id = ?", String.class,
+							foreignListing),
+					jdbc.queryForObject("SELECT h::text FROM listing_history h WHERE listing_id = ?", String.class,
+							foreignListing)));
+		} finally {
+			for (String id : List.of(listing, foreignListing)) {
+				jdbc.update("DELETE FROM listing_history WHERE listing_id = ?", id);
+				jdbc.update("DELETE FROM listing_revisions WHERE listing_id = ?", id);
+				jdbc.update("DELETE FROM listings WHERE id = ?", id);
+			}
+			jdbc.update("DELETE FROM brokerage_agreement_events WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreement_versions WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreements WHERE id = ?", agreement);
+		}
+	}
+
+	/**
 	 * brokerage-agreement E05-S3 spec S3-D9, section 10: the fee rows of an agreement's version on L15 go with their
 	 * version by the cascade, so the seed clears an edited draft unchanged.
 	 */

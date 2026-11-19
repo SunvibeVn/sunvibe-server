@@ -245,6 +245,13 @@ CREATE TEMP TABLE seed_agreement_rows ON COMMIT DROP AS
     SELECT id FROM brokerage_agreements WHERE basis_lead_id IN (SELECT id FROM seed_leads)
     UNION
     SELECT agreement_id FROM brokerage_agreement_versions WHERE basis_lead_id IN (SELECT id FROM seed_leads);
+-- The listings of those agreements go first, their history and revisions before them (listing-publish E06-S1 plan
+-- decision E06S1-P12): listing rows name an agreement by id only, so nothing else removes them.
+DELETE FROM listing_history WHERE listing_id IN
+    (SELECT id FROM listings WHERE agreement_id IN (SELECT id FROM seed_agreement_rows));
+DELETE FROM listing_revisions WHERE listing_id IN
+    (SELECT id FROM listings WHERE agreement_id IN (SELECT id FROM seed_agreement_rows));
+DELETE FROM listings WHERE agreement_id IN (SELECT id FROM seed_agreement_rows);
 DELETE FROM brokerage_agreement_access_logs WHERE agreement_id IN (SELECT id FROM seed_agreement_rows);
 DELETE FROM brokerage_agreement_events WHERE agreement_id IN (SELECT id FROM seed_agreement_rows);
 DELETE FROM brokerage_agreement_versions WHERE agreement_id IN (SELECT id FROM seed_agreement_rows);
