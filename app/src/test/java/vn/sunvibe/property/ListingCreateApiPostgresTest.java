@@ -5,15 +5,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.security.SecureRandom;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
+import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
+import vn.sunvibe.listing.core.application.usecase.ListingViewer;
+import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
 
 /**
  * The listing create over HTTP on PostgreSQL (listing-publish US-1 AC-1 to AC-4, BR-1, LP-1, E-1 to E-3; E06-S1 spec 3.1,
@@ -208,6 +218,99 @@ class ListingCreateApiPostgresTest extends ListingApiTestBase {
 
 		assertCode(401, "UNAUTHORIZED", answer);
 		assertNoListingWritten(before);
+	}
+
+	// ==================== races (LC-4, LC-7; plan decision E06S1-P6) ====================
+
+	/** LC-4: two creates of the agreement released together: one 201, one 409 LISTING_EXISTS, one listing. */
+	@Test
+	void create_twoConcurrent_oneCreatedOneExists() throws Exception {
+		Chain chain = inEffect();
+		CountDownLatch start = new CountDownLatch(1);
+		List<Future<Result>> creates = new ArrayList<>();
+		for (int side = 0; side < 2; side++) {
+			creates.add(executor.submit(() -> {
+				start.await(30, TimeUnit.SECONDS);
+				return createListing(sale, chain.agreementId());
+			}));
+		}
+
+		start.countDown();
+		List<Result> answers = new ArrayList<>();
+		for (Future<Result> create : creates) {
+			answers.add(create.get(60, TimeUnit.SECONDS));
+		}
+
+		assertEquals(List.of(201, 409), answers.stream().map(Result::status).sorted().toList(), answers.toString());
+		Result refused = answers.stream().filter(answer -> answer.status() == 409).findFirst().orElseThrow();
+		assertEquals("LISTING_EXISTS", refused.body().path("code").asString(), refused.rawBody());
+		assertEquals(1, listingsOf(chain.agreementId()));
+	}
+
+	/** LC-4: an open listing not committed yet makes the create wait on the index, which then answers LISTING_EXISTS. */
+	@Test
+	void create_uncommittedOpenListing_existsOnceItCommits() throws Exception {
+		Chain chain = inEffect();
+		String held = ids.generateId();
+		Future<Result> create;
+		try (Hold hold = new Hold(() -> jdbc.update("insert into listings (id, code, unit_id, transaction_type,"
+				+ " agreement_id, state, created_by, created_at, updated_at) values (?, ?, ?, 'LONG_TERM_RENT', ?,"
+				+ " 'UNPUBLISHED', ?, ?, ?)", held, ListingCode.draw(new SecureRandom()).value(), chain.unitId(),
+				chain.agreementId(), sale.userId(), Timestamp.from(Instant.now()), Timestamp.from(Instant.now())))) {
+			create = executor.submit(() -> createListing(sale, chain.agreementId()));
+			awaitWaiters(1);
+			assertFalse(create.isDone());
+		}
+
+		Result answer = create.get(60, TimeUnit.SECONDS);
+
+		assertCode(409, "LISTING_EXISTS", answer);
+		assertEquals(List.of(held), jdbc.queryForList("select id from listings where agreement_id = ?", String.class,
+				chain.agreementId()));
+		assertEquals(0, count("select count(*) from listing_revisions r join listings l on l.id = r.listing_id"
+				+ " where l.agreement_id = ?", chain.agreementId()));
+		assertEquals(0, count("select count(*) from listing_history h join listings l on l.id = h.listing_id"
+				+ " where l.agreement_id = ?", chain.agreementId()));
+	}
+
+	/** LC-7, first order: a suspension committed before the create refuses it with SUSPENDED; nothing written. */
+	@Test
+	void create_suspensionCommittedFirst_refusedSuspended() throws Exception {
+		Chain chain = inEffect();
+		suspended(admin, chain.agreementId());
+		ListingRows before = listingRows();
+
+		Result answer = createListing(sale, chain.agreementId());
+
+		assertCode(409, "LISTING_NOT_ALLOWED", answer);
+		assertEquals("reasonGroups.SUSPENDED", answer.body().path("errors").path(0).path("field").asString(),
+				answer.rawBody());
+		assertEquals(1, answer.body().path("errors").size(), answer.rawBody());
+		assertNoListingWritten(before);
+	}
+
+	/** LC-7, second order: the create holds E05's share lock, so a suspension waits until the create commits. */
+	@Test
+	void create_heldShareLock_suspensionWaitsThenCommits() throws Exception {
+		Chain chain = inEffect();
+		String id = chain.agreementId();
+		Future<Result> suspension;
+		try (Hold hold = new Hold(() -> listingCommands.create(new ListingCreateCommand(id),
+				new ListingViewer(sale.userId(), Set.of("ROLE_SALE"))))) {
+			suspension = executor.submit(() -> suspendAgreement(admin, id, "COMPLAINT", "Tenant reported a different price."));
+			awaitWaiters(1);
+			assertFalse(suspension.isDone());
+		}
+
+		Result answer = suspension.get(60, TimeUnit.SECONDS);
+
+		assertEquals(204, answer.status(), answer.rawBody());
+		assertEquals(1, listingsOf(id));
+		assertTrue(answer(chain).reasonGroups().contains("SUSPENDED"), answer(chain).toString());
+	}
+
+	private int listingsOf(String agreementId) {
+		return count("select count(*) from listings where agreement_id = ?", agreementId);
 	}
 
 	/** 409 LISTING_NOT_ALLOWED with one entry per group in this order, no lead in the body, nothing written. */
