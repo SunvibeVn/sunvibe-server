@@ -103,7 +103,7 @@ class JWTProviderTest {
         Jws<Claims> jws = provider.validateTokenAndGetJws(provider.issue(user(UserStatus.ACTIVE, null))).orElseThrow();
 
         assertEquals("HS256", jws.getHeader().getAlgorithm());
-        assertEquals(JWTProvider.TOKEN_TYPE, jws.getHeader().getType());
+        assertEquals("JWT", jws.getHeader().getType());
         Claims claims = jws.getPayload();
         assertEquals(Set.of("sub", "uid", "cv", "rol", "iss", "iat", "exp"), claims.keySet());
         assertEquals(Duration.ofMinutes(60),
@@ -111,8 +111,8 @@ class JWTProviderTest {
     }
 
     /**
-     * auth-login SV-242: the parser checks the signature and the expiry and never {@code iss}, so a token issued
-     * under the previous issuer name works until it expires.
+     * auth-login SV-242: the parser checks the signature and the expiry and not {@code iss} (such a check would be
+     * a change of its own), so a token issued under the previous issuer name works until it expires.
      */
     @Test
     void validateTokenAndGetJws_tokenOfThePreviousIssuer_accepted() {
