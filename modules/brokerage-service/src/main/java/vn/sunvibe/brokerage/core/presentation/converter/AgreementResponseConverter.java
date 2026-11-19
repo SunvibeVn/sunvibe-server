@@ -37,6 +37,8 @@ import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementPag
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementStatementResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementRentResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSurveyTermsResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementSuspensionResponse;
+import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementTerminationResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementTermSourceResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementTermsResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementVersionActivationResponse;
@@ -60,7 +62,32 @@ public class AgreementResponseConverter {
                 view.versions().stream().map(AgreementResponseConverter::version).toList(),
                 view.dataVersion(), view.viewerIsAssignedSale(), advertising(view.advertising()),
                 view.viewerMayDecideActivation(),
-                statement == null ? null : new BrokerageAgreementStatementResponse(statement.version(), statement.text()));
+                statement == null ? null : new BrokerageAgreementStatementResponse(statement.version(), statement.text()),
+                view.endedAtOrNull(), termination(view.terminationOrNull()),
+                view.suspensions().stream().map(AgreementResponseConverter::suspension).toList(),
+                view.moreSuspensions(), view.viewerStopActions().stream().map(Enum::name).toList());
+    }
+
+    /** E05-S8 spec S8-D11: the termination record as codes and plain values; staff only (BR-17). */
+    private static BrokerageAgreementTerminationResponse termination(
+            AgreementDetailView.TerminationView terminationOrNull) {
+        if (terminationOrNull == null) {
+            return null;
+        }
+        return new BrokerageAgreementTerminationResponse(terminationOrNull.type().name(),
+                terminationOrNull.reportedOnOrNull(), nameOrNull(terminationOrNull.channelOrNull()),
+                nameOrNull(terminationOrNull.introducedOrNull()), terminationOrNull.noteOrNull(),
+                terminationOrNull.terminatedAt());
+    }
+
+    /** E05-S8 spec S8-D11: one suspension record, no user id. */
+    private static BrokerageAgreementSuspensionResponse suspension(AgreementDetailView.SuspensionView record) {
+        return new BrokerageAgreementSuspensionResponse(record.reasonType().name(), record.noteOrNull(),
+                record.suspendedAt(), record.releasedAtOrNull(), record.releaseReasonOrNull());
+    }
+
+    private static String nameOrNull(Enum<?> codeOrNull) {
+        return codeOrNull == null ? null : codeOrNull.name();
     }
 
     /** brokerage-agreement BR-12 (E05-S6 spec S6-D7, S6-D8): the answer as codes and plain values. */

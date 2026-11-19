@@ -178,6 +178,26 @@ class BrokerageOpenInViewTest {
 		assertEquals(1, openInViewInterceptors(intakeBlock));
 	}
 
+	/** E05-S8 spec S8-D15, OV-1: the four stop commands run without open-in-view. */
+	@Test
+	void stopCommands_runWithoutOpenInView() throws Exception {
+		Map<String, String> handlers = Map.of(
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/suspension", "suspend",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/suspension-release", "releaseSuspension",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/termination", "terminate",
+				"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/cancellation", "cancel");
+		for (Map.Entry<String, String> expected : handlers.entrySet()) {
+			HandlerExecutionChain chain = chain("POST", expected.getKey());
+			HandlerMethod handler = assertInstanceOf(HandlerMethod.class, chain.getHandler());
+			assertEquals(BrokerageAgreementController.class, handler.getBeanType());
+			assertEquals(expected.getValue(), handler.getMethod().getName());
+			assertEquals(0, openInViewInterceptors(chain), expected.getKey());
+		}
+
+		HandlerExecutionChain intakeBlock = chain("/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
+		assertEquals(1, openInViewInterceptors(intakeBlock));
+	}
+
 	private HandlerExecutionChain chain(String method, String path) throws Exception {
 		MockHttpServletRequest request = new MockHttpServletRequest(method, path);
 		request.setRequestURI(path);

@@ -57,6 +57,19 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	/** The history of an agreement (E05-S7 spec S7-D11). */
 	static final String BROKERAGE_AGREEMENT_HISTORY_PATTERN = "/api/v1/staff/brokerage-agreements/*/history";
 
+	/** The suspension of an agreement (E05-S8 spec S8-D15). */
+	static final String BROKERAGE_AGREEMENT_SUSPENSION_PATTERN = "/api/v1/staff/brokerage-agreements/*/suspension";
+
+	/** The release of a suspension (E05-S8 spec S8-D15). */
+	static final String BROKERAGE_AGREEMENT_SUSPENSION_RELEASE_PATTERN =
+			"/api/v1/staff/brokerage-agreements/*/suspension-release";
+
+	/** The termination of an agreement (E05-S8 spec S8-D15). */
+	static final String BROKERAGE_AGREEMENT_TERMINATION_PATTERN = "/api/v1/staff/brokerage-agreements/*/termination";
+
+	/** The cancellation of an agreement (E05-S8 spec S8-D15). */
+	static final String BROKERAGE_AGREEMENT_CANCELLATION_PATTERN = "/api/v1/staff/brokerage-agreements/*/cancellation";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -76,6 +89,8 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 						BROKERAGE_AGREEMENT_SUBMISSION_PATTERN, ME_BROKERAGE_AGREEMENTS_PATTERN,
 						ME_BROKERAGE_AGREEMENT_CONFIRMATIONS_PATTERN, ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN,
 						BROKERAGE_AGREEMENT_ACTIVATION_PATTERN, BROKERAGE_AGREEMENT_ACTIVATION_REFUSAL_PATTERN,
-						BROKERAGE_AGREEMENT_HISTORY_PATTERN);
+						BROKERAGE_AGREEMENT_HISTORY_PATTERN, BROKERAGE_AGREEMENT_SUSPENSION_PATTERN,
+						BROKERAGE_AGREEMENT_SUSPENSION_RELEASE_PATTERN, BROKERAGE_AGREEMENT_TERMINATION_PATTERN,
+						BROKERAGE_AGREEMENT_CANCELLATION_PATTERN);
 	}
 }

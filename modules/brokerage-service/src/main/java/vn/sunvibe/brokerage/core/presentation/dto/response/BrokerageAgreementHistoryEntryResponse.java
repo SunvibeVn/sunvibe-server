@@ -12,7 +12,8 @@ import java.time.Instant;
 public record BrokerageAgreementHistoryEntryResponse(
         @Schema(description = "The event; OTHER for one this version of the server does not know", allowableValues = {
                 "CREATED", "DRAFT_EDITED", "VERSION_SENT", "OWNER_CONFIRMED", "OWNER_REJECTED", "VERSION_LAPSED",
-                "DRAFT_OPENED", "ACTIVATED", "ACTIVATION_REFUSED", "VERSION_STARTED", "OTHER"})
+                "DRAFT_OPENED", "ACTIVATED", "ACTIVATION_REFUSED", "VERSION_STARTED", "SUSPENDED", "SUSPENSION_RELEASED",
+                "TERMINATED", "EXPIRED", "CANCELLED", "OTHER"})
         String type,
         @Schema(nullable = true, description = "The version the event is about; null for none")
         Integer versionNo,
