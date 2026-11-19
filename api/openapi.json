@@ -4206,6 +4206,219 @@
         "tags" : [ "Inventory cases" ]
       }
     },
+    "/api/v1/staff/listings" : {
+      "post" : {
+        "operationId" : "createListing",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingCreated"
+                }
+              }
+            },
+            "description" : "The listing was created, Unpublished with revision 1 Draft; its id and public code are answered"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry, field agreementId) or MALFORMED_REQUEST (the body cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every agreement id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, is of another transaction type, or the caller does not hold its basis lead now: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_NOT_ALLOWED (one reasonGroups.<GROUP> entry per group, in the order NO_AGREEMENT, NOT_IN_EFFECT, NOT_STARTED, SUSPENDED, ENDED, BASIS, PROPERTY, UNIT, OWNER), LISTING_EXISTS (the agreement already has a listing; no id is answered) or CONCURRENT_MODIFICATION"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Create a listing under an agreement whose advertising answer allows it, for its assigned Sale",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/by-agreement/{agreementId}" : {
+      "get" : {
+        "operationId" : "getAgreementListings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AgreementListings"
+                }
+              }
+            },
+            "description" : "At most the agreement's 20 newest listings and the creation part"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN (LISTING_REVIEWER alone included); the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed, or the caller may not read it: one answer for all three"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, also for a reason group of the advertising answer this server does not know"
+          }
+        },
+        "summary" : "The listings of an agreement and whether the caller may create one now",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}" : {
+      "get" : {
+        "operationId" : "getListing",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingDetail"
+                }
+              }
+            },
+            "description" : "The listing and at most its 20 newest revisions"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller may not read it: one answer for all three"
+          }
+        },
+        "summary" : "A listing with its newest revisions; nothing of it is public",
+        "tags" : [ "Listing" ]
+      }
+    },
     "/api/v1/staff/owner-lead-assignees" : {
       "get" : {
         "description" : "Accounts that exist, may sign in and hold SALE or SALE_LEADER, sorted by name (Vietnamese order), then id; at most 500. Each item holds the user id, the full name and the assignee roles, nothing else. Not paged.",
@@ -9826,6 +10039,29 @@
           }
         },
         "required" : [ "note" ]
+      },
+      "AgreementListings" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string"
+          },
+          "creation" : {
+            "$ref" : "#/components/schemas/ListingCreation"
+          },
+          "hasOlder" : {
+            "type" : "boolean",
+            "description" : "The agreement has older listings than those answered"
+          },
+          "listings" : {
+            "type" : "array",
+            "description" : "At most the 20 newest listings of the agreement, the newest first; at most one is not archived",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingItem"
+            }
+          }
+        },
+        "required" : [ "agreementId", "creation", "hasOlder", "listings" ]
       },
       "AskingPriceRequest" : {
         "type" : "object",
@@ -17938,6 +18174,148 @@
           }
         },
         "required" : [ "expectedVersion", "leadId" ]
+      },
+      "ListingCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string",
+            "description" : "The agreement the listing is bound to for life; its unit and transaction type come from it",
+            "pattern" : "^[0-9A-Z]{26}$"
+          }
+        },
+        "required" : [ "agreementId" ]
+      },
+      "ListingCreated" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The public code; it never changes",
+            "pattern" : "^TD-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$"
+          },
+          "listingId" : {
+            "type" : "string",
+            "description" : "The internal id (staff only)"
+          }
+        },
+        "required" : [ "code", "listingId" ]
+      },
+      "ListingCreation" : {
+        "type" : "object",
+        "properties" : {
+          "advertisingNotStarted" : {
+            "type" : "boolean",
+            "description" : "E05's reason groups are exactly NOT_STARTED: the listing can be prepared before the start"
+          },
+          "reasonGroups" : {
+            "type" : "array",
+            "description" : "The groups that stop a create, in this order; empty when E05's answer allows one (NOT_STARTED alone included); ENDED when the agreement has ended; NO_AGREEMENT when E05 gives no answer",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NO_AGREEMENT", "NOT_IN_EFFECT", "NOT_STARTED", "SUSPENDED", "ENDED", "BASIS", "PROPERTY", "UNIT", "OWNER" ]
+            }
+          },
+          "viewerMayCreate" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "advertisingNotStarted", "reasonGroups", "viewerMayCreate" ]
+      },
+      "ListingDetail" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string",
+            "description" : "The listing's agreement"
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "The public code"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The data version a later command sends back"
+          },
+          "hasOlderRevisions" : {
+            "type" : "boolean",
+            "description" : "The listing has older revisions than those answered"
+          },
+          "listingId" : {
+            "type" : "string",
+            "description" : "The internal id (staff only)"
+          },
+          "revisions" : {
+            "type" : "array",
+            "description" : "At most the 20 newest revisions, the newest first",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingRevisionItem"
+            }
+          },
+          "state" : {
+            "type" : "string",
+            "description" : "ARCHIVED also when the listing's agreement has ended",
+            "enum" : [ "UNPUBLISHED", "PUBLISHED", "PAUSED", "URGENTLY_UNPUBLISHED", "ARCHIVED" ]
+          },
+          "transactionType" : {
+            "type" : "string",
+            "enum" : [ "LONG_TERM_RENT" ]
+          },
+          "unitId" : {
+            "type" : "string"
+          },
+          "viewerIsAssignedSale" : {
+            "type" : "boolean",
+            "description" : "The viewer holds the agreement's basis lead now; a hint, the commands decide"
+          }
+        },
+        "required" : [ "agreementId", "code", "createdAt", "dataVersion", "hasOlderRevisions", "listingId", "revisions", "state", "transactionType", "unitId", "viewerIsAssignedSale" ]
+      },
+      "ListingItem" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The public code"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string",
+            "description" : "ARCHIVED also when the agreement has ended",
+            "enum" : [ "UNPUBLISHED", "PUBLISHED", "PAUSED", "URGENTLY_UNPUBLISHED", "ARCHIVED" ]
+          }
+        },
+        "required" : [ "code", "createdAt", "listingId", "state" ]
+      },
+      "ListingRevisionItem" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "From 1"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "NEEDS_CHANGES", "REJECTED", "APPROVED", "LIVE", "REPLACED", "CANCELLED" ]
+          }
+        },
+        "required" : [ "createdAt", "revisionNo", "status" ]
       },
       "LoginRequest" : {
         "type" : "object",
