@@ -37,7 +37,11 @@ import java.util.Optional;
 public class JWTProvider implements AccessTokenIssuerPort {
 
     public static final String TOKEN_TYPE = "JWT";
-    public static final String TOKEN_ISSUER = "Nestify";
+    /**
+     * {@code iss} of every access token. Nothing compares it: the parser checks the signature and the expiry only,
+     * so a token issued under an earlier name works until it expires.
+     */
+    public static final String TOKEN_ISSUER = "43Space";
     public static final String TOKEN_PREFIX = "Bearer ";
     /** Claim holding the account's immutable id; the request filter checks it against the reloaded user. */
     public static final String USER_ID_CLAIM = "uid";
