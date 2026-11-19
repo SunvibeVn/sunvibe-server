@@ -82,12 +82,18 @@ public class AgreementRepositoryAdapter implements AgreementDomainRepository {
      * fails with Spring's optimistic-locking failure, at the merge or at the guarded UPDATE of the flush. Fee rows are
      * matched by (version, number) and fee tier rows by (version, renewal, number): updated, inserted, or removed as
      * orphans. The changed update time makes the agreement row dirty, so its row version is checked and bumped.
+     * <p>
+     * E05-S8 spec S8-D18: the one-table lock statement runs first, so every write of an agreement takes the agreement row
+     * before any version, fee, tier, history or suspension row of it, whatever order the flush gives its statements; the
+     * lock order of every writer is the lead row, the agreement row, the rows of its graph. Whatever it finds, the merge
+     * runs as before: a row version that moved meanwhile still fails it.
      */
     @Override
     public void update(BrokerageAgreement agreement) {
         if (agreement.getRowVersionOrNull() == null) {
             throw new IllegalStateException("Only a loaded agreement is updated.");
         }
+        jpaRepository.lockForUpdate(agreement.getId());
         BrokerageAgreementEntity saved = jpaRepository.saveAndFlush(mapper.toEntity(agreement));
         entityManager.detach(saved);
     }
@@ -165,6 +171,23 @@ public class AgreementRepositoryAdapter implements AgreementDomainRepository {
     @Override
     public List<String> dueStartAgreementIds(LocalDate startOnOrBefore, int limit) {
         return jpaRepository.findDueStartIds(startOnOrBefore, PageRequest.of(0, limit));
+    }
+
+    /**
+     * Four statements (E05-S8 spec S8-D8 step 3, 5.3): the lock statement alone, then, only after it returned, the three
+     * reads of {@link #findById}, each taking its snapshot after the lock was granted.
+     */
+    @Override
+    public Optional<BrokerageAgreement> findByIdForUpdate(String id) {
+        if (jpaRepository.lockForUpdate(id).isEmpty()) {
+            return Optional.empty();
+        }
+        return findById(id);
+    }
+
+    @Override
+    public List<String> dueExpiryAgreementIds(LocalDate endBefore, int limit) {
+        return jpaRepository.findDueExpiryIds(endBefore, PageRequest.of(0, limit));
     }
 
     /** Whether the failed write broke the named constraint, read from the Hibernate cause. */
