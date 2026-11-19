@@ -1025,6 +1025,49 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
+	 * brokerage-agreement E05-S8 spec S8-D9: a suspended agreement on L15 with its open suspension record goes with the
+	 * next seed run; the record goes with its agreement by the cascade, so the seed clears it unchanged.
+	 */
+	@Test
+	void reseed_afterASuspension_removesItsRecord() throws Exception {
+		String agreement = "01JE2ESUSPENDEDAGREEMENT15";
+		String version = "01JE2ESUSPENDEDVERSION0015";
+		String suspension = "01JE2ESUSPENSIONRECORD0015";
+		try {
+			seedAccounts();
+			assertEquals(0, runLeads("local").getExitCode());
+			String l15 = LEAD_IDS.get(14);
+			Timestamp now = Timestamp.from(Instant.now());
+			jdbc.update("INSERT INTO brokerage_agreements (id, unit_id, unit_code, property_id, transaction_type,"
+					+ " owner_user_id, basis_lead_id, status, created_by_user_id, created_at, updated_at, version) VALUES (?,"
+					+ " '01JE2ESUSPENDEDUNIT0000015', 'SV-HOU-999915', 'e2e00000-0000-0000-0000-000000000015',"
+					+ " 'LONG_TERM_RENT', ?, ?, 'SUSPENDED', ?, ?, ?, 4)", agreement, CUSTOMER_ID, l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date, end_date,"
+					+ " basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at) VALUES (?, ?, 1,"
+					+ " 'EFFECTIVE', DATE '2027-01-01', DATE '2027-12-31', ?, '01JE2EINTAKE00000000000015', ?, ?, ?)",
+					version, agreement, l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO brokerage_agreement_suspensions (id, agreement_id, reason_type, note, suspended_by,"
+					+ " suspended_at) VALUES (?, ?, 'COMPLAINT', 'A tenant complained.', ?, ?)", suspension, agreement,
+					SALE_ID, now);
+			jdbc.update("INSERT INTO brokerage_agreement_events (agreement_id, version_no, event_type, actor_user_id, occurred_at)"
+					+ " VALUES (?, 1, 'SUSPENDED', ?, ?)", agreement, SALE_ID, now);
+			assertEquals(1, count("SELECT count(*) FROM brokerage_agreement_suspensions WHERE agreement_id = '" + agreement
+					+ "'"));
+
+			ExecResult again = runLeads("local");
+
+			assertEquals(0, again.getExitCode(), "re-run after a suspension failed: " + again.getStderr());
+			assertEquals(SEEDED, printedCounts(again));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreement_suspensions WHERE id = '" + suspension + "'"));
+			assertEquals(0, count("SELECT count(*) FROM brokerage_agreements WHERE id = '" + agreement + "'"));
+		} finally {
+			jdbc.update("DELETE FROM brokerage_agreement_events WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreement_versions WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreements WHERE id = ?", agreement);
+		}
+	}
+
+	/**
 	 * survey-media spec 6.4 (plan Task A23): after the media flows on L14 (a checklist started through the API, photos
 	 * in the shapes create, content, removal and an ADMIN hold leave, their set, job and variants, the budget and slot
 	 * rows of the fixture users), the next run removes every one of them and L14 can be started again.

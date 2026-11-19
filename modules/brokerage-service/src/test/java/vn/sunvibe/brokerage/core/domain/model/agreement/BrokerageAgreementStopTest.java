@@ -138,10 +138,21 @@ class BrokerageAgreementStopTest {
     void terminate_transitionStillDue_illegalState() {
         BrokerageAgreement awaiting = agreement(AgreementStatus.AWAITING_CONFIRMATION, awaitingOwner());
         Instant past = SENT.plus(Duration.ofDays(8));
+        AgreementTermination later = new AgreementTermination(TerminationType.OWNER_WITHDREW,
+                LocalDate.parse("2027-01-09"), WithdrawalChannel.PHONE_CALL, null, null, past);
 
-        assertThrows(IllegalStateException.class, () -> awaiting.terminate(WITHDREW, past));
+        assertThrows(IllegalStateException.class, () -> awaiting.terminate(later, past));
         assertThrows(IllegalStateException.class, () -> awaiting.cancel(past));
-        assertEquals(AgreementStatus.TERMINATED, awaiting.effectiveAt(past).terminate(WITHDREW, past).getStatus());
+        assertEquals(AgreementStatus.TERMINATED, awaiting.effectiveAt(past).terminate(later, past).getStatus());
+    }
+
+    /** S8-D9: the record's moment is the agreement's end, stored once as ended_at. */
+    @Test
+    void terminate_recordOfAnotherMoment_illegalArgument() {
+        BrokerageAgreement active = agreement(AgreementStatus.ACTIVE, effective());
+
+        assertThrows(IllegalArgumentException.class, () -> active.terminate(WITHDREW, NOW.plusNanos(1_000)));
+        assertThrows(IllegalArgumentException.class, () -> active.terminate(null, NOW));
     }
 
     @Test

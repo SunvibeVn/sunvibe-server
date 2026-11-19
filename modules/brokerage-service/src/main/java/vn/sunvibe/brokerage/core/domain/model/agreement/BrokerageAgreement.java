@@ -407,8 +407,9 @@ public final class BrokerageAgreement {
         if (!status.isUnfinished()) {
             throw new IllegalStateException("An agreement that ended is not terminated.");
         }
-        if (termination == null) {
-            throw new IllegalArgumentException("A termination needs its record.");
+        // the record's moment is the agreement's end, stored once (E05-S8 spec S8-D9: ended_at)
+        if (termination == null || !termination.terminatedAt().equals(now)) {
+            throw new IllegalArgumentException("A termination needs its record, made at the same moment.");
         }
         requireNothingDue(now);
         return ended(AgreementStatus.TERMINATED, now, termination, now, version -> true);
