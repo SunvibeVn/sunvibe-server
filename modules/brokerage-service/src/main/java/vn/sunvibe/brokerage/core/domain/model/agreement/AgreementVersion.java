@@ -232,6 +232,15 @@ public final class AgreementVersion {
         return decided(VersionStatus.LAPSED, null, now);
     }
 
+    /**
+     * This pending version cancelled because its agreement ended (brokerage-agreement BR-5 "Khi thỏa thuận kết thúc,
+     * phiên bản đang chờ bị hủy"; E05-S8 spec S8-D3): CANCELLED, its sending time, owner answer and activation record
+     * kept. The aggregate calls it on its pending version only.
+     */
+    AgreementVersion cancelled(Instant now) {
+        return decided(VersionStatus.CANCELLED, activationOrNull, now);
+    }
+
     private AgreementVersion decided(VersionStatus newStatus, ActivationDecision decisionOrNull, Instant now) {
         return new AgreementVersion(id, versionNo, newStatus, period, basisLeadId, basisIntakeId, createdByUserId,
                 createdAt, now, photoConsent, terms, fee, sentAtOrNull, ownerAnswerOrNull, decisionOrNull);

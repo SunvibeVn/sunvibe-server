@@ -4,8 +4,10 @@ import vn.sunvibe.brokerage.core.domain.policy.agreement.VersionSendRules;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /**
  * A brokerage agreement between Sunvibe and the declared owner of one unit, for one transaction type
@@ -13,7 +15,9 @@ import java.util.Optional;
  * agreement's basis lead equal to its latest version's (E05-S2 spec S2-D3). A draft is created, its content edited, and
  * it is sent to the owner (E05-S4); the owner confirms or declines it, or it lapses after 7 days, and a new draft opens
  * after a rejection or a lapse (E05-S5). An independent manager activates a confirmed version within 14 days or refuses
- * it, else it lapses; an activated version takes effect at its start (E05-S6).
+ * it, else it lapses; an activated version takes effect at its start (E05-S6). A manager suspends an agreement in
+ * effect and another lifts it; staff terminate an agreement that has not ended, the assigned Sale cancels one that never
+ * took effect, and an agreement in effect expires at the end of its version's end date (E05-S8).
  */
 public final class BrokerageAgreement {
 
@@ -30,11 +34,14 @@ public final class BrokerageAgreement {
     private final Instant updatedAt;
     private final Long rowVersionOrNull;
     private final List<AgreementVersion> versions;
+    private final Instant endedAtOrNull;
+    private final AgreementTermination terminationOrNull;
 
     private BrokerageAgreement(String id, String unitId, String unitCodeOrNull, String propertyId,
                                TransactionType transactionType, String ownerUserId, String basisLeadId,
                                AgreementStatus status, String createdByUserId, Instant createdAt, Instant updatedAt,
-                               Long rowVersionOrNull, List<AgreementVersion> versions) {
+                               Long rowVersionOrNull, List<AgreementVersion> versions, Instant endedAtOrNull,
+                               AgreementTermination terminationOrNull) {
         this.id = required(id, "id");
         this.unitId = required(unitId, "unitId");
         this.unitCodeOrNull = unitCodeOrNull;
@@ -48,6 +55,16 @@ public final class BrokerageAgreement {
         this.updatedAt = required(updatedAt, "updatedAt");
         this.rowVersionOrNull = rowVersionOrNull;
         this.versions = List.copyOf(required(versions, "versions"));
+        // E05-S8 spec 5.1: the end fields bind one way only. A final state may lack them (a row stored before E05-S8),
+        // but no agreement that has not ended holds an end, and only a terminated one holds a termination record.
+        if (endedAtOrNull != null && this.status.isUnfinished()) {
+            throw new IllegalStateException("Only an agreement that ended holds its end.");
+        }
+        if (terminationOrNull != null && this.status != AgreementStatus.TERMINATED) {
+            throw new IllegalStateException("Only a terminated agreement holds a termination record.");
+        }
+        this.endedAtOrNull = endedAtOrNull;
+        this.terminationOrNull = terminationOrNull;
         checkVersions();
     }
 
@@ -62,16 +79,32 @@ public final class BrokerageAgreement {
         AgreementVersion first = AgreementVersion.load(versionId, 1, VersionStatus.DRAFT, period, basisLeadId,
                 basisIntakeId, actorUserId, now, now);
         return new BrokerageAgreement(id, unitId, unitCodeOrNull, propertyId, type, ownerUserId, basisLeadId,
-                AgreementStatus.DRAFTING, actorUserId, now, now, null, List.of(first));
+                AgreementStatus.DRAFTING, actorUserId, now, now, null, List.of(first), null, null);
     }
 
-    /** Rebuilds a stored agreement in any state, its versions by number. */
+    /** Rebuilds a stored agreement in any state, its versions by number, with no end and no termination record. */
     public static BrokerageAgreement load(String id, String unitId, String unitCodeOrNull, String propertyId,
                                           TransactionType type, String ownerUserId, String basisLeadId,
                                           AgreementStatus status, String createdByUserId, Instant createdAt,
                                           Instant updatedAt, Long rowVersion, List<AgreementVersion> versions) {
+        return load(id, unitId, unitCodeOrNull, propertyId, type, ownerUserId, basisLeadId, status, createdByUserId,
+                createdAt, updatedAt, rowVersion, versions, null, null);
+    }
+
+    /**
+     * Rebuilds a stored agreement in any state with its end (E05-S8 spec 5.1): a final row stored without its end loads
+     * with null in those fields, its status kept.
+     *
+     * @throws IllegalStateException an end on an agreement that has not ended, or a termination record on one that was
+     *                               not terminated
+     */
+    public static BrokerageAgreement load(String id, String unitId, String unitCodeOrNull, String propertyId,
+                                          TransactionType type, String ownerUserId, String basisLeadId,
+                                          AgreementStatus status, String createdByUserId, Instant createdAt,
+                                          Instant updatedAt, Long rowVersion, List<AgreementVersion> versions,
+                                          Instant endedAtOrNull, AgreementTermination terminationOrNull) {
         return new BrokerageAgreement(id, unitId, unitCodeOrNull, propertyId, type, ownerUserId, basisLeadId, status,
-                createdByUserId, createdAt, updatedAt, rowVersion, versions);
+                createdByUserId, createdAt, updatedAt, rowVersion, versions, endedAtOrNull, terminationOrNull);
     }
 
     /**
@@ -102,7 +135,7 @@ public final class BrokerageAgreement {
                         : version)
                 .toList();
         return new BrokerageAgreement(id, unitId, unitCodeOrNull, propertyId, transactionType, ownerUserId, basisLeadId,
-                status, createdByUserId, createdAt, now, rowVersionOrNull, edited);
+                status, createdByUserId, createdAt, now, rowVersionOrNull, edited, endedAtOrNull, terminationOrNull);
     }
 
     /**
@@ -124,7 +157,8 @@ public final class BrokerageAgreement {
                 .map(version -> version == draft ? draft.sent(now) : version)
                 .toList();
         return new BrokerageAgreement(id, unitId, unitCodeOrNull, propertyId, transactionType, ownerUserId, basisLeadId,
-                AgreementStatus.AWAITING_CONFIRMATION, createdByUserId, createdAt, now, rowVersionOrNull, sent);
+                AgreementStatus.AWAITING_CONFIRMATION, createdByUserId, createdAt, now, rowVersionOrNull, sent,
+                endedAtOrNull, terminationOrNull);
     }
 
     /**
@@ -243,11 +277,156 @@ public final class BrokerageAgreement {
     }
 
     /**
-     * This agreement as every read answers it at {@code now} (E05-S6 spec S6-D6): its due lapse applied, then its due
-     * start. {@code this} when nothing is due.
+     * This agreement as every read answers it at {@code now} (E05-S6 spec S6-D6, E05-S8 spec S8-D2, S8-D3, plan
+     * E05S8-P3): exactly the transitions of {@link #dueTransitionsAt} applied in their time order, its due lapse, then
+     * its due start, then its due expiry. {@code this} when nothing is due.
      */
     public BrokerageAgreement effectiveAt(Instant now) {
-        return withDueLapse(now).withDueStart(now);
+        return applyDue(now, null);
+    }
+
+    /**
+     * The transitions due at {@code now} and not stored yet, in time order, for the history rows of the command or store
+     * that writes {@link #effectiveAt} (E05-S8 spec S8-D8 step 5, plan E05S8-P3): VERSION_LAPSED at the version's
+     * lapse deadline, VERSION_STARTED at its start, EXPIRED at the end of the version that counts. Empty when nothing is
+     * due.
+     */
+    public List<DueTransition> dueTransitionsAt(Instant now) {
+        List<DueTransition> due = new ArrayList<>();
+        applyDue(now, due);
+        return List.copyOf(due);
+    }
+
+    /**
+     * The one ordering rule of E05-S8 spec S8-D3 (plan E05S8-P3), so the state and the history rows cannot drift: the
+     * agreement holds at most one pending version (brokerage-agreement BR-5), so a lapse and a start are never both due.
+     * A lapse is applied only when its deadline came before the agreement's end (one at or after the end is cancelled
+     * by the expiry instead); a start comes before the end it may move; the expiry is the last step.
+     */
+    private BrokerageAgreement applyDue(Instant now, List<DueTransition> dueOrNull) {
+        BrokerageAgreement current = this;
+        AgreementVersion lapse = current.dueLapseOrNull(now);
+        Instant expiryAt = current.dueExpiryAtOrNull(now);
+        if (lapse != null && (expiryAt == null || lapse.lapseDeadlineOrNull().isBefore(expiryAt))) {
+            record(dueOrNull, lapse.getVersionNo(), AgreementEventType.VERSION_LAPSED, lapse.lapseDeadlineOrNull());
+            current = current.withDueLapse(now);
+        }
+        AgreementVersion start = current.dueStartOrNull(now);
+        if (start != null) {
+            record(dueOrNull, start.getVersionNo(), AgreementEventType.VERSION_STARTED, start.startsAt());
+            current = current.withDueStart(now);
+        }
+        Instant expiry = current.dueExpiryAtOrNull(now);
+        if (expiry != null) {
+            record(dueOrNull, current.versionThatCountsOrNull().getVersionNo(), AgreementEventType.EXPIRED, expiry);
+            current = current.withDueExpiry(now);
+        }
+        return current;
+    }
+
+    private static void record(List<DueTransition> dueOrNull, int versionNo, AgreementEventType type, Instant at) {
+        if (dueOrNull != null) {
+            dueOrNull.add(new DueTransition(versionNo, type, at));
+        }
+    }
+
+    /**
+     * The moment this agreement in effect expires when that moment has come at {@code now} (brokerage-agreement BR-6;
+     * E05-S8 spec S8-D2, A-2): the {@link AgreementVersion#endsAt()} of its version that counts, the start of the day
+     * after its end date in Vietnam. Null when the agreement is not ACTIVE or SUSPENDED, has no version that counts, or
+     * its end has not come.
+     */
+    public Instant dueExpiryAtOrNull(Instant now) {
+        if (status != AgreementStatus.ACTIVE && status != AgreementStatus.SUSPENDED) {
+            return null;
+        }
+        AgreementVersion counts = versionThatCountsOrNull();
+        if (counts == null || now.isBefore(counts.endsAt())) {
+            return null;
+        }
+        return counts.endsAt();
+    }
+
+    /**
+     * The last step of {@link #effectiveAt} (brokerage-agreement BR-5, BR-6, US-5 AC-1; E05-S8 spec S8-D2, S8-D3): an
+     * ACTIVE or SUSPENDED agreement whose end has come is EXPIRED, its end the version's {@code endsAt}, and every
+     * pending version without a lapse deadline, or with one at or after that end, CANCELLED; the EFFECTIVE version stays
+     * EFFECTIVE. {@code this} when no expiry is due. A suspended agreement expires the same way. No caller stores it on
+     * a raw read (plan E05S8-P3).
+     *
+     * @throws IllegalStateException when a start, or a lapse due before the end, is still to be applied first
+     */
+    public BrokerageAgreement withDueExpiry(Instant now) {
+        Instant expiryAt = dueExpiryAtOrNull(now);
+        if (expiryAt == null) {
+            return this;
+        }
+        AgreementVersion lapse = dueLapseOrNull(now);
+        if (dueStartOrNull(now) != null || (lapse != null && lapse.lapseDeadlineOrNull().isBefore(expiryAt))) {
+            throw new IllegalStateException("A due start or an earlier lapse comes before the expiry.");
+        }
+        return ended(AgreementStatus.EXPIRED, expiryAt, null, now, version -> version.lapseDeadlineOrNull() == null
+                || !version.lapseDeadlineOrNull().isBefore(expiryAt));
+    }
+
+    /**
+     * This agreement in effect suspended by a manager (brokerage-agreement BR-15, US-5 AC-2; E05-S8 spec S8-D6): SUSPENDED,
+     * its versions kept. The command checks the state first.
+     *
+     * @throws IllegalStateException unless the agreement is ACTIVE with nothing due at {@code now}
+     */
+    public BrokerageAgreement suspend(Instant now) {
+        if (status != AgreementStatus.ACTIVE) {
+            throw new IllegalStateException("Only an agreement in effect is suspended.");
+        }
+        requireNothingDue(now);
+        return withVersions(AgreementStatus.SUSPENDED, now, versions);
+    }
+
+    /**
+     * This suspended agreement lifted by an independent manager (brokerage-agreement BR-15, US-5 AC-5; E05-S8 spec S8-D6):
+     * ACTIVE again, its versions kept; the answer returns by itself when every other condition holds.
+     *
+     * @throws IllegalStateException unless the agreement is SUSPENDED with nothing due at {@code now}
+     */
+    public BrokerageAgreement releaseSuspension(Instant now) {
+        if (status != AgreementStatus.SUSPENDED) {
+            throw new IllegalStateException("Only a suspended agreement is lifted.");
+        }
+        requireNothingDue(now);
+        return withVersions(AgreementStatus.ACTIVE, now, versions);
+    }
+
+    /**
+     * This agreement terminated (brokerage-agreement BR-14, US-5 AC-2; E05-S8 spec S8-D1, S8-D3, S8-D5): TERMINATED at
+     * {@code now} with the record, its pending version CANCELLED; an EFFECTIVE version stays EFFECTIVE.
+     *
+     * @throws IllegalStateException unless the agreement has not ended and nothing is due at {@code now}
+     */
+    public BrokerageAgreement terminate(AgreementTermination termination, Instant now) {
+        if (!status.isUnfinished()) {
+            throw new IllegalStateException("An agreement that ended is not terminated.");
+        }
+        if (termination == null) {
+            throw new IllegalArgumentException("A termination needs its record.");
+        }
+        requireNothingDue(now);
+        return ended(AgreementStatus.TERMINATED, now, termination, now, version -> true);
+    }
+
+    /**
+     * This agreement that never took effect cancelled by the assigned Sale (brokerage-agreement BR-5, US-1 AC-5; E05-S8
+     * spec S8-D1, S8-D3, S8-D7): CANCELLED at {@code now}, its pending version CANCELLED with its owner answer kept.
+     *
+     * @throws IllegalStateException unless the agreement is DRAFTING or AWAITING_CONFIRMATION with nothing due at
+     *                               {@code now}
+     */
+    public BrokerageAgreement cancel(Instant now) {
+        if (status != AgreementStatus.DRAFTING && status != AgreementStatus.AWAITING_CONFIRMATION) {
+            throw new IllegalStateException("Only an agreement that never took effect is cancelled.");
+        }
+        requireNothingDue(now);
+        return ended(AgreementStatus.CANCELLED, now, null, now, version -> true);
     }
 
     /**
@@ -304,7 +483,45 @@ public final class BrokerageAgreement {
 
     private BrokerageAgreement withVersions(AgreementStatus newStatus, Instant now, List<AgreementVersion> newVersions) {
         return new BrokerageAgreement(id, unitId, unitCodeOrNull, propertyId, transactionType, ownerUserId, basisLeadId,
-                newStatus, createdByUserId, createdAt, now, rowVersionOrNull, newVersions);
+                newStatus, createdByUserId, createdAt, now, rowVersionOrNull, newVersions, endedAtOrNull,
+                terminationOrNull);
+    }
+
+    /**
+     * This agreement ended: the final state, its end moment and its termination record (null unless terminated), every
+     * pending version that {@code cancels} selects CANCELLED (E05-S8 spec S8-D3); an EFFECTIVE version stays EFFECTIVE.
+     */
+    private BrokerageAgreement ended(AgreementStatus finalStatus, Instant endedAt, AgreementTermination terminationOrNull,
+                                     Instant now, Predicate<AgreementVersion> cancels) {
+        List<AgreementVersion> after = versions.stream()
+                .map(version -> version.getStatus().isPending() && cancels.test(version) ? version.cancelled(now)
+                        : version)
+                .toList();
+        return new BrokerageAgreement(id, unitId, unitCodeOrNull, propertyId, transactionType, ownerUserId, basisLeadId,
+                finalStatus, createdByUserId, createdAt, now, rowVersionOrNull, after, endedAt, terminationOrNull);
+    }
+
+    /**
+     * The guard of the stop transitions (plan E05S8-P3): they act on the effective copy the command decided on, so no
+     * transition is still due on it at {@code now}.
+     */
+    private void requireNothingDue(Instant now) {
+        if (!dueTransitionsAt(now).isEmpty()) {
+            throw new IllegalStateException("A transition is still due on this copy; apply effectiveAt first.");
+        }
+    }
+
+    /**
+     * The version whose dates the agreement in effect reads (E05-S6 spec S6-D7): the EFFECTIVE version with the highest
+     * number, else the ACTIVATED one; null when neither exists.
+     */
+    private AgreementVersion versionThatCountsOrNull() {
+        return versions.stream()
+                .filter(version -> version.getStatus() == VersionStatus.EFFECTIVE)
+                .max(Comparator.comparingInt(AgreementVersion::getVersionNo))
+                .or(() -> versions.stream().filter(version -> version.getStatus() == VersionStatus.ACTIVATED)
+                        .findFirst())
+                .orElse(null);
     }
 
     private void checkVersions() {
@@ -382,5 +599,18 @@ public final class BrokerageAgreement {
 
     public List<AgreementVersion> getVersions() {
         return versions;
+    }
+
+    /**
+     * When the agreement ended (E05-S8 spec 5.1): the end of its version for an expiry, the command's moment for a
+     * termination or a cancellation; null while it has not ended, and for a final row stored before E05-S8.
+     */
+    public Instant getEndedAtOrNull() {
+        return endedAtOrNull;
+    }
+
+    /** What staff recorded when they terminated it (E05-S8 spec S8-D5); null unless TERMINATED. Private (BR-17). */
+    public AgreementTermination getTerminationOrNull() {
+        return terminationOrNull;
     }
 }

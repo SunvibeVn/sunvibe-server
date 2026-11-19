@@ -92,7 +92,8 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
         return BrokerageAgreement.load(agreement.getId(), agreement.getUnitId(), agreement.getUnitCodeOrNull(),
                 agreement.getPropertyId(), agreement.getTransactionType(), agreement.getOwnerUserId(),
                 agreement.getBasisLeadId(), agreement.getStatus(), agreement.getCreatedByUserId(),
-                agreement.getCreatedAt(), agreement.getUpdatedAt(), rowVersion, agreement.getVersions());
+                agreement.getCreatedAt(), agreement.getUpdatedAt(), rowVersion, agreement.getVersions(),
+                agreement.getEndedAtOrNull(), agreement.getTerminationOrNull());
     }
 
     @Override
