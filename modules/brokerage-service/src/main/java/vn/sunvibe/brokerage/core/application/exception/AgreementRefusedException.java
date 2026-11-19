@@ -32,7 +32,16 @@ public final class AgreementRefusedException extends RuntimeException {
         AGREEMENT_ACTIVATOR_NOT_INDEPENDENT(403, "Only a manager who did not draft this version and is not the lead's"
                 + " assigned Sale may decide its activation.", null),
         AGREEMENT_NOT_AWAITING_ACTIVATION(409, "This version is not waiting for activation.", null),
-        AGREEMENT_VERSION_PERIOD_ENDED(409, "This version's period has ended.", null);
+        AGREEMENT_VERSION_PERIOD_ENDED(409, "This version's period has ended.", null),
+        AGREEMENT_ASSIGNEE_ONLY(403, "Only the lead's assigned Sale may do this.", null),
+        AGREEMENT_RELEASER_NOT_INDEPENDENT(403, "Only a manager who is not the lead's assigned Sale may lift the"
+                + " suspension.", null),
+        AGREEMENT_TERMINATION_NOT_ALLOWED(403, "Only a manager may end an agreement as Sunvibe's decision.", null),
+        AGREEMENT_NOT_IN_EFFECT(409, "This agreement is not in effect.", null),
+        AGREEMENT_ENDED(409, "This agreement has ended.", null),
+        AGREEMENT_ALREADY_SUSPENDED(409, "This agreement is already suspended.", null),
+        AGREEMENT_NOT_SUSPENDED(409, "This agreement is not suspended.", null),
+        AGREEMENT_TOOK_EFFECT(409, "This agreement has taken effect: end it instead.", null);
 
         private final int status;
         private final String message;
@@ -187,6 +196,52 @@ public final class AgreementRefusedException extends RuntimeException {
                 .flatMap(item -> item.getValue().stream()
                         .map(group -> new Entry("versions[" + item.getKey() + "].reasonGroups." + group.name(), null)))
                 .toList());
+    }
+
+    /**
+     * brokerage-agreement BR-14, BR-16 (E05-S8 spec S8-D5, S8-D7): recording that the unit is let, and cancelling an
+     * agreement that never took effect, are the basis lead's assigned Sale's; no entry.
+     */
+    public static AgreementRefusedException assigneeOnly() {
+        return new AgreementRefusedException(Reason.AGREEMENT_ASSIGNEE_ONLY, List.of());
+    }
+
+    /** brokerage-agreement BR-15 (E05-S8 spec S8-D6): the lead's current assignee does not lift a suspension; no entry. */
+    public static AgreementRefusedException releaserNotIndependent() {
+        return new AgreementRefusedException(Reason.AGREEMENT_RELEASER_NOT_INDEPENDENT, List.of());
+    }
+
+    /** brokerage-agreement BR-16 (E05-S8 spec S8-D5): Sunvibe's own termination is a manager's; no entry. */
+    public static AgreementRefusedException terminationNotAllowed() {
+        return new AgreementRefusedException(Reason.AGREEMENT_TERMINATION_NOT_ALLOWED, List.of());
+    }
+
+    /** brokerage-agreement BR-15 (E05-S8 spec S8-D1): only an agreement in effect is suspended; no entry. */
+    public static AgreementRefusedException notInEffect() {
+        return new AgreementRefusedException(Reason.AGREEMENT_NOT_IN_EFFECT, List.of());
+    }
+
+    /** brokerage-agreement BR-5 (E05-S8 spec S8-D1): an agreement that ended takes no stop; no entry. */
+    public static AgreementRefusedException ended() {
+        return new AgreementRefusedException(Reason.AGREEMENT_ENDED, List.of());
+    }
+
+    /** brokerage-agreement BR-15 (E05-S8 spec S8-D6): the agreement is suspended already; no entry. */
+    public static AgreementRefusedException alreadySuspended() {
+        return new AgreementRefusedException(Reason.AGREEMENT_ALREADY_SUSPENDED, List.of());
+    }
+
+    /** brokerage-agreement BR-15 (E05-S8 spec S8-D6): only a suspended agreement is lifted; no entry. */
+    public static AgreementRefusedException notSuspended() {
+        return new AgreementRefusedException(Reason.AGREEMENT_NOT_SUSPENDED, List.of());
+    }
+
+    /**
+     * brokerage-agreement BR-5 (E05-S8 spec S8-D7): an agreement that took effect is not cancelled; it is ended by a
+     * termination; no entry.
+     */
+    public static AgreementRefusedException tookEffect() {
+        return new AgreementRefusedException(Reason.AGREEMENT_TOOK_EFFECT, List.of());
     }
 
     public Reason reason() {

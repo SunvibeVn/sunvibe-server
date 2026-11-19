@@ -1,13 +1,17 @@
 package vn.sunvibe.brokerage.core.application.usecase;
 
 import vn.sunvibe.brokerage.core.application.command.AgreementActivateCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementCancelCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRefuseActivationCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementReleaseSuspensionCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementSuspendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementTerminateCommand;
 
 /** Use Case - the commands of a brokerage agreement. */
 public interface AgreementCommandUseCase {
@@ -179,4 +183,78 @@ public interface AgreementCommandUseCase {
      * @return the number of starts stored
      */
     int storeDueStarts();
+
+    /**
+     * A manager suspends an agreement in effect (brokerage-agreement BR-15, BR-16, US-5 AC-2; E05-S8 spec 3.1, S8-D6,
+     * S8-D8): SUSPENDED, the transitions due before it stored with their rows, one SUSPENDED history row, a new open
+     * suspension record and E05's event now. In one transaction, the first failing step answers: the note's rule (400 on
+     * note); the agreement (404); its basis lead, locked and visible to the actor (404); the agreement row locked and read
+     * again (404; another basis lead: 409 CONCURRENT_MODIFICATION); the effective state: ended (409 AGREEMENT_ENDED), not
+     * in effect (409 AGREEMENT_NOT_IN_EFFECT), already suspended (409 AGREEMENT_ALREADY_SUSPENDED). No data version: a
+     * stop wins over any command that read the state before it (S8-D8's named narrowing). A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.domain.exception.AgreementContentException       the note breaks its rule
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  the agreement or its lead is
+     *                                                                                     not visible
+     * @throws org.springframework.dao.ConcurrencyFailureException                         the basis lead changed, or a
+     *                                                                                     write lost a race
+     */
+    void suspend(AgreementSuspendCommand command, StaffViewer actor);
+
+    /**
+     * A manager who is not the basis lead's current assignee lifts the suspension (brokerage-agreement BR-15, BR-16,
+     * US-5 AC-5; E05-S8 spec 3.2, S8-D6): ACTIVE again, the due transitions stored with their rows, one
+     * SUSPENSION_RELEASED history row, the open record closed and E05's event now; no eligibility rerun. In one
+     * transaction, the first failing step answers: the reason's rule (400 on reason); the agreement, its lead and the
+     * locked read as {@link #suspend} (404, 409); the caller is the lead's current assignee (403
+     * AGREEMENT_RELEASER_NOT_INDEPENDENT); the effective state: ended (409 AGREEMENT_ENDED), not suspended (409
+     * AGREEMENT_NOT_SUSPENDED); the data version (409 CONCURRENT_MODIFICATION). A refusal writes nothing; a missing open
+     * record rolls the whole command back.
+     *
+     * @throws vn.sunvibe.brokerage.core.domain.exception.AgreementContentException       the reason breaks its rule
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  the agreement or its lead is
+     *                                                                                     not visible
+     * @throws org.springframework.dao.ConcurrencyFailureException                         the basis lead changed, or a
+     *                                                                                     write lost a race
+     * @throws IllegalStateException                                                       no open record: the rule of
+     *                                                                                     the records broken
+     */
+    void releaseSuspension(AgreementReleaseSuspensionCommand command, StaffViewer actor);
+
+    /**
+     * Staff terminate an agreement that has not ended (brokerage-agreement BR-14, BR-16, US-5 AC-2; E05-S8 spec 3.3,
+     * S8-D1, S8-D5): TERMINATED at now with the termination record, its pending version CANCELLED, the due transitions
+     * stored with their rows, one TERMINATED history row and E05's event now; no notice and no lead change. In one
+     * transaction, the first failing step answers: the fields of the type (400 on the field); the agreement, its lead and
+     * the locked read as {@link #suspend} (404, 409); UNIT_LET by a viewer who is not the assigned Sale (403
+     * AGREEMENT_ASSIGNEE_ONLY), SUNVIBE_TERMINATED by a viewer who is not a manager (403
+     * AGREEMENT_TERMINATION_NOT_ALLOWED); the effective state ended (409 AGREEMENT_ENDED). No data version (S8-D8's
+     * named narrowing). A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.domain.exception.AgreementContentException       a field breaks its rule
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  the agreement or its lead is
+     *                                                                                     not visible
+     * @throws org.springframework.dao.ConcurrencyFailureException                         the basis lead changed, or a
+     *                                                                                     write lost a race
+     */
+    void terminate(AgreementTerminateCommand command, StaffViewer actor);
+
+    /**
+     * The basis lead's assigned Sale cancels an agreement that never took effect (brokerage-agreement BR-5, BR-16, US-1
+     * AC-5; E05-S8 spec 3.4, S8-D7): CANCELLED at now, its pending version CANCELLED, the due transitions stored with
+     * their rows, one CANCELLED history row and E05's event now. In one transaction, the first failing step answers: the
+     * agreement, its lead and the locked read as {@link #suspend} (404, 409); the viewer is not the assigned Sale (403
+     * AGREEMENT_ASSIGNEE_ONLY); the effective state: ended (409 AGREEMENT_ENDED), in effect (409 AGREEMENT_TOOK_EFFECT);
+     * the data version (409 CONCURRENT_MODIFICATION). A refusal writes nothing.
+     *
+     * @throws vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException  a refused step
+     * @throws vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException  the agreement or its lead is
+     *                                                                                     not visible
+     * @throws org.springframework.dao.ConcurrencyFailureException                         the basis lead changed, or a
+     *                                                                                     write lost a race
+     */
+    void cancel(AgreementCancelCommand command, StaffViewer actor);
 }

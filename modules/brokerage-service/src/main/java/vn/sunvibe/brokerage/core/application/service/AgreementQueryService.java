@@ -60,8 +60,11 @@ public class AgreementQueryService implements AgreementQueryUseCase {
     /** E05-S5 spec S5-D1: the owner's read answers at most this many agreements and says when there are more. */
     static final int OWNER_PAGE = 50;
 
-    /** brokerage-agreement BR-16: the roles that may decide an activation (SUPER_ADMIN through the hierarchy). */
-    private static final Set<String> DECIDER_ROLES = Set.of("ROLE_SALE_LEADER", "ROLE_SALES_MANAGER", "ROLE_ADMIN");
+    /**
+     * brokerage-agreement BR-16: the roles that may decide an activation (SUPER_ADMIN through the hierarchy); the
+     * managers of the stop rule too (E05-S8 plan E05S8-P4).
+     */
+    static final Set<String> DECIDER_ROLES = Set.of("ROLE_SALE_LEADER", "ROLE_SALES_MANAGER", "ROLE_ADMIN");
 
     private final AgreementDomainRepository agreements;
     private final BasisLeadPort leads;
