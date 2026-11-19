@@ -33,7 +33,11 @@ import tools.jackson.databind.JsonNode;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.brokerage.AgreementFixture;
+import vn.sunvibe.brokerage.core.application.usecase.AdvertisingPair;
+import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightUseCase;
+import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightView;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementCommandUseCase;
+import vn.sunvibe.brokerage.core.application.usecase.UnfinishedAgreementView;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
@@ -70,6 +74,25 @@ abstract class AgreementStopApiTestBase extends IntakeApiTestBase {
 	@Autowired
 	PlatformTransactionManager transactionManager;
 
+	@Autowired
+	AdvertisingRightUseCase advertisingRights;
+
+	/** The published standing of the agreement: whether it ended (E05-S6, unchanged). */
+	boolean standingEnded(String agreementId) {
+		return advertisingRights.standings(List.of(agreementId)).getFirst().ended();
+	}
+
+	/** The ids the published unfinished read answers for the unit; it reads the stored state. */
+	List<String> unfinishedOf(String unitId) {
+		return advertisingRights.unfinishedOf(List.of(unitId), "LONG_TERM_RENT").stream()
+				.map(UnfinishedAgreementView::agreementId).toList();
+	}
+
+	/** The published answer of the unit under the agreement. */
+	AdvertisingRightView answer(Chain chain) {
+		return advertisingRights.answers(List.of(new AdvertisingPair(chain.unitId(), chain.agreementId()))).getFirst();
+	}
+
 	@AfterEach
 	void deleteStopRows() {
 		AgreementFixture.delete(jdbc, created);
@@ -96,7 +119,12 @@ abstract class AgreementStopApiTestBase extends IntakeApiTestBase {
 
 	/** A house lead of {@code sale} with a completed intake for a new owner, and the Sale's complete draft on its unit. */
 	Chain drafted(LocalDate start, LocalDate end) throws Exception {
-		Passed passed = house(unique("Stop Street"));
+		return drafted(unique("Stop Street"), start, end);
+	}
+
+	/** {@link #drafted(LocalDate, LocalDate)} on a house of that street. */
+	Chain drafted(String street, LocalDate start, LocalDate end) throws Exception {
+		Passed passed = house(street);
 		TestUser owner = owner();
 		owners.add(owner.userId());
 		checked(passed, owner);
@@ -217,14 +245,21 @@ abstract class AgreementStopApiTestBase extends IntakeApiTestBase {
 
 	// ==================== the four stops over HTTP ====================
 
-	Result suspend(TestUser caller, String agreementId, Object reasonType, Object note) throws Exception {
+	Result suspendAgreement(TestUser caller, String agreementId, Object reasonType, Object note) throws Exception {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("reasonType", reasonType);
 		body.put("note", note);
 		return api.post(caller, AGREEMENTS + "/" + agreementId + "/suspension", body);
 	}
 
-	Result release(TestUser caller, String agreementId, Object expectedDataVersion, Object reason) throws Exception {
+	/** The suspension for a complaint with a note; the answer must be 204. */
+	void suspended(TestUser caller, String agreementId) throws Exception {
+		Result answer = suspendAgreement(caller, agreementId, "COMPLAINT", "Tenant reported a different price.");
+		assertEquals(204, answer.status(), answer.rawBody());
+	}
+
+	Result releaseSuspension(TestUser caller, String agreementId, Object expectedDataVersion, Object reason)
+			throws Exception {
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("expectedDataVersion", expectedDataVersion);
 		body.put("reason", reason);
@@ -232,8 +267,8 @@ abstract class AgreementStopApiTestBase extends IntakeApiTestBase {
 	}
 
 	/** The release with the stored data version and a reason. */
-	Result release(TestUser caller, String agreementId) throws Exception {
-		return release(caller, agreementId, rowVersion(agreementId), "The price was checked with the owner.");
+	Result releaseSuspension(TestUser caller, String agreementId) throws Exception {
+		return releaseSuspension(caller, agreementId, rowVersion(agreementId), "The price was checked with the owner.");
 	}
 
 	Result terminate(TestUser caller, String agreementId, Map<String, Object> body) throws Exception {
@@ -296,6 +331,39 @@ abstract class AgreementStopApiTestBase extends IntakeApiTestBase {
 		assertEquals(code, answer.body().path("code").asString(), answer.rawBody());
 	}
 
+	/** 400 VALIDATION_FAILED with exactly one entry on the field, with these allowed values or none. */
+	static void assertValidation(Result answer, String field, List<String> allowedOrNull) {
+		assertCode(400, "VALIDATION_FAILED", answer);
+		JsonNode errors = answer.body().path("errors");
+		assertEquals(1, errors.size(), answer.rawBody());
+		assertEquals(field, errors.path(0).path("field").asString(), answer.rawBody());
+		if (allowedOrNull == null) {
+			assertTrue(errors.path(0).path("allowedValues").isMissingNode(), answer.rawBody());
+		} else {
+			List<String> allowed = new java.util.ArrayList<>();
+			errors.path(0).path("allowedValues").forEach(value -> allowed.add(value.asString()));
+			assertEquals(allowedOrNull, allowed, answer.rawBody());
+		}
+	}
+
+	/** 400 MALFORMED_REQUEST with its fixed message and no entry. */
+	static void assertMalformed(Result answer) {
+		assertCode(400, "MALFORMED_REQUEST", answer);
+		assertEquals("The request could not be read.", answer.body().path("message").asString(), answer.rawBody());
+		assertEquals(0, answer.body().path("errors").size(), answer.rawBody());
+	}
+
+	/** The lead's state and version and the count of its History rows: what a stop never changes (BR-18). */
+	List<Object> leadSnapshot(String leadId) {
+		Map<String, Object> lead = jdbc.queryForMap("select status, version from owner_leads where id = ?", leadId);
+		return List.of(lead.get("status"), lead.get("version"),
+				count("select count(*) from owner_lead_activities where lead_id = ?", leadId));
+	}
+
+	int accessRows(String agreementId) {
+		return count("select count(*) from brokerage_agreement_access_logs where agreement_id = ?", agreementId);
+	}
+
 	// ==================== reading and moving rows ====================
 
 	long rowVersion(String agreementId) {
@@ -319,10 +387,13 @@ abstract class AgreementStopApiTestBase extends IntakeApiTestBase {
 		return (String) versionRow(agreementId, versionNo).get("status");
 	}
 
-	/** The agreement's history as "event version actor", oldest first, then by insertion. */
+	/**
+	 * The agreement's history as "event version actor", in the order the rows were written (a row of a due transition
+	 * is dated back to its moment, so the time order differs from the writing order).
+	 */
 	List<String> events(String agreementId) {
 		return jdbc.queryForList("select event_type || ' ' || version_no || ' ' || coalesce(actor_user_id, '-') from"
-				+ " brokerage_agreement_events where agreement_id = ? order by occurred_at, id", String.class, agreementId);
+				+ " brokerage_agreement_events where agreement_id = ? order by id", String.class, agreementId);
 	}
 
 	/** The occurrence of the agreement's only event of that type. */
