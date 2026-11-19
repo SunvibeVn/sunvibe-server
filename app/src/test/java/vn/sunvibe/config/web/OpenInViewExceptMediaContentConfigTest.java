@@ -165,6 +165,23 @@ class OpenInViewExceptMediaContentConfigTest {
 				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake")));
 	}
 
+	/** listing-publish E06-S1 spec E06S1-D11, LC-15: the three listing paths are excluded; a path beside them keeps it. */
+	@Test
+	void listingPaths_haveNoEntityManagerBound() {
+		MappedInterceptor openInView = openInView();
+
+		assertEquals("/api/v1/staff/listings", OpenInViewExceptMediaContentConfig.LISTINGS_PATTERN);
+		assertEquals("/api/v1/staff/listings/*", OpenInViewExceptMediaContentConfig.LISTING_PATTERN);
+		assertEquals("/api/v1/staff/listings/by-agreement/*",
+				OpenInViewExceptMediaContentConfig.LISTINGS_BY_AGREEMENT_PATTERN);
+		assertFalse(openInView.matches(request("POST", "/api/v1/staff/listings")));
+		assertFalse(openInView.matches(request("GET", "/api/v1/staff/listings/01JGLISTING000000000000000")));
+		assertFalse(openInView.matches(request("GET",
+				"/api/v1/staff/listings/by-agreement/01JFAGREEMENT0000000000000")));
+		assertTrue(openInView.matches(request("GET",
+				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake")));
+	}
+
 	private MappedInterceptor openInView() {
 		assertEquals(1, interceptors.size());
 		MappedInterceptor mapped = assertInstanceOf(MappedInterceptor.class, interceptors.get(0));
