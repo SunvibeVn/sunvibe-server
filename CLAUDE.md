@@ -10,7 +10,9 @@ Hub workflow and cross-repo rules below; their paths (docs/...) are relative to 
   with superpowers:test-driven-development for every task, on the run's branch (rebuild/sunvibe-rebuild during the
   rebuild), without a worktree unless the owner asks. feature-implementer is optional (legacy): only for one
   self-contained task the owner asks to delegate, with the task, paths, decisions and checks in the prompt.
-- Never edit a brief (../docs/features/**/brief/); a missing or unclear one goes to the owner.
+- Never edit a brief (../docs/features/**/brief/); a missing or unclear one goes back through a hub session to
+  whoever decides it: the delegated brief author where an active row of ../docs/setup/decision-delegation.md covers
+  the point (DEL-1: the owner is not asked those questions), else the owner.
 - Stop and report the exact conflict (files and lines) when brief, spec, API contract, plan, ADR or code disagree in
   a way that changes behavior, or a plan breaks a rule file or the naming standard, or when a task needs a business
   decision; a plan "ruling" never decides a business rule. After two evidence-backed failed attempts on one task
