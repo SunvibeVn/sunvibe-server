@@ -86,6 +86,14 @@ class JWTProviderTest {
         assertEquals("id", claimsOf(provider.issue(user)).getSubject());
     }
 
+    /** auth-login SV-242: the issuer of an access token is the name the owner chose (2026-11-19). */
+    @Test
+    void issue_activeUser_issuerIs43Space() {
+        Claims claims = claimsOf(provider.issue(user(UserStatus.ACTIVE, null)));
+
+        assertEquals("43Space", claims.getIssuer());
+    }
+
     /**
      * What an access token is made of, apart from the value of {@code iss}: the algorithm, the header type, the
      * claims it carries and its lifetime.
