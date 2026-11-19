@@ -22,6 +22,9 @@ public interface AgreementCommandUseCase {
     /** The most due starts one run of {@link #storeDueStarts()} stores; the next run takes the rest (spec S6-D6). */
     int MAX_STARTS_PER_RUN = 100;
 
+    /** The most due expiries one run of {@link #storeDueExpiries()} stores; the next run takes the rest (S8-D2). */
+    int MAX_EXPIRIES_PER_RUN = 100;
+
     /**
      * The lead's assigned Sale drafts an agreement for one unit of the lead's intake basis (brokerage-agreement US-1
      * AC-1 to AC-4): DRAFTING with its version 1 DRAFT and one history row. In one transaction, the first failing step
@@ -183,6 +186,21 @@ public interface AgreementCommandUseCase {
      * @return the number of starts stored
      */
     int storeDueStarts();
+
+    /**
+     * Stores the expiries that are due (brokerage-agreement BR-5, BR-6, US-5 AC-1; E05-S8 spec S8-D2, S8-D3): at most
+     * {@link #MAX_EXPIRIES_PER_RUN} agreements stored ACTIVE or SUSPENDED whose versions in effect all ended before today
+     * in Vietnam, by id; each in a transaction of its own, the agreement EXPIRED at the end of its version that counts
+     * through the guarded update, its pending version CANCELLED, then the history rows of what fell due, in time order
+     * and without an actor (a lapse due before the end at its deadline, a start at its start, EXPIRED at the end). The
+     * failure rule of {@link #storeDueLapses()} applies. No event (the one due at the end was appended at the
+     * activation) and no notice; a suspended agreement's open record stays open.
+     * <p>
+     * Its only caller is AgreementExpiryJob; no controller reaches it, so it takes no viewer.
+     *
+     * @return the number of expiries stored
+     */
+    int storeDueExpiries();
 
     /**
      * A manager suspends an agreement in effect (brokerage-agreement BR-15, BR-16, US-5 AC-2; E05-S8 spec 3.1, S8-D6,

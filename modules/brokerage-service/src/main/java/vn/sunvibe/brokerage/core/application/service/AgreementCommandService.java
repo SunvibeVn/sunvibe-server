@@ -167,12 +167,13 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         if (!groups.isEmpty()) {
             throw AgreementRefusedException.notEligible(groups);
         }
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
         // brokerage-agreement BR-1: one unfinished agreement per unit and type. A concurrent create that passes this
         // lookup meets the database's partial unique index at the insert instead.
-        if (!agreements.unfinishedOf(List.of(command.unitId()), type).isEmpty()) {
-            throw AgreementRefusedException.exists();
+        for (AgreementDomainRepository.UnfinishedAgreement unfinished
+                : agreements.unfinishedOf(List.of(command.unitId()), type)) {
+            freeSlotOrRefuse(unfinished.agreementId(), now);
         }
-        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
         String unitCodeOrNull = basis.units().stream().filter(unit -> unit.unitId().equals(command.unitId()))
                 .findFirst().map(IntakeBasisFacts.Unit::unitCodeOrNull).orElse(null);
         BrokerageAgreement agreement = BrokerageAgreement.create(ids.generateId(), command.unitId(), unitCodeOrNull,
@@ -181,6 +182,23 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         agreements.create(agreement);
         trail.recordEvent(agreement.getId(), 1, AgreementEventType.CREATED, actor.userId(), now);
         return new AgreementCreateResult(agreement.getId());
+    }
+
+    /**
+     * The create's step for an unfinished agreement of the unit found by its stored status (E05-S2 spec S2-D4, E05-S8
+     * spec S8-D4, plan E05S8-P7): its row locked (after the lead's: lock order of S2-D4) and read again; still
+     * unfinished at {@code now} answers 409 AGREEMENT_EXISTS before any write; expired by its end and stored in effect,
+     * its expiry is stored with its rows, so the slot is free; stored final or gone, nothing is written for it.
+     */
+    private void freeSlotOrRefuse(String agreementId, Instant now) {
+        BrokerageAgreement locked = agreements.findByIdForUpdate(agreementId).orElse(null);
+        if (locked == null) {
+            return;
+        }
+        if (locked.effectiveAt(now).getStatus().isUnfinished()) {
+            throw AgreementRefusedException.exists();
+        }
+        storeExpiryOf(locked, now);
     }
 
     /**
@@ -589,6 +607,55 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
         List<String> due = agreements.dueStartAgreementIds(AgreementVersion.todayInVietnam(now), MAX_STARTS_PER_RUN);
         return storeEach(due, agreementId -> storeDueStart(agreementId, now));
+    }
+
+    /**
+     * One run of the expiry job (E05-S8 spec S8-D2): the clock read once, then {@link #storeDueExpiriesAt}.
+     */
+    @Override
+    public int storeDueExpiries() {
+        return storeDueExpiriesAt(AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS));
+    }
+
+    /**
+     * The time seam of the expiry store (E05-S8 spec S8-D2): one selection of at most 100 agreements whose versions in
+     * effect all ended before today in Vietnam, then per agreement a short transaction of its own under the failure rule
+     * of {@link #storeEach}. No lead lock, like the other stores.
+     */
+    int storeDueExpiriesAt(Instant now) {
+        List<String> due = agreements.dueExpiryAgreementIds(AgreementVersion.todayInVietnam(now), MAX_EXPIRIES_PER_RUN);
+        return storeEach(due, agreementId -> storeDueExpiry(agreementId, now));
+    }
+
+    /**
+     * brokerage-agreement BR-5, BR-6 (E05-S2 spec S2-D4, E05-S8 spec S8-D2, S8-D3, plan E05S8-P3): the expiry is a stored
+     * transition, written when it is due: the effective copy of the agreement read, with the rows of every transition it
+     * stores in time order; nothing when the agreement changed since the selection or has not expired.
+     */
+    private boolean storeDueExpiry(String agreementId, Instant now) {
+        BrokerageAgreement agreement = agreements.findById(agreementId).orElse(null);
+        if (agreement == null) {
+            return false;
+        }
+        return storeExpiryOf(agreement, now);
+    }
+
+    /**
+     * Stores the effective copy of a read whose expiry is due (plan E05S8-P3): only an agreement stored ACTIVE or
+     * SUSPENDED that reads EXPIRED at {@code now}; the update first, then the rows of what fell due, in time order.
+     *
+     * @return whether it stored one
+     */
+    private boolean storeExpiryOf(BrokerageAgreement read, Instant now) {
+        BrokerageAgreement effective = read.effectiveAt(now);
+        boolean storedInEffect = read.getStatus() == AgreementStatus.ACTIVE
+                || read.getStatus() == AgreementStatus.SUSPENDED;
+        if (!storedInEffect || effective.getStatus() != AgreementStatus.EXPIRED) {
+            return false;
+        }
+        agreements.update(effective);
+        recordDueTransitions(read.getId(), read.dueTransitionsAt(now));
+        return true;
     }
 
     /**
