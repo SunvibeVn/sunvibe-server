@@ -2,6 +2,10 @@ package vn.sunvibe.auth.core.infrastructure.security.provider;
 
 import vn.sunvibe.auth.core.testsupport.AuthTestUsers;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
@@ -9,7 +13,9 @@ import vn.sunvibe.auth.core.domain.model.user.aggregate.AppUser;
 import vn.sunvibe.auth.core.domain.model.user.enums.UserStatus;
 import vn.sunvibe.auth.core.domain.model.user.vo.*;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -78,6 +84,48 @@ class JWTProviderTest {
                 Password.create("hashed"), new HashSet<>(Set.of("TENANT")), Instant.now());
 
         assertEquals("id", claimsOf(provider.issue(user)).getSubject());
+    }
+
+    /**
+     * What an access token is made of, apart from the value of {@code iss}: the algorithm, the header type, the
+     * claims it carries and its lifetime.
+     */
+    @Test
+    void issue_activeUser_tokenShapeIsHs256WithTheKnownClaimsAndLifetime() {
+        Jws<Claims> jws = provider.validateTokenAndGetJws(provider.issue(user(UserStatus.ACTIVE, null))).orElseThrow();
+
+        assertEquals("HS256", jws.getHeader().getAlgorithm());
+        assertEquals(JWTProvider.TOKEN_TYPE, jws.getHeader().getType());
+        Claims claims = jws.getPayload();
+        assertEquals(Set.of("sub", "uid", "cv", "rol", "iss", "iat", "exp"), claims.keySet());
+        assertEquals(Duration.ofMinutes(60),
+                Duration.between(claims.getIssuedAt().toInstant(), claims.getExpiration().toInstant()));
+    }
+
+    /**
+     * auth-login SV-242: the parser checks the signature and the expiry and never {@code iss}, so a token issued
+     * under the previous issuer name works until it expires.
+     */
+    @Test
+    void validateTokenAndGetJws_tokenOfThePreviousIssuer_accepted() {
+        Instant now = Instant.now();
+        String token = Jwts.builder()
+                .header().add("typ", JWTProvider.TOKEN_TYPE)
+                .and()
+                .subject("id")
+                .claim(JWTProvider.USER_ID_CLAIM, "id")
+                .claim(JWTProvider.CREDENTIAL_VERSION_CLAIM, 0L)
+                .claim("rol", List.of("ROLE_TENANT"))
+                .issuer("Nestify")
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(Duration.ofMinutes(60))))
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRET)))
+                .compact();
+
+        Claims claims = provider.validateTokenAndGetJws(token).orElseThrow().getPayload();
+
+        assertEquals("Nestify", claims.getIssuer());
+        assertEquals("id", claims.getSubject());
     }
 
     @Test

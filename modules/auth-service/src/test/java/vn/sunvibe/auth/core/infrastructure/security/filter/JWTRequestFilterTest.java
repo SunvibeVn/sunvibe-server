@@ -172,6 +172,19 @@ class JWTRequestFilterTest {
         assertEquals(USER_ID, authentication.getName());
     }
 
+    /** auth-login SV-242: a token issued under the previous issuer name signs the user in until it expires. */
+    @Test
+    void filter_tokenOfThePreviousIssuer_accepted() throws Exception {
+        users.put(USER_ID, user(USER_ID, UserStatus.ACTIVE, "ROLE_USER"));
+        String token = tokenBuilder().subject(USER_ID).claim(JWTProvider.USER_ID_CLAIM, USER_ID)
+                .claim(JWTProvider.CREDENTIAL_VERSION_CLAIM, 0L).issuer("Nestify").compact();
+
+        Authentication authentication = filterWith(token);
+
+        assertNotNull(authentication);
+        assertEquals(USER_ID, authentication.getName());
+    }
+
     /** auth-email-access I-5: a change of credentials ends the access tokens issued before it. */
     @Test
     void filter_lowerCv_refused() throws Exception {
