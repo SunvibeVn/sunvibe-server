@@ -23,11 +23,15 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementAccessType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementSuspension;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementTermination;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
+import vn.sunvibe.brokerage.core.domain.policy.agreement.AgreementStopPolicy;
 import vn.sunvibe.brokerage.core.domain.policy.eligibility.EligibilityPolicy;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
+import vn.sunvibe.brokerage.core.domain.repository.AgreementSuspensionDomainRepository;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementTrailDomainRepository;
 import vn.sunvibe.shared.time.AppClock;
 
@@ -61,6 +65,12 @@ public class AgreementQueryService implements AgreementQueryUseCase {
     static final int OWNER_PAGE = 50;
 
     /**
+     * E05-S8 spec S8-D11: the detail answers at most this many suspension records, the newest first, and says when there
+     * are more; an agreement lasts at most 12 months (brokerage-agreement BR-6).
+     */
+    static final int DETAIL_SUSPENSIONS = 20;
+
+    /**
      * brokerage-agreement BR-16: the roles that may decide an activation (SUPER_ADMIN through the hierarchy); the
      * managers of the stop rule too (E05-S8 plan E05S8-P4).
      */
@@ -74,6 +84,8 @@ public class AgreementQueryService implements AgreementQueryUseCase {
     private final OwnerAccountPort accounts;
     private final UnitLocationPort locations;
     private final AdvertisingRightAssembler assembler;
+    /** The suspension records the detail answers (E05-S8 spec S8-D11). */
+    private final AgreementSuspensionDomainRepository suspensions;
 
     @Override
     @Transactional
@@ -91,17 +103,43 @@ public class AgreementQueryService implements AgreementQueryUseCase {
         // have stored it yet; the data version stays the stored row's, so the next command matches it.
         BrokerageAgreement agreement = stored.effectiveAt(now);
         AgreementVersion awaiting = awaitingActivationOrNull(agreement, now);
+        boolean assignedSale = EligibilityPolicy.assignedSale(lead.assignedUserIdOrNull(), viewer.userId(),
+                viewer.expandedAuthorities());
+        // E05-S8 spec S8-D11: the newest records, one more read to tell whether older ones exist (a bounded read)
+        List<AgreementSuspension> records = suspensions.newestOf(agreement.getId(), DETAIL_SUSPENSIONS + 1);
         return new AgreementDetailView(agreement.getId(), agreement.getStatus(), agreement.getTransactionType(),
                 agreement.getUnitId(), agreement.getUnitCodeOrNull(), agreement.getBasisLeadId(),
                 agreement.getCreatedAt(), agreement.getVersions().stream()
                 .map(version -> versionView(version, true)).toList(),
                 stored.getRowVersionOrNull(),
-                EligibilityPolicy.assignedSale(lead.assignedUserIdOrNull(), viewer.userId(),
-                        viewer.expandedAuthorities()),
+                assignedSale,
                 assembler.answers(List.of(agreement), now).getFirst(),
                 mayDecideActivation(agreement, awaiting, lead, viewer),
                 awaiting == null ? null : new AgreementDetailView.ActivationStatementView(ActivationStatement.VERSION,
-                        ActivationStatement.text(awaiting.getVersionNo())));
+                        ActivationStatement.text(awaiting.getVersionNo())),
+                agreement.getEndedAtOrNull(),
+                terminationView(agreement.getTerminationOrNull()),
+                records.stream().limit(DETAIL_SUSPENSIONS).map(AgreementQueryService::suspensionView).toList(),
+                records.size() > DETAIL_SUSPENSIONS,
+                // brokerage-agreement BR-14 to BR-16 (E05-S8 spec S8-D11): a hint from the rule the commands use
+                AgreementStopPolicy.allowedActions(agreement.getStatus(), assignedSale,
+                        viewer.userId().equals(lead.assignedUserIdOrNull()),
+                        viewer.expandedAuthorities().stream().anyMatch(DECIDER_ROLES::contains)));
+    }
+
+    private static AgreementDetailView.TerminationView terminationView(AgreementTermination terminationOrNull) {
+        if (terminationOrNull == null) {
+            return null;
+        }
+        return new AgreementDetailView.TerminationView(terminationOrNull.type(), terminationOrNull.reportedOnOrNull(),
+                terminationOrNull.channelOrNull(), terminationOrNull.introducedOrNull(), terminationOrNull.noteOrNull(),
+                terminationOrNull.terminatedAt());
+    }
+
+    /** One record without its users' ids (E05-S8 spec S8-D11). */
+    private static AgreementDetailView.SuspensionView suspensionView(AgreementSuspension record) {
+        return new AgreementDetailView.SuspensionView(record.reasonType(), record.noteOrNull(), record.suspendedAt(),
+                record.releasedAtOrNull(), record.releaseReasonOrNull());
     }
 
     /** The confirmed version a manager may activate or refuse at {@code now}; null when none awaits activation. */
