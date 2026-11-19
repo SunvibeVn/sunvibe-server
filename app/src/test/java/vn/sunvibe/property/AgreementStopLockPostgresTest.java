@@ -9,8 +9,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Test;
@@ -18,6 +21,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.brokerage.AgreementFixture;
+import vn.sunvibe.brokerage.core.application.usecase.AdvertisingPair;
+import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightView;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
@@ -26,7 +31,9 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
  * The agreement row lock on PostgreSQL (brokerage-agreement E05-S8 spec S8-D8 step 3, S8-D18, S8-D2, A-1; LK-2; plan
  * E05S8-P6, P9): the locked read waits for a writer that holds the row and then reads what it committed; every guarded
  * update takes the agreement row before any row of its graph, so a writer that waits on a held agreement row holds no
- * version row; the selection of the due expiries. Needs Docker; a Linux run is the evidence of a race test (testing.md).
+ * version row; every stop waits for the published answer's share lock, and a stop committed first is what that locked
+ * read answers (LK-1); the selection of the due expiries. Needs Docker; a Linux run is the evidence of a race test
+ * (testing.md).
  */
 class AgreementStopLockPostgresTest extends AgreementStopApiTestBase {
 
@@ -116,6 +123,83 @@ class AgreementStopLockPostgresTest extends AgreementStopApiTestBase {
 		assertEquals(0, run.get(60, TimeUnit.SECONDS));
 		assertEquals("ACTIVATED", versionStatus(agreementId, 1));
 		assertEquals(0, eventCount(agreementId, "VERSION_STARTED"));
+	}
+
+	// ==================== LK-1: the stops against the published answer's share lock ====================
+
+	/**
+	 * LK-1 (ADR-012 D12-13): while a transaction holds the locked read of the published answer, a termination, a
+	 * suspension, a release and a cancellation each wait for its commit, then commit; the locked read saw the state
+	 * before the stop, a read after its commit sees it.
+	 */
+	@Test
+	void stopsAgainstHeldShareLock_waitThenCommit() throws Exception {
+		Chain terminated = inEffect();
+		assertStopWaitsForShareLock(terminated, () -> terminate(sale, terminated.agreementId(), ownerWithdrew()),
+				AdvertisingRightView::ended);
+
+		Chain suspended = inEffect();
+		assertStopWaitsForShareLock(suspended, () -> suspendAgreement(manager, suspended.agreementId(), "COMPLAINT",
+				null), view -> view.reasonGroups().contains("SUSPENDED"));
+
+		Chain released = inEffect();
+		suspended(manager, released.agreementId());
+		assertStopWaitsForShareLock(released, () -> releaseSuspension(admin, released.agreementId()),
+				view -> !view.reasonGroups().contains("SUSPENDED"));
+
+		Chain cancelled = drafted(today().plusDays(10), today().plusMonths(6));
+		assertStopWaitsForShareLock(cancelled, () -> cancel(sale, cancelled.agreementId(),
+				rowVersion(cancelled.agreementId())), AdvertisingRightView::ended);
+	}
+
+	/** LK-1: a stop committed first is what the locking read answers: ended, or off for SUSPENDED. */
+	@Test
+	void stopCommittedFirst_lockingReadSeesEndedOrSuspended() throws Exception {
+		Chain terminated = inEffect();
+		assertEquals(204, terminate(sale, terminated.agreementId(), ownerWithdrew()).status());
+		Chain suspended = inEffect();
+		suspended(manager, suspended.agreementId());
+
+		AdvertisingRightView ended = lockedRead(terminated);
+		AdvertisingRightView off = lockedRead(suspended);
+
+		assertTrue(ended.ended(), ended.toString());
+		assertTrue(ended.reasonGroups().contains("ENDED"), ended.toString());
+		assertFalse(ended.allowed(), ended.toString());
+		assertFalse(off.ended(), off.toString());
+		assertTrue(off.reasonGroups().contains("SUSPENDED"), off.toString());
+		assertFalse(off.allowed(), off.toString());
+	}
+
+	/**
+	 * A test transaction holds the locked read of the chain's answer; the stop, started meanwhile, waits on the agreement
+	 * row until it commits, then answers 204; {@code stopped} is false for the answer read under the lock and true after.
+	 */
+	private void assertStopWaitsForShareLock(Chain chain, Callable<Result> stop, Predicate<AdvertisingRightView> stopped)
+			throws Exception {
+		AtomicReference<AdvertisingRightView> locked = new AtomicReference<>();
+		Future<Result> stopping;
+		try (Hold read = new Hold(() -> locked.set(advertisingRights.answerUnderShareLock(pair(chain)).orElseThrow()))) {
+			stopping = executor.submit(stop);
+			awaitWaiters(1);
+			assertFalse(stopping.isDone(), "the stop finished while the row was held FOR SHARE");
+		}
+
+		Result answer = stopping.get(60, TimeUnit.SECONDS);
+
+		assertEquals(204, answer.status(), answer.rawBody());
+		assertFalse(stopped.test(locked.get()), locked.get().toString());
+		AdvertisingRightView after = answer(chain);
+		assertTrue(stopped.test(after), after.toString());
+	}
+
+	private AdvertisingRightView lockedRead(Chain chain) {
+		return new TransactionTemplate(transactionManager)
+				.execute(status -> advertisingRights.answerUnderShareLock(pair(chain)).orElseThrow());
+	}
+
+	private static AdvertisingPair pair(Chain chain) {
+		return new AdvertisingPair(chain.unitId(), chain.agreementId());
 	}
 
 	/**
