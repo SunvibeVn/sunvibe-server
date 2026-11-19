@@ -45,5 +45,30 @@ public enum AgreementEventType {
      * The activated version took effect at its start (BR-5, BR-6, US-3 AC-5; E05-S6 spec S6-D6): no actor, the time is
      * the start of its start date in Vietnam, written once by the start store.
      */
-    VERSION_STARTED
+    VERSION_STARTED,
+    /**
+     * A manager suspended the agreement in effect (BR-15, US-5 AC-2; E05-S8 spec S8-D10): the manager as actor, the
+     * agreement's latest version. The reason and the note stay on the suspension record (BR-17).
+     */
+    SUSPENDED,
+    /**
+     * A manager who is not the basis lead's assignee lifted the suspension (BR-15, US-5 AC-5; E05-S8 spec S8-D10): the
+     * manager as actor, the agreement's latest version. The reason stays on the suspension record (BR-17).
+     */
+    SUSPENSION_RELEASED,
+    /**
+     * Staff terminated the agreement (BR-14, US-5 AC-2; E05-S8 spec S8-D10): the staff member as actor, the agreement's
+     * latest version. The type, the date, the channel and the note stay on the agreement row (BR-17).
+     */
+    TERMINATED,
+    /**
+     * The agreement expired at the end of its version's end date (BR-6, US-5 AC-1; E05-S8 spec S8-D2, S8-D10): no actor,
+     * the time is the end of the version that counts, which is the row's version; written once by whichever stores it.
+     */
+    EXPIRED,
+    /**
+     * The assigned Sale cancelled an agreement that never took effect (BR-5, US-1 AC-5; E05-S8 spec S8-D10): the Sale as
+     * actor, the agreement's latest version.
+     */
+    CANCELLED
 }

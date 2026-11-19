@@ -2,13 +2,17 @@ package vn.sunvibe.brokerage.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.application.command.AgreementActivateCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementCancelCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRefuseActivationCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementReleaseSuspensionCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementSuspendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementTerminateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementHistoryQuery;
@@ -25,12 +29,17 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.FeeBasis;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormula;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.FeeTier;
+import vn.sunvibe.brokerage.core.domain.model.agreement.IntroducedBySunvibe;
 import vn.sunvibe.brokerage.core.domain.model.agreement.MandatoryFee;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SuspensionReasonType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.TerminationType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TermsDeposit;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
+import vn.sunvibe.brokerage.core.domain.model.agreement.WithdrawalChannel;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRefusalRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCancellationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementConfirmationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDepositInput;
@@ -42,6 +51,9 @@ import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeP
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementFeeTierInput;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementNewDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementRejectionRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementSuspensionReleaseRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementSuspensionRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementTerminationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementTermsInput;
 
 import java.util.ArrayList;
@@ -143,6 +155,80 @@ public class AgreementRequestConverter {
                 .orElseThrow(() -> AgreementRefusedException.invalid("reasonType", REFUSAL_TYPES));
         return new AgreementRefuseActivationCommand(agreementId, request.expectedDataVersion(), request.versionNo(),
                 type, request.note());
+    }
+
+    /**
+     * The suspension (E05-S8 spec 3.1); the note as sent, the use case trims and checks it.
+     *
+     * @throws AgreementRefusedException a reason type that is not one of the four, or none, with the allowed values
+     */
+    public AgreementSuspendCommand toSuspendCommand(String agreementId, BrokerageAgreementSuspensionRequest request) {
+        SuspensionReasonType type = closed(SuspensionReasonType.values(), request.reasonType(), "reasonType");
+        return new AgreementSuspendCommand(agreementId, type, request.note());
+    }
+
+    /** The release of a suspension (E05-S8 spec 3.2); the reason as sent, the use case trims and checks it. */
+    public AgreementReleaseSuspensionCommand toReleaseSuspensionCommand(String agreementId,
+                                                                        BrokerageAgreementSuspensionReleaseRequest request) {
+        return new AgreementReleaseSuspensionCommand(agreementId, request.expectedDataVersion(), request.reason());
+    }
+
+    /**
+     * The termination (E05-S8 spec 3.3, S8-D5), its fields checked by type in the spec's order: the type; a field of
+     * another type; a missing required field (null counts as absent); then the codes' values. The date's bound and the
+     * note's rules are the domain's, with the use case's clock reading.
+     *
+     * @throws AgreementRefusedException the first refused field, with the allowed values of a code
+     */
+    public AgreementTerminateCommand toTerminateCommand(String agreementId, BrokerageAgreementTerminationRequest request) {
+        TerminationType type = closed(TerminationType.values(), request.type(), "type");
+        boolean takesDate = type != TerminationType.SUNVIBE_TERMINATED;
+        boolean takesChannel = type == TerminationType.OWNER_WITHDREW;
+        boolean takesIntroduced = type == TerminationType.UNIT_LET;
+        // brokerage-agreement BR-14 (E05-S8 spec S8-D5): each type takes its own fields and none of another type
+        if (!takesDate && request.reportedOn() != null) {
+            throw AgreementRefusedException.invalid("reportedOn", null);
+        }
+        if (!takesChannel && request.channel() != null) {
+            throw AgreementRefusedException.invalid("channel", null);
+        }
+        if (!takesIntroduced && request.introducedBySunvibe() != null) {
+            throw AgreementRefusedException.invalid("introducedBySunvibe", null);
+        }
+        if (takesDate && request.reportedOn() == null) {
+            throw AgreementRefusedException.invalid("reportedOn", null);
+        }
+        if (takesChannel && request.channel() == null) {
+            throw AgreementRefusedException.invalid("channel", null);
+        }
+        if (takesIntroduced && request.introducedBySunvibe() == null) {
+            throw AgreementRefusedException.invalid("introducedBySunvibe", null);
+        }
+        // brokerage-agreement BR-16: Sunvibe's decision is recorded with its reason in words
+        if (type == TerminationType.SUNVIBE_TERMINATED && request.note() == null) {
+            throw AgreementRefusedException.invalid("note", null);
+        }
+        WithdrawalChannel channel = takesChannel
+                ? closed(WithdrawalChannel.values(), request.channel(), "channel") : null;
+        IntroducedBySunvibe introduced = takesIntroduced
+                ? closed(IntroducedBySunvibe.values(), request.introducedBySunvibe(), "introducedBySunvibe") : null;
+        return new AgreementTerminateCommand(agreementId, type, request.reportedOn(), channel, introduced,
+                request.note());
+    }
+
+    /** The cancellation (E05-S8 spec 3.4); the bean constraints have already held. */
+    public AgreementCancelCommand toCancelCommand(String agreementId, BrokerageAgreementCancellationRequest request) {
+        return new AgreementCancelCommand(agreementId, request.expectedDataVersion());
+    }
+
+    /**
+     * The code of a closed list, exactly one of its names; any other value, or none, is refused on the field with the
+     * names in their order (E05-S2 spec S2-D5), before any read, write or log line (plan E05S8-P17).
+     */
+    private static <E extends Enum<E>> E closed(E[] values, String codeOrNull, String field) {
+        return Arrays.stream(values).filter(value -> value.name().equals(codeOrNull)).findFirst()
+                .orElseThrow(() -> AgreementRefusedException.invalid(field,
+                        Arrays.stream(values).map(Enum::name).toList()));
     }
 
     /**

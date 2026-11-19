@@ -135,7 +135,7 @@ class AgreementHistoryServiceTest {
         assertEquals(List.of(), staff.calls());
     }
 
-    /** HS-6 (S7-D8): a stored code the enum does not hold is OTHER; the ten codes of the enum are themselves. */
+    /** HS-6 (S7-D8): a stored code the enum does not hold is OTHER; the fifteen codes of the enum are themselves. */
     @Test
     void history_unknownCode_other() {
         List<String> codes = new ArrayList<>(Arrays.stream(AgreementEventType.values()).map(Enum::name).toList());
@@ -147,9 +147,9 @@ class AgreementHistoryServiceTest {
         List<String> types = service.history(new AgreementHistoryQuery(AGREEMENT, 0, 50), VIEWER).entries().stream()
                 .map(AgreementHistoryEntryView::type).toList();
 
-        List<String> expected = new ArrayList<>(codes.subList(0, 10));
+        List<String> expected = new ArrayList<>(codes.subList(0, 15));
         expected.add("OTHER");
         assertEquals(expected.reversed(), types);
-        assertEquals(10, AgreementEventType.values().length);
+        assertEquals(15, AgreementEventType.values().length);
     }
 }

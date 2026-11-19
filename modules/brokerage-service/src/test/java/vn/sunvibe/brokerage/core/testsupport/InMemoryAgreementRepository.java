@@ -3,6 +3,7 @@ package vn.sunvibe.brokerage.core.testsupport;
 import org.springframework.dao.OptimisticLockingFailureException;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementExistsException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecisionType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswerType;
@@ -92,7 +93,8 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
         return BrokerageAgreement.load(agreement.getId(), agreement.getUnitId(), agreement.getUnitCodeOrNull(),
                 agreement.getPropertyId(), agreement.getTransactionType(), agreement.getOwnerUserId(),
                 agreement.getBasisLeadId(), agreement.getStatus(), agreement.getCreatedByUserId(),
-                agreement.getCreatedAt(), agreement.getUpdatedAt(), rowVersion, agreement.getVersions());
+                agreement.getCreatedAt(), agreement.getUpdatedAt(), rowVersion, agreement.getVersions(),
+                agreement.getEndedAtOrNull(), agreement.getTerminationOrNull());
     }
 
     @Override
@@ -196,6 +198,37 @@ public final class InMemoryAgreementRepository implements AgreementDomainReposit
         return startById.entrySet().stream()
                 .sorted(Map.Entry.<String, LocalDate>comparingByValue().thenComparing(Map.Entry.comparingByKey()))
                 .map(Map.Entry::getKey)
+                .limit(limit)
+                .toList();
+    }
+
+    /** The stored agreement as the lock and the fresh reads find it; nothing is locked in memory. */
+    @Override
+    public Optional<BrokerageAgreement> findByIdForUpdate(String id) {
+        calls.add("findByIdForUpdate");
+        return Optional.ofNullable(agreements.get(id));
+    }
+
+    /**
+     * The agreements stored ACTIVE or SUSPENDED that hold an EFFECTIVE or ACTIVATED version and none of those ending on
+     * or after the bound, by id, at most limit.
+     */
+    @Override
+    public List<String> dueExpiryAgreementIds(LocalDate endBefore, int limit) {
+        calls.add("dueExpiryAgreementIds");
+        return agreements.values().stream()
+                .filter(agreement -> agreement.getStatus() == AgreementStatus.ACTIVE
+                        || agreement.getStatus() == AgreementStatus.SUSPENDED)
+                .filter(agreement -> {
+                    List<AgreementVersion> inEffect = agreement.getVersions().stream()
+                            .filter(version -> version.getStatus() == VersionStatus.EFFECTIVE
+                                    || version.getStatus() == VersionStatus.ACTIVATED)
+                            .toList();
+                    return !inEffect.isEmpty() && inEffect.stream()
+                            .allMatch(version -> version.getPeriod().endDate().isBefore(endBefore));
+                })
+                .map(BrokerageAgreement::getId)
+                .sorted()
                 .limit(limit)
                 .toList();
     }

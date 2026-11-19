@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import vn.sunvibe.brokerage.core.domain.exception.AgreementContentException;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementTermination;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
@@ -39,6 +40,7 @@ public class AgreementEntityMapper {
      * persists it; a loaded one keeps the version it was read with, so a merge checks it.
      */
     public BrokerageAgreementEntity toEntity(BrokerageAgreement agreement) {
+        AgreementTermination termination = agreement.getTerminationOrNull();
         BrokerageAgreementEntity entity = BrokerageAgreementEntity.builder()
                 .id(agreement.getId())
                 .unitId(agreement.getUnitId())
@@ -52,6 +54,12 @@ public class AgreementEntityMapper {
                 .createdAt(agreement.getCreatedAt())
                 .updatedAt(agreement.getUpdatedAt())
                 .version(agreement.getRowVersionOrNull())
+                .endedAt(agreement.getEndedAtOrNull())
+                .terminationType(termination == null ? null : termination.type())
+                .terminationReportedOn(termination == null ? null : termination.reportedOnOrNull())
+                .terminationChannel(termination == null ? null : termination.channelOrNull())
+                .terminationIntroduced(termination == null ? null : termination.introducedOrNull())
+                .terminationNote(termination == null ? null : termination.noteOrNull())
                 .build();
         for (AgreementVersion version : agreement.getVersions()) {
             entity.getVersions().add(toEntity(version, entity));
@@ -150,13 +158,39 @@ public class AgreementEntityMapper {
         }
     }
 
-    /** The aggregate of a stored agreement, its versions by number, their fees by number. */
+    /**
+     * The aggregate of a stored agreement, its versions by number, their fees by number, always through the full load
+     * with its end (E05-S8 spec 5.1, LD-1): a final row stored without its end loads with null in those fields.
+     */
     public BrokerageAgreement toDomain(BrokerageAgreementEntity entity) {
         List<AgreementVersion> versions = entity.getVersions().stream().map(AgreementEntityMapper::toDomain).toList();
         return BrokerageAgreement.load(entity.getId(), entity.getUnitId(), entity.getUnitCode(),
                 entity.getPropertyId(), entity.getTransactionType(), entity.getOwnerUserId(), entity.getBasisLeadId(),
                 entity.getStatus(), entity.getCreatedByUserId(), entity.getCreatedAt(), entity.getUpdatedAt(),
-                entity.getVersion(), versions);
+                entity.getVersion(), versions, entity.getEndedAt(), termination(entity));
+    }
+
+    /**
+     * The stored termination record; null when no termination column is set. A stored combination outside the rules of
+     * E05-S8 spec S8-D5 is a data fault, never a request error; the message names no stored value (brokerage-agreement
+     * BR-17).
+     */
+    private static AgreementTermination termination(BrokerageAgreementEntity entity) {
+        if (entity.getTerminationType() == null && entity.getTerminationReportedOn() == null
+                && entity.getTerminationChannel() == null && entity.getTerminationIntroduced() == null
+                && entity.getTerminationNote() == null) {
+            return null;
+        }
+        if (entity.getEndedAt() == null) {
+            throw new IllegalStateException("A stored termination record has no end.");
+        }
+        try {
+            return new AgreementTermination(entity.getTerminationType(), entity.getTerminationReportedOn(),
+                    entity.getTerminationChannel(), entity.getTerminationIntroduced(), entity.getTerminationNote(),
+                    entity.getEndedAt());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("A stored agreement breaks the termination rules.", e);
+        }
     }
 
     private static AgreementVersion toDomain(AgreementVersionEntity version) {

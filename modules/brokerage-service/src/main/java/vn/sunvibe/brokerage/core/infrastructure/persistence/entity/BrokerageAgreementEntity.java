@@ -15,9 +15,13 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
+import vn.sunvibe.brokerage.core.domain.model.agreement.IntroducedBySunvibe;
+import vn.sunvibe.brokerage.core.domain.model.agreement.TerminationType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.WithdrawalChannel;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -72,6 +76,29 @@ public class BrokerageAgreementEntity {
     @Version
     @Column(name = "version")
     private Long version;
+
+    /** When the agreement ended; null while it has not (E05-S8 spec S8-D9). */
+    @Column(name = "ended_at")
+    private Instant endedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "termination_type", length = 30)
+    private TerminationType terminationType;
+
+    @Column(name = "termination_reported_on")
+    private LocalDate terminationReportedOn;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "termination_channel", length = 20)
+    private WithdrawalChannel terminationChannel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "termination_introduced", length = 10)
+    private IntroducedBySunvibe terminationIntroduced;
+
+    /** Private (brokerage-agreement BR-17): never in a text of this entity. */
+    @Column(name = "termination_note", length = 500)
+    private String terminationNote;
 
     @OneToMany(mappedBy = "agreement", cascade = CascadeType.ALL)
     @OrderBy("versionNo ASC")

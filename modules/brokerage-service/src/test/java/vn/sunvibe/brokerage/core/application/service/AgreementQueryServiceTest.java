@@ -35,10 +35,12 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.FeeFormulaType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
 import vn.sunvibe.brokerage.core.domain.model.agreement.SignedDocument;
+import vn.sunvibe.brokerage.core.domain.model.agreement.StopAction;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryAgreementRepository;
+import vn.sunvibe.brokerage.core.testsupport.InMemoryAgreementSuspensionRepository;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryBasisLeadPort;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryIntakeOriginPort;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryOwnerEligibilityPort;
@@ -94,7 +96,7 @@ class AgreementQueryServiceTest {
     private final InMemoryOwnerEligibilityPort eligibility = new InMemoryOwnerEligibilityPort();
     private final AdvertisingRightAssembler assembler = new AdvertisingRightAssembler(unitBases, eligibility);
     private final AgreementQueryService service = new AgreementQueryService(agreements, leads, trail, origins,
-            sourceTerms, accounts, locations, assembler);
+            sourceTerms, accounts, locations, assembler, new InMemoryAgreementSuspensionRepository());
 
     @Test
     void detail_visibleBasisLead_viewAndOneAccessRow() {
@@ -105,7 +107,8 @@ class AgreementQueryServiceTest {
                 PERIOD.endDate(), CREATED, AdvertisingScope.SUNVIBE_CHANNELS, PhotoConsent.NONE, VersionTerms.NONE,
                 BrokerageFee.NONE, null, null, null, null, null, null)),
                 0L, true, new AdvertisingRightView("U1", AGREEMENT, false, false, List.of("NOT_IN_EFFECT"), null, null,
-                false, false, null, null, null, null), false, null), view);
+                false, false, null, null, null, null), false, null, null, null, List.of(), false,
+                List.of(StopAction.CANCEL, StopAction.TERMINATE_OWNER_WITHDREW, StopAction.TERMINATE_UNIT_LET)), view);
         assertEquals(1, trail.accesses().size());
         RecordingAgreementTrail.Access access = trail.accesses().get(0);
         assertEquals(new RecordingAgreementTrail.Access(SALE, AGREEMENT, AgreementAccessType.DETAIL_READ, access.at()),
@@ -167,7 +170,7 @@ class AgreementQueryServiceTest {
     @Test
     void detail_accessWriteFails_noViewAnswered() {
         AgreementQueryService failing = new AgreementQueryService(agreements, leads, trail.failAccess(), origins,
-                sourceTerms, accounts, locations, assembler);
+                sourceTerms, accounts, locations, assembler, new InMemoryAgreementSuspensionRepository());
 
         assertThrows(IllegalStateException.class, () -> failing.detail(AGREEMENT, VIEWER));
         assertEquals(List.of(), trail.accesses());
@@ -190,7 +193,7 @@ class AgreementQueryServiceTest {
                 "U1", "P101", "P1", TransactionType.LONG_TERM_RENT, "O", LEAD, AgreementStatus.DRAFTING, SALE, CREATED,
                 CREATED, 3L, STORED.getVersions()));
         AgreementQueryService read = new AgreementQueryService(moved, seen, trail, origins, sourceTerms, accounts,
-                locations, assembler);
+                locations, assembler, new InMemoryAgreementSuspensionRepository());
 
         AgreementDetailView forSale = read.detail(AGREEMENT, VIEWER);
         AgreementDetailView forManager = read.detail(AGREEMENT, new StaffViewer("M", Set.of("ROLE_SALES_MANAGER")));
@@ -488,7 +491,7 @@ class AgreementQueryServiceTest {
         storeAwaitingActivation(confirmedAt);
         InMemoryBasisLeadPort seen = new InMemoryBasisLeadPort(calls).lead(LEAD, SALE, SALE, "M");
         AgreementQueryService read = new AgreementQueryService(agreements, seen, trail, origins, sourceTerms, accounts,
-                locations, assembler);
+                locations, assembler, new InMemoryAgreementSuspensionRepository());
 
         AgreementDetailView view = read.detail(AGREEMENT, new StaffViewer("M", Set.of("ROLE_SALES_MANAGER")));
 
@@ -507,7 +510,7 @@ class AgreementQueryServiceTest {
         storeAwaitingActivation(now().minus(1, ChronoUnit.HOURS));
         InMemoryBasisLeadPort seen = new InMemoryBasisLeadPort(calls).lead(LEAD, SALE, SALE, "E1");
         AgreementQueryService read = new AgreementQueryService(agreements, seen, trail, origins, sourceTerms, accounts,
-                locations, assembler);
+                locations, assembler, new InMemoryAgreementSuspensionRepository());
 
         AgreementDetailView forSale = read.detail(AGREEMENT, VIEWER);
         AgreementDetailView forAssignee = read.detail(AGREEMENT, new StaffViewer(SALE, Set.of("ROLE_SALE_LEADER")));
@@ -588,7 +591,8 @@ class AgreementQueryServiceTest {
     }
 
     private AgreementQueryService ownerService(InMemoryAgreementRepository owned) {
-        return new AgreementQueryService(owned, leads, trail, origins, sourceTerms, accounts, locations, assembler);
+        return new AgreementQueryService(owned, leads, trail, origins, sourceTerms, accounts, locations, assembler,
+                new InMemoryAgreementSuspensionRepository());
     }
 
     private static BrokerageAgreement owned(String id, String unitId, String unitCode, AgreementStatus status,

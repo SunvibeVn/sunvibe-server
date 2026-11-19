@@ -7,13 +7,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.sunvibe.brokerage.core.application.command.AgreementActivateCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementCancelCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementConfirmCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementCreateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementOpenDraftCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRefuseActivationCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementRejectCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementReleaseSuspensionCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementSendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementSuspendCommand;
+import vn.sunvibe.brokerage.core.application.command.AgreementTerminateCommand;
 import vn.sunvibe.brokerage.core.application.command.AgreementVersionInput;
 import vn.sunvibe.brokerage.core.application.exception.AgreementRefusedException;
 import vn.sunvibe.brokerage.core.application.exception.BrokerageNotFoundException;
@@ -35,15 +39,21 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementPeriod;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatement;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementSuspension;
+import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementTermination;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementVersion;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageAgreement;
+import vn.sunvibe.brokerage.core.domain.model.agreement.DueTransition;
 import vn.sunvibe.brokerage.core.domain.model.agreement.OwnerAnswer;
 import vn.sunvibe.brokerage.core.domain.model.agreement.SignedDocument;
+import vn.sunvibe.brokerage.core.domain.model.agreement.StopAction;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.eligibility.ReasonGroup;
+import vn.sunvibe.brokerage.core.domain.policy.agreement.AgreementStopPolicy;
 import vn.sunvibe.brokerage.core.domain.policy.agreement.VersionSendRules;
 import vn.sunvibe.brokerage.core.domain.policy.eligibility.EligibilityPolicy;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementDomainRepository;
+import vn.sunvibe.brokerage.core.domain.repository.AgreementSuspensionDomainRepository;
 import vn.sunvibe.brokerage.core.domain.repository.AgreementTrailDomainRepository;
 import vn.sunvibe.shared.generator.id.IdGenerator;
 import vn.sunvibe.shared.outbox.EventOutboxPort;
@@ -107,12 +117,14 @@ public class AgreementCommandService implements AgreementCommandUseCase {
     private final TransactionTemplate reads;
     /** E05's outbox events of an activation, in the command's transaction (ADR-014 decision 2; spec S6-D12). */
     private final EventOutboxPort outbox;
+    /** The suspension records beside the aggregate, in the agreement's transaction (E05-S8 spec S8-D6). */
+    private final AgreementSuspensionDomainRepository suspensions;
 
     public AgreementCommandService(BasisLeadPort leads, IntakeBasisPort bases, OwnerAccountPort accounts,
                                    AgreementDomainRepository agreements, AgreementTrailDomainRepository trail,
                                    IdGenerator<String> ids, OwnerNoticePort notices, AgreementSwitches switches,
                                    AccountPasswordPort passwords, TransactionTemplate transactions,
-                                   EventOutboxPort outbox) {
+                                   EventOutboxPort outbox, AgreementSuspensionDomainRepository suspensions) {
         this.leads = leads;
         this.bases = bases;
         this.accounts = accounts;
@@ -126,6 +138,7 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         this.reads = new TransactionTemplate(transactions.getTransactionManager());
         this.reads.setReadOnly(true);
         this.outbox = outbox;
+        this.suspensions = suspensions;
     }
 
     @Override
@@ -154,12 +167,13 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         if (!groups.isEmpty()) {
             throw AgreementRefusedException.notEligible(groups);
         }
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
         // brokerage-agreement BR-1: one unfinished agreement per unit and type. A concurrent create that passes this
         // lookup meets the database's partial unique index at the insert instead.
-        if (!agreements.unfinishedOf(List.of(command.unitId()), type).isEmpty()) {
-            throw AgreementRefusedException.exists();
+        for (AgreementDomainRepository.UnfinishedAgreement unfinished
+                : agreements.unfinishedOf(List.of(command.unitId()), type)) {
+            freeSlotOrRefuse(unfinished.agreementId(), now);
         }
-        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
         String unitCodeOrNull = basis.units().stream().filter(unit -> unit.unitId().equals(command.unitId()))
                 .findFirst().map(IntakeBasisFacts.Unit::unitCodeOrNull).orElse(null);
         BrokerageAgreement agreement = BrokerageAgreement.create(ids.generateId(), command.unitId(), unitCodeOrNull,
@@ -168,6 +182,23 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         agreements.create(agreement);
         trail.recordEvent(agreement.getId(), 1, AgreementEventType.CREATED, actor.userId(), now);
         return new AgreementCreateResult(agreement.getId());
+    }
+
+    /**
+     * The create's step for an unfinished agreement of the unit found by its stored status (E05-S2 spec S2-D4, E05-S8
+     * spec S8-D4, plan E05S8-P7): its row locked (after the lead's: lock order of S2-D4) and read again; still
+     * unfinished at {@code now} answers 409 AGREEMENT_EXISTS before any write; expired by its end and stored in effect,
+     * its expiry is stored with its rows, so the slot is free; stored final or gone, nothing is written for it.
+     */
+    private void freeSlotOrRefuse(String agreementId, Instant now) {
+        BrokerageAgreement locked = agreements.findByIdForUpdate(agreementId).orElse(null);
+        if (locked == null) {
+            return;
+        }
+        if (locked.effectiveAt(now).getStatus().isUnfinished()) {
+            throw AgreementRefusedException.exists();
+        }
+        storeExpiryOf(locked, now);
     }
 
     /**
@@ -576,6 +607,243 @@ public class AgreementCommandService implements AgreementCommandUseCase {
         Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
         List<String> due = agreements.dueStartAgreementIds(AgreementVersion.todayInVietnam(now), MAX_STARTS_PER_RUN);
         return storeEach(due, agreementId -> storeDueStart(agreementId, now));
+    }
+
+    /**
+     * One run of the expiry job (E05-S8 spec S8-D2): the clock read once, then {@link #storeDueExpiriesAt}.
+     */
+    @Override
+    public int storeDueExpiries() {
+        return storeDueExpiriesAt(AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS));
+    }
+
+    /**
+     * The time seam of the expiry store (E05-S8 spec S8-D2): one selection of at most 100 agreements whose versions in
+     * effect all ended before today in Vietnam, then per agreement a short transaction of its own under the failure rule
+     * of {@link #storeEach}. No lead lock, like the other stores.
+     */
+    int storeDueExpiriesAt(Instant now) {
+        List<String> due = agreements.dueExpiryAgreementIds(AgreementVersion.todayInVietnam(now), MAX_EXPIRIES_PER_RUN);
+        return storeEach(due, agreementId -> storeDueExpiry(agreementId, now));
+    }
+
+    /**
+     * brokerage-agreement BR-5, BR-6 (E05-S2 spec S2-D4, E05-S8 spec S8-D2, S8-D3, plan E05S8-P3): the expiry is a stored
+     * transition, written when it is due: the effective copy of the agreement read, with the rows of every transition it
+     * stores in time order; nothing when the agreement changed since the selection or has not expired.
+     */
+    private boolean storeDueExpiry(String agreementId, Instant now) {
+        BrokerageAgreement agreement = agreements.findById(agreementId).orElse(null);
+        if (agreement == null) {
+            return false;
+        }
+        return storeExpiryOf(agreement, now);
+    }
+
+    /**
+     * Stores the effective copy of a read whose expiry is due (plan E05S8-P3): only an agreement stored ACTIVE or
+     * SUSPENDED that reads EXPIRED at {@code now}; the update first, then the rows of what fell due, in time order.
+     *
+     * @return whether it stored one
+     */
+    private boolean storeExpiryOf(BrokerageAgreement read, Instant now) {
+        BrokerageAgreement effective = read.effectiveAt(now);
+        boolean storedInEffect = read.getStatus() == AgreementStatus.ACTIVE
+                || read.getStatus() == AgreementStatus.SUSPENDED;
+        if (!storedInEffect || effective.getStatus() != AgreementStatus.EXPIRED) {
+            return false;
+        }
+        agreements.update(effective);
+        recordDueTransitions(read.getId(), read.dueTransitionsAt(now));
+        return true;
+    }
+
+    /**
+     * Statements (E05-S8 spec S8-D8): one agreement read, one locked lead read, the agreement row's lock statement and
+     * the three fresh reads; then the guarded update, the history rows of the transitions due before the stop and its
+     * own, the record's insert and one outbox append, in this order.
+     */
+    @Override
+    @Transactional
+    public void suspend(AgreementSuspendCommand command, StaffViewer actor) {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        // brokerage-agreement BR-15, BR-17 (E05-S8 spec 3.1): the note's rule is part of the body, so it answers first
+        AgreementSuspension record = AgreementSuspension.open(ids.generateId(), command.agreementId(),
+                command.reasonType(), command.noteOrNull(), actor.userId(), now);
+        StopTarget target = lockedForStop(command.agreementId(), actor);
+        // brokerage-agreement BR-15, BR-16: a manager suspends; the method rule lets only managers through, so a viewer
+        // refused here answers as one who may not see the agreement (spec 3.1)
+        if (!mayAct(StopAction.SUSPEND, target, actor)) {
+            throw new BrokerageNotFoundException();
+        }
+        BrokerageAgreement effective = target.agreement().effectiveAt(now);
+        refuseEnded(effective);
+        // brokerage-agreement BR-15: a manager suspends an agreement in effect, and only once
+        if (!AgreementStopPolicy.admits(StopAction.SUSPEND, effective.getStatus())) {
+            throw effective.getStatus() == AgreementStatus.SUSPENDED ? AgreementRefusedException.alreadySuspended()
+                    : AgreementRefusedException.notInEffect();
+        }
+        agreements.update(effective.suspend(now));
+        recordDueTransitions(effective.getId(), target.agreement().dueTransitionsAt(now));
+        trail.recordEvent(effective.getId(), latestVersionNo(effective), AgreementEventType.SUSPENDED, actor.userId(),
+                now);
+        // E05-S8 spec S8-D6: the record opens only with ACTIVE -> SUSPENDED, in this transaction
+        suspensions.open(record);
+        outbox.append(UnitAdvertisingChangedEvent.now(effective.getUnitId()));
+    }
+
+    /** The statements of {@link #suspend}, the record's guarded close in place of its insert. */
+    @Override
+    @Transactional
+    public void releaseSuspension(AgreementReleaseSuspensionCommand command, StaffViewer actor) {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        // brokerage-agreement BR-15 "Gỡ tạm ngưng cần lý do": the reason's rule is part of the body
+        String reason = AgreementSuspension.releaseReason(command.reason());
+        StopTarget target = lockedForStop(command.agreementId(), actor);
+        // brokerage-agreement BR-15: only a manager who is not the lead's assignee lifts a suspension
+        if (!mayAct(StopAction.RELEASE_SUSPENSION, target, actor)) {
+            throw AgreementRefusedException.releaserNotIndependent();
+        }
+        BrokerageAgreement effective = target.agreement().effectiveAt(now);
+        refuseEnded(effective);
+        if (!AgreementStopPolicy.admits(StopAction.RELEASE_SUSPENSION, effective.getStatus())) {
+            throw AgreementRefusedException.notSuspended();
+        }
+        // brokerage-agreement BR-5: the release is no stop of BR-5's list, so it checks the data version the caller read
+        requireDataVersion(target.agreement(), command.expectedDataVersion());
+        agreements.update(effective.releaseSuspension(now));
+        recordDueTransitions(effective.getId(), target.agreement().dueTransitionsAt(now));
+        trail.recordEvent(effective.getId(), latestVersionNo(effective), AgreementEventType.SUSPENSION_RELEASED,
+                actor.userId(), now);
+        // E05-S8 spec S8-D6: the record closes only with SUSPENDED -> ACTIVE; none open breaks the rule, and the whole
+        // command rolls back (500)
+        if (!suspensions.release(effective.getId(), actor.userId(), now, reason)) {
+            throw new IllegalStateException("A suspended agreement holds no open suspension record.");
+        }
+        outbox.append(UnitAdvertisingChangedEvent.now(effective.getUnitId()));
+    }
+
+    /** The statements of {@link #suspend}, without a record. */
+    @Override
+    @Transactional
+    public void terminate(AgreementTerminateCommand command, StaffViewer actor) {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        // brokerage-agreement BR-14, BR-17 (E05-S8 spec S8-D5): the fields of the type are the body, checked first
+        AgreementTermination termination = AgreementTermination.of(command.type(), command.reportedOnOrNull(),
+                command.channelOrNull(), command.introducedOrNull(), command.noteOrNull(),
+                AgreementVersion.todayInVietnam(now), now);
+        StopTarget target = lockedForStop(command.agreementId(), actor);
+        StopAction action = AgreementStopPolicy.actionOf(command.type());
+        if (!mayAct(action, target, actor)) {
+            throw switch (action) {
+                // brokerage-agreement BR-14, BR-16: the assignee records that the unit is let
+                case TERMINATE_UNIT_LET -> AgreementRefusedException.assigneeOnly();
+                // brokerage-agreement BR-16: Sunvibe's own termination is a manager's
+                case TERMINATE_SUNVIBE -> AgreementRefusedException.terminationNotAllowed();
+                // every viewer who sees the basis lead records the owner's withdrawal (spec 3.3, A-4)
+                default -> new BrokerageNotFoundException();
+            };
+        }
+        BrokerageAgreement effective = target.agreement().effectiveAt(now);
+        // brokerage-agreement BR-14 (E05-S8 spec S8-D1): termination acts on every agreement that has not ended
+        refuseEnded(effective);
+        agreements.update(effective.terminate(termination, now));
+        recordDueTransitions(effective.getId(), target.agreement().dueTransitionsAt(now));
+        trail.recordEvent(effective.getId(), latestVersionNo(effective), AgreementEventType.TERMINATED,
+                actor.userId(), now);
+        outbox.append(UnitAdvertisingChangedEvent.now(effective.getUnitId()));
+    }
+
+    /** The statements of {@link #suspend}, without a record. */
+    @Override
+    @Transactional
+    public void cancel(AgreementCancelCommand command, StaffViewer actor) {
+        Instant now = AppClock.currentUTC().truncatedTo(ChronoUnit.MICROS);
+        StopTarget target = lockedForStop(command.agreementId(), actor);
+        // brokerage-agreement BR-16: cancelling an agreement that never took effect is the assignee's
+        if (!mayAct(StopAction.CANCEL, target, actor)) {
+            throw AgreementRefusedException.assigneeOnly();
+        }
+        BrokerageAgreement effective = target.agreement().effectiveAt(now);
+        refuseEnded(effective);
+        // brokerage-agreement BR-5: cancelled means it never took effect; one that did is ended by a termination
+        if (!AgreementStopPolicy.admits(StopAction.CANCEL, effective.getStatus())) {
+            throw AgreementRefusedException.tookEffect();
+        }
+        // brokerage-agreement BR-5: the cancellation is no stop of BR-5's list, so it checks the data version read
+        requireDataVersion(target.agreement(), command.expectedDataVersion());
+        agreements.update(effective.cancel(now));
+        recordDueTransitions(effective.getId(), target.agreement().dueTransitionsAt(now));
+        trail.recordEvent(effective.getId(), latestVersionNo(effective), AgreementEventType.CANCELLED, actor.userId(),
+                now);
+        outbox.append(UnitAdvertisingChangedEvent.now(effective.getUnitId()));
+    }
+
+    /** The agreement read under its row lock and its basis lead read under its own (E05-S8 spec S8-D8 steps 1 to 3). */
+    private record StopTarget(BrokerageAgreement agreement, BasisLeadFacts lead) {
+    }
+
+    /**
+     * Steps 1 to 3 of E05-S8 spec S8-D8: the id and the agreement (404), read to learn its basis lead; that lead, locked
+     * to the commit and visible to the actor (404; lock order of E05-S2 spec S2-D4: the lead, then the agreement); then
+     * the agreement row locked and the agreement read again, so the stop decides on what committed before its lock: none
+     * answers 404, another basis lead answers Spring's optimistic-locking failure (409 CONCURRENT_MODIFICATION without
+     * an entry).
+     */
+    private StopTarget lockedForStop(String agreementId, StaffViewer actor) {
+        if (agreementId == null || !AgreementQueryService.AGREEMENT_ID.matcher(agreementId).matches()) {
+            throw new BrokerageNotFoundException();
+        }
+        BrokerageAgreement first = agreements.findById(agreementId).orElseThrow(BrokerageNotFoundException::new);
+        BasisLeadFacts lead = leads.findVisibleForUpdate(first.getBasisLeadId(), actor.userId(),
+                actor.expandedAuthorities()).orElseThrow(BrokerageNotFoundException::new);
+        BrokerageAgreement locked = agreements.findByIdForUpdate(agreementId)
+                .orElseThrow(BrokerageNotFoundException::new);
+        if (!locked.getBasisLeadId().equals(first.getBasisLeadId())) {
+            throw new OptimisticLockingFailureException("The agreement's basis lead changed.");
+        }
+        return new StopTarget(locked, lead);
+    }
+
+    /**
+     * The viewer column of the stop rule (E05-S8 spec S8-D11, plan E05S8-P4) on the basis lead read under its lock: the
+     * assigned Sale (the current assignee holding SALE or SALE_LEADER), the current assignee in any role, a manager.
+     */
+    private static boolean mayAct(StopAction action, StopTarget target, StaffViewer actor) {
+        String assignee = target.lead().assignedUserIdOrNull();
+        return AgreementStopPolicy.mayAct(action,
+                EligibilityPolicy.assignedSale(assignee, actor.userId(), actor.expandedAuthorities()),
+                actor.userId().equals(assignee),
+                actor.expandedAuthorities().stream().anyMatch(AgreementQueryService.DECIDER_ROLES::contains));
+    }
+
+    /** brokerage-agreement BR-5 (E05-S8 spec section 3): an agreement that ended answers AGREEMENT_ENDED first. */
+    private static void refuseEnded(BrokerageAgreement effective) {
+        if (!effective.getStatus().isUnfinished()) {
+            throw AgreementRefusedException.ended();
+        }
+    }
+
+    /** brokerage-agreement BR-5: the change checks the data version the caller read against the locked row's. */
+    private static void requireDataVersion(BrokerageAgreement locked, long expectedDataVersion) {
+        if (locked.getRowVersionOrNull() == null || locked.getRowVersionOrNull() != expectedDataVersion) {
+            throw AgreementRefusedException.stale();
+        }
+    }
+
+    /**
+     * E05-S8 spec S8-D8 step 5: one history row per transition the effective copy stores, without an actor, at its own
+     * moment, in time order, before the command's own row.
+     */
+    private void recordDueTransitions(String agreementId, List<DueTransition> due) {
+        for (DueTransition transition : due) {
+            trail.recordEvent(agreementId, transition.versionNo(), transition.type(), null, transition.at());
+        }
+    }
+
+    /** E05-S8 spec S8-D10: a stop concerns the whole agreement, so its row names the latest version. */
+    private static int latestVersionNo(BrokerageAgreement agreement) {
+        return agreement.getVersions().getLast().getVersionNo();
     }
 
     /**

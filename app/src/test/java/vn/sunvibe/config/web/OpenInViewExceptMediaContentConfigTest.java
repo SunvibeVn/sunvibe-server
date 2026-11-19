@@ -144,6 +144,27 @@ class OpenInViewExceptMediaContentConfigTest {
 				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake")));
 	}
 
+	/** E05-S8 spec S8-D15, OV-1: the four stop paths are excluded; a path beside them keeps open-in-view. */
+	@Test
+	void stopCommandPaths_excluded() {
+		MappedInterceptor openInView = openInView();
+
+		assertEquals("/api/v1/staff/brokerage-agreements/*/suspension",
+				OpenInViewExceptMediaContentConfig.BROKERAGE_AGREEMENT_SUSPENSION_PATTERN);
+		assertEquals("/api/v1/staff/brokerage-agreements/*/suspension-release",
+				OpenInViewExceptMediaContentConfig.BROKERAGE_AGREEMENT_SUSPENSION_RELEASE_PATTERN);
+		assertEquals("/api/v1/staff/brokerage-agreements/*/termination",
+				OpenInViewExceptMediaContentConfig.BROKERAGE_AGREEMENT_TERMINATION_PATTERN);
+		assertEquals("/api/v1/staff/brokerage-agreements/*/cancellation",
+				OpenInViewExceptMediaContentConfig.BROKERAGE_AGREEMENT_CANCELLATION_PATTERN);
+		for (String operation : List.of("suspension", "suspension-release", "termination", "cancellation")) {
+			assertFalse(openInView.matches(request("POST",
+					"/api/v1/staff/brokerage-agreements/01JAGREEMENT00000000000000/" + operation)), operation);
+		}
+		assertTrue(openInView.matches(request("GET",
+				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake")));
+	}
+
 	private MappedInterceptor openInView() {
 		assertEquals(1, interceptors.size());
 		MappedInterceptor mapped = assertInstanceOf(MappedInterceptor.class, interceptors.get(0));

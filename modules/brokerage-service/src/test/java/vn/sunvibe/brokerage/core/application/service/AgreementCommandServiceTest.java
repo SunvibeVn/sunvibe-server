@@ -58,6 +58,7 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementEventType;
 import vn.sunvibe.brokerage.core.testsupport.FixedAgreementSwitches;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryAgreementRepository;
+import vn.sunvibe.brokerage.core.testsupport.InMemoryAgreementSuspensionRepository;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryBasisLeadPort;
 import vn.sunvibe.brokerage.core.testsupport.InMemoryIntakeBasisPort;
 import vn.sunvibe.brokerage.core.testsupport.NoDatabaseTransactions;
@@ -119,7 +120,8 @@ class AgreementCommandServiceTest {
 
     private AgreementCommandService service() {
         return new AgreementCommandService(leads, bases, accounts, agreements, trail, ids::next, notices, switches,
-                passwords, new TransactionTemplate(new NoDatabaseTransactions()), outbox);
+                passwords, new TransactionTemplate(new NoDatabaseTransactions()), outbox,
+                new InMemoryAgreementSuspensionRepository());
     }
 
     @Test
@@ -192,7 +194,7 @@ class AgreementCommandServiceTest {
         InMemoryBasisLeadPort hidden = new InMemoryBasisLeadPort(calls).lead(LEAD, SALE, "M");
         AgreementCommandService service = new AgreementCommandService(hidden, bases, accounts, agreements, trail,
                 ids::next, notices, switches, passwords, new TransactionTemplate(new NoDatabaseTransactions()),
-                new RecordingEventOutboxPort());
+                new RecordingEventOutboxPort(), new InMemoryAgreementSuspensionRepository());
 
         assertThrows(BrokerageNotFoundException.class, () -> service.create(command("U1"), VIEWER));
 
@@ -221,7 +223,7 @@ class AgreementCommandServiceTest {
         InMemoryIntakeBasisPort none = new InMemoryIntakeBasisPort(calls);
         AgreementCommandService service = new AgreementCommandService(leads, none, accounts, agreements, trail,
                 ids::next, notices, switches, passwords, new TransactionTemplate(new NoDatabaseTransactions()),
-                new RecordingEventOutboxPort());
+                new RecordingEventOutboxPort(), new InMemoryAgreementSuspensionRepository());
 
         AgreementRefusedException refused = assertThrows(AgreementRefusedException.class,
                 () -> service.create(command("U1"), VIEWER));
@@ -276,7 +278,7 @@ class AgreementCommandServiceTest {
                 .store(stored("A8", "L9", AgreementStatus.CANCELLED, VersionStatus.CANCELLED));
         AgreementCommandService service = new AgreementCommandService(leads, bases, accounts, cancelled, trail,
                 ids::next, notices, switches, passwords, new TransactionTemplate(new NoDatabaseTransactions()),
-                new RecordingEventOutboxPort());
+                new RecordingEventOutboxPort(), new InMemoryAgreementSuspensionRepository());
         assertEquals(new AgreementCreateResult("A1"), service.create(command("U1"), VIEWER));
         assertEquals(2, cancelled.all().size());
     }
@@ -431,7 +433,7 @@ class AgreementCommandServiceTest {
         assertEquals(List.of("reasonGroups.BASIS"), refusedDraftFields(
                 new AgreementCommandService(leads, none, accounts, agreements, trail, ids::next, notices, switches,
                         passwords, new TransactionTemplate(new NoDatabaseTransactions()),
-                        new RecordingEventOutboxPort())));
+                        new RecordingEventOutboxPort(), new InMemoryAgreementSuspensionRepository())));
 
         calls.clear();
         bases.basis(LEAD, new IntakeBasisFacts("I2", "P1", "USABLE", BASIS.units(), OWNER, HOLDINGS));
@@ -866,7 +868,7 @@ class AgreementCommandServiceTest {
         NoDatabaseTransactions transactions = new NoDatabaseTransactions();
         AgreementCommandService service = new AgreementCommandService(leads, bases, accounts, agreements, trail,
                 ids::next, notices, switches, passwords, new TransactionTemplate(transactions),
-                new RecordingEventOutboxPort());
+                new RecordingEventOutboxPort(), new InMemoryAgreementSuspensionRepository());
 
         service.confirmByOwner(confirm(AGREEMENT), OWNER);
 

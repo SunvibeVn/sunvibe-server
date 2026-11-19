@@ -849,13 +849,156 @@ class BrokerageOpenApiTest {
 		assertEquals(List.of("actorName", "actorType", "occurredAt", "type", "versionNo"),
 				names(entry).stream().sorted().toList());
 		assertEquals("[\"CREATED\",\"DRAFT_EDITED\",\"VERSION_SENT\",\"OWNER_CONFIRMED\",\"OWNER_REJECTED\","
-				+ "\"VERSION_LAPSED\",\"DRAFT_OPENED\",\"ACTIVATED\",\"ACTIVATION_REFUSED\",\"VERSION_STARTED\",\"OTHER\"]",
+				+ "\"VERSION_LAPSED\",\"DRAFT_OPENED\",\"ACTIVATED\",\"ACTIVATION_REFUSED\",\"VERSION_STARTED\",\"SUSPENDED\","
+				+ "\"SUSPENSION_RELEASED\",\"TERMINATED\",\"EXPIRED\",\"CANCELLED\",\"OTHER\"]",
 				entry.path("type").path("enum").toString());
 		assertEquals("[\"STAFF\",\"OWNER\",\"SYSTEM\"]", entry.path("actorType").path("enum").toString());
 		assertEquals("[\"integer\",\"null\"]", entry.path("versionNo").path("type").toString());
 		assertEquals("int32", entry.path("versionNo").path("format").asString());
 		assertEquals("[\"string\",\"null\"]", entry.path("actorName").path("type").toString());
 		assertEquals("date-time", entry.path("occurredAt").path("format").asString());
+	}
+
+	// ==================== E05-S8 (API-1) ====================
+
+	/**
+	 * E05-S8 spec section 4, S8-D12, S8-D15, API-1: the four stop operations, each with its id, tag, request schema,
+	 * the method rule of the suspension and its release, and every code a step of section 3 answers.
+	 */
+	@Test
+	void stopOperations_idsRulesStatusesAndCodes() {
+		String base = "/api/v1/staff/brokerage-agreements/{agreementId}/";
+		Map<String, List<String>> operations = Map.of(
+				"suspension", List.of("suspendBrokerageAgreement", "BrokerageAgreementSuspensionRequest"),
+				"suspension-release", List.of("releaseBrokerageAgreementSuspension",
+						"BrokerageAgreementSuspensionReleaseRequest"),
+				"termination", List.of("terminateBrokerageAgreement", "BrokerageAgreementTerminationRequest"),
+				"cancellation", List.of("cancelBrokerageAgreement", "BrokerageAgreementCancellationRequest"));
+		Map<String, Map<String, List<String>>> codes = Map.of(
+				"suspension", Map.of("403", List.of("FORBIDDEN"), "409", List.of("AGREEMENT_ENDED",
+						"AGREEMENT_NOT_IN_EFFECT", "AGREEMENT_ALREADY_SUSPENDED", "CONCURRENT_MODIFICATION")),
+				"suspension-release", Map.of("403", List.of("FORBIDDEN", "AGREEMENT_RELEASER_NOT_INDEPENDENT"), "409",
+						List.of("AGREEMENT_ENDED", "AGREEMENT_NOT_SUSPENDED", "CONCURRENT_MODIFICATION")),
+				"termination", Map.of("403", List.of("FORBIDDEN", "AGREEMENT_ASSIGNEE_ONLY",
+						"AGREEMENT_TERMINATION_NOT_ALLOWED"), "409", List.of("AGREEMENT_ENDED", "CONCURRENT_MODIFICATION")),
+				"cancellation", Map.of("403", List.of("FORBIDDEN", "AGREEMENT_ASSIGNEE_ONLY"), "409",
+						List.of("AGREEMENT_ENDED", "AGREEMENT_TOOK_EFFECT", "CONCURRENT_MODIFICATION")));
+		for (Map.Entry<String, List<String>> operation : operations.entrySet()) {
+			String path = base + operation.getKey();
+			JsonNode post = contract.path("paths").path(path).path("post");
+			assertEquals(List.of("post"), names(contract.path("paths").path(path)), path);
+			assertEquals(operation.getValue().get(0), post.path("operationId").asString(), path);
+			assertEquals(List.of("post " + path), operationsWithId(operation.getValue().get(0)));
+			assertEquals("[\"Brokerage agreement\"]", post.path("tags").toString());
+			assertTrue(post.path("security").isMissingNode(), post.toString());
+			assertEquals("#/components/schemas/" + operation.getValue().get(1),
+					post.path("requestBody").path("content").path("application/json").path("schema").path("$ref").asString());
+			JsonNode responses = post.path("responses");
+			assertEquals(List.of("204", "400", "401", "403", "404", "409", "500"), names(responses).stream().sorted().toList(),
+					path);
+			assertTrue(responses.path("204").path("content").isMissingNode(), responses.path("204").toString());
+			for (String status : List.of("400", "401", "403", "404", "409", "500")) {
+				assertEquals("#/components/schemas/ErrorResponse", schemaRef(responses.path(status)), path + " " + status);
+			}
+			for (String code : List.of("VALIDATION_FAILED", "MALFORMED_REQUEST")) {
+				assertTrue(responses.path("400").path("description").asString().contains(code), path + " " + code);
+			}
+			assertTrue(responses.path("404").path("description").asString().contains("NOT_FOUND"), path);
+			assertTrue(responses.path("500").path("description").asString().contains("INTERNAL_ERROR"), path);
+			codes.get(operation.getKey()).forEach((status, expected) -> {
+				for (String code : expected) {
+					assertTrue(responses.path(status).path("description").asString().contains(code),
+							path + " " + status + " " + code);
+				}
+			});
+		}
+	}
+
+	/**
+	 * E05-S8 spec section 4, API-1, plan E05S8-P5, P17: each request's required fields, its nullable optional fields, the
+	 * closed values of its codes and the 500 bound of its texts.
+	 */
+	@Test
+	void stopRequestSchemas_requiredNullableClosedValues() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode suspension = schemas.path("BrokerageAgreementSuspensionRequest");
+		assertEquals(List.of("reasonType"), requiredOf(suspension));
+		assertEquals("[\"COMPLAINT\",\"SUSPECTED_FRAUD\",\"DISPUTE\",\"NEEDS_CHECK\"]",
+				suspension.path("properties").path("reasonType").path("enum").toString());
+		assertEquals("[\"string\",\"null\"]", suspension.path("properties").path("note").path("type").toString());
+		assertEquals(500, suspension.path("properties").path("note").path("maxLength").asInt());
+
+		JsonNode release = schemas.path("BrokerageAgreementSuspensionReleaseRequest");
+		assertEquals(List.of("expectedDataVersion", "reason"), requiredOf(release));
+		assertEquals("int64", release.path("properties").path("expectedDataVersion").path("format").asString());
+		assertEquals(0, release.path("properties").path("expectedDataVersion").path("minimum").asInt());
+		assertEquals(500, release.path("properties").path("reason").path("maxLength").asInt());
+
+		JsonNode termination = schemas.path("BrokerageAgreementTerminationRequest");
+		assertEquals(List.of("type"), requiredOf(termination));
+		JsonNode properties = termination.path("properties");
+		assertEquals("[\"OWNER_WITHDREW\",\"UNIT_LET\",\"SUNVIBE_TERMINATED\"]", properties.path("type").path("enum")
+				.toString());
+		assertEquals("[\"string\",\"null\"]", properties.path("reportedOn").path("type").toString());
+		assertEquals("date", properties.path("reportedOn").path("format").asString());
+		assertTrue(properties.path("channel").path("type").toString().contains("null"), properties.toString());
+		assertTrue(properties.path("channel").path("enum").toString()
+				.contains("\"PHONE_CALL\",\"IN_PERSON\",\"MESSAGE\",\"EMAIL\",\"OTHER\""), properties.toString());
+		assertTrue(properties.path("introducedBySunvibe").path("type").toString().contains("null"), properties.toString());
+		assertTrue(properties.path("introducedBySunvibe").path("enum").toString().contains("\"YES\",\"NO\",\"UNKNOWN\""),
+				properties.toString());
+		assertEquals("[\"string\",\"null\"]", properties.path("note").path("type").toString());
+		assertEquals(500, properties.path("note").path("maxLength").asInt());
+
+		JsonNode cancellation = schemas.path("BrokerageAgreementCancellationRequest");
+		assertEquals(List.of("expectedDataVersion"), requiredOf(cancellation));
+		assertEquals("int64", cancellation.path("properties").path("expectedDataVersion").path("format").asString());
+		assertEquals(0, cancellation.path("properties").path("expectedDataVersion").path("minimum").asInt());
+	}
+
+	/**
+	 * E05-S8 spec S8-D11, section 4, API-1: the two response schemas and the detail's five new properties are in no
+	 * required list; each nullable one says so and each closed string lists its values (S6-D8).
+	 */
+	@Test
+	void stopResponseSchemas_nullableClosedValuesNoRequired() {
+		JsonNode schemas = contract.path("components").path("schemas");
+		JsonNode detail = schemas.path("BrokerageAgreementDetail");
+		assertTrue(detail.path("required").isMissingNode(), detail.toString());
+		JsonNode properties = detail.path("properties");
+		assertEquals("[\"string\",\"null\"]", properties.path("endedAt").path("type").toString());
+		assertEquals("date-time", properties.path("endedAt").path("format").asString());
+		assertNullableRef("BrokerageAgreementTermination", properties.path("termination"));
+		assertEquals("array", properties.path("suspensions").path("type").asString());
+		assertEquals("#/components/schemas/BrokerageAgreementSuspension",
+				properties.path("suspensions").path("items").path("$ref").asString());
+		assertEquals("boolean", properties.path("moreSuspensions").path("type").asString());
+		assertEquals("[\"CANCEL\",\"SUSPEND\",\"RELEASE_SUSPENSION\",\"TERMINATE_OWNER_WITHDREW\",\"TERMINATE_UNIT_LET\","
+				+ "\"TERMINATE_SUNVIBE\"]", properties.path("viewerStopActions").path("items").path("enum").toString());
+
+		for (String name : List.of("BrokerageAgreementTermination", "BrokerageAgreementSuspension")) {
+			assertTrue(schemas.path(name).isObject(), name);
+			assertTrue(schemas.path(name).path("required").isMissingNode(), name + " " + schemas.path(name));
+		}
+		JsonNode termination = schemas.path("BrokerageAgreementTermination").path("properties");
+		assertEquals(List.of("channel", "introducedBySunvibe", "note", "reportedOn", "terminatedAt", "type"),
+				names(termination).stream().sorted().toList());
+		assertEquals("[\"OWNER_WITHDREW\",\"UNIT_LET\",\"SUNVIBE_TERMINATED\"]", termination.path("type").path("enum")
+				.toString());
+		for (String nullable : List.of("reportedOn", "channel", "introducedBySunvibe", "note")) {
+			assertTrue(termination.path(nullable).path("type").toString().contains("null"), nullable);
+		}
+		assertEquals("date-time", termination.path("terminatedAt").path("format").asString());
+
+		JsonNode suspension = schemas.path("BrokerageAgreementSuspension").path("properties");
+		assertEquals(List.of("note", "reasonType", "releaseReason", "releasedAt", "suspendedAt"),
+				names(suspension).stream().sorted().toList());
+		assertEquals("[\"COMPLAINT\",\"SUSPECTED_FRAUD\",\"DISPUTE\",\"NEEDS_CHECK\"]",
+				suspension.path("reasonType").path("enum").toString());
+		for (String nullable : List.of("note", "releasedAt", "releaseReason")) {
+			assertTrue(suspension.path(nullable).path("type").toString().contains("null"), nullable);
+		}
+		assertEquals("date-time", suspension.path("suspendedAt").path("format").asString());
 	}
 
 	private List<String> operationsWithId(String operationId) {

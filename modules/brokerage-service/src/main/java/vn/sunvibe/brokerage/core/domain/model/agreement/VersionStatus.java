@@ -6,7 +6,8 @@ package vn.sunvibe.brokerage.core.domain.model.agreement;
  * (a lapse after 7 or 14 days, the start of an activated version, the cancellation of the pending version when the
  * agreement ends) is a stored transition, written when it is due by the slice that builds it, and a command that needs
  * the version slot applies a due one first (E05-S2 spec S2-D4). The 7-day lapse (E05-S5) and the 14-day lapse (E05-S6)
- * are stored by AgreementLapseJob, the start by AgreementStartJob (E05-S6); the cancellation is not reachable yet.
+ * are stored by AgreementLapseJob, the start by AgreementStartJob (E05-S6); the cancellation of the pending version at
+ * the agreement's end is stored with the expiry, the termination or the cancellation (E05-S8 spec S8-D3).
  */
 public enum VersionStatus {
     DRAFT,
