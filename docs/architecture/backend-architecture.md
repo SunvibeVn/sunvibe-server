@@ -12,8 +12,8 @@ This project follows a **Modular Monolith** architecture with **DDD + Hexagonal 
   `app/src/main/resources/db/migration`)
 - **Shared module**: `modules/shared-service`, package `vn.sunvibe.shared` (exceptions, error DTOs, crypto, ID generators, `AppClock`)
 - **Domain modules**: `modules/<name>-service`. With code today: `auth-service`, `property-service`,
-  `acquisition-service`, `survey-service`, `brokerage-service` (E05, from the unit eligibility read on). Empty
-  placeholders: `listing-service`, `notification-service`.
+  `acquisition-service`, `survey-service`, `brokerage-service` (E05, from the unit eligibility read on),
+  `listing-service` (E06, from the listing create on). Empty placeholder: `notification-service`.
 
 Each module should follow the same architectural principles described in this document.
 
