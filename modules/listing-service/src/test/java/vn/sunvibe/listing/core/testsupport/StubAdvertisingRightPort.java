@@ -3,6 +3,7 @@ package vn.sunvibe.listing.core.testsupport;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingAnswerFacts;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingRightPort;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AgreementStandingFacts;
+import vn.sunvibe.listing.core.application.shared.external.brokerage.AgreementTermsFacts;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -20,6 +21,7 @@ public class StubAdvertisingRightPort implements AdvertisingRightPort {
 
     private final Map<String, AgreementStandingFacts> standings = new HashMap<>();
     private final Map<String, AdvertisingAnswerFacts> answers = new HashMap<>();
+    private final Map<String, AgreementTermsFacts> terms = new HashMap<>();
     private final List<String> calls = new ArrayList<>();
 
     public void standing(AgreementStandingFacts standing) {
@@ -50,6 +52,17 @@ public class StubAdvertisingRightPort implements AdvertisingRightPort {
     public Optional<AdvertisingAnswerFacts> answerUnderShareLock(String unitId, String agreementId) {
         calls.add("answerUnderShareLock " + unitId + " " + agreementId);
         return answerOf(unitId, agreementId);
+    }
+
+    /** The terms E05 answers for the agreement's pair; nothing by default. */
+    public void terms(String unitId, String agreementId, AgreementTermsFacts facts) {
+        terms.put(unitId + " " + agreementId, facts);
+    }
+
+    @Override
+    public Optional<AgreementTermsFacts> terms(String unitId, String agreementId) {
+        calls.add("terms " + unitId + " " + agreementId);
+        return Optional.ofNullable(terms.get(unitId + " " + agreementId));
     }
 
     private Optional<AdvertisingAnswerFacts> answerOf(String unitId, String agreementId) {
