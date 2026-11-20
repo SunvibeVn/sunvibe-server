@@ -79,6 +79,12 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	/** The listing section of an agreement's page (listing-publish E06-S1 spec E06S1-D11). */
 	static final String LISTINGS_BY_AGREEMENT_PATTERN = "/api/v1/staff/listings/by-agreement/*";
 
+	/**
+	 * Every sub-resource of one listing: its revisions, their commands and the terms sources (listing-publish E06-S2 spec
+	 * E06S2-D16), so a later sub-resource falls under it with a test of its own.
+	 */
+	static final String LISTING_SUBRESOURCES_PATTERN = "/api/v1/staff/listings/*/**";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -101,6 +107,6 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 						BROKERAGE_AGREEMENT_HISTORY_PATTERN, BROKERAGE_AGREEMENT_SUSPENSION_PATTERN,
 						BROKERAGE_AGREEMENT_SUSPENSION_RELEASE_PATTERN, BROKERAGE_AGREEMENT_TERMINATION_PATTERN,
 						BROKERAGE_AGREEMENT_CANCELLATION_PATTERN, LISTINGS_PATTERN, LISTING_PATTERN,
-						LISTINGS_BY_AGREEMENT_PATTERN);
+						LISTINGS_BY_AGREEMENT_PATTERN, LISTING_SUBRESOURCES_PATTERN);
 	}
 }
