@@ -19,6 +19,7 @@ import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingRepository;
 import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
+import vn.sunvibe.listing.core.testsupport.StubUnitProfilePort;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -52,7 +53,7 @@ class ListingCommandServiceTest {
     private final InMemoryListingRepository listings = new InMemoryListingRepository();
     private final StubAdvertisingRightPort rights = new StubAdvertisingRightPort();
     private final AtomicInteger nextId = new AtomicInteger();
-    private final ListingCommandService service = new ListingCommandService(listings, rights,
+    private final ListingCommandService service = new ListingCommandService(listings, rights, new StubUnitProfilePort(),
             () -> "01ID" + nextId.incrementAndGet(), new CountingRandom());
 
     @Test
@@ -210,8 +211,8 @@ class ListingCommandServiceTest {
 
         InMemoryListingRepository full = new InMemoryListingRepository();
         full.takeCodes("TD-2345-6789", "TD-ABCD-EFGH", "TD-JKLM-NPQR", "TD-STUV-WXYZ");
-        ListingCommandService exhausted = new ListingCommandService(full, rights, () -> "01ID" + nextId.incrementAndGet(),
-                new CountingRandom());
+        ListingCommandService exhausted = new ListingCommandService(full, rights, new StubUnitProfilePort(),
+                () -> "01ID" + nextId.incrementAndGet(), new CountingRandom());
 
         assertThrows(IllegalStateException.class,
                 () -> exhausted.create(new ListingCreateCommand(AGREEMENT), SALE_VIEWER));
