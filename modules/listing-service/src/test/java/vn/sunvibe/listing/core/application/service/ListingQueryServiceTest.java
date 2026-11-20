@@ -56,7 +56,7 @@ class ListingQueryServiceTest {
 
         assertEquals(new ListingView(LISTING, "TD-7K3M-Q9TX", ListingState.UNPUBLISHED, TransactionType.LONG_TERM_RENT,
                 UNIT, AGREEMENT, CREATED, 0L, true, List.of(new ListingView.Revision(1, RevisionStatus.DRAFT, CREATED)),
-                false), view);
+                false, 1), view);
         assertEquals(List.of("standings [" + AGREEMENT + "]"), rights.calls());
     }
 
