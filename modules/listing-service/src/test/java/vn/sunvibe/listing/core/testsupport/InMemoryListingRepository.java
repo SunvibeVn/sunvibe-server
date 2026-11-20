@@ -1,9 +1,12 @@
 package vn.sunvibe.listing.core.testsupport;
 
+import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.OpenListingExistsException;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
 import vn.sunvibe.listing.core.domain.repository.ListingRevisionPage;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
@@ -13,8 +16,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * In-memory listings for the service tests: keeps what was inserted or put, records each call, and can be told to
@@ -26,6 +31,7 @@ public class InMemoryListingRepository implements ListingDomainRepository {
     private final List<Listing> inserted = new ArrayList<>();
     private final Set<String> takenCodes = new HashSet<>();
     private final List<String> calls = new ArrayList<>();
+    private final List<ListingHistoryEntry> writtenHistory = new ArrayList<>();
     private boolean refuseNextInsertAsOpen;
 
     /** Stores a listing as if an earlier command had, without recording an insert. */
@@ -99,6 +105,83 @@ public class InMemoryListingRepository implements ListingDomainRepository {
     public boolean existsByCode(String code) {
         calls.add("existsByCode " + code);
         return takenCodes.contains(code) || stored.stream().anyMatch(listing -> listing.code().value().equals(code));
+    }
+
+    /** The working set as the adapter loads it: the open revision and the target, and the greatest number. */
+    @Override
+    public Optional<Listing> findForCommand(String listingId, Integer targetRevisionNoOrNull) {
+        calls.add("findForCommand " + listingId + " " + targetRevisionNoOrNull);
+        return stored(listingId).map(listing -> Listing.loadForCommand(listing.id(), listing.code(), listing.unitId(),
+                listing.transactionType(), listing.agreementId(), listing.state(), listing.createdBy(),
+                listing.createdAt(), listing.updatedAt(), listing.rowVersion(),
+                listing.revisions().stream().mapToInt(ListingRevision::revisionNo).max().orElse(0),
+                listing.revisions().stream()
+                        .filter(revision -> revision.status() == RevisionStatus.DRAFT
+                                || revision.status() == RevisionStatus.PENDING_REVIEW
+                                || targetRevisionNoOrNull != null && revision.revisionNo() == targetRevisionNoOrNull)
+                        .toList()));
+    }
+
+    @Override
+    public Optional<ListingRevision> findRevision(String listingId, int revisionNo) {
+        calls.add("findRevision " + listingId + " " + revisionNo);
+        return stored(listingId).flatMap(listing -> listing.revisions().stream()
+                .filter(revision -> revision.revisionNo() == revisionNo).findFirst());
+    }
+
+    @Override
+    public Optional<Integer> findOpenRevisionNo(String listingId) {
+        calls.add("findOpenRevisionNo " + listingId);
+        return stored(listingId).flatMap(listing -> listing.revisions().stream()
+                .filter(revision -> revision.status() == RevisionStatus.DRAFT
+                        || revision.status() == RevisionStatus.PENDING_REVIEW)
+                .map(ListingRevision::revisionNo).findFirst());
+    }
+
+    /**
+     * Enforces the row version and the one-open rule as the adapter and the unique index do, then stores the listing
+     * with its changed revisions, the version plus one and the pending history.
+     */
+    @Override
+    public void update(Listing listing) {
+        calls.add("update " + listing.id());
+        Listing current = stored(listing.id()).orElseThrow(ListingChangedException::new);
+        if (current.rowVersion() != listing.rowVersion()) {
+            throw new ListingChangedException();
+        }
+        Map<Integer, ListingRevision> byNumber = new TreeMap<>();
+        current.revisions().forEach(revision -> byNumber.put(revision.revisionNo(), revision));
+        listing.pendingRevisionChanges().forEach(change ->
+                byNumber.put(change.revision().revisionNo(), change.revision()));
+        long open = byNumber.values().stream().filter(revision -> revision.status() == RevisionStatus.DRAFT
+                || revision.status() == RevisionStatus.PENDING_REVIEW).count();
+        if (open > 1) {
+            throw new ListingChangedException();
+        }
+        Listing next = Listing.load(current.id(), current.code(), current.unitId(), current.transactionType(),
+                current.agreementId(), current.state(), current.createdBy(), current.createdAt(), listing.updatedAt(),
+                current.rowVersion() + 1, List.copyOf(byNumber.values()));
+        stored.replaceAll(candidate -> candidate.id().equals(listing.id()) ? next : candidate);
+        writtenHistory.addAll(listing.pendingHistory());
+    }
+
+    /** The history rows the updates wrote, in order. */
+    public List<ListingHistoryEntry> writtenHistory() {
+        return List.copyOf(writtenHistory);
+    }
+
+    /** The stored listing, as the next read would find it. */
+    public Optional<Listing> stored(String listingId) {
+        return stored.stream().filter(listing -> listing.id().equals(listingId)).findFirst();
+    }
+
+    /** Another command committed first: the stored row version moves. */
+    public void moveVersion(String listingId) {
+        Listing current = stored(listingId).orElseThrow();
+        Listing moved = Listing.load(current.id(), current.code(), current.unitId(), current.transactionType(),
+                current.agreementId(), current.state(), current.createdBy(), current.createdAt(), current.updatedAt(),
+                current.rowVersion() + 1, current.revisions());
+        stored.replaceAll(candidate -> candidate.id().equals(listingId) ? moved : candidate);
     }
 
     private static ListingRow toRow(Listing listing) {
