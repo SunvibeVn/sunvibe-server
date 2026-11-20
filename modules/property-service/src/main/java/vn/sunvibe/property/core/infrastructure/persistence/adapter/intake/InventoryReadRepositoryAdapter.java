@@ -204,6 +204,28 @@ public class InventoryReadRepositoryAdapter implements InventoryReadRepository {
         return arguments.toArray();
     }
 
+    /**
+     * listing-publish E06-S2 spec E06S2-D12: the ward and province come from the catalog only, through the property's
+     * ward code; a legacy free-text ward is never read.
+     */
+    @Override
+    public List<UnitProfileRow> unitProfiles(Collection<String> unitIds) {
+        if (unitIds.isEmpty()) {
+            return List.of();
+        }
+        List<String> ids = List.copyOf(new LinkedHashSet<>(unitIds));
+        return jdbc.query("select u.id, p.asset_type, pr.code as province_code, pr.name as province_name,"
+                        + " w.code as ward_code, w.name as ward_name, u.bedrooms, u.bathrooms, u.area_sqm from units u"
+                        + " join properties p on p.id = u.property_id left join wards w on w.code = p.ward_code"
+                        + " left join provinces pr on pr.code = w.province_code where u.id in (" + marks(ids) + ")"
+                        + " order by u.id",
+                (row, number) -> new UnitProfileRow(row.getString("id"), row.getString("asset_type"),
+                        row.getString("province_code"), row.getString("province_name"), row.getString("ward_code"),
+                        row.getString("ward_name"), row.getInt("bedrooms"), row.getInt("bathrooms"),
+                        row.getDouble("area_sqm")),
+                ids.toArray());
+    }
+
     @Override
     public long nextIntakeCodeNumber() {
         return jdbc.queryForObject("select nextval('property_intake_code_seq')", Long.class);

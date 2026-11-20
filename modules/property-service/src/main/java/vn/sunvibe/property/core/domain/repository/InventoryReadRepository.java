@@ -86,4 +86,21 @@ public interface InventoryReadRepository {
 
     /** The next number of an intake property code (A-3). */
     long nextIntakeCodeNumber();
+
+    /**
+     * One unit's profile (listing-publish E06-S2 spec E06S2-D12): the property's asset type, the catalog ward of the
+     * property's ward code with its catalog province (all four null when the catalog lacks the code), and the unit's
+     * rooms and area. Unpublished values: never logged.
+     */
+    record UnitProfileRow(String unitId, String assetTypeOrNull, String provinceCodeOrNull, String provinceNameOrNull,
+                          String wardCodeOrNull, String wardNameOrNull, int bedrooms, int bathrooms, double areaSqm) {
+
+        @Override
+        public String toString() {
+            return "UnitProfileRow[hidden]";
+        }
+    }
+
+    /** The profile of each of these units that exists, by unit id, in one statement; an empty input reads nothing. */
+    List<UnitProfileRow> unitProfiles(Collection<String> unitIds);
 }
