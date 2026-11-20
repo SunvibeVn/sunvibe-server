@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * A listing on its staff page (listing-publish E06-S1 spec section 4, E06S1-D5, E06S1-D17): nothing of E05's answer,
- * no person but the viewer's own flag. No field is nullable.
+ * no person but the viewer's own flag. One nullable field: {@code openRevisionNo} (E06-S2 spec E06S2-D20).
  */
 @Schema(name = "ListingDetail")
 public record ListingDetailResponse(
@@ -38,5 +38,8 @@ public record ListingDetailResponse(
         List<ListingRevisionItemResponse> revisions,
         @Schema(requiredMode = Schema.RequiredMode.REQUIRED, description = "The listing has older revisions than those"
                 + " answered")
-        boolean hasOlderRevisions) {
+        boolean hasOlderRevisions,
+        @Schema(requiredMode = Schema.RequiredMode.REQUIRED, nullable = true, format = "int32",
+                description = "The number of the listing's Draft or Pending review revision; null when none is open")
+        Integer openRevisionNo) {
 }

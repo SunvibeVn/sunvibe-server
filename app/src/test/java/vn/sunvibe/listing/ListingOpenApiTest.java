@@ -113,7 +113,8 @@ class ListingOpenApiTest {
 				"ListingCreateRequest", List.of("agreementId"),
 				"ListingCreated", List.of("code", "listingId"),
 				"ListingDetail", List.of("agreementId", "code", "createdAt", "dataVersion", "hasOlderRevisions",
-						"listingId", "revisions", "state", "transactionType", "unitId", "viewerIsAssignedSale"),
+						"listingId", "openRevisionNo", "revisions", "state", "transactionType", "unitId",
+						"viewerIsAssignedSale"),
 				"ListingRevisionItem", List.of("createdAt", "revisionNo", "status"),
 				"AgreementListings", List.of("agreementId", "creation", "hasOlder", "listings"),
 				"ListingItem", List.of("code", "createdAt", "listingId", "state"),
@@ -123,9 +124,16 @@ class ListingOpenApiTest {
 			assertEquals(expected.getValue(), names(schema.path("properties")).stream().sorted().toList(),
 					expected.getKey());
 			assertEquals(expected.getValue(), requiredOf(schema), expected.getKey() + " " + schema);
-			schema.path("properties").properties().forEach(property -> assertFalse(
+			// listing-publish E06-S2 spec E06S2-D20: ListingDetail.openRevisionNo is the one nullable property
+			schema.path("properties").properties().stream()
+					.filter(property -> !("ListingDetail".equals(expected.getKey())
+							&& "openRevisionNo".equals(property.getKey())))
+					.forEach(property -> assertFalse(
 					property.getValue().toString().contains("null"), expected.getKey() + "." + property.getKey()));
 		}
+		JsonNode openRevisionNo = schemas.path("ListingDetail").path("properties").path("openRevisionNo");
+		assertEquals("int32", openRevisionNo.path("format").asString(), openRevisionNo.toString());
+		assertTrue(openRevisionNo.toString().contains("null"), openRevisionNo.toString());
 
 		JsonNode request = schemas.path("ListingCreateRequest").path("properties").path("agreementId");
 		assertEquals("^[0-9A-Z]{26}$", request.path("pattern").asString());

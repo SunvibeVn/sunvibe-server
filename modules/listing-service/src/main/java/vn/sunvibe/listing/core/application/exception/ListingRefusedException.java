@@ -14,7 +14,11 @@ public final class ListingRefusedException extends RuntimeException {
     /** Why the command was refused: the name is the error code. */
     public enum Reason {
         LISTING_NOT_ALLOWED(409, "A listing cannot be created for this unit now."),
-        LISTING_EXISTS(409, "This agreement already has a listing.");
+        LISTING_EXISTS(409, "This agreement already has a listing."),
+        /** listing-publish US-9 AC-3: an archived listing takes no command (E06-S2 spec E06S2-D3). */
+        LISTING_ARCHIVED(409, "The listing is archived."),
+        /** listing-publish BR-4: E05 has no such version to copy now (E06-S2 spec E06S2-D6). */
+        TERMS_SOURCE_ABSENT(409, "These terms are not available.");
 
         private final int status;
         private final String message;
@@ -50,6 +54,16 @@ public final class ListingRefusedException extends RuntimeException {
     /** listing BR-1: the agreement already has a listing not archived; the answer carries no id. */
     public static ListingRefusedException exists() {
         return new ListingRefusedException(Reason.LISTING_EXISTS, List.of());
+    }
+
+    /** listing-publish US-9 AC-3: the listing is archived, stored or because its agreement ended. */
+    public static ListingRefusedException archived() {
+        return new ListingRefusedException(Reason.LISTING_ARCHIVED, List.of());
+    }
+
+    /** listing-publish BR-4: E05 answers no version of the asked source, or its agreement ended. */
+    public static ListingRefusedException termsSourceAbsent() {
+        return new ListingRefusedException(Reason.TERMS_SOURCE_ABSENT, List.of());
     }
 
     public Reason reason() {

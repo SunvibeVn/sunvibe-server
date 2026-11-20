@@ -5,6 +5,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,7 +16,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import vn.sunvibe.listing.core.application.exception.ListingNotFoundException;
 import vn.sunvibe.listing.core.application.exception.ListingRefusedException;
+import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.ListingCodeTakenException;
+import vn.sunvibe.listing.core.domain.exception.RevisionNotSubmittableException;
+import vn.sunvibe.listing.core.domain.exception.RevisionStateException;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionRule;
 import vn.sunvibe.listing.core.presentation.controller.ListingController;
 import vn.sunvibe.shared.constant.error.ErrorCode;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -25,6 +30,7 @@ import vn.sunvibe.shared.logging.CorrelationId;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -41,6 +47,8 @@ public class ListingExceptionHandler {
     static final String FIELD_MESSAGE = "This value is not accepted.";
     static final String GROUP_MESSAGE = "This group stops the listing.";
     static final String CONFLICT_MESSAGE = "Something changed at the same time. Try again.";
+    static final String NOT_SUBMITTABLE = "REVISION_NOT_SUBMITTABLE";
+    private static final HttpStatusCode UNPROCESSABLE = HttpStatusCode.valueOf(422);
 
     /** A refused listing command: the reason's status, code and message, and one entry per reason group in order. */
     @ExceptionHandler(ListingRefusedException.class)
@@ -62,6 +70,42 @@ public class ListingExceptionHandler {
     /** listing-detail BR-15: a concurrent insert of the same code (one in 10^12) is a conflict the caller may retry. */
     @ExceptionHandler(ListingCodeTakenException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleCodeTaken(ListingCodeTakenException e) {
+        return conflict();
+    }
+
+    /**
+     * listing section 3.3, listing-publish BR-6 (E06-S2 spec section 4, plan E06S2-P8): a revision's status refuses the
+     * command; the reason's name is the code, its message fixed, no entry.
+     */
+    @ExceptionHandler(RevisionStateException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleRevisionState(RevisionStateException e) {
+        String message = switch (e.reason()) {
+            case REVISION_NOT_DRAFT -> "The revision is not a draft.";
+            case REVISION_NOT_PENDING -> "The revision is not waiting for review.";
+            case OPEN_REVISION_EXISTS -> "The listing already has an open revision.";
+        };
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(e.reason().name(), message, List.of()));
+    }
+
+    /**
+     * listing-publish US-2 AC-4, E-4 (E06-S2 spec E06S2-D7, plan E06S2-P8): 422 with one entry per violation, in order,
+     * its field {@code <part>.<rule>} and a fixed message per rule; never the text that broke a rule.
+     */
+    @ExceptionHandler(RevisionNotSubmittableException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleNotSubmittable(RevisionNotSubmittableException e) {
+        List<ValidationError> entries = e.violations().stream()
+                .map(violation -> ValidationError.of(
+                        violation.part().name().toLowerCase(Locale.ROOT) + "." + violation.rule().name(),
+                        ruleMessage(violation.rule())))
+                .toList();
+        return ResponseEntity.status(UNPROCESSABLE)
+                .body(ErrorResponse.of(NOT_SUBMITTABLE, "The revision cannot be submitted.", entries));
+    }
+
+    /** listing BR-3 (E06-S2 spec E06S2-D19): another command changed the listing since it was read; read again. */
+    @ExceptionHandler(ListingChangedException.class)
+    public ResponseEntity<ErrorResponse<ValidationError>> handleListingChanged(ListingChangedException e) {
         return conflict();
     }
 
@@ -110,6 +154,20 @@ public class ListingExceptionHandler {
         log.error("Unexpected error in listing: {} (correlationId={})", e.getClass().getName(), CorrelationId.current());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of(ErrorCode.INTERNAL_ERROR, "Unexpected server error.", List.of()));
+    }
+
+    /** One fixed message per submission rule (plan E06S2-P8). */
+    private static String ruleMessage(RevisionRule rule) {
+        return switch (rule) {
+            case REQUIRED -> "Required.";
+            case TOO_SHORT -> "Too short.";
+            case TOO_LONG -> "Too long.";
+            case PHONE_NUMBER -> "Holds what reads as a phone number.";
+            case EMAIL -> "Holds an e-mail address.";
+            case LINK -> "Holds a link.";
+            case SOCIAL_HANDLE -> "Holds a social or chat account.";
+            case FORBIDDEN_WORD -> "Holds a word a listing may not use.";
+        };
     }
 
     private static ResponseEntity<ErrorResponse<ValidationError>> conflict() {

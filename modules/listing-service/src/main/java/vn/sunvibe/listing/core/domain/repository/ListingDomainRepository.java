@@ -1,8 +1,10 @@
 package vn.sunvibe.listing.core.domain.repository;
 
+import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.ListingCodeTakenException;
 import vn.sunvibe.listing.core.domain.exception.OpenListingExistsException;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
+import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 
 import java.util.Optional;
 
@@ -34,4 +36,27 @@ public interface ListingDomainRepository {
 
     /** Whether a listing holds this code. */
     boolean existsByCode(String code);
+
+    /**
+     * The listing loaded for a revision command (listing-publish E06-S2 spec E06S2-D19): its row, its open revision and
+     * the target revision in their full form with their fees, and its greatest revision number, in four statements in
+     * that order (plan E06S2-P16). Empty for an unknown listing; a target the listing lacks is not in the set.
+     */
+    Optional<Listing> findForCommand(String listingId, Integer targetRevisionNoOrNull);
+
+    /** One revision of the listing in its full form, with its fees; two statements (E06S2-D14). */
+    Optional<ListingRevision> findRevision(String listingId, int revisionNo);
+
+    /** The number of the listing's Draft or Pending review revision, if it has one; one statement (E06S2-D20). */
+    Optional<Integer> findOpenRevisionNo(String listingId);
+
+    /**
+     * Writes a revision command (listing-publish E06-S2 spec E06S2-D19): the listing row's guarded version update
+     * first, then only the revision rows the commands changed (fee rows replaced only with the terms), then the pending
+     * history; no entity stays managed.
+     *
+     * @throws ListingChangedException another command moved the row version since the load, or a revision index refused
+     *                                 a row as the backstop
+     */
+    void update(Listing listing);
 }

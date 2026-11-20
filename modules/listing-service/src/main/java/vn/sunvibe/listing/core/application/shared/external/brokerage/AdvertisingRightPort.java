@@ -31,4 +31,10 @@ public interface AdvertisingRightPort {
      *                               read-only one)
      */
     Optional<AdvertisingAnswerFacts> answerUnderShareLock(String unitId, String agreementId);
+
+    /**
+     * The terms in E05's answer for the pair (listing-publish E06-S2 spec E06S2-D13): a plain read in the caller's
+     * transaction, no lock; empty when E05 answers nothing for the pair.
+     */
+    Optional<AgreementTermsFacts> terms(String unitId, String agreementId);
 }

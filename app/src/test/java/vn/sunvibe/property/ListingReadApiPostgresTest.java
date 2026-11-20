@@ -24,7 +24,8 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 class ListingReadApiPostgresTest extends ListingApiTestBase {
 
 	private static final List<String> DETAIL_FIELDS = List.of("agreementId", "code", "createdAt", "dataVersion",
-			"hasOlderRevisions", "listingId", "revisions", "state", "transactionType", "unitId", "viewerIsAssignedSale");
+			"hasOlderRevisions", "listingId", "openRevisionNo", "revisions", "state", "transactionType", "unitId",
+			"viewerIsAssignedSale");
 
 	@Override
 	String phonePrefix() {
@@ -53,6 +54,7 @@ class ListingReadApiPostgresTest extends ListingApiTestBase {
 			assertEquals(0, body.path("dataVersion").asLong());
 			assertEquals(caller == sale, body.path("viewerIsAssignedSale").asBoolean(), answer.rawBody());
 			assertEquals(1, body.path("revisions").size(), answer.rawBody());
+			assertEquals(1, body.path("openRevisionNo").asInt(), answer.rawBody());
 			assertEquals(1, body.path("revisions").path(0).path("revisionNo").asInt());
 			assertEquals("DRAFT", body.path("revisions").path(0).path("status").asString());
 			assertFalse(body.path("hasOlderRevisions").asBoolean());
