@@ -47,6 +47,15 @@ public final class ListingAccessPolicy {
         return holdsAny(authorities, CREATORS) && isAssignee(viewerId, assigneeIdOrNull);
     }
 
+    /**
+     * Only the assigned Sale drafts a listing's revisions (listing BR-16; listing-publish section 2 "Không soạn thay":
+     * managers do not draft in the Sale's place): a SALE or SALE_LEADER who is the current assignee of the agreement's
+     * basis lead, the rule of {@link #mayCreate}.
+     */
+    public static boolean mayDraft(Set<String> authorities, String viewerId, String assigneeIdOrNull) {
+        return holdsAny(authorities, CREATORS) && isAssignee(viewerId, assigneeIdOrNull);
+    }
+
     private static boolean isAssignedSale(Set<String> authorities, String viewerId, String assigneeIdOrNull) {
         return authorities != null && authorities.contains(SALE) && isAssignee(viewerId, assigneeIdOrNull);
     }
