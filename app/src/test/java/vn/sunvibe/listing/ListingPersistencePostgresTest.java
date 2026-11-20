@@ -277,6 +277,16 @@ class ListingPersistencePostgresTest {
 
 	private void insertRevision(String listingId, int number, String status) {
 		Timestamp now = Timestamp.from(now());
+		if ("PENDING_REVIEW".equals(status)) {
+			// listing-publish E06-S2 spec 5.3: a Pending review row holds its content, terms, unit snapshot and submission
+			jdbc.update("INSERT INTO listing_revisions (id, listing_id, revision_no, status, created_by, created_at,"
+					+ " updated_at, title, description, terms_source, terms_captured_at, terms_monthly_rent,"
+					+ " terms_deposit_basis, terms_deposit_months, terms_minimum_term_months, terms_payment_period_months,"
+					+ " unit_bedrooms, unit_bathrooms, unit_area_sqm, submitted_at, submitted_by) VALUES (?, ?, ?, ?, ?,"
+					+ " ?, ?, 'Title', 'Description', 'IN_EFFECT', ?, 8000000, 'MONTHS', 2, 6, 1, 1, 1, 25, ?, ?)",
+					ids.generateId(), listingId, number, status, ids.generateId(), now, now, now, now, ids.generateId());
+			return;
+		}
 		jdbc.update("INSERT INTO listing_revisions (id, listing_id, revision_no, status, created_by, created_at,"
 				+ " updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", ids.generateId(), listingId, number, status,
 				ids.generateId(), now, now);
