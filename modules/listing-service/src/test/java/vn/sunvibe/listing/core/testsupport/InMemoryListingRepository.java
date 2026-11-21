@@ -8,16 +8,19 @@ import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionDecision;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
 import vn.sunvibe.listing.core.domain.repository.ListingRevisionPage;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.listing.core.domain.repository.ListingRowPage;
 import vn.sunvibe.listing.core.domain.repository.ReconfirmationCandidate;
+import vn.sunvibe.listing.core.domain.repository.ReviewCandidate;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +45,9 @@ public class InMemoryListingRepository implements ListingDomainRepository {
     private final Map<String, FreshnessRecord> latestRecords = new HashMap<>();
     private final List<FreshnessRecord> writtenRecords = new ArrayList<>();
     private final List<ReconfirmationCandidate> candidates = new ArrayList<>();
+    private final List<RevisionDecision> writtenDecisions = new ArrayList<>();
+    private final Map<String, Set<String>> authors = new HashMap<>();
+    private final List<ReviewCandidate> reviewCandidates = new ArrayList<>();
     private boolean refuseNextInsertAsOpen;
 
     /** Stores a listing as if an earlier command had, without recording an insert. */
@@ -173,6 +179,7 @@ public class InMemoryListingRepository implements ListingDomainRepository {
                 current.rowVersion() + 1, List.copyOf(byNumber.values()));
         stored.replaceAll(candidate -> candidate.id().equals(listing.id()) ? next : candidate);
         writtenHistory.addAll(listing.pendingHistory());
+        writtenDecisions.addAll(listing.pendingDecisions());
     }
 
     /** The history rows the updates wrote, in order. */
@@ -264,6 +271,74 @@ public class InMemoryListingRepository implements ListingDomainRepository {
                 .sorted(keyOrder)
                 .limit(limit)
                 .toList();
+    }
+
+    /** The authors of a revision, as the recursive statement would answer them; nobody by default. */
+    public void putAuthors(String revisionId, Set<String> authorIds) {
+        authors.put(revisionId, Set.copyOf(authorIds));
+    }
+
+    /** A row the review candidate query reads; the candidates are these rows only, whatever is stored. */
+    public void putReviewCandidate(ReviewCandidate candidate) {
+        reviewCandidates.add(candidate);
+    }
+
+    /** The decisions {@link #update} stored, in order. */
+    public List<RevisionDecision> decisions() {
+        return List.copyOf(writtenDecisions);
+    }
+
+    /** The working set of a decision as the adapter loads it: the target and the approved revision, and the greatest number. */
+    @Override
+    public Optional<Listing> findForReview(String listingId, int revisionNo) {
+        calls.add("findForReview " + listingId + " " + revisionNo);
+        return stored(listingId).map(listing -> Listing.loadForCommand(listing.id(), listing.code(), listing.unitId(),
+                listing.transactionType(), listing.agreementId(), listing.state(), listing.createdBy(),
+                listing.createdAt(), listing.updatedAt(), listing.rowVersion(),
+                listing.revisions().stream().mapToInt(ListingRevision::revisionNo).max().orElse(0),
+                listing.revisions().stream()
+                        .filter(revision -> revision.status() == RevisionStatus.APPROVED
+                                || revision.revisionNo() == revisionNo)
+                        .toList()));
+    }
+
+    /** The authors of {@link #putAuthors} for the ids asked, one call recorded; none for an empty set. */
+    @Override
+    public Map<String, Set<String>> findAuthors(Collection<String> revisionIds) {
+        if (revisionIds.isEmpty()) {
+            return Map.of();
+        }
+        calls.add("findAuthors " + revisionIds);
+        Map<String, Set<String>> answer = new HashMap<>();
+        revisionIds.forEach(id -> answer.put(id, authors.getOrDefault(id, Set.of())));
+        return answer;
+    }
+
+    /** The rows of {@link #putReviewCandidate} in (submission time, revision id) order, after the cursor, limited. */
+    @Override
+    public List<ReviewCandidate> findReviewCandidates(Instant afterSubmittedAtOrNull, String afterRevisionIdOrNull,
+                                                      int limit) {
+        calls.add("findReviewCandidates " + afterSubmittedAtOrNull + " " + afterRevisionIdOrNull + " " + limit);
+        Comparator<ReviewCandidate> keyOrder = Comparator.comparing(ReviewCandidate::submittedAt)
+                .thenComparing(ReviewCandidate::revisionId);
+        return reviewCandidates.stream()
+                .filter(candidate -> afterSubmittedAtOrNull == null || keyOrder.compare(candidate,
+                        new ReviewCandidate(null, null, null, afterRevisionIdOrNull, 1, afterSubmittedAtOrNull, null,
+                                null)) > 0)
+                .sorted(keyOrder)
+                .limit(limit)
+                .toList();
+    }
+
+    /** The decision {@link #update} stored for the listing's revision of that number. */
+    @Override
+    public Optional<RevisionDecision> findDecision(String listingId, int revisionNo) {
+        calls.add("findDecision " + listingId + " " + revisionNo);
+        Optional<String> revisionId = stored(listingId).flatMap(listing -> listing.revision(revisionNo))
+                .map(ListingRevision::id);
+        return revisionId.flatMap(id -> writtenDecisions.stream()
+                .filter(decision -> decision.revisionId().equals(id))
+                .findFirst());
     }
 
     private static ListingRow toRow(Listing listing) {

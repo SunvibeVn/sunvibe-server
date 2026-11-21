@@ -1,27 +1,37 @@
 package vn.sunvibe.listing.core.infrastructure.persistence.mapper.manual;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.listing.core.domain.model.listing.ChangeReason;
 import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
+import vn.sunvibe.listing.core.domain.model.listing.ListingAccessLog;
 import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
+import vn.sunvibe.listing.core.domain.model.listing.ReviewNote;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionContent;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionDecision;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionFeatures;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionTerms;
 import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
+import vn.sunvibe.listing.core.domain.repository.ReviewCandidate;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingAccessLogEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingFreshnessRecordEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingHistoryEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeKey;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionReviewEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionJpaRepository;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Manual Mapper - a listing to its tables' entities, and rows back to domain values through the domain's own factories
@@ -30,6 +40,9 @@ import java.util.List;
  */
 @Component
 public class ListingEntityMapper {
+
+    /** listing-publish E06-S4 spec 5.3: the codes of a decision's reasons, joined. */
+    private static final String REASON_SEPARATOR = ",";
 
     /** The listing's own row of a new listing: a null row version, so the insert is a persist (E06S1-P13). */
     public ListingEntity toNewEntity(Listing listing) {
@@ -81,7 +94,8 @@ public class ListingEntityMapper {
                 .featurePets(features.petsOrNull())
                 .featureNoSharedLandlord(features.noSharedLandlord())
                 .submittedAt(revision.submittedAtOrNull())
-                .submittedBy(revision.submittedByOrNull());
+                .submittedBy(revision.submittedByOrNull())
+                .copiedFromRevisionNo(revision.copiedFromRevisionNoOrNull());
         if (terms != null) {
             builder.termsSource(terms.source())
                     .termsPendingStartDate(terms.pendingStartDateOrNull())
@@ -157,7 +171,59 @@ public class ListingEntityMapper {
         RevisionContent content = new RevisionContent(entity.getTitle(), entity.getDescription(), features);
         return ListingRevision.load(entity.getId(), entity.getRevisionNo(), entity.getStatus(), entity.getCreatedBy(),
                 entity.getCreatedAt(), entity.getUpdatedAt(), content, terms(entity, feeRows), unit(entity),
-                entity.getSubmittedAt(), entity.getSubmittedBy());
+                entity.getSubmittedAt(), entity.getSubmittedBy(), entity.getCopiedFromRevisionNo());
+    }
+
+    /**
+     * A decision as its row (listing-publish E06-S4 spec E06S4-D8): the reasons as their codes joined by commas in
+     * {@link ChangeReason} order, none for an outcome without reasons.
+     */
+    public ListingRevisionReviewEntity toReviewEntity(String listingId, RevisionDecision decision) {
+        return ListingRevisionReviewEntity.builder()
+                .revisionId(decision.revisionId())
+                .listingId(listingId)
+                .outcome(decision.outcome())
+                .checklistVersion(decision.checklistVersionOrNull() == null ? null
+                        : decision.checklistVersionOrNull().shortValue())
+                .changeReasons(decision.changeReasons().isEmpty() ? null : decision.changeReasons().stream()
+                        .map(Enum::name)
+                        .collect(Collectors.joining(REASON_SEPARATOR)))
+                .rejectionGroup(decision.rejectionGroupOrNull())
+                .note(decision.noteOrNull() == null ? null : decision.noteOrNull().text())
+                .decidedBy(decision.decidedBy())
+                .decidedAt(decision.decidedAt())
+                .build();
+    }
+
+    /** A stored decision of the revision of that number; the record checks its shape again. */
+    public RevisionDecision toDecision(ListingRevisionReviewEntity entity, int revisionNo) {
+        List<ChangeReason> reasons = entity.getChangeReasons() == null ? List.of()
+                : Arrays.stream(entity.getChangeReasons().split(REASON_SEPARATOR)).map(ChangeReason::valueOf).toList();
+        return new RevisionDecision(entity.getRevisionId(), revisionNo, entity.getOutcome(), entity.getDecidedBy(),
+                entity.getDecidedAt(), entity.getChecklistVersion() == null ? null : entity.getChecklistVersion().intValue(),
+                reasons, entity.getRejectionGroup(), entity.getNote() == null ? null : new ReviewNote(entity.getNote()));
+    }
+
+    /** A candidate of the review queue (listing-publish E06-S4 plan E06S4-P5), its unit snapshot as stored. */
+    public ReviewCandidate toCandidate(ListingRevisionJpaRepository.ReviewRow row) {
+        UnitSnapshot unit = row.getUnitBedrooms() == null ? null
+                : new UnitSnapshot(row.getUnitAssetType(), row.getUnitProvinceCode(), row.getUnitProvinceName(),
+                row.getUnitWardCode(), row.getUnitWardName(), row.getUnitBedrooms(), row.getUnitBathrooms(),
+                row.getUnitAreaSqm());
+        return new ReviewCandidate(row.getListingId(), row.getCode(), row.getAgreementId(), row.getId(),
+                row.getRevisionNo(), row.getSubmittedAt(), row.getTitle(), unit);
+    }
+
+    /** An access log as its row; it holds no value of what was opened (E06S4-D12). */
+    public ListingAccessLogEntity toAccessLogEntity(ListingAccessLog log) {
+        return ListingAccessLogEntity.builder()
+                .id(log.id())
+                .userId(log.userId())
+                .listingId(log.listingId())
+                .revisionNo(log.revisionNo())
+                .action(log.action())
+                .accessedAt(log.accessedAt())
+                .build();
     }
 
     private static RevisionTerms terms(ListingRevisionEntity entity, List<ListingRevisionFeeEntity> feeRows) {

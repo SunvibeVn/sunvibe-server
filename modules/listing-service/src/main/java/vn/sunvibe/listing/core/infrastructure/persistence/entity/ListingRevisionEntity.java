@@ -166,6 +166,10 @@ public class ListingRevisionEntity {
     @Column(name = "submitted_by", length = 26)
     private String submittedBy;
 
+    /** The number of the revision this one was copied from (listing-publish E06-S4 spec E06S4-D14); null otherwise. */
+    @Column(name = "copied_from_revision_no")
+    private Integer copiedFromRevisionNo;
+
     @Override
     public String toString() {
         return "ListingRevisionEntity[" + id + "]";

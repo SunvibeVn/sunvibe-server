@@ -999,6 +999,55 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
+	 * listing-publish E06-S4 spec U-6, E06S4-D8: the review decision of a revision the seed deletes goes with it (ON
+	 * DELETE CASCADE), so the review E2E steps can run again on a reseeded database.
+	 */
+	@Test
+	void seed_rerun_removesDecisionsOfFixtureListings() throws Exception {
+		String agreement = "01JE2EDECIDEAGREEMENT00015";
+		String version = "01JE2EDECIDEAGRVERSION0015";
+		String listing = "01JE2EDECIDELISTING0000015";
+		String revision = "01JE2EDECIDELISTREV0000015";
+		try {
+			seedAccounts();
+			assertEquals(0, runLeads("local").getExitCode());
+			String l15 = LEAD_IDS.get(14);
+			Timestamp now = Timestamp.from(Instant.now());
+			// The agreement and version of reseed_afterAListing_clearsItsRows, a listing whose revision 1 was returned,
+			// and that revision's decision row.
+			jdbc.update("INSERT INTO brokerage_agreements (id, unit_id, unit_code, property_id, transaction_type,"
+					+ " owner_user_id, basis_lead_id, status, created_by_user_id, created_at, updated_at, version) VALUES (?, ?,"
+					+ " 'SV-HOU-999915', 'e2e00000-0000-0000-0000-000000000015', 'LONG_TERM_RENT', ?, ?, 'DRAFTING', ?, ?, ?, 0)",
+					agreement, "01JE2EAGRUNIT0000000000115", CUSTOMER_ID, l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date, end_date,"
+					+ " basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at) VALUES (?, ?, 1, 'DRAFT',"
+					+ " DATE '2027-01-01', DATE '2027-12-31', ?, '01JE2EINTAKE00000000000015', ?, ?, ?)", version, agreement,
+					l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO listings (id, code, unit_id, transaction_type, agreement_id, state, created_by,"
+					+ " created_at, updated_at) VALUES (?, 'TD-E2ED-CSNA', '01JE2EAGRUNIT0000000000115', 'LONG_TERM_RENT', ?,"
+					+ " 'UNPUBLISHED', ?, ?, ?)", listing, agreement, SALE_ID, now, now);
+			jdbc.update("INSERT INTO listing_revisions (id, listing_id, revision_no, status, created_by, created_at,"
+					+ " updated_at) VALUES (?, ?, 1, 'NEEDS_CHANGES', ?, ?, ?)", revision, listing, SALE_ID, now, now);
+			jdbc.update("INSERT INTO listing_revision_reviews (revision_id, listing_id, outcome, change_reasons, note,"
+					+ " decided_by, decided_at) VALUES (?, ?, 'NEEDS_CHANGES', 'OTHER', 'Ghi chú', ?, ?)", revision, listing,
+					ADMIN_ID, now);
+
+			ExecResult again = runLeads("local");
+
+			assertEquals(0, again.getExitCode(), "re-run after a decision failed: " + again.getStderr());
+			assertEquals(0, count("SELECT count(*) FROM listing_revision_reviews WHERE listing_id = '" + listing + "'"));
+		} finally {
+			jdbc.update("DELETE FROM listing_revision_reviews WHERE listing_id = ?", listing);
+			jdbc.update("DELETE FROM listing_history WHERE listing_id = ?", listing);
+			jdbc.update("DELETE FROM listing_revisions WHERE listing_id = ?", listing);
+			jdbc.update("DELETE FROM listings WHERE id = ?", listing);
+			jdbc.update("DELETE FROM brokerage_agreement_events WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreement_versions WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreements WHERE id = ?", agreement);
+		}
+	}
+
+	/**
 	 * brokerage-agreement E05-S3 spec S3-D9, section 10: the fee rows of an agreement's version on L15 go with their
 	 * version by the cascade, so the seed clears an edited draft unchanged.
 	 */
