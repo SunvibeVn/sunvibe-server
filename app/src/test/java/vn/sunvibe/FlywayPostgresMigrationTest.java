@@ -134,8 +134,12 @@ class FlywayPostgresMigrationTest {
 						"V202611201100__add_listing_revision_content.sql",
 						"V202611201101__create_listing_revision_fees.sql",
 						"V202611201102__validate_listing_revision_checks.sql",
+						"V202611211000__create_listing_freshness_records.sql",
+						"V202611211001__add_listing_freshness_columns.sql",
+						"V202611211002__validate_listing_freshness_check.sql",
+						"V202611211003__index_listings_freshness_due.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 89, applied.size()));
+				applied.subList(applied.size() - 93, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */
