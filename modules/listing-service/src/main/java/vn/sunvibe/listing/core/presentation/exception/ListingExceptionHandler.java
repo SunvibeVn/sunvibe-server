@@ -83,6 +83,7 @@ public class ListingExceptionHandler {
             case REVISION_NOT_DRAFT -> "The revision is not a draft.";
             case REVISION_NOT_PENDING -> "The revision is not waiting for review.";
             case OPEN_REVISION_EXISTS -> "The listing already has an open revision.";
+            case REVISION_NOT_COPYABLE -> "The revision cannot be copied.";
         };
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(e.reason().name(), message, List.of()));
