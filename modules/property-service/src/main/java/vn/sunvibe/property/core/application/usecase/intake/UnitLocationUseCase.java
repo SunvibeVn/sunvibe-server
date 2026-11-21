@@ -5,11 +5,14 @@ import java.util.List;
 
 /**
  * Use Case - the real location of units (brokerage-agreement E05-S5 spec S5-D2: US-2 AC-1 shows the owner "mã căn và vị
- * trí thực"). Published for brokerage-service's owner read (ADR-009), read-only, in the caller's transaction.
+ * trí thực"). Published for brokerage-service's owner read and listing-service's review (ADR-009), read-only, in the
+ * caller's transaction.
  * <p>
- * It has no viewer of its own: its one allowed caller is brokerage's owner read, after it checked that the caller is the
- * agreement's owner, and its adapter never exposes it over HTTP. Only an adapter in vn.sunvibe.integration calls it
- * (ViewerlessReadArchTest).
+ * It has no viewer of its own. Its two allowed callers: brokerage's owner read, after it checked that the caller is the
+ * agreement's owner; and listing's opening of the real location of a revision's unit by a listing reviewer
+ * (listing-publish E06-S4 spec E06S4-D12), after listing checked the reviewer role, the reviewer's independence from the
+ * revision and that the revision may be decided now. The values are private to those two readers; its adapters never
+ * expose it over HTTP and never log a value. Only an adapter in vn.sunvibe.integration calls it (ViewerlessReadArchTest).
  */
 public interface UnitLocationUseCase {
 

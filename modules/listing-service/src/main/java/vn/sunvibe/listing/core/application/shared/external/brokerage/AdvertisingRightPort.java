@@ -37,4 +37,10 @@ public interface AdvertisingRightPort {
      * transaction, no lock; empty when E05 answers nothing for the pair.
      */
     Optional<AgreementTermsFacts> terms(String unitId, String agreementId);
+
+    /**
+     * E05's whole answer for the pair as the review shows it (listing-publish E06-S4 spec E06S4-D11, E06S4-D13): a plain
+     * read in the caller's transaction, no lock; empty when E05 answers nothing for the pair.
+     */
+    Optional<AdvertisingReviewFacts> review(String unitId, String agreementId);
 }

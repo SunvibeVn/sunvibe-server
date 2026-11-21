@@ -7,6 +7,7 @@ import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightUseCase;
 import vn.sunvibe.brokerage.core.application.usecase.AdvertisingRightView;
 import vn.sunvibe.brokerage.core.application.usecase.AgreementStandingView;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingAnswerFacts;
+import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingReviewFacts;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingRightPort;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AgreementStandingFacts;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AgreementTermsFacts;
@@ -55,6 +56,20 @@ public class BrokerageAdvertisingRightAdapter implements AdvertisingRightPort {
                 .findFirst()
                 .map(view -> new AgreementTermsFacts(view.ended(), toFacts(view.termsInEffectOrNull()),
                         view.pendingStartDateOrNull(), toFacts(view.pendingTermsOrNull())));
+    }
+
+    /**
+     * listing-publish E06-S4 spec E06S4-D13: E05's answer for the one pair, read as {@link #answer} reads it, every field
+     * copied as it is and the terms translated as {@link #terms} translates them; listing maps the codes.
+     */
+    @Override
+    public Optional<AdvertisingReviewFacts> review(String unitId, String agreementId) {
+        return rights.answers(List.of(new AdvertisingPair(unitId, agreementId))).stream()
+                .findFirst()
+                .map(view -> new AdvertisingReviewFacts(view.unitId(), view.agreementId(), view.ended(), view.allowed(),
+                        view.reasonGroups(), view.endDateOrNull(), view.interiorPhotos(), view.exteriorPhotos(),
+                        toFacts(view.termsInEffectOrNull()), view.pendingStartDateOrNull(),
+                        toFacts(view.pendingTermsOrNull())));
     }
 
     private static AgreementTermsFacts.Terms toFacts(AdvertisingRightView.Terms termsOrNull) {

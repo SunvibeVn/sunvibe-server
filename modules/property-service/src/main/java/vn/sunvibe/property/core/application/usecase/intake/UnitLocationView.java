@@ -1,9 +1,10 @@
 package vn.sunvibe.property.core.application.usecase.intake;
 
 /**
- * Where a unit is, as its owner reads it (brokerage-agreement E05-S5 spec S5-D2): its code, its location label inside
- * the property ("&lt;code&gt; · &lt;location&gt;" of an intake unit, null on a legacy one), the property's street and ward
- * name. The values are the owner's own property, private: never logged.
+ * Where a unit is, as its owner reads it (brokerage-agreement E05-S5 spec S5-D2) and as a listing reviewer who may decide
+ * the revision opens it (listing-publish E06-S4 spec E06S4-D12): its code, its location label inside the property
+ * ("&lt;code&gt; · &lt;location&gt;" of an intake unit, null on a legacy one), the property's street and ward name. The
+ * values are the owner's own property, private to those two readers: never logged.
  */
 public record UnitLocationView(String unitId, String unitCodeOrNull, String locationLabelOrNull, String streetOrNull,
                                String wardNameOrNull) {
