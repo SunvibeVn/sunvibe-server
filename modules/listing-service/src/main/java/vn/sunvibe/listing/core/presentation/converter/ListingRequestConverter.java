@@ -1,6 +1,7 @@
 package vn.sunvibe.listing.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
 import vn.sunvibe.listing.core.application.command.RevisionFeaturesInput;
 import vn.sunvibe.listing.core.application.command.RevisionSaveCommand;
@@ -8,9 +9,12 @@ import vn.sunvibe.listing.core.application.command.RevisionStartCommand;
 import vn.sunvibe.listing.core.application.command.RevisionSubmitCommand;
 import vn.sunvibe.listing.core.application.command.RevisionWithdrawCommand;
 import vn.sunvibe.listing.core.application.command.TermsCaptureCommand;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessChannel;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessOutcome;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionContent;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingCreateRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingFeaturesInput;
+import vn.sunvibe.listing.core.presentation.dto.request.ListingFreshnessRecordRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingRevisionCommandRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingRevisionContentRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingTermsCaptureRequest;
@@ -66,5 +70,12 @@ public class ListingRequestConverter {
     public TermsCaptureCommand toCommand(String listingId, Integer revisionNoOrNull,
                                          ListingTermsCaptureRequest request) {
         return new TermsCaptureCommand(listingId, revisionNoOrNull, request.dataVersion(), request.source());
+    }
+
+    /** The codes the request constraints checked as domain values; the note as typed, which the record normalizes. */
+    public FreshnessRecordCommand toCommand(String listingId, ListingFreshnessRecordRequest request) {
+        return new FreshnessRecordCommand(listingId, request.dataVersion(), FreshnessChannel.valueOf(request.channel()),
+                FreshnessOutcome.valueOf(request.outcome()), request.termsStillApply(), request.unitUnchanged(),
+                request.note());
     }
 }

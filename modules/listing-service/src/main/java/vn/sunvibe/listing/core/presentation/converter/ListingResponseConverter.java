@@ -2,9 +2,12 @@ package vn.sunvibe.listing.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.listing.core.application.query.AgreementListingsView;
+import vn.sunvibe.listing.core.application.query.FreshnessRecordResult;
 import vn.sunvibe.listing.core.application.query.ListingCreateResult;
+import vn.sunvibe.listing.core.application.query.ListingFreshnessView;
 import vn.sunvibe.listing.core.application.query.ListingRevisionView;
 import vn.sunvibe.listing.core.application.query.ListingView;
+import vn.sunvibe.listing.core.application.query.ReconfirmationListView;
 import vn.sunvibe.listing.core.application.query.RevisionCommandResult;
 import vn.sunvibe.listing.core.application.query.TermsSourcesView;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionFeatures;
@@ -17,8 +20,13 @@ import vn.sunvibe.listing.core.presentation.dto.response.ListingDepositResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingDetailResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFeaturesResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFeeResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessRecordResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessRecordedResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingItemResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingPendingTermsResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReconfirmationItemResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReconfirmationsResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRentResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionChangeResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionDetailResponse;
@@ -103,6 +111,30 @@ public class ListingResponseConverter {
                                 fee.amountOrNull() == null ? null : VND,
                                 fee.chargeUnitOrNull() == null ? null : fee.chargeUnitOrNull().name()))
                         .toList());
+    }
+
+    public ListingFreshnessRecordedResponse toFreshnessRecorded(FreshnessRecordResult result) {
+        return new ListingFreshnessRecordedResponse(result.listingId(), result.dataVersion(), result.valid());
+    }
+
+    /** The freshness read with its latest record, the note included; no user id (E06S3-D8). */
+    public ListingFreshnessResponse toFreshness(ListingFreshnessView view) {
+        ListingFreshnessView.LatestRecord latest = view.latestOrNull();
+        return new ListingFreshnessResponse(view.listingId(), view.confirmedOnOrNull(), view.reconfirmFromOrNull(),
+                view.validThroughOrNull(), view.reconfirmationDue(), view.deadlinePassed(),
+                latest == null ? null : new ListingFreshnessRecordResponse(latest.contactDate(), latest.recordedAt(),
+                        latest.channel().name(), latest.outcome().name(), latest.termsStillApplyOrNull(),
+                        latest.unitUnchangedOrNull(), latest.valid(), latest.noteOrNull()));
+    }
+
+    public ListingReconfirmationsResponse toReconfirmations(ReconfirmationListView view) {
+        return new ListingReconfirmationsResponse(
+                view.items().stream()
+                        .map(item -> new ListingReconfirmationItemResponse(item.listingId(), item.code(),
+                                item.state().name(), item.confirmedOn(), item.reconfirmFrom(), item.validThrough(),
+                                item.deadlinePassed(), item.latestRecordValid()))
+                        .toList(),
+                view.hasMore());
     }
 
     private static ListingFeaturesResponse toFeatures(RevisionFeatures features) {
