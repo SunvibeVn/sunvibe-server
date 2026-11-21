@@ -15,5 +15,7 @@ public enum ListingHistoryAction {
     /** listing-publish US-2 AC-4, AC-5: a Draft submitted for review. */
     REVISION_SUBMITTED,
     /** listing-publish US-2 AC-5: a Pending review revision withdrawn. */
-    REVISION_WITHDRAWN
+    REVISION_WITHDRAWN,
+    /** listing-publish US-6 AC-1: a contact with the person letting the unit recorded; no revision, outcome or note. */
+    FRESHNESS_RECORDED
 }
