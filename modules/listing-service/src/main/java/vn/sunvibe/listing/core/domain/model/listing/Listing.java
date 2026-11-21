@@ -41,6 +41,7 @@ public final class Listing {
     private List<ListingRevision> revisions;
     private List<ListingHistoryEntry> pendingHistory;
     private List<RevisionChange> pendingRevisionChanges;
+    private List<RevisionDecision> pendingDecisions;
 
     private Listing(String id, ListingCode code, String unitId, TransactionType transactionType, String agreementId,
                     ListingState state, String createdBy, Instant createdAt, Instant updatedAt, long rowVersion,
@@ -88,6 +89,7 @@ public final class Listing {
         this.revisions = byNumber;
         this.pendingHistory = List.copyOf(pendingHistory);
         this.pendingRevisionChanges = List.of();
+        this.pendingDecisions = List.of();
     }
 
     /**
@@ -237,6 +239,80 @@ public final class Listing {
         replace(withdrawn);
         record(ListingHistoryAction.REVISION_WITHDRAWN, withdrawn, RevisionChangeKind.UPDATED, historyId, actorId, now);
         return withdrawn;
+    }
+
+    /**
+     * listing-publish US-4 AC-3, BR-6, BR-7 (E06-S4 spec E06S4-D8, D9): the one decision of a Pending review revision.
+     * An approval first cancels an approved revision of the working set still waiting, recorded by the decider, so at
+     * most one revision is approved at any write; then the target takes the outcome's status. Each step records one
+     * history entry with identifiers only and one revision change, the cancelled revision first; the decision waits for
+     * the repository. The listing's state does not change: nothing goes live.
+     */
+    public ListingRevision decide(int revisionNo, RevisionDecision decision, String historyId, String cancelHistoryId,
+                                  Instant now) {
+        ListingRevision target = target(revisionNo);
+        if (target.status() != RevisionStatus.PENDING_REVIEW) {
+            throw new RevisionStateException(RevisionStateException.Reason.REVISION_NOT_PENDING);
+        }
+        if (decision.revisionNo() != revisionNo || !decision.revisionId().equals(target.id())) {
+            throw new IllegalStateException("a decision names the revision it decides");
+        }
+        if (decision.outcome() == ReviewOutcome.APPROVED) {
+            Optional<ListingRevision> waiting = revisions.stream()
+                    .filter(revision -> revision.status() == RevisionStatus.APPROVED)
+                    .findFirst();
+            if (waiting.isPresent()) {
+                ListingRevision cancelled = waiting.get().cancelled(now);
+                replace(cancelled);
+                record(ListingHistoryAction.APPROVAL_CANCELLED, cancelled, RevisionChangeKind.UPDATED, cancelHistoryId,
+                        decision.decidedBy(), now);
+            }
+        }
+        ListingRevision decided = target.decided(decision.outcome(), now);
+        replace(decided);
+        record(actionOf(decision.outcome()), decided, RevisionChangeKind.UPDATED, historyId, decision.decidedBy(), now);
+        List<RevisionDecision> decisions = new ArrayList<>(pendingDecisions);
+        decisions.add(decision);
+        pendingDecisions = List.copyOf(decisions);
+        return decided;
+    }
+
+    /**
+     * listing-publish US-2 AC-6, BR-6 (E06-S4 spec E06S4-D14): a Needs changes revision copied into a new Draft numbered
+     * after the greatest number, by the actor, with its content and terms snapshot; refused for any other source status
+     * (a Rejected or withdrawn revision included), then while a Draft or Pending review revision is open.
+     */
+    public ListingRevision copyRevision(int sourceNo, String revisionId, String historyId, String actorId,
+                                        Instant now) {
+        ListingRevision source = target(sourceNo);
+        if (source.status() != RevisionStatus.NEEDS_CHANGES) {
+            throw new RevisionStateException(RevisionStateException.Reason.REVISION_NOT_COPYABLE);
+        }
+        boolean open = revisions.stream().anyMatch(revision -> revision.status() == RevisionStatus.DRAFT
+                || revision.status() == RevisionStatus.PENDING_REVIEW);
+        if (open) {
+            throw new RevisionStateException(RevisionStateException.Reason.OPEN_REVISION_EXISTS);
+        }
+        ListingRevision copy = ListingRevision.copyOf(revisionId, newestRevisionNo + 1, source, actorId, now);
+        newestRevisionNo = copy.revisionNo();
+        List<ListingRevision> next = new ArrayList<>(revisions);
+        next.add(copy);
+        revisions = List.copyOf(next);
+        record(ListingHistoryAction.REVISION_COPIED, copy, RevisionChangeKind.COPIED, historyId, actorId, now);
+        return copy;
+    }
+
+    /** The decisions the last command made and the repository has not stored yet; unmodifiable. */
+    public List<RevisionDecision> pendingDecisions() {
+        return pendingDecisions;
+    }
+
+    private static ListingHistoryAction actionOf(ReviewOutcome outcome) {
+        return switch (outcome) {
+            case APPROVED -> ListingHistoryAction.REVISION_APPROVED;
+            case NEEDS_CHANGES -> ListingHistoryAction.REVISION_RETURNED;
+            case REJECTED -> ListingHistoryAction.REVISION_REJECTED;
+        };
     }
 
     /** The service checks that a revision exists before it commands it, so a missing one is a defect. */

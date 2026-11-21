@@ -13,7 +13,12 @@ public class RevisionStateException extends RuntimeException {
         /** Only a Pending review revision is withdrawn. */
         REVISION_NOT_PENDING,
         /** listing-publish BR-6: a listing has at most one Draft or Pending review revision. */
-        OPEN_REVISION_EXISTS
+        OPEN_REVISION_EXISTS,
+        /**
+         * listing-publish US-2 AC-6, BR-6 (E06-S4 spec E06S4-D14): only a Needs changes revision is copied into a new
+         * Draft in this slice; a Rejected, withdrawn or other revision is not.
+         */
+        REVISION_NOT_COPYABLE
     }
 
     private final Reason reason;

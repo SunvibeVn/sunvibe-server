@@ -38,6 +38,7 @@ class ListingOpenApiTest {
 	private static final String ITEM = "/api/v1/staff/listings/{listingId}";
 	private static final String BY_AGREEMENT = "/api/v1/staff/listings/by-agreement/{agreementId}";
 	private static final String RECONFIRMATIONS = "/api/v1/staff/listings/reconfirmations";
+	private static final String REVIEW_QUEUE = "/api/v1/staff/listings/review-queue";
 	private static final String STATES = "[\"UNPUBLISHED\",\"PUBLISHED\",\"PAUSED\",\"URGENTLY_UNPUBLISHED\",\"ARCHIVED\"]";
 
 	@Value("${local.server.port}")
@@ -99,13 +100,14 @@ class ListingOpenApiTest {
 			assertTrue(create.path("responses").path("400").path("description").asString().contains(code), code);
 		}
 
-		// the export orders the paths by key: the four paths follow this one, before /api/v1/staff/owner-leads (spec 4;
-		// listing-publish E06-S3 spec section 4 adds /api/v1/staff/listings/reconfirmations)
+		// the export orders the paths by key: the five paths follow this one, before /api/v1/staff/owner-leads (spec 4;
+		// listing-publish E06-S3 spec section 4 adds /api/v1/staff/listings/reconfirmations, E06-S4 spec section 4
+		// adds /api/v1/staff/listings/review-queue)
 		List<String> paths = names(contract.path("paths")).stream().sorted().toList();
 		int before = paths.indexOf("/api/v1/staff/inventory-cases/{caseId}/decision");
-		assertEquals(List.of(COLLECTION, ITEM, BY_AGREEMENT, RECONFIRMATIONS).stream().sorted().toList(),
-				paths.subList(before + 1, before + 5));
-		assertTrue(before + 5 <= paths.indexOf("/api/v1/staff/owner-leads"), paths.toString());
+		assertEquals(List.of(COLLECTION, ITEM, BY_AGREEMENT, RECONFIRMATIONS, REVIEW_QUEUE).stream().sorted().toList(),
+				paths.subList(before + 1, before + 6));
+		assertTrue(before + 6 <= paths.indexOf("/api/v1/staff/owner-leads"), paths.toString());
 	}
 
 	@Test

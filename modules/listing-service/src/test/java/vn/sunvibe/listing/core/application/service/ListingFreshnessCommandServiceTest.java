@@ -6,6 +6,7 @@ import vn.sunvibe.listing.core.application.exception.ListingNotFoundException;
 import vn.sunvibe.listing.core.application.exception.ListingRefusedException;
 import vn.sunvibe.listing.core.application.query.FreshnessRecordResult;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingAnswerFacts;
+import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingReviewFacts;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingRightPort;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AgreementStandingFacts;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AgreementTermsFacts;
@@ -284,6 +285,12 @@ class ListingFreshnessCommandServiceTest {
         public Optional<AgreementTermsFacts> terms(String unitId, String agreementId) {
             methods.add("terms");
             return delegate.terms(unitId, agreementId);
+        }
+
+        @Override
+        public Optional<AdvertisingReviewFacts> review(String unitId, String agreementId) {
+            methods.add("review");
+            return delegate.review(unitId, agreementId);
         }
     }
 }

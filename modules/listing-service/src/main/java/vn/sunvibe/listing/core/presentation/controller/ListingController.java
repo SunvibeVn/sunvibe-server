@@ -318,6 +318,41 @@ public class ListingController {
                 viewers.current()));
     }
 
+    /**
+     * listing-publish US-2 AC-6, BR-6: a Needs changes revision copied into a new Draft by the assigned Sale (E06-S4
+     * spec E06S4-D14).
+     */
+    @PostMapping("/{listingId}/revisions/{revisionNo}/copies")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SALE','SALE_LEADER')")
+    @Operation(operationId = "copyListingRevision",
+            summary = "Copy a Needs changes revision into a new Draft with its content and terms snapshot")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "The new Draft, numbered after the greatest number, and"
+                    + " the listing's new data version"),
+            @ApiResponse(responseCode = "400", description = BAD_BODY,
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = DRAFTER_ROLES,
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = NOT_THE_DRAFTER,
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data"
+                    + " version is stale), REVISION_NOT_COPYABLE (the revision is not Needs changes) or"
+                    + " OPEN_REVISION_EXISTS",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ListingRevisionChangeResponse copy(@PathVariable("listingId") String listingId,
+                                              @PathVariable("revisionNo") String revisionNo,
+                                              @Valid @RequestBody ListingRevisionCommandRequest request) {
+        return responses.toChange(commands.copyRevision(
+                requests.toCopyCommand(listingId, ListingRequestConverter.revisionNoOrNull(revisionNo), request),
+                viewers.current()));
+    }
+
     /** listing-publish US-2 AC-2: E05's private terms, for the assigned Sale only (E06S2-D2, E06S2-D14). */
     @GetMapping("/{listingId}/terms-sources")
     @PreAuthorize("hasAnyRole('SALE','SALE_LEADER')")

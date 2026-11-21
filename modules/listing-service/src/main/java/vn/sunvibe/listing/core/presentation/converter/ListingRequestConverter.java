@@ -3,22 +3,31 @@ package vn.sunvibe.listing.core.presentation.converter;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
+import vn.sunvibe.listing.core.application.command.RevisionCopyCommand;
+import vn.sunvibe.listing.core.application.command.RevisionDecisionCommand;
 import vn.sunvibe.listing.core.application.command.RevisionFeaturesInput;
 import vn.sunvibe.listing.core.application.command.RevisionSaveCommand;
 import vn.sunvibe.listing.core.application.command.RevisionStartCommand;
 import vn.sunvibe.listing.core.application.command.RevisionSubmitCommand;
 import vn.sunvibe.listing.core.application.command.RevisionWithdrawCommand;
 import vn.sunvibe.listing.core.application.command.TermsCaptureCommand;
+import vn.sunvibe.listing.core.application.command.UnitLocationOpenCommand;
+import vn.sunvibe.listing.core.domain.model.listing.ChangeReason;
 import vn.sunvibe.listing.core.domain.model.listing.FreshnessChannel;
 import vn.sunvibe.listing.core.domain.model.listing.FreshnessOutcome;
+import vn.sunvibe.listing.core.domain.model.listing.RejectionGroup;
+import vn.sunvibe.listing.core.domain.model.listing.ReviewCheck;
+import vn.sunvibe.listing.core.domain.model.listing.ReviewOutcome;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionContent;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingCreateRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingFeaturesInput;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingFreshnessRecordRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingRevisionCommandRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingRevisionContentRequest;
+import vn.sunvibe.listing.core.presentation.dto.request.ListingRevisionDecisionRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingTermsCaptureRequest;
 
+import java.util.List;
 import java.util.regex.Pattern;
 
 /** Request DTO to command: a pure function of its arguments. */
@@ -70,6 +79,30 @@ public class ListingRequestConverter {
     public TermsCaptureCommand toCommand(String listingId, Integer revisionNoOrNull,
                                          ListingTermsCaptureRequest request) {
         return new TermsCaptureCommand(listingId, revisionNoOrNull, request.dataVersion(), request.source());
+    }
+
+    /**
+     * The codes the request constraints checked as domain values (E06S4-D6); an absent list is none; the note as typed,
+     * which the decision normalizes.
+     */
+    public RevisionDecisionCommand toDecisionCommand(String listingId, Integer revisionNoOrNull,
+                                                     ListingRevisionDecisionRequest request) {
+        return new RevisionDecisionCommand(listingId, revisionNoOrNull, request.dataVersion(),
+                ReviewOutcome.valueOf(request.outcome()),
+                request.checks() == null ? List.of() : request.checks().stream().map(ReviewCheck::valueOf).toList(),
+                request.changeReasons() == null ? List.of()
+                        : request.changeReasons().stream().map(ChangeReason::valueOf).toList(),
+                request.rejectionGroup() == null ? null : RejectionGroup.valueOf(request.rejectionGroup()),
+                request.note());
+    }
+
+    public UnitLocationOpenCommand toLocationCommand(String listingId, Integer revisionNoOrNull) {
+        return new UnitLocationOpenCommand(listingId, revisionNoOrNull);
+    }
+
+    public RevisionCopyCommand toCopyCommand(String listingId, Integer revisionNoOrNull,
+                                             ListingRevisionCommandRequest request) {
+        return new RevisionCopyCommand(listingId, revisionNoOrNull, request.dataVersion());
     }
 
     /** The codes the request constraints checked as domain values; the note as typed, which the record normalizes. */
