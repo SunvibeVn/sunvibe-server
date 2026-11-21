@@ -2,6 +2,7 @@ package vn.sunvibe.listing.core.application.usecase;
 
 import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
+import vn.sunvibe.listing.core.application.command.RevisionCopyCommand;
 import vn.sunvibe.listing.core.application.command.RevisionSaveCommand;
 import vn.sunvibe.listing.core.application.command.RevisionStartCommand;
 import vn.sunvibe.listing.core.application.command.RevisionSubmitCommand;
@@ -72,6 +73,15 @@ public interface ListingCommandUseCase {
      * @throws RevisionStateException {@code REVISION_NOT_PENDING}
      */
     RevisionCommandResult withdraw(RevisionWithdrawCommand command, ListingViewer viewer);
+
+    /**
+     * Copies a Needs changes revision into a new Draft numbered after the greatest number, by the caller, with the
+     * source's content and terms snapshot (listing-publish US-2 AC-6, BR-6; E06-S4 spec 3.6, E06S4-D14).
+     *
+     * @throws RevisionStateException {@code REVISION_NOT_COPYABLE} for a source of any other status, then
+     *                                {@code OPEN_REVISION_EXISTS} while a Draft or Pending review revision is open
+     */
+    RevisionCommandResult copyRevision(RevisionCopyCommand command, ListingViewer viewer);
 
     /**
      * Records a contact of the assigned Sale with the person letting the unit, dated today in Vietnam time

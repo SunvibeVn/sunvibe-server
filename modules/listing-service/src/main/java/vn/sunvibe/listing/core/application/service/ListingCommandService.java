@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
+import vn.sunvibe.listing.core.application.command.RevisionCopyCommand;
 import vn.sunvibe.listing.core.application.command.RevisionFeaturesInput;
 import vn.sunvibe.listing.core.application.command.RevisionSaveCommand;
 import vn.sunvibe.listing.core.application.command.RevisionStartCommand;
@@ -215,6 +216,22 @@ public class ListingCommandService implements ListingCommandUseCase {
         int revisionNo = targetOf(listing, command.revisionNoOrNull());
         ListingRevision withdrawn = listing.withdraw(revisionNo, ids.generateId(), viewer.userId(), now);
         return written(listing, withdrawn);
+    }
+
+    /**
+     * listing-publish US-2 AC-6, BR-6 (E06-S4 spec 3.6, E06S4-D14): the revision commands' checks on the working set
+     * with the source, then the source named in the path; the aggregate refuses a source not Needs changes, then an open
+     * revision, and adds the copy by the caller.
+     */
+    @Override
+    public RevisionCommandResult copyRevision(RevisionCopyCommand command, ListingViewer viewer) {
+        Instant now = now();
+        Listing listing = loadForDrafting(command.listingId(), command.revisionNoOrNull(), command.dataVersion(),
+                viewer);
+        int sourceNo = targetOf(listing, command.revisionNoOrNull());
+        ListingRevision copy = listing.copyRevision(sourceNo, ids.generateId(), ids.generateId(), viewer.userId(),
+                now);
+        return written(listing, copy);
     }
 
     /**
