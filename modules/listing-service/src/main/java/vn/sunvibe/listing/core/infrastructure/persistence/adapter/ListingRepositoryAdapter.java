@@ -9,8 +9,11 @@ import org.springframework.stereotype.Service;
 import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.ListingCodeTakenException;
 import vn.sunvibe.listing.core.domain.exception.OpenListingExistsException;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionChange;
@@ -20,16 +23,21 @@ import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
 import vn.sunvibe.listing.core.domain.repository.ListingRevisionPage;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.listing.core.domain.repository.ListingRowPage;
+import vn.sunvibe.listing.core.domain.repository.ReconfirmationCandidate;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingFreshnessRecordEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingHistoryEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.mapper.manual.ListingEntityMapper;
+import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingFreshnessRecordJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingHistoryJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionFeeJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionJpaRepository;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,6 +66,7 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
     private final ListingRevisionJpaRepository revisions;
     private final ListingRevisionFeeJpaRepository fees;
     private final ListingHistoryJpaRepository history;
+    private final ListingFreshnessRecordJpaRepository freshnessRecords;
     private final ListingEntityMapper mapper;
 
     @PersistenceContext
@@ -193,6 +202,60 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
             }
         }
         history.saveAllAndFlush(mapper.toHistoryEntities(listing)).forEach(entityManager::detach);
+    }
+
+    /** One statement on the primary key: the two unmapped columns (plan E06S3-P2). */
+    @Override
+    public FreshnessSummary findFreshnessSummary(String listingId) {
+        return listings.findFreshnessColumns(listingId)
+                .map(columns -> new FreshnessSummary(columns.getConfirmedOn(), columns.getLatestValid()))
+                .orElse(FreshnessSummary.none());
+    }
+
+    /** One statement on uq_listing_freshness_records_version; the entity is detached. */
+    @Override
+    public Optional<FreshnessRecord> findLatestFreshnessRecord(String listingId) {
+        return freshnessRecords.findFirstByListingIdOrderByListingRowVersionDesc(listingId).map(entity -> {
+            entityManager.detach(entity);
+            return mapper.toFreshnessRecord(entity);
+        });
+    }
+
+    /**
+     * listing-publish E06-S3 spec E06S3-D6: the listing row's guarded update first, which takes the row's lock and moves
+     * its version, time and summary together; then the record and the history row by {@code persist}, so no merge
+     * SELECT precedes them, one flush, both detached: three statements. A violation of the record's unique row version
+     * is not translated (plan E06S3-P14): the guarded update alone decides a concurrent record.
+     */
+    @Override
+    public void recordFreshness(String listingId, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                FreshnessRecord record, ListingHistoryEntry entry) {
+        if (listings.recordFreshness(listingId, loadedRowVersion, now, next.confirmedOnOrNull(),
+                next.latestValidOrNull()) == 0) {
+            throw new ListingChangedException();
+        }
+        ListingFreshnessRecordEntity recordRow = mapper.toFreshnessRecordEntity(record);
+        ListingHistoryEntity historyRow = ListingEntityMapper.toHistoryEntity(listingId, entry);
+        entityManager.persist(recordRow);
+        entityManager.persist(historyRow);
+        entityManager.flush();
+        entityManager.detach(recordRow);
+        entityManager.detach(historyRow);
+    }
+
+    /** One statement on idx_listings_freshness_due: the first chunk, or the chunk after the cursor's (date, id). */
+    @Override
+    public List<ReconfirmationCandidate> findReconfirmationCandidates(LocalDate confirmedOnOrBefore,
+                                                                      ReconfirmationCandidate afterOrNull, int limit) {
+        List<ListingJpaRepository.ReconfirmationRow> rows = afterOrNull == null
+                ? listings.findDueFirst(confirmedOnOrBefore, limit)
+                : listings.findDueAfter(confirmedOnOrBefore, afterOrNull.summary().confirmedOnOrNull(),
+                afterOrNull.listingId(), limit);
+        return rows.stream()
+                .map(row -> new ReconfirmationCandidate(row.getId(), row.getCode(), row.getAgreementId(),
+                        ListingState.valueOf(row.getState()),
+                        new FreshnessSummary(row.getConfirmedOn(), row.getLatestValid())))
+                .toList();
     }
 
     private ListingRevisionEntity saveRevision(ListingRevisionEntity entity) {
