@@ -18,7 +18,12 @@ public final class ListingRefusedException extends RuntimeException {
         /** listing-publish US-9 AC-3: an archived listing takes no command (E06-S2 spec E06S2-D3). */
         LISTING_ARCHIVED(409, "The listing is archived."),
         /** listing-publish BR-4: E05 has no such version to copy now (E06-S2 spec E06S2-D6). */
-        TERMS_SOURCE_ABSENT(409, "These terms are not available.");
+        TERMS_SOURCE_ABSENT(409, "These terms are not available."),
+        /**
+         * listing-publish BR-4, US-4 AC-5, E-5 (E06-S4 spec E06S4-D7): an approval of a revision whose terms equal neither
+         * the agreement's version in effect nor its version waiting to start.
+         */
+        REVISION_TERMS_MISMATCH(409, "The revision's terms equal no version of the agreement.");
 
         private final int status;
         private final String message;
@@ -64,6 +69,11 @@ public final class ListingRefusedException extends RuntimeException {
     /** listing-publish BR-4: E05 answers no version of the asked source, or its agreement ended. */
     public static ListingRefusedException termsSourceAbsent() {
         return new ListingRefusedException(Reason.TERMS_SOURCE_ABSENT, List.of());
+    }
+
+    /** listing-publish BR-4, US-4 AC-5: the revision's terms equal no version of the agreement, so it is not approved. */
+    public static ListingRefusedException termsMismatch() {
+        return new ListingRefusedException(Reason.REVISION_TERMS_MISMATCH, List.of());
     }
 
     public Reason reason() {
