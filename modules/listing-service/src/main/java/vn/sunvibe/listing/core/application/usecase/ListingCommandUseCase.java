@@ -1,5 +1,6 @@
 package vn.sunvibe.listing.core.application.usecase;
 
+import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
 import vn.sunvibe.listing.core.application.command.RevisionSaveCommand;
 import vn.sunvibe.listing.core.application.command.RevisionStartCommand;
@@ -8,6 +9,7 @@ import vn.sunvibe.listing.core.application.command.RevisionWithdrawCommand;
 import vn.sunvibe.listing.core.application.command.TermsCaptureCommand;
 import vn.sunvibe.listing.core.application.exception.ListingNotFoundException;
 import vn.sunvibe.listing.core.application.exception.ListingRefusedException;
+import vn.sunvibe.listing.core.application.query.FreshnessRecordResult;
 import vn.sunvibe.listing.core.application.query.ListingCreateResult;
 import vn.sunvibe.listing.core.application.query.RevisionCommandResult;
 import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
@@ -70,4 +72,15 @@ public interface ListingCommandUseCase {
      * @throws RevisionStateException {@code REVISION_NOT_PENDING}
      */
     RevisionCommandResult withdraw(RevisionWithdrawCommand command, ListingViewer viewer);
+
+    /**
+     * Records a contact of the assigned Sale with the person letting the unit, dated today in Vietnam time
+     * (listing-publish US-6 AC-1, AC-2, BR-9, BR-11; E06-S3 spec 3.1, E06S3-D3). The listing's state does not change.
+     *
+     * @throws ListingNotFoundException the listing is unknown or malformed, or the caller is not a SALE or SALE_LEADER
+     *                                  holding its agreement's basis lead now: one answer for all
+     * @throws ListingRefusedException  {@code LISTING_ARCHIVED}, stored or because the agreement ended
+     * @throws ListingChangedException  the data version is stale, or another command moved it meanwhile
+     */
+    FreshnessRecordResult recordFreshness(FreshnessRecordCommand command, ListingViewer viewer);
 }

@@ -947,6 +947,58 @@ class SeedE2eOwnerLeadsPostgresTest {
 	}
 
 	/**
+	 * listing-publish E06-S3 spec U-7, E06S3-D6: the freshness records of a listing the seed deletes go with it (ON DELETE
+	 * CASCADE), so the freshness E2E steps can run again on a reseeded database.
+	 */
+	@Test
+	void reseed_afterAFreshnessRecord_clearsItsRows() throws Exception {
+		String agreement = "01JE2EFRESHAGREEMENT000015";
+		String version = "01JE2EFRESHAGRVERSION00015";
+		String listing = "01JE2EFRESHLISTING00000015";
+		String record = "01JE2EFRESHRECORD000000015";
+		try {
+			seedAccounts();
+			assertEquals(0, runLeads("local").getExitCode());
+			String l15 = LEAD_IDS.get(14);
+			Timestamp now = Timestamp.from(Instant.now());
+			// The agreement, version and listing of reseed_afterAListing_clearsItsRows, and one record under the listing.
+			jdbc.update("INSERT INTO brokerage_agreements (id, unit_id, unit_code, property_id, transaction_type,"
+					+ " owner_user_id, basis_lead_id, status, created_by_user_id, created_at, updated_at, version) VALUES (?, ?,"
+					+ " 'SV-HOU-999915', 'e2e00000-0000-0000-0000-000000000015', 'LONG_TERM_RENT', ?, ?, 'DRAFTING', ?, ?, ?, 0)",
+					agreement, "01JE2EAGRUNIT0000000000115", CUSTOMER_ID, l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO brokerage_agreement_versions (id, agreement_id, version_no, status, start_date, end_date,"
+					+ " basis_lead_id, basis_intake_id, created_by_user_id, created_at, updated_at) VALUES (?, ?, 1, 'DRAFT',"
+					+ " DATE '2027-01-01', DATE '2027-12-31', ?, '01JE2EINTAKE00000000000015', ?, ?, ?)", version, agreement,
+					l15, SALE_ID, now, now);
+			jdbc.update("INSERT INTO listings (id, code, unit_id, transaction_type, agreement_id, state, created_by,"
+					+ " created_at, updated_at) VALUES (?, 'TD-E2EF-RESH', '01JE2EAGRUNIT0000000000115', 'LONG_TERM_RENT', ?,"
+					+ " 'UNPUBLISHED', ?, ?, ?)", listing, agreement, SALE_ID, now, now);
+			jdbc.update("INSERT INTO listing_revisions (id, listing_id, revision_no, status, created_by, created_at,"
+					+ " updated_at) VALUES ('01JE2EFRESHLISTREV00000015', ?, 1, 'DRAFT', ?, ?, ?)", listing, SALE_ID, now,
+					now);
+			jdbc.update("INSERT INTO listing_history (id, listing_id, action, revision_no, actor_user_id, occurred_at)"
+					+ " VALUES ('01JE2EFRESHLISTHIS00000015', ?, 'CREATED', 1, ?, ?)", listing, SALE_ID, now);
+			jdbc.update("INSERT INTO listing_freshness_records (id, listing_id, listing_row_version, contact_date,"
+					+ " recorded_at, recorded_by, channel, outcome, terms_still_apply, unit_unchanged, valid, note) VALUES (?, ?,"
+					+ " 1, DATE '2027-01-05', ?, ?, 'CALL', 'AVAILABLE', TRUE, TRUE, TRUE, NULL)", record, listing, now,
+					SALE_ID);
+
+			ExecResult again = runLeads("local");
+
+			assertEquals(0, again.getExitCode(), "re-run after a freshness record failed: " + again.getStderr());
+			assertEquals(0, count("SELECT count(*) FROM listing_freshness_records WHERE listing_id = '" + listing + "'"));
+		} finally {
+			jdbc.update("DELETE FROM listing_freshness_records WHERE listing_id = ?", listing);
+			jdbc.update("DELETE FROM listing_history WHERE listing_id = ?", listing);
+			jdbc.update("DELETE FROM listing_revisions WHERE listing_id = ?", listing);
+			jdbc.update("DELETE FROM listings WHERE id = ?", listing);
+			jdbc.update("DELETE FROM brokerage_agreement_events WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreement_versions WHERE agreement_id = ?", agreement);
+			jdbc.update("DELETE FROM brokerage_agreements WHERE id = ?", agreement);
+		}
+	}
+
+	/**
 	 * brokerage-agreement E05-S3 spec S3-D9, section 10: the fee rows of an agreement's version on L15 go with their
 	 * version by the cascade, so the seed clears an edited draft unchanged.
 	 */

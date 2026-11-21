@@ -3,6 +3,7 @@ package vn.sunvibe.listing.core.application.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
 import vn.sunvibe.listing.core.application.command.RevisionFeaturesInput;
 import vn.sunvibe.listing.core.application.command.RevisionSaveCommand;
@@ -12,6 +13,7 @@ import vn.sunvibe.listing.core.application.command.RevisionWithdrawCommand;
 import vn.sunvibe.listing.core.application.command.TermsCaptureCommand;
 import vn.sunvibe.listing.core.application.exception.ListingNotFoundException;
 import vn.sunvibe.listing.core.application.exception.ListingRefusedException;
+import vn.sunvibe.listing.core.application.query.FreshnessRecordResult;
 import vn.sunvibe.listing.core.application.query.ListingCreateResult;
 import vn.sunvibe.listing.core.application.query.RevisionCommandResult;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingAnswerFacts;
@@ -28,9 +30,14 @@ import vn.sunvibe.listing.core.domain.model.listing.AgreementReasonGroup;
 import vn.sunvibe.listing.core.domain.model.listing.ChargeUnit;
 import vn.sunvibe.listing.core.domain.model.listing.DepositBasis;
 import vn.sunvibe.listing.core.domain.model.listing.FeeBasis;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessNote;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Furnishing;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryAction;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.Pets;
@@ -41,6 +48,7 @@ import vn.sunvibe.listing.core.domain.model.listing.ShareMode;
 import vn.sunvibe.listing.core.domain.model.listing.TermsSource;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
+import vn.sunvibe.listing.core.domain.policy.listing.FreshnessPolicy;
 import vn.sunvibe.listing.core.domain.policy.listing.ListingAccessPolicy;
 import vn.sunvibe.listing.core.domain.policy.listing.ListingCreatePolicy;
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
@@ -207,6 +215,58 @@ public class ListingCommandService implements ListingCommandUseCase {
         int revisionNo = targetOf(listing, command.revisionNoOrNull());
         ListingRevision withdrawn = listing.withdraw(revisionNo, ids.generateId(), viewer.userId(), now);
         return written(listing, withdrawn);
+    }
+
+    /**
+     * listing-publish US-6 AC-1, AC-2, BR-9, BR-11 (E06-S3 spec 3.1, E06S3-D3): the scope and the archived check of
+     * {@link #loadForRecording}, the data version, then the record dated today in Vietnam time, the summary only a valid
+     * record moves forward, and one history row, written with the listing row's guarded update. It reads no E05 right,
+     * terms or share lock and no unit, tries no put live, writes no publication row and appends no event.
+     */
+    @Override
+    public FreshnessRecordResult recordFreshness(FreshnessRecordCommand command, ListingViewer viewer) {
+        Instant now = now();
+        ListingRow row = loadForRecording(command.listingId(), viewer);
+        // listing BR-3: a command acts on the version its caller read
+        if (row.rowVersion() != command.dataVersion()) {
+            throw new ListingChangedException();
+        }
+        FreshnessSummary previous = listings.findFreshnessSummary(row.listingId());
+        FreshnessNote note = FreshnessNote.ofOrNull(command.noteOrNull());
+        long nextVersion = row.rowVersion() + 1;
+        FreshnessRecord record = new FreshnessRecord(ids.generateId(), row.listingId(), nextVersion,
+                FreshnessPolicy.today(now), now, viewer.userId(), command.channel(), command.outcome(),
+                command.termsStillApplyOrNull(), command.unitUnchangedOrNull(), note == null ? null : note.text());
+        // listing BR-3: the record leaves one history row; it holds no revision, outcome or note (E06S3-D9)
+        ListingHistoryEntry entry = new ListingHistoryEntry(ids.generateId(), ListingHistoryAction.FRESHNESS_RECORDED,
+                null, viewer.userId(), now);
+        listings.recordFreshness(row.listingId(), row.rowVersion(), now, previous.after(record), record, entry);
+        return new FreshnessRecordResult(row.listingId(), nextVersion, record.valid());
+    }
+
+    /**
+     * The checks of the record before its own (listing-publish E06-S3 spec E06S3-D3, plan E06S3-P1): a malformed id
+     * reads nothing; the listing and its agreement's standing name the caller as the assignee (a standing E05 no longer
+     * returns names nobody); not archived, stored or because the agreement ended.
+     */
+    private ListingRow loadForRecording(String listingId, ListingViewer viewer) {
+        if (listingId == null || !ID.matcher(listingId).matches()) {
+            throw new ListingNotFoundException();
+        }
+        ListingRow row = listings.findRow(listingId).orElseThrow(ListingNotFoundException::new);
+        // listing BR-16, listing-publish section 2: only the SALE or SALE_LEADER who holds the basis lead now records;
+        // anyone else in those roles reads "not found" (listing BR-5)
+        AgreementStandingFacts standing = rights.standings(List.of(row.agreementId())).stream()
+                .filter(found -> row.agreementId().equals(found.agreementId()))
+                .findFirst()
+                .filter(found -> ListingAccessPolicy.mayRecordFreshness(viewer.expandedAuthorities(), viewer.userId(),
+                        found.basisLeadAssigneeIdOrNull()))
+                .orElseThrow(ListingNotFoundException::new);
+        // listing-publish US-9 AC-3: an archived listing takes no command, its archive stored or effective
+        if (row.storedState().effective(standing.ended()) == ListingState.ARCHIVED) {
+            throw ListingRefusedException.archived();
+        }
+        return row;
     }
 
     /**

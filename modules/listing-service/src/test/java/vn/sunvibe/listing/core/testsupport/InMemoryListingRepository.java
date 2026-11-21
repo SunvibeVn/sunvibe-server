@@ -2,6 +2,8 @@ package vn.sunvibe.listing.core.testsupport;
 
 import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.OpenListingExistsException;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
@@ -11,9 +13,13 @@ import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
 import vn.sunvibe.listing.core.domain.repository.ListingRevisionPage;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.listing.core.domain.repository.ListingRowPage;
+import vn.sunvibe.listing.core.domain.repository.ReconfirmationCandidate;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +38,10 @@ public class InMemoryListingRepository implements ListingDomainRepository {
     private final Set<String> takenCodes = new HashSet<>();
     private final List<String> calls = new ArrayList<>();
     private final List<ListingHistoryEntry> writtenHistory = new ArrayList<>();
+    private final Map<String, FreshnessSummary> summaries = new HashMap<>();
+    private final Map<String, FreshnessRecord> latestRecords = new HashMap<>();
+    private final List<FreshnessRecord> writtenRecords = new ArrayList<>();
+    private final List<ReconfirmationCandidate> candidates = new ArrayList<>();
     private boolean refuseNextInsertAsOpen;
 
     /** Stores a listing as if an earlier command had, without recording an insert. */
@@ -182,6 +192,78 @@ public class InMemoryListingRepository implements ListingDomainRepository {
                 current.agreementId(), current.state(), current.createdBy(), current.createdAt(), current.updatedAt(),
                 current.rowVersion() + 1, current.revisions());
         stored.replaceAll(candidate -> candidate.id().equals(listingId) ? moved : candidate);
+    }
+
+    /** A listing's stored summary and latest record, as if earlier records had made them; nothing is recorded. */
+    public void putFreshness(String listingId, FreshnessSummary summary, FreshnessRecord latestOrNull) {
+        summaries.put(listingId, summary);
+        if (latestOrNull == null) {
+            latestRecords.remove(listingId);
+        } else {
+            latestRecords.put(listingId, latestOrNull);
+        }
+    }
+
+    /** A row the candidate query reads; the candidates are these rows only, whatever is stored. */
+    public void putCandidate(ReconfirmationCandidate candidate) {
+        candidates.add(candidate);
+    }
+
+    /** The records {@link #recordFreshness} wrote for the listing, in order. */
+    public List<FreshnessRecord> freshnessRecords(String listingId) {
+        return writtenRecords.stream().filter(record -> record.listingId().equals(listingId)).toList();
+    }
+
+    @Override
+    public FreshnessSummary findFreshnessSummary(String listingId) {
+        calls.add("findFreshnessSummary " + listingId);
+        return summaries.getOrDefault(listingId, FreshnessSummary.none());
+    }
+
+    @Override
+    public Optional<FreshnessRecord> findLatestFreshnessRecord(String listingId) {
+        calls.add("findLatestFreshnessRecord " + listingId);
+        return Optional.ofNullable(latestRecords.get(listingId));
+    }
+
+    /**
+     * Enforces the row version as {@link #update} does, then stores the listing with the version plus one and the time,
+     * keeps the next summary and the record as the latest, and adds the history entry.
+     */
+    @Override
+    public void recordFreshness(String listingId, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                FreshnessRecord record, ListingHistoryEntry entry) {
+        calls.add("recordFreshness " + listingId);
+        Listing current = stored(listingId).orElseThrow(ListingChangedException::new);
+        if (current.rowVersion() != loadedRowVersion) {
+            throw new ListingChangedException();
+        }
+        Listing moved = Listing.load(current.id(), current.code(), current.unitId(), current.transactionType(),
+                current.agreementId(), current.state(), current.createdBy(), current.createdAt(), now,
+                current.rowVersion() + 1, current.revisions());
+        stored.replaceAll(candidate -> candidate.id().equals(listingId) ? moved : candidate);
+        summaries.put(listingId, next);
+        latestRecords.put(listingId, record);
+        writtenRecords.add(record);
+        writtenHistory.add(entry);
+    }
+
+    /** The rows of {@link #putCandidate} with the SQL's filter, order, cursor and limit. */
+    @Override
+    public List<ReconfirmationCandidate> findReconfirmationCandidates(LocalDate confirmedOnOrBefore,
+                                                                      ReconfirmationCandidate afterOrNull, int limit) {
+        calls.add("findReconfirmationCandidates " + confirmedOnOrBefore + " " + limit);
+        Comparator<ReconfirmationCandidate> keyOrder = Comparator
+                .comparing((ReconfirmationCandidate candidate) -> candidate.summary().confirmedOnOrNull())
+                .thenComparing(ReconfirmationCandidate::listingId);
+        return candidates.stream()
+                .filter(candidate -> candidate.storedState() != ListingState.ARCHIVED)
+                .filter(candidate -> candidate.summary().confirmedOnOrNull() != null
+                        && !candidate.summary().confirmedOnOrNull().isAfter(confirmedOnOrBefore))
+                .filter(candidate -> afterOrNull == null || keyOrder.compare(candidate, afterOrNull) > 0)
+                .sorted(keyOrder)
+                .limit(limit)
+                .toList();
     }
 
     private static ListingRow toRow(Listing listing) {

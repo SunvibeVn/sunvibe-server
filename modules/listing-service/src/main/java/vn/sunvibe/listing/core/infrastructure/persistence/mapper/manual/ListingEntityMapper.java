@@ -1,6 +1,7 @@
 package vn.sunvibe.listing.core.infrastructure.persistence.mapper.manual;
 
 import org.springframework.stereotype.Component;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
@@ -11,6 +12,7 @@ import vn.sunvibe.listing.core.domain.model.listing.RevisionTerms;
 import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingFreshnessRecordEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingHistoryEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeEntity;
@@ -187,7 +189,32 @@ public class ListingEntityMapper {
         return amountOrNull == null ? null : amountOrNull.longValueExact();
     }
 
-    private static ListingHistoryEntity toHistoryEntity(String listingId, ListingHistoryEntry entry) {
+    /** A freshness record as its row; every column, the note included (listing-publish E06-S3 spec E06S3-D6). */
+    public ListingFreshnessRecordEntity toFreshnessRecordEntity(FreshnessRecord record) {
+        return ListingFreshnessRecordEntity.builder()
+                .id(record.id())
+                .listingId(record.listingId())
+                .listingRowVersion(record.listingRowVersion())
+                .contactDate(record.contactDate())
+                .recordedAt(record.recordedAt())
+                .recordedBy(record.recordedBy())
+                .channel(record.channel())
+                .outcome(record.outcome())
+                .termsStillApply(record.termsStillApplyOrNull())
+                .unitUnchanged(record.unitUnchangedOrNull())
+                .valid(record.valid())
+                .note(record.noteOrNull())
+                .build();
+    }
+
+    /** A stored freshness record; the record checks its answers and note again, and derives its validity. */
+    public FreshnessRecord toFreshnessRecord(ListingFreshnessRecordEntity entity) {
+        return new FreshnessRecord(entity.getId(), entity.getListingId(), entity.getListingRowVersion(),
+                entity.getContactDate(), entity.getRecordedAt(), entity.getRecordedBy(), entity.getChannel(),
+                entity.getOutcome(), entity.getTermsStillApply(), entity.getUnitUnchanged(), entity.getNote());
+    }
+
+    public static ListingHistoryEntity toHistoryEntity(String listingId, ListingHistoryEntry entry) {
         return ListingHistoryEntity.builder()
                 .id(entry.id())
                 .listingId(listingId)

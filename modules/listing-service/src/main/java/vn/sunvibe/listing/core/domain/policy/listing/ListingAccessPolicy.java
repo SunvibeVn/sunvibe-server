@@ -56,6 +56,23 @@ public final class ListingAccessPolicy {
         return holdsAny(authorities, CREATORS) && isAssignee(viewerId, assigneeIdOrNull);
     }
 
+    /**
+     * Only the assigned Sale records a contact with the person letting the unit (listing BR-16; listing-publish E06-S3
+     * spec E06S3-D2): a SALE or SALE_LEADER who is the current assignee of the agreement's basis lead, the rule of
+     * {@link #mayDraft}.
+     */
+    public static boolean mayRecordFreshness(Set<String> authorities, String viewerId, String assigneeIdOrNull) {
+        return holdsAny(authorities, CREATORS) && isAssignee(viewerId, assigneeIdOrNull);
+    }
+
+    /**
+     * Who sees every listing to reconfirm (listing-publish E06-S3 spec E06S3-D2): the managers of E05's agreement scope;
+     * a SALE sees only the listings whose basis lead they hold.
+     */
+    public static boolean seesEveryReconfirmation(Set<String> authorities) {
+        return holdsAny(authorities, EVERY_AGREEMENT);
+    }
+
     private static boolean isAssignedSale(Set<String> authorities, String viewerId, String assigneeIdOrNull) {
         return authorities != null && authorities.contains(SALE) && isAssignee(viewerId, assigneeIdOrNull);
     }

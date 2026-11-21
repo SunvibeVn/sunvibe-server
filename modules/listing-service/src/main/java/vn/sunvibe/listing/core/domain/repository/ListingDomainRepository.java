@@ -3,9 +3,15 @@ package vn.sunvibe.listing.core.domain.repository;
 import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.ListingCodeTakenException;
 import vn.sunvibe.listing.core.domain.exception.OpenListingExistsException;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -59,4 +65,32 @@ public interface ListingDomainRepository {
      *                                 a row as the backstop
      */
     void update(Listing listing);
+
+    /**
+     * The listing's freshness summary, from its row (listing-publish E06-S3 spec E06S3-D6); {@link FreshnessSummary#none()}
+     * for a listing with no record. One statement.
+     */
+    FreshnessSummary findFreshnessSummary(String listingId);
+
+    /** The listing's latest freshness record: the greatest listing row version. One statement. */
+    Optional<FreshnessRecord> findLatestFreshnessRecord(String listingId);
+
+    /**
+     * Writes a freshness record (listing-publish E06-S3 spec E06S3-D6): the listing row's guarded update first, which
+     * moves the row version, {@code updated_at} and the two summary columns together; then the record and its history
+     * row, two inserts and one flush; no entity stays managed. A violation of the record's unique row version is not
+     * translated: only a broken guard can produce one (plan E06S3-P14).
+     *
+     * @throws ListingChangedException another command moved the row version since {@code loadedRowVersion} was read
+     */
+    void recordFreshness(String listingId, long loadedRowVersion, Instant now, FreshnessSummary next,
+                         FreshnessRecord record, ListingHistoryEntry entry);
+
+    /**
+     * At most {@code limit} listings not stored as archived whose latest valid confirmation is on or before the date, in
+     * (confirmation date, id) order, after the cursor when one is given (listing-publish E06-S3 spec E06S3-D7). One
+     * statement.
+     */
+    List<ReconfirmationCandidate> findReconfirmationCandidates(LocalDate confirmedOnOrBefore,
+                                                               ReconfirmationCandidate afterOrNull, int limit);
 }
