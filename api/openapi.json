@@ -4362,6 +4362,55 @@
         "tags" : [ "Listing" ]
       }
     },
+    "/api/v1/staff/listings/reconfirmations" : {
+      "get" : {
+        "operationId" : "getListingReconfirmations",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingReconfirmations"
+                }
+              }
+            },
+            "description" : "At most 50 listings, oldest confirmation first, and whether more may need reconfirmation"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN (LISTING_REVIEWER alone included)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "The listings whose reconfirmation is due, oldest confirmation first",
+        "tags" : [ "Listing" ]
+      }
+    },
     "/api/v1/staff/listings/{listingId}" : {
       "get" : {
         "operationId" : "getListing",
@@ -4416,6 +4465,170 @@
           }
         },
         "summary" : "A listing with its newest revisions; nothing of it is public",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/freshness" : {
+      "get" : {
+        "operationId" : "getListingFreshness",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingFreshness"
+                }
+              }
+            },
+            "description" : "The freshness; every date null until a valid confirmation, the latest record null before any"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller may not read it: one answer for all three"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "A listing's latest valid confirmation, its reconfirmation and last valid days, and its latest contact",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/freshness-records" : {
+      "post" : {
+        "operationId" : "recordListingFreshness",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingFreshnessRecordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingFreshnessRecorded"
+                }
+              }
+            },
+            "description" : "Recorded; the listing's new data version and whether the contact is a valid confirmation"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion, channel, outcome, note, or answersMatchOutcome when the two answers are not set exactly for AVAILABLE) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller does not hold its agreement's basis lead now: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED or CONCURRENT_MODIFICATION (the data version is stale)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Record a contact with the person letting the unit; dated today in Vietnam time by the server",
         "tags" : [ "Listing" ]
       }
     },
@@ -19071,6 +19284,139 @@
         },
         "required" : [ "amount", "basis", "chargeUnit", "currency", "name" ]
       },
+      "ListingFreshness" : {
+        "type" : "object",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The Vietnam date of the latest valid confirmation; null until one"
+          },
+          "deadlinePassed" : {
+            "type" : "boolean",
+            "description" : "The last valid day has passed"
+          },
+          "latest" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingFreshnessRecord"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The latest record; null before any"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "reconfirmFrom" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "From this day reconfirmation is due; null until a valid confirmation"
+          },
+          "reconfirmationDue" : {
+            "type" : "boolean",
+            "description" : "Reconfirmation is due; stays on until a new valid confirmation"
+          },
+          "validThrough" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The last day the confirmation holds; null until a valid confirmation"
+          }
+        },
+        "required" : [ "confirmedOn", "deadlinePassed", "latest", "listingId", "reconfirmFrom", "reconfirmationDue", "validThrough" ]
+      },
+      "ListingFreshnessRecord" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "enum" : [ "CALL", "MESSAGE", "IN_PERSON" ]
+          },
+          "contactDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The Vietnam date of the contact"
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Private; null for none"
+          },
+          "outcome" : {
+            "type" : "string",
+            "enum" : [ "AVAILABLE", "NOT_AVAILABLE", "UNREACHABLE" ]
+          },
+          "recordedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "termsStillApply" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "Set exactly for AVAILABLE"
+          },
+          "unitUnchanged" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "Set exactly for AVAILABLE"
+          },
+          "valid" : {
+            "type" : "boolean",
+            "description" : "Still available with both answers yes (listing-publish BR-9)"
+          }
+        },
+        "required" : [ "channel", "contactDate", "note", "outcome", "recordedAt", "termsStillApply", "unitUnchanged", "valid" ]
+      },
+      "ListingFreshnessRecordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "enum" : [ "CALL", "MESSAGE", "IN_PERSON" ],
+            "pattern" : "CALL|MESSAGE|IN_PERSON"
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version the caller read (listing BR-3)",
+            "minimum" : 0
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Private: at most 500 characters (code points after NFC, trimmed), line feeds allowed, no other control or format character; null or blank is none",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "outcome" : {
+            "type" : "string",
+            "enum" : [ "AVAILABLE", "NOT_AVAILABLE", "UNREACHABLE" ],
+            "pattern" : "AVAILABLE|NOT_AVAILABLE|UNREACHABLE"
+          },
+          "termsStillApply" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "The person still lets the unit on the agreement's terms; set exactly for AVAILABLE"
+          },
+          "unitUnchanged" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "No significant change to the unit since the listing's content; set exactly for AVAILABLE"
+          }
+        },
+        "required" : [ "channel", "dataVersion", "note", "outcome", "termsStillApply", "unitUnchanged" ]
+      },
+      "ListingFreshnessRecorded" : {
+        "type" : "object",
+        "properties" : {
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's new data version"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "valid" : {
+            "type" : "boolean",
+            "description" : "Still available with both answers yes (listing-publish BR-9)"
+          }
+        },
+        "required" : [ "dataVersion", "listingId", "valid" ]
+      },
       "ListingItem" : {
         "type" : "object",
         "properties" : {
@@ -19105,6 +19451,61 @@
           }
         },
         "required" : [ "startDate", "terms" ]
+      },
+      "ListingReconfirmationItem" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The public code"
+          },
+          "confirmedOn" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The Vietnam date of the latest valid confirmation"
+          },
+          "deadlinePassed" : {
+            "type" : "boolean",
+            "description" : "The last valid day has passed"
+          },
+          "latestRecordValid" : {
+            "type" : "boolean",
+            "description" : "The latest record is a valid confirmation"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "reconfirmFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNPUBLISHED", "PUBLISHED", "PAUSED", "URGENTLY_UNPUBLISHED" ]
+          },
+          "validThrough" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        },
+        "required" : [ "code", "confirmedOn", "deadlinePassed", "latestRecordValid", "listingId", "reconfirmFrom", "state", "validThrough" ]
+      },
+      "ListingReconfirmations" : {
+        "type" : "object",
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean",
+            "description" : "More listings may need reconfirmation than the list shows"
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "At most 50, oldest confirmation first, then by listing id",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingReconfirmationItem"
+            }
+          }
+        },
+        "required" : [ "hasMore", "items" ]
       },
       "ListingRent" : {
         "type" : "object",
