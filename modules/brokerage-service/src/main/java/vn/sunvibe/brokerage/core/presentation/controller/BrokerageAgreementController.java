@@ -29,10 +29,14 @@ import vn.sunvibe.brokerage.core.presentation.converter.AgreementRequestConverte
 import vn.sunvibe.brokerage.core.presentation.converter.AgreementResponseConverter;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRefusalRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementActivationRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCancellationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementCreateRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementDraftSubmissionRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementNewDraftRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementSuspensionReleaseRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementSuspensionRequest;
+import vn.sunvibe.brokerage.core.presentation.dto.request.BrokerageAgreementTerminationRequest;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementCreatedResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementDetailResponse;
 import vn.sunvibe.brokerage.core.presentation.dto.response.BrokerageAgreementHistoryResponse;
@@ -382,5 +386,143 @@ public class BrokerageAgreementController {
     public void refuseActivation(@PathVariable("agreementId") String agreementId,
                                  @Valid @RequestBody BrokerageAgreementActivationRefusalRequest request) {
         commands.refuseActivation(requests.toRefuseActivationCommand(agreementId, request), viewers.current());
+    }
+
+    /** brokerage-agreement BR-15, BR-16 (E05-S8 spec S8-D6, S8-D15): only a manager role suspends. */
+    @PostMapping("/{agreementId}/suspension")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SALE_LEADER','SALES_MANAGER','ADMIN')")
+    @Operation(operationId = "suspendBrokerageAgreement",
+            summary = "Suspend an agreement in effect, with a reason type and an optional private note")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The agreement is SUSPENDED and the unit's advertising is"
+                    + " off from now; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (entry reasonType with its allowedValues,"
+                    + " or note) or MALFORMED_REQUEST (the body cannot be read)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not a SALE_LEADER, SALES_MANAGER or"
+                    + " ADMIN",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_ENDED (it has ended), AGREEMENT_NOT_IN_EFFECT (it"
+                    + " never took effect), AGREEMENT_ALREADY_SUSPENDED or CONCURRENT_MODIFICATION (no entry: the"
+                    + " agreement's basis lead changed, or a change committed at the same time); no entry for any",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void suspend(@PathVariable("agreementId") String agreementId,
+                        @Valid @RequestBody BrokerageAgreementSuspensionRequest request) {
+        commands.suspend(requests.toSuspendCommand(agreementId, request), viewers.current());
+    }
+
+    /**
+     * brokerage-agreement BR-15, BR-16 (E05-S8 spec S8-D6, S8-D15): only a manager role lifts a suspension; that the
+     * manager is not the lead's assignee is checked in the use case.
+     */
+    @PostMapping("/{agreementId}/suspension-release")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('SALE_LEADER','SALES_MANAGER','ADMIN')")
+    @Operation(operationId = "releaseBrokerageAgreementSuspension",
+            summary = "Lift the suspension, with a private reason, against the data version read")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The agreement is ACTIVE again; the advertising returns by"
+                    + " itself when every other condition holds; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (entry expectedDataVersion or reason) or"
+                    + " MALFORMED_REQUEST (the body or a number cannot be read)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not a SALE_LEADER, SALES_MANAGER or"
+                    + " ADMIN; AGREEMENT_RELEASER_NOT_INDEPENDENT: the caller is the basis lead's assignee",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_ENDED (it has ended, its end passed while"
+                    + " suspended included), AGREEMENT_NOT_SUSPENDED or CONCURRENT_MODIFICATION (entry"
+                    + " expectedDataVersion for a stale value, none for a change committed in between)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void releaseSuspension(@PathVariable("agreementId") String agreementId,
+                                  @Valid @RequestBody BrokerageAgreementSuspensionReleaseRequest request) {
+        commands.releaseSuspension(requests.toReleaseSuspensionCommand(agreementId, request), viewers.current());
+    }
+
+    /**
+     * brokerage-agreement BR-14, BR-16 (E05-S8 spec S8-D5, S8-D15): the class rule; who may record which type is
+     * decided in the use case on the basis lead read under its lock.
+     */
+    @PostMapping("/{agreementId}/termination")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "terminateBrokerageAgreement",
+            summary = "Terminate an agreement that has not ended, for one of its three reasons with that reason's"
+                    + " fields")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The agreement is TERMINATED, its pending version cancelled,"
+                    + " and the unit's advertising is off from now; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (entry type with its allowedValues, a field"
+                    + " of another type or a missing one, channel or introducedBySunvibe with its allowedValues,"
+                    + " reportedOn (2000-01-01 to today in Vietnam) or note) or MALFORMED_REQUEST (the body or the date"
+                    + " cannot be read)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff;"
+                    + " AGREEMENT_ASSIGNEE_ONLY: UNIT_LET by a caller who is not the lead's assigned Sale;"
+                    + " AGREEMENT_TERMINATION_NOT_ALLOWED: SUNVIBE_TERMINATED by a caller who is not a manager",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_ENDED (it has ended) or CONCURRENT_MODIFICATION"
+                    + " (no entry: the agreement's basis lead changed, or a change committed at the same time)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void terminate(@PathVariable("agreementId") String agreementId,
+                          @Valid @RequestBody BrokerageAgreementTerminationRequest request) {
+        commands.terminate(requests.toTerminateCommand(agreementId, request), viewers.current());
+    }
+
+    /**
+     * brokerage-agreement BR-5, BR-16 (E05-S8 spec S8-D7, S8-D15): the class rule; only the lead's assigned Sale cancels,
+     * decided in the use case.
+     */
+    @PostMapping("/{agreementId}/cancellation")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(operationId = "cancelBrokerageAgreement",
+            summary = "Cancel an agreement that never took effect, against the data version read")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "The agreement is CANCELLED and its pending version"
+                    + " cancelled; no body (read the detail again)"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (entry expectedDataVersion) or"
+                    + " MALFORMED_REQUEST (the body or a number cannot be read)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller is not staff;"
+                    + " AGREEMENT_ASSIGNEE_ONLY: the caller is not the lead's assigned Sale",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the agreement does not exist, the id is"
+                    + " malformed or its basis lead is not visible: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "AGREEMENT_ENDED (it has ended), AGREEMENT_TOOK_EFFECT (it"
+                    + " took effect: terminate it instead) or CONCURRENT_MODIFICATION (entry expectedDataVersion for a"
+                    + " stale value, none for a change committed in between)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public void cancel(@PathVariable("agreementId") String agreementId,
+                       @Valid @RequestBody BrokerageAgreementCancellationRequest request) {
+        commands.cancel(requests.toCancelCommand(agreementId, request), viewers.current());
     }
 }

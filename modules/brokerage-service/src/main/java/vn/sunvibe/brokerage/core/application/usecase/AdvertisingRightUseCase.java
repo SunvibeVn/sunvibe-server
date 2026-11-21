@@ -14,6 +14,11 @@ import java.util.Optional;
  * listing's own terms snapshot (ADR-012 decision 1); never exposed over HTTP (ADR-009; ViewerlessReadArchTest). A pair
  * whose agreement does not exist or belongs to another unit is left out: its consumer reads absence as "not allowed"
  * (fail closed). A failing read of another module reaches the caller as its exception, never as an answer.
+ * <p>
+ * Once an agreement ended (brokerage-agreement E05-S8 spec S8-D13), {@code endDate} and {@code endsAt} stay the planned
+ * end of the version that counts, never the moment the agreement ended: a terminated agreement keeps its version's
+ * planned end, and one terminated before its activated version started has no version that counts and answers both
+ * {@code null}. A consumer reads {@code ended} (and the group {@code ENDED}) to know that the agreement ended.
  */
 public interface AdvertisingRightUseCase {
 

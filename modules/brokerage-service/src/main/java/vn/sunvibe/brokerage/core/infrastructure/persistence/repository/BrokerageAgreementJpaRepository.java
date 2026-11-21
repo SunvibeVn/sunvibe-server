@@ -101,6 +101,33 @@ public interface BrokerageAgreementJpaRepository extends JpaRepository<Brokerage
     @Query("select a.id from BrokerageAgreementEntity a where a.id = :id")
     Optional<String> lockForShare(@Param("id") String agreementId);
 
+    /**
+     * The agreement's id read with a row lock that conflicts with FOR SHARE and with a guarded update of the row
+     * (E05-S8 spec S8-D8 step 3 (a), S8-D18, A-1): one table, no join, no fetch and no DISTINCT, so the lock falls on the
+     * agreement row alone and the reads that follow take their snapshots after it is granted.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a.id from BrokerageAgreementEntity a where a.id = :id")
+    Optional<String> lockForUpdate(@Param("id") String agreementId);
+
+    /**
+     * The ids of the agreements stored ACTIVE or SUSPENDED that hold an EFFECTIVE or ACTIVATED version and none of those
+     * ending on or after {@code today}, by id (E05-S8 spec S8-D2, plan E05S8-P6). JPQL with the status literals, so
+     * PostgreSQL may use the partial index of the versions in effect.
+     */
+    @Query("select a.id from BrokerageAgreementEntity a"
+            + " where (a.status = vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus.ACTIVE"
+            + " or a.status = vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus.SUSPENDED)"
+            + " and exists (select 1 from AgreementVersionEntity v where v.agreement = a"
+            + " and (v.status = vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus.EFFECTIVE"
+            + " or v.status = vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus.ACTIVATED))"
+            + " and not exists (select 1 from AgreementVersionEntity w where w.agreement = a"
+            + " and (w.status = vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus.EFFECTIVE"
+            + " or w.status = vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus.ACTIVATED)"
+            + " and w.endDate >= :today)"
+            + " order by a.id asc")
+    List<String> findDueExpiryIds(@Param("today") LocalDate today, Pageable page);
+
     /** The agreements of those units and that type in those statuses, as ids only. */
     @Query("select a.id as agreementId, a.unitId as unitId, a.basisLeadId as basisLeadId"
             + " from BrokerageAgreementEntity a"

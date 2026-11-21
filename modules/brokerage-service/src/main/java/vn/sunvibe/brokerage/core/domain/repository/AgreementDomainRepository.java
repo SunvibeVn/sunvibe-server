@@ -79,6 +79,23 @@ public interface AgreementDomainRepository {
      */
     List<String> dueStartAgreementIds(LocalDate startOnOrBefore, int limit);
 
+    /**
+     * Locks the agreement row until the caller's transaction ends, then reads the agreement with its versions and their
+     * fee and tier rows fresh (E05-S8 spec S8-D8 step 3): the lock statement reads the agreements table alone and waits
+     * for a writer that holds the row; only after it is granted do the reads take their snapshots, so they see every
+     * write committed before the lock. Its row lock conflicts with FOR SHARE and with a guarded update of the row.
+     *
+     * @return empty when no row exists
+     */
+    Optional<BrokerageAgreement> findByIdForUpdate(String id);
+
+    /**
+     * The ids of the agreements stored ACTIVE or SUSPENDED that hold an EFFECTIVE or ACTIVATED version and none of those
+     * whose end date is on or after {@code endBefore} (today in Vietnam), by id, at most {@code limit} (E05-S8 spec S8-D2,
+     * plan E05S8-P6: the expiries due). An agreement in effect without such a version is never selected.
+     */
+    List<String> dueExpiryAgreementIds(LocalDate endBefore, int limit);
+
     /** An unfinished agreement of a unit, with the basis lead of its latest version. */
     record UnfinishedAgreement(String agreementId, String unitId, String basisLeadId) {
     }

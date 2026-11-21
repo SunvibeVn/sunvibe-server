@@ -5,10 +5,15 @@ import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationDecision;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AdvertisingScope;
 import vn.sunvibe.brokerage.core.domain.model.agreement.AgreementStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.BrokerageFee;
+import vn.sunvibe.brokerage.core.domain.model.agreement.IntroducedBySunvibe;
 import vn.sunvibe.brokerage.core.domain.model.agreement.PhotoConsent;
+import vn.sunvibe.brokerage.core.domain.model.agreement.StopAction;
+import vn.sunvibe.brokerage.core.domain.model.agreement.SuspensionReasonType;
+import vn.sunvibe.brokerage.core.domain.model.agreement.TerminationType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.TransactionType;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionStatus;
 import vn.sunvibe.brokerage.core.domain.model.agreement.VersionTerms;
+import vn.sunvibe.brokerage.core.domain.model.agreement.WithdrawalChannel;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -30,15 +35,51 @@ import java.util.List;
  * @param viewerMayDecideActivation the viewer holds a manager role and is independent of the version awaiting
  *                                  activation (BR-11, BR-16; spec S6-D2); a hint, the commands decide
  * @param activationStatementOrNull the activation statement of the version awaiting activation now; null otherwise
+ * @param endedAtOrNull             when the agreement ended (E05-S8 spec S8-D11); null while it has not
+ * @param terminationOrNull         what staff recorded when they terminated it; null unless TERMINATED; private (BR-17)
+ * @param suspensions               its suspension records, newest first, at most 20; private reasons (BR-17)
+ * @param moreSuspensions           older records exist; their events stay in the paged history
+ * @param viewerStopActions         the stops this viewer may take on the effective state, in the order of
+ *                                  {@link StopAction}; a hint from AgreementStopPolicy, the commands decide
  */
 public record AgreementDetailView(String agreementId, AgreementStatus status, TransactionType transactionType,
                                   String unitId, String unitCodeOrNull, String basisLeadId, Instant createdAt,
                                   List<VersionView> versions, long dataVersion, boolean viewerIsAssignedSale,
                                   AdvertisingRightView advertising, boolean viewerMayDecideActivation,
-                                  ActivationStatementView activationStatementOrNull) {
+                                  ActivationStatementView activationStatementOrNull, Instant endedAtOrNull,
+                                  TerminationView terminationOrNull, List<SuspensionView> suspensions,
+                                  boolean moreSuspensions, List<StopAction> viewerStopActions) {
 
     public AgreementDetailView {
         versions = List.copyOf(versions);
+        suspensions = List.copyOf(suspensions);
+        viewerStopActions = List.copyOf(viewerStopActions);
+    }
+
+    /**
+     * The termination as staff recorded it (brokerage-agreement BR-14; E05-S8 spec S8-D5, S8-D11). Private (BR-17): no
+     * value of it in a text.
+     */
+    public record TerminationView(TerminationType type, LocalDate reportedOnOrNull, WithdrawalChannel channelOrNull,
+                                  IntroducedBySunvibe introducedOrNull, String noteOrNull, Instant terminatedAt) {
+
+        @Override
+        public String toString() {
+            return "TerminationView[" + type + "]";
+        }
+    }
+
+    /**
+     * One suspension of the agreement (brokerage-agreement BR-15; E05-S8 spec S8-D6, S8-D11): no user id. Private
+     * (BR-17): no note or reason in a text.
+     */
+    public record SuspensionView(SuspensionReasonType reasonType, String noteOrNull, Instant suspendedAt,
+                                 Instant releasedAtOrNull, String releaseReasonOrNull) {
+
+        @Override
+        public String toString() {
+            return "SuspensionView[" + reasonType + ", " + suspendedAt + "]";
+        }
     }
 
     /** The statement a manager makes to activate a version (E05-S6 spec S6-D3): its version and its text. */

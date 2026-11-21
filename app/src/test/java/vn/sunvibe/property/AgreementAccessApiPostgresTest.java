@@ -231,8 +231,8 @@ class AgreementAccessApiPostgresTest extends IntakeApiTestBase {
 		assertEquals(200, answer.status(), answer.rawBody());
 		JsonNode detail = answer.body();
 		assertEquals(List.of("activationStatement", "advertising", "agreementId", "basisLeadId", "createdAt", "dataVersion",
-				"status", "transactionType", "unitCode", "unitId", "versions", "viewerIsAssignedSale",
-				"viewerMayDecideActivation"), sortedKeys(detail));
+				"endedAt", "moreSuspensions", "status", "suspensions", "termination", "transactionType", "unitCode", "unitId",
+				"versions", "viewerIsAssignedSale", "viewerMayDecideActivation", "viewerStopActions"), sortedKeys(detail));
 		assertEquals(1, detail.path("versions").size(), answer.rawBody());
 		JsonNode version = detail.path("versions").path(0);
 		assertEquals(List.of("activateBy", "activation", "advertisingScope", "answerBy", "createdAt", "endDate",

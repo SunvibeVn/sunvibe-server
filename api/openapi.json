@@ -3171,6 +3171,96 @@
         "tags" : [ "Brokerage agreement" ]
       }
     },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/cancellation" : {
+      "post" : {
+        "operationId" : "cancelBrokerageAgreement",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementCancellationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The agreement is CANCELLED and its pending version cancelled; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (entry expectedDataVersion) or MALFORMED_REQUEST (the body or a number cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff; AGREEMENT_ASSIGNEE_ONLY: the caller is not the lead's assigned Sale"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_ENDED (it has ended), AGREEMENT_TOOK_EFFECT (it took effect: terminate it instead) or CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed in between)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Cancel an agreement that never took effect, against the data version read",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/brokerage-agreements/{agreementId}/draft" : {
       "post" : {
         "operationId" : "openBrokerageAgreementDraft",
@@ -3617,6 +3707,276 @@
         "tags" : [ "Brokerage agreement" ]
       }
     },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/suspension" : {
+      "post" : {
+        "operationId" : "suspendBrokerageAgreement",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementSuspensionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The agreement is SUSPENDED and the unit's advertising is off from now; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (entry reasonType with its allowedValues, or note) or MALFORMED_REQUEST (the body cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not a SALE_LEADER, SALES_MANAGER or ADMIN"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_ENDED (it has ended), AGREEMENT_NOT_IN_EFFECT (it never took effect), AGREEMENT_ALREADY_SUSPENDED or CONCURRENT_MODIFICATION (no entry: the agreement's basis lead changed, or a change committed at the same time); no entry for any"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Suspend an agreement in effect, with a reason type and an optional private note",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/suspension-release" : {
+      "post" : {
+        "operationId" : "releaseBrokerageAgreementSuspension",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementSuspensionReleaseRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The agreement is ACTIVE again; the advertising returns by itself when every other condition holds; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (entry expectedDataVersion or reason) or MALFORMED_REQUEST (the body or a number cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not a SALE_LEADER, SALES_MANAGER or ADMIN; AGREEMENT_RELEASER_NOT_INDEPENDENT: the caller is the basis lead's assignee"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_ENDED (it has ended, its end passed while suspended included), AGREEMENT_NOT_SUSPENDED or CONCURRENT_MODIFICATION (entry expectedDataVersion for a stale value, none for a change committed in between)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Lift the suspension, with a private reason, against the data version read",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
+    "/api/v1/staff/brokerage-agreements/{agreementId}/termination" : {
+      "post" : {
+        "operationId" : "terminateBrokerageAgreement",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BrokerageAgreementTerminationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "204" : {
+            "description" : "The agreement is TERMINATED, its pending version cancelled, and the unit's advertising is off from now; no body (read the detail again)"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (entry type with its allowedValues, a field of another type or a missing one, channel or introducedBySunvibe with its allowedValues, reportedOn (2000-01-01 to today in Vietnam) or note) or MALFORMED_REQUEST (the body or the date cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller is not staff; AGREEMENT_ASSIGNEE_ONLY: UNIT_LET by a caller who is not the lead's assigned Sale; AGREEMENT_TERMINATION_NOT_ALLOWED: SUNVIBE_TERMINATED by a caller who is not a manager"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed or its basis lead is not visible: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "AGREEMENT_ENDED (it has ended) or CONCURRENT_MODIFICATION (no entry: the agreement's basis lead changed, or a change committed at the same time)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Terminate an agreement that has not ended, for one of its three reasons with that reason's fields",
+        "tags" : [ "Brokerage agreement" ]
+      }
+    },
     "/api/v1/staff/inventory-cases" : {
       "get" : {
         "operationId" : "list_3",
@@ -3844,6 +4204,843 @@
         },
         "summary" : "Rule on a case: DIFFERENT_ASSET or SAME_ASSET",
         "tags" : [ "Inventory cases" ]
+      }
+    },
+    "/api/v1/staff/listings" : {
+      "post" : {
+        "operationId" : "createListing",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingCreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingCreated"
+                }
+              }
+            },
+            "description" : "The listing was created, Unpublished with revision 1 Draft; its id and public code are answered"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry, field agreementId) or MALFORMED_REQUEST (the body cannot be read)"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every agreement id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, is of another transaction type, or the caller does not hold its basis lead now: one answer for all three"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_NOT_ALLOWED (one reasonGroups.<GROUP> entry per group, in the order NO_AGREEMENT, NOT_IN_EFFECT, NOT_STARTED, SUSPENDED, ENDED, BASIS, PROPERTY, UNIT, OWNER), LISTING_EXISTS (the agreement already has a listing; no id is answered) or CONCURRENT_MODIFICATION"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Create a listing under an agreement whose advertising answer allows it, for its assigned Sale",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/by-agreement/{agreementId}" : {
+      "get" : {
+        "operationId" : "getAgreementListings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "agreementId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AgreementListings"
+                }
+              }
+            },
+            "description" : "At most the agreement's 20 newest listings and the creation part"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN (LISTING_REVIEWER alone included); the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the agreement does not exist, the id is malformed, or the caller may not read it: one answer for all three"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, also for a reason group of the advertising answer this server does not know"
+          }
+        },
+        "summary" : "The listings of an agreement and whether the caller may create one now",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}" : {
+      "get" : {
+        "operationId" : "getListing",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingDetail"
+                }
+              }
+            },
+            "description" : "The listing and at most its 20 newest revisions"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller may not read it: one answer for all three"
+          }
+        },
+        "summary" : "A listing with its newest revisions; nothing of it is public",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions" : {
+      "post" : {
+        "operationId" : "startListingRevision",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingRevisionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "The new Draft, numbered after the greatest number, and the listing's new data version"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion missing or negative, or a field of the body) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller does not hold the agreement's basis lead now, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data version is stale) or OPEN_REVISION_EXISTS"
+          }
+        },
+        "summary" : "Start a new empty Draft when the listing has no Draft or Pending review revision",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}" : {
+      "get" : {
+        "operationId" : "getListingRevision",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionDetail"
+                }
+              }
+            },
+            "description" : "The revision; no user id"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller may not read the listing, or it has no such revision: one answer for all"
+          }
+        },
+        "summary" : "One revision of a listing, with the problems a Draft's submission would answer now",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/content" : {
+      "put" : {
+        "operationId" : "saveListingRevisionContent",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingRevisionContent"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "Saved; the listing's new data version"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion missing or negative, or a field of the body) or MALFORMED_REQUEST (the body cannot be read); answered before the role; the entry title, description or features.<name> for a text or code the revision cannot store"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller does not hold the agreement's basis lead now, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION or REVISION_NOT_DRAFT"
+          }
+        },
+        "summary" : "Save a Draft's title, description and features; minimum lengths and the machine check are the submission's",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/submission" : {
+      "post" : {
+        "operationId" : "submitListingRevision",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingRevisionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "Pending review; the content is locked"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion missing or negative, or a field of the body) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller does not hold the agreement's basis lead now, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION or REVISION_NOT_DRAFT"
+          },
+          "422" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "REVISION_NOT_SUBMITTABLE: one entry per violation, in order, its field <part>.<rule> (title.TOO_SHORT, terms.REQUIRED); never the matched text"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR: the unit's profile cannot be read; nothing is written"
+          }
+        },
+        "summary" : "Submit a complete Draft for review with the unit and property fields of this moment",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/terms" : {
+      "put" : {
+        "operationId" : "captureListingRevisionTerms",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingTermsCapture"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "Taken; an earlier snapshot and its fees are replaced"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion missing or negative, or a field of the body) or MALFORMED_REQUEST (the body cannot be read); answered before the role; the entry source for another value"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller does not hold the agreement's basis lead now, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION, REVISION_NOT_DRAFT or TERMS_SOURCE_ABSENT (the agreement has no such version now)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR: the agreement's terms break the contract; nothing is written"
+          }
+        },
+        "summary" : "Take a Draft's terms snapshot from the agreement's version in effect or waiting to start",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/withdrawal" : {
+      "post" : {
+        "operationId" : "withdrawListingRevision",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingRevisionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "Cancelled"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion missing or negative, or a field of the body) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller does not hold the agreement's basis lead now, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION or REVISION_NOT_PENDING"
+          }
+        },
+        "summary" : "Withdraw a Pending review revision before a decision; its content is kept",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/terms-sources" : {
+      "get" : {
+        "operationId" : "getListingTermsSources",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingTermsSources"
+                }
+              }
+            },
+            "description" : "Each source present only when the agreement has it; none once the agreement ended"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller does not hold its agreement's basis lead now: one answer for all"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR: the agreement's terms break the contract"
+          }
+        },
+        "summary" : "What a terms snapshot can be taken from now: the version in effect and the one waiting to start",
+        "tags" : [ "Listing" ]
       }
     },
     "/api/v1/staff/owner-lead-assignees" : {
@@ -9467,6 +10664,29 @@
         },
         "required" : [ "note" ]
       },
+      "AgreementListings" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string"
+          },
+          "creation" : {
+            "$ref" : "#/components/schemas/ListingCreation"
+          },
+          "hasOlder" : {
+            "type" : "boolean",
+            "description" : "The agreement has older listings than those answered"
+          },
+          "listings" : {
+            "type" : "array",
+            "description" : "At most the 20 newest listings of the agreement, the newest first; at most one is not archived",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingItem"
+            }
+          }
+        },
+        "required" : [ "agreementId", "creation", "hasOlder", "listings" ]
+      },
       "AskingPriceRequest" : {
         "type" : "object",
         "properties" : {
@@ -9847,6 +11067,18 @@
           }
         }
       },
+      "BrokerageAgreementCancellationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedDataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The dataVersion of the detail the caller read",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "expectedDataVersion" ]
+      },
       "BrokerageAgreementConfirmationItemInput" : {
         "type" : "object",
         "properties" : {
@@ -10018,9 +11250,33 @@
             "format" : "int64",
             "description" : "The data version a change of the agreement sends back as expectedDataVersion"
           },
+          "endedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "When the agreement ended: the end of its version for an expiry, the moment of a termination or a cancellation; null while it has not ended"
+          },
+          "moreSuspensions" : {
+            "type" : "boolean",
+            "description" : "Whether older suspension records exist; their events stay in the paged history"
+          },
           "status" : {
             "type" : "string",
             "enum" : [ "DRAFTING", "AWAITING_CONFIRMATION", "ACTIVE", "SUSPENDED", "EXPIRED", "TERMINATED", "CANCELLED" ]
+          },
+          "suspensions" : {
+            "type" : "array",
+            "description" : "The suspension records, newest first, at most 20; an absent list reads as none",
+            "items" : {
+              "$ref" : "#/components/schemas/BrokerageAgreementSuspension"
+            }
+          },
+          "termination" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/BrokerageAgreementTermination"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "What staff recorded when they terminated the agreement; null unless TERMINATED; private"
           },
           "transactionType" : {
             "type" : "string",
@@ -10047,6 +11303,14 @@
           "viewerMayDecideActivation" : {
             "type" : "boolean",
             "description" : "Whether the caller holds SALE_LEADER, SALES_MANAGER or ADMIN and is neither the basis lead's assignee nor an author of the version awaiting activation; a hint, the server decides; always sent"
+          },
+          "viewerStopActions" : {
+            "type" : "array",
+            "description" : "The stops the caller may take now, in this order; a hint, the server decides; empty on an agreement that ended",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "CANCEL", "SUSPEND", "RELEASE_SUSPENSION", "TERMINATE_OWNER_WITHDREW", "TERMINATE_UNIT_LET", "TERMINATE_SUNVIBE" ]
+            }
           }
         }
       },
@@ -10452,7 +11716,7 @@
           "type" : {
             "type" : "string",
             "description" : "The event; OTHER for one this version of the server does not know",
-            "enum" : [ "CREATED", "DRAFT_EDITED", "VERSION_SENT", "OWNER_CONFIRMED", "OWNER_REJECTED", "VERSION_LAPSED", "DRAFT_OPENED", "ACTIVATED", "ACTIVATION_REFUSED", "VERSION_STARTED", "OTHER" ]
+            "enum" : [ "CREATED", "DRAFT_EDITED", "VERSION_SENT", "OWNER_CONFIRMED", "OWNER_REJECTED", "VERSION_LAPSED", "DRAFT_OPENED", "ACTIVATED", "ACTIVATION_REFUSED", "VERSION_STARTED", "SUSPENDED", "SUSPENSION_RELEASED", "TERMINATED", "EXPIRED", "CANCELLED", "OTHER" ]
           },
           "versionNo" : {
             "type" : [ "integer", "null" ],
@@ -10720,6 +11984,70 @@
           }
         }
       },
+      "BrokerageAgreementSuspension" : {
+        "type" : "object",
+        "properties" : {
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "The manager's note; private"
+          },
+          "reasonType" : {
+            "type" : "string",
+            "enum" : [ "COMPLAINT", "SUSPECTED_FRAUD", "DISPUTE", "NEEDS_CHECK" ]
+          },
+          "releaseReason" : {
+            "type" : [ "string", "null" ],
+            "description" : "Why it was lifted; private; null while it is open"
+          },
+          "releasedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "When it was lifted; null while it is open"
+          },
+          "suspendedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "BrokerageAgreementSuspensionReleaseRequest" : {
+        "type" : "object",
+        "properties" : {
+          "expectedDataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The dataVersion of the detail the caller read",
+            "minimum" : 0
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "Private; 1 to 500 characters after trimming, at most 500 as sent; no control or bidirectional formatting character",
+            "example" : "The price was checked with the owner.",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "expectedDataVersion", "reason" ]
+      },
+      "BrokerageAgreementSuspensionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Optional and private; at most 500 characters as sent, trimmed, and stored only when not blank; no control or bidirectional formatting character",
+            "example" : "Tenant reported a different price.",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "reasonType" : {
+            "type" : "string",
+            "description" : "Why: a complaint, suspected fraud, a dispute or a check that is needed",
+            "enum" : [ "COMPLAINT", "SUSPECTED_FRAUD", "DISPUTE", "NEEDS_CHECK" ],
+            "example" : "COMPLAINT"
+          }
+        },
+        "required" : [ "reasonType" ]
+      },
       "BrokerageAgreementTermSource" : {
         "type" : "object",
         "properties" : {
@@ -10738,6 +12066,77 @@
             "enum" : [ "OBSERVED_ON_SITE", "OWNER_STATED", "OWNER_FORM", null ]
           }
         }
+      },
+      "BrokerageAgreementTermination" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : [ "string", "null" ],
+            "description" : "How the owner said it; OWNER_WITHDREW only",
+            "enum" : [ "PHONE_CALL", "IN_PERSON", "MESSAGE", "EMAIL", "OTHER", null ]
+          },
+          "introducedBySunvibe" : {
+            "type" : [ "string", "null" ],
+            "description" : "Whether Sunvibe introduced the tenant; UNIT_LET only",
+            "enum" : [ "YES", "NO", "UNKNOWN", null ]
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "The note; private"
+          },
+          "reportedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The date the owner said it or reported it; null for SUNVIBE_TERMINATED"
+          },
+          "terminatedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the agreement was terminated"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "OWNER_WITHDREW", "UNIT_LET", "SUNVIBE_TERMINATED" ]
+          }
+        }
+      },
+      "BrokerageAgreementTerminationRequest" : {
+        "type" : "object",
+        "example" : {
+          "type" : "UNIT_LET",
+          "reportedOn" : "2026-12-02",
+          "introducedBySunvibe" : "UNKNOWN",
+          "note" : null
+        },
+        "properties" : {
+          "channel" : {
+            "type" : [ "string", "null" ],
+            "description" : "OWNER_WITHDREW only, required for it: how the owner said it",
+            "enum" : [ "PHONE_CALL", "IN_PERSON", "MESSAGE", "EMAIL", "OTHER", null ]
+          },
+          "introducedBySunvibe" : {
+            "type" : [ "string", "null" ],
+            "description" : "UNIT_LET only, required for it: whether Sunvibe introduced the tenant",
+            "enum" : [ "YES", "NO", "UNKNOWN", null ]
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Private; at most 500 characters as sent, trimmed; required (1 to 500) for SUNVIBE_TERMINATED, optional and stored only when not blank otherwise; no control or bidirectional formatting character",
+            "maxLength" : 500,
+            "minLength" : 0
+          },
+          "reportedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "OWNER_WITHDREW and UNIT_LET only, required for them: the date the owner said it or reported it, a calendar date in Vietnam from 2000-01-01 to today"
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "OWNER_WITHDREW: the owner withdrew; UNIT_LET: the unit is let; SUNVIBE_TERMINATED: Sunvibe's decision (a manager only)",
+            "enum" : [ "OWNER_WITHDREW", "UNIT_LET", "SUNVIBE_TERMINATED" ]
+          }
+        },
+        "required" : [ "type" ]
       },
       "BrokerageAgreementTerms" : {
         "type" : "object",
@@ -17399,6 +18798,629 @@
           }
         },
         "required" : [ "expectedVersion", "leadId" ]
+      },
+      "ListingCreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string",
+            "description" : "The agreement the listing is bound to for life; its unit and transaction type come from it",
+            "pattern" : "^[0-9A-Z]{26}$"
+          }
+        },
+        "required" : [ "agreementId" ]
+      },
+      "ListingCreated" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The public code; it never changes",
+            "pattern" : "^TD-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$"
+          },
+          "listingId" : {
+            "type" : "string",
+            "description" : "The internal id (staff only)"
+          }
+        },
+        "required" : [ "code", "listingId" ]
+      },
+      "ListingCreation" : {
+        "type" : "object",
+        "properties" : {
+          "advertisingNotStarted" : {
+            "type" : "boolean",
+            "description" : "E05's reason groups are exactly NOT_STARTED: the listing can be prepared before the start"
+          },
+          "reasonGroups" : {
+            "type" : "array",
+            "description" : "The groups that stop a create, in this order; empty when E05's answer allows one (NOT_STARTED alone included); ENDED when the agreement has ended; NO_AGREEMENT when E05 gives no answer",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NO_AGREEMENT", "NOT_IN_EFFECT", "NOT_STARTED", "SUSPENDED", "ENDED", "BASIS", "PROPERTY", "UNIT", "OWNER" ]
+            }
+          },
+          "viewerMayCreate" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "advertisingNotStarted", "reasonGroups", "viewerMayCreate" ]
+      },
+      "ListingDeposit" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Set for AMOUNT, from 0"
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [ "MONTHS", "AMOUNT" ]
+          },
+          "currency" : {
+            "type" : [ "string", "null" ],
+            "description" : "VND exactly when an amount is set",
+            "enum" : [ "VND", null ]
+          },
+          "months" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Set for MONTHS, 0 to 12"
+          }
+        },
+        "required" : [ "amount", "basis", "currency", "months" ]
+      },
+      "ListingDetail" : {
+        "type" : "object",
+        "properties" : {
+          "agreementId" : {
+            "type" : "string",
+            "description" : "The listing's agreement"
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "The public code"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The data version a later command sends back"
+          },
+          "hasOlderRevisions" : {
+            "type" : "boolean",
+            "description" : "The listing has older revisions than those answered"
+          },
+          "listingId" : {
+            "type" : "string",
+            "description" : "The internal id (staff only)"
+          },
+          "openRevisionNo" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "The number of the listing's Draft or Pending review revision; null when none is open"
+          },
+          "revisions" : {
+            "type" : "array",
+            "description" : "At most the 20 newest revisions, the newest first",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingRevisionItem"
+            }
+          },
+          "state" : {
+            "type" : "string",
+            "description" : "ARCHIVED also when the listing's agreement has ended",
+            "enum" : [ "UNPUBLISHED", "PUBLISHED", "PAUSED", "URGENTLY_UNPUBLISHED", "ARCHIVED" ]
+          },
+          "transactionType" : {
+            "type" : "string",
+            "enum" : [ "LONG_TERM_RENT" ]
+          },
+          "unitId" : {
+            "type" : "string"
+          },
+          "viewerIsAssignedSale" : {
+            "type" : "boolean",
+            "description" : "The viewer holds the agreement's basis lead now; a hint, the commands decide"
+          }
+        },
+        "required" : [ "agreementId", "code", "createdAt", "dataVersion", "hasOlderRevisions", "listingId", "openRevisionNo", "revisions", "state", "transactionType", "unitId", "viewerIsAssignedSale" ]
+      },
+      "ListingFeatures" : {
+        "type" : "object",
+        "properties" : {
+          "airConditioner" : {
+            "type" : "boolean"
+          },
+          "balcony" : {
+            "type" : "boolean"
+          },
+          "carParking" : {
+            "type" : "boolean"
+          },
+          "elevator" : {
+            "type" : "boolean"
+          },
+          "fridge" : {
+            "type" : "boolean"
+          },
+          "furnishing" : {
+            "type" : [ "string", "null" ],
+            "description" : "Furniture; null when not stated",
+            "enum" : [ "FULL", "BASIC", "NONE", null ]
+          },
+          "internet" : {
+            "type" : "boolean"
+          },
+          "kitchen" : {
+            "type" : [ "string", "null" ],
+            "description" : "Kitchen; null when not stated",
+            "enum" : [ "PRIVATE", "SHARED", null ]
+          },
+          "motorbikeParking" : {
+            "type" : "boolean"
+          },
+          "noSharedLandlord" : {
+            "type" : "boolean",
+            "description" : "The landlord does not live here"
+          },
+          "pets" : {
+            "type" : [ "string", "null" ],
+            "description" : "Pets; null when not stated",
+            "enum" : [ "ALLOWED", "NOT_ALLOWED", null ]
+          },
+          "washingMachine" : {
+            "type" : [ "string", "null" ],
+            "description" : "Washing machine; null when not stated",
+            "enum" : [ "PRIVATE", "SHARED", null ]
+          },
+          "waterHeater" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "airConditioner", "balcony", "carParking", "elevator", "fridge", "furnishing", "internet", "kitchen", "motorbikeParking", "noSharedLandlord", "pets", "washingMachine", "waterHeater" ]
+      },
+      "ListingFeaturesInput" : {
+        "type" : "object",
+        "properties" : {
+          "airConditioner" : {
+            "type" : "boolean"
+          },
+          "balcony" : {
+            "type" : "boolean"
+          },
+          "carParking" : {
+            "type" : "boolean"
+          },
+          "elevator" : {
+            "type" : "boolean"
+          },
+          "fridge" : {
+            "type" : "boolean"
+          },
+          "furnishing" : {
+            "type" : [ "string", "null" ],
+            "description" : "Furniture; null when not stated",
+            "enum" : [ "FULL", "BASIC", "NONE", null ],
+            "pattern" : "FULL|BASIC|NONE"
+          },
+          "internet" : {
+            "type" : "boolean"
+          },
+          "kitchen" : {
+            "type" : [ "string", "null" ],
+            "description" : "Kitchen; null when not stated",
+            "enum" : [ "PRIVATE", "SHARED", null ],
+            "pattern" : "PRIVATE|SHARED"
+          },
+          "motorbikeParking" : {
+            "type" : "boolean"
+          },
+          "noSharedLandlord" : {
+            "type" : "boolean",
+            "description" : "The landlord does not live here"
+          },
+          "pets" : {
+            "type" : [ "string", "null" ],
+            "description" : "Pets; null when not stated",
+            "enum" : [ "ALLOWED", "NOT_ALLOWED", null ],
+            "pattern" : "ALLOWED|NOT_ALLOWED"
+          },
+          "washingMachine" : {
+            "type" : [ "string", "null" ],
+            "description" : "Washing machine; null when not stated",
+            "enum" : [ "PRIVATE", "SHARED", null ],
+            "pattern" : "PRIVATE|SHARED"
+          },
+          "waterHeater" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "airConditioner", "balcony", "carParking", "elevator", "fridge", "furnishing", "internet", "kitchen", "motorbikeParking", "noSharedLandlord", "pets", "washingMachine", "waterHeater" ]
+      },
+      "ListingFee" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int64",
+            "description" : "Set for AMOUNT, at least 1"
+          },
+          "basis" : {
+            "type" : "string",
+            "enum" : [ "AMOUNT", "INCLUDED", "PROVIDER_TARIFF" ]
+          },
+          "chargeUnit" : {
+            "type" : [ "string", "null" ],
+            "description" : "Set for AMOUNT",
+            "enum" : [ "PER_MONTH", "PER_KWH", "PER_M3", "PER_PERSON_PER_MONTH", "PER_VEHICLE_PER_MONTH", "ONE_OFF", null ]
+          },
+          "currency" : {
+            "type" : [ "string", "null" ],
+            "description" : "VND exactly when an amount is set",
+            "enum" : [ "VND", null ]
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "1 to 100 characters, E05's content"
+          }
+        },
+        "required" : [ "amount", "basis", "chargeUnit", "currency", "name" ]
+      },
+      "ListingItem" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The public code"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string",
+            "description" : "ARCHIVED also when the agreement has ended",
+            "enum" : [ "UNPUBLISHED", "PUBLISHED", "PAUSED", "URGENTLY_UNPUBLISHED", "ARCHIVED" ]
+          }
+        },
+        "required" : [ "code", "createdAt", "listingId", "state" ]
+      },
+      "ListingPendingTerms" : {
+        "type" : "object",
+        "properties" : {
+          "startDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/ListingTerms"
+          }
+        },
+        "required" : [ "startDate", "terms" ]
+      },
+      "ListingRent" : {
+        "type" : "object",
+        "properties" : {
+          "amount" : {
+            "type" : "integer",
+            "format" : "int64",
+            "maximum" : 999999999999999,
+            "minimum" : 1
+          },
+          "currency" : {
+            "type" : "string",
+            "enum" : [ "VND" ]
+          },
+          "unit" : {
+            "type" : "string",
+            "enum" : [ "MONTH" ]
+          }
+        },
+        "required" : [ "amount", "currency", "unit" ]
+      },
+      "ListingRevisionChange" : {
+        "type" : "object",
+        "properties" : {
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's new data version"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "NEEDS_CHANGES", "REJECTED", "APPROVED", "LIVE", "REPLACED", "CANCELLED" ]
+          }
+        },
+        "required" : [ "dataVersion", "listingId", "revisionNo", "status" ]
+      },
+      "ListingRevisionCommand" : {
+        "type" : "object",
+        "properties" : {
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version the caller read (listing BR-3)",
+            "minimum" : 0
+          }
+        },
+        "required" : [ "dataVersion" ]
+      },
+      "ListingRevisionContent" : {
+        "type" : "object",
+        "properties" : {
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version the caller read (listing BR-3)",
+            "minimum" : 0
+          },
+          "description" : {
+            "type" : [ "string", "null" ],
+            "description" : "At most 3,000 characters (code points after NFC, trimmed), line feeds allowed, no other control or format character; null or blank is empty",
+            "maxLength" : 12000,
+            "minLength" : 0
+          },
+          "features" : {
+            "$ref" : "#/components/schemas/ListingFeaturesInput"
+          },
+          "title" : {
+            "type" : [ "string", "null" ],
+            "description" : "At most 90 characters (code points after NFC, trimmed) on one line, no control or format character; null or blank is empty",
+            "maxLength" : 360,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "dataVersion", "description", "features", "title" ]
+      },
+      "ListingRevisionDetail" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version a later command sends back"
+          },
+          "description" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null when empty"
+          },
+          "features" : {
+            "$ref" : "#/components/schemas/ListingFeatures"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "problems" : {
+            "type" : "array",
+            "description" : "The rules a submission would refuse now, in order; empty unless the status is DRAFT",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingRevisionProblem"
+            }
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "NEEDS_CHANGES", "REJECTED", "APPROVED", "LIVE", "REPLACED", "CANCELLED" ]
+          },
+          "submittedAt" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time",
+            "description" : "Null before the submission"
+          },
+          "termsSnapshot" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingTermsSnapshot"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Null until a snapshot is taken"
+          },
+          "title" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null when empty"
+          },
+          "unitSnapshot" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingUnitSnapshot"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "Taken at the submission; null before it"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "createdAt", "dataVersion", "description", "features", "listingId", "problems", "revisionNo", "status", "submittedAt", "termsSnapshot", "title", "unitSnapshot", "updatedAt" ]
+      },
+      "ListingRevisionItem" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "From 1"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "NEEDS_CHANGES", "REJECTED", "APPROVED", "LIVE", "REPLACED", "CANCELLED" ]
+          }
+        },
+        "required" : [ "createdAt", "revisionNo", "status" ]
+      },
+      "ListingRevisionProblem" : {
+        "type" : "object",
+        "properties" : {
+          "part" : {
+            "type" : "string",
+            "enum" : [ "TITLE", "DESCRIPTION", "TERMS" ]
+          },
+          "rule" : {
+            "type" : "string",
+            "enum" : [ "REQUIRED", "TOO_SHORT", "TOO_LONG", "PHONE_NUMBER", "EMAIL", "LINK", "SOCIAL_HANDLE", "FORBIDDEN_WORD" ]
+          }
+        },
+        "required" : [ "part", "rule" ]
+      },
+      "ListingTerms" : {
+        "type" : "object",
+        "properties" : {
+          "deposit" : {
+            "$ref" : "#/components/schemas/ListingDeposit"
+          },
+          "mandatoryFees" : {
+            "type" : "array",
+            "description" : "0 to 20 fees, E05's order",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingFee"
+            }
+          },
+          "minimumTermMonths" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 120,
+            "minimum" : 1
+          },
+          "monthlyRent" : {
+            "$ref" : "#/components/schemas/ListingRent"
+          },
+          "paymentPeriodMonths" : {
+            "type" : "integer",
+            "format" : "int32",
+            "maximum" : 12,
+            "minimum" : 1
+          }
+        },
+        "required" : [ "deposit", "mandatoryFees", "minimumTermMonths", "monthlyRent", "paymentPeriodMonths" ]
+      },
+      "ListingTermsCapture" : {
+        "type" : "object",
+        "properties" : {
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version the caller read (listing BR-3)",
+            "minimum" : 0
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "The version in effect, or the activated version waiting for its start date",
+            "enum" : [ "IN_EFFECT", "PENDING_START" ],
+            "pattern" : "IN_EFFECT|PENDING_START"
+          }
+        },
+        "required" : [ "dataVersion", "source" ]
+      },
+      "ListingTermsSnapshot" : {
+        "type" : "object",
+        "properties" : {
+          "capturedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "pendingStartDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "Set exactly for PENDING_START"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "IN_EFFECT", "PENDING_START" ]
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/ListingTerms"
+          }
+        },
+        "required" : [ "capturedAt", "pendingStartDate", "source", "terms" ]
+      },
+      "ListingTermsSources" : {
+        "type" : "object",
+        "properties" : {
+          "ended" : {
+            "type" : "boolean",
+            "description" : "The listing's agreement ended: no source"
+          },
+          "inEffect" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingTerms"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The terms of E05's version in effect; null without one"
+          },
+          "pending" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingPendingTerms"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "E05's activated version waiting to start; null without one"
+          }
+        },
+        "required" : [ "ended", "inEffect", "pending" ]
+      },
+      "ListingUnitSnapshot" : {
+        "type" : "object",
+        "properties" : {
+          "areaSqm" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "assetType" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null on a legacy property",
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
+          },
+          "bathrooms" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bedrooms" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "provinceCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "provinceName" : {
+            "type" : [ "string", "null" ]
+          },
+          "wardCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "wardName" : {
+            "type" : [ "string", "null" ],
+            "description" : "The four place fields are set together from the catalog, or all null"
+          }
+        },
+        "required" : [ "areaSqm", "assetType", "bathrooms", "bedrooms", "provinceCode", "provinceName", "wardCode", "wardName" ]
       },
       "LoginRequest" : {
         "type" : "object",

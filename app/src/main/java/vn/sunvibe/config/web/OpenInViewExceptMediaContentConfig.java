@@ -57,6 +57,34 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	/** The history of an agreement (E05-S7 spec S7-D11). */
 	static final String BROKERAGE_AGREEMENT_HISTORY_PATTERN = "/api/v1/staff/brokerage-agreements/*/history";
 
+	/** The suspension of an agreement (E05-S8 spec S8-D15). */
+	static final String BROKERAGE_AGREEMENT_SUSPENSION_PATTERN = "/api/v1/staff/brokerage-agreements/*/suspension";
+
+	/** The release of a suspension (E05-S8 spec S8-D15). */
+	static final String BROKERAGE_AGREEMENT_SUSPENSION_RELEASE_PATTERN =
+			"/api/v1/staff/brokerage-agreements/*/suspension-release";
+
+	/** The termination of an agreement (E05-S8 spec S8-D15). */
+	static final String BROKERAGE_AGREEMENT_TERMINATION_PATTERN = "/api/v1/staff/brokerage-agreements/*/termination";
+
+	/** The cancellation of an agreement (E05-S8 spec S8-D15). */
+	static final String BROKERAGE_AGREEMENT_CANCELLATION_PATTERN = "/api/v1/staff/brokerage-agreements/*/cancellation";
+
+	/** The listing create (listing-publish E06-S1 spec E06S1-D11). */
+	static final String LISTINGS_PATTERN = "/api/v1/staff/listings";
+
+	/** The listing read (listing-publish E06-S1 spec E06S1-D11); {@code /*} matches one segment only. */
+	static final String LISTING_PATTERN = "/api/v1/staff/listings/*";
+
+	/** The listing section of an agreement's page (listing-publish E06-S1 spec E06S1-D11). */
+	static final String LISTINGS_BY_AGREEMENT_PATTERN = "/api/v1/staff/listings/by-agreement/*";
+
+	/**
+	 * Every sub-resource of one listing: its revisions, their commands and the terms sources (listing-publish E06-S2 spec
+	 * E06S2-D16), so a later sub-resource falls under it with a test of its own.
+	 */
+	static final String LISTING_SUBRESOURCES_PATTERN = "/api/v1/staff/listings/*/**";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -76,6 +104,9 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 						BROKERAGE_AGREEMENT_SUBMISSION_PATTERN, ME_BROKERAGE_AGREEMENTS_PATTERN,
 						ME_BROKERAGE_AGREEMENT_CONFIRMATIONS_PATTERN, ME_BROKERAGE_AGREEMENT_REJECTION_PATTERN,
 						BROKERAGE_AGREEMENT_ACTIVATION_PATTERN, BROKERAGE_AGREEMENT_ACTIVATION_REFUSAL_PATTERN,
-						BROKERAGE_AGREEMENT_HISTORY_PATTERN);
+						BROKERAGE_AGREEMENT_HISTORY_PATTERN, BROKERAGE_AGREEMENT_SUSPENSION_PATTERN,
+						BROKERAGE_AGREEMENT_SUSPENSION_RELEASE_PATTERN, BROKERAGE_AGREEMENT_TERMINATION_PATTERN,
+						BROKERAGE_AGREEMENT_CANCELLATION_PATTERN, LISTINGS_PATTERN, LISTING_PATTERN,
+						LISTINGS_BY_AGREEMENT_PATTERN, LISTING_SUBRESOURCES_PATTERN);
 	}
 }

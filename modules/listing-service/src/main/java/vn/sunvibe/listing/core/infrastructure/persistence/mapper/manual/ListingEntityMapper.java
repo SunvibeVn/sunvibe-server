@@ -1,0 +1,200 @@
+package vn.sunvibe.listing.core.infrastructure.persistence.mapper.manual;
+
+import org.springframework.stereotype.Component;
+import vn.sunvibe.listing.core.domain.model.listing.Listing;
+import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
+import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionContent;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionFeatures;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionTerms;
+import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
+import vn.sunvibe.listing.core.domain.repository.ListingRow;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingHistoryEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeKey;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+/**
+ * Manual Mapper - a listing to its tables' entities, and rows back to domain values through the domain's own factories
+ * ({@link ListingRevision#load}, {@link Listing#loadForCommand}, {@link ListingCode#of}); no reflection. A revision maps
+ * every column both ways (listing-publish E06-S2 spec E06S2-D19), so a write by id keeps no field unchanged by mistake.
+ */
+@Component
+public class ListingEntityMapper {
+
+    /** The listing's own row of a new listing: a null row version, so the insert is a persist (E06S1-P13). */
+    public ListingEntity toNewEntity(Listing listing) {
+        return ListingEntity.builder()
+                .id(listing.id())
+                .code(listing.code().value())
+                .unitId(listing.unitId())
+                .transactionType(listing.transactionType())
+                .agreementId(listing.agreementId())
+                .state(listing.state())
+                .createdBy(listing.createdBy())
+                .createdAt(listing.createdAt())
+                .updatedAt(listing.updatedAt())
+                .rowVersion(null)
+                .build();
+    }
+
+    public List<ListingRevisionEntity> toRevisionEntities(Listing listing) {
+        return listing.revisions().stream().map(revision -> toRevisionEntity(listing.id(), revision)).toList();
+    }
+
+    /** Every column of a revision in its full form; its fees are {@link #toFeeEntities}. */
+    public ListingRevisionEntity toRevisionEntity(String listingId, ListingRevision revision) {
+        RevisionContent content = revision.content();
+        RevisionFeatures features = content.features();
+        RevisionTerms terms = revision.termsOrNull();
+        UnitSnapshot unit = revision.unitSnapshotOrNull();
+        ListingRevisionEntity.ListingRevisionEntityBuilder builder = ListingRevisionEntity.builder()
+                .id(revision.id())
+                .listingId(listingId)
+                .revisionNo(revision.revisionNo())
+                .status(revision.status())
+                .createdBy(revision.createdBy())
+                .createdAt(revision.createdAt())
+                .updatedAt(revision.updatedAt())
+                .title(content.titleOrNull())
+                .description(content.descriptionOrNull())
+                .featureFurnishing(features.furnishingOrNull())
+                .featureAirConditioner(features.airConditioner())
+                .featureWaterHeater(features.waterHeater())
+                .featureFridge(features.fridge())
+                .featureWashingMachine(features.washingMachineOrNull())
+                .featureKitchen(features.kitchenOrNull())
+                .featureBalcony(features.balcony())
+                .featureElevator(features.elevator())
+                .featureMotorbikeParking(features.motorbikeParking())
+                .featureCarParking(features.carParking())
+                .featureInternet(features.internet())
+                .featurePets(features.petsOrNull())
+                .featureNoSharedLandlord(features.noSharedLandlord())
+                .submittedAt(revision.submittedAtOrNull())
+                .submittedBy(revision.submittedByOrNull());
+        if (terms != null) {
+            builder.termsSource(terms.source())
+                    .termsPendingStartDate(terms.pendingStartDateOrNull())
+                    .termsCapturedAt(terms.capturedAt())
+                    .termsMonthlyRent(BigDecimal.valueOf(terms.monthlyRent()))
+                    .termsDepositBasis(terms.deposit().basis())
+                    .termsDepositMonths(terms.deposit().monthsOrNull())
+                    .termsDepositAmount(terms.deposit().amountOrNull() == null ? null
+                            : BigDecimal.valueOf(terms.deposit().amountOrNull()))
+                    .termsMinimumTermMonths(terms.minimumTermMonths())
+                    .termsPaymentPeriodMonths(terms.paymentPeriodMonths());
+        }
+        if (unit != null) {
+            builder.unitAssetType(unit.assetTypeOrNull())
+                    .unitProvinceCode(unit.provinceCodeOrNull())
+                    .unitProvinceName(unit.provinceNameOrNull())
+                    .unitWardCode(unit.wardCodeOrNull())
+                    .unitWardName(unit.wardNameOrNull())
+                    .unitBedrooms(unit.bedrooms())
+                    .unitBathrooms(unit.bathrooms())
+                    .unitAreaSqm(unit.areaSqm());
+        }
+        return builder.build();
+    }
+
+    /** The fee rows of a revision's terms snapshot, numbered 1 to n in E05's order; none without a snapshot. */
+    public List<ListingRevisionFeeEntity> toFeeEntities(ListingRevision revision) {
+        RevisionTerms terms = revision.termsOrNull();
+        if (terms == null) {
+            return List.of();
+        }
+        List<ListingRevisionFeeEntity> rows = new ArrayList<>();
+        for (int index = 0; index < terms.fees().size(); index++) {
+            RevisionTerms.Fee fee = terms.fees().get(index);
+            rows.add(ListingRevisionFeeEntity.builder()
+                    .id(new ListingRevisionFeeKey(revision.id(), index + 1))
+                    .name(fee.name())
+                    .basis(fee.basis())
+                    .amount(fee.amountOrNull() == null ? null : BigDecimal.valueOf(fee.amountOrNull()))
+                    .chargeUnit(fee.chargeUnitOrNull())
+                    .build());
+        }
+        return rows;
+    }
+
+    public List<ListingHistoryEntity> toHistoryEntities(Listing listing) {
+        return listing.pendingHistory().stream().map(entry -> toHistoryEntity(listing.id(), entry)).toList();
+    }
+
+    public ListingRow toRow(ListingEntity entity) {
+        return new ListingRow(entity.getId(), ListingCode.of(entity.getCode()), entity.getUnitId(),
+                entity.getTransactionType(), entity.getAgreementId(), entity.getState(), entity.getCreatedBy(),
+                entity.getCreatedAt(), entity.getRowVersion() == null ? 0L : entity.getRowVersion());
+    }
+
+    /** The header form of the newest-revisions read: no content, no fee row. */
+    public ListingRevision toRevision(ListingRevisionEntity entity) {
+        return ListingRevision.load(entity.getId(), entity.getRevisionNo(), entity.getStatus(), entity.getCreatedBy(),
+                entity.getCreatedAt(), entity.getUpdatedAt());
+    }
+
+    /**
+     * The full form of a revision. Its terms come from the row's own terms columns only (listing-publish E06-S2 plan
+     * E06S2-P16): without a terms source the fee rows given are ignored, whatever a concurrent capture left visible;
+     * with one, the fee rows given are its fees in fee number order.
+     */
+    public ListingRevision toFullRevision(ListingRevisionEntity entity, List<ListingRevisionFeeEntity> feeRows) {
+        RevisionFeatures features = new RevisionFeatures(entity.getFeatureFurnishing(),
+                entity.isFeatureAirConditioner(), entity.isFeatureWaterHeater(), entity.isFeatureFridge(),
+                entity.getFeatureWashingMachine(), entity.getFeatureKitchen(), entity.isFeatureBalcony(),
+                entity.isFeatureElevator(), entity.isFeatureMotorbikeParking(), entity.isFeatureCarParking(),
+                entity.isFeatureInternet(), entity.getFeaturePets(), entity.isFeatureNoSharedLandlord());
+        RevisionContent content = new RevisionContent(entity.getTitle(), entity.getDescription(), features);
+        return ListingRevision.load(entity.getId(), entity.getRevisionNo(), entity.getStatus(), entity.getCreatedBy(),
+                entity.getCreatedAt(), entity.getUpdatedAt(), content, terms(entity, feeRows), unit(entity),
+                entity.getSubmittedAt(), entity.getSubmittedBy());
+    }
+
+    private static RevisionTerms terms(ListingRevisionEntity entity, List<ListingRevisionFeeEntity> feeRows) {
+        if (entity.getTermsSource() == null) {
+            return null;
+        }
+        List<RevisionTerms.Fee> fees = feeRows.stream()
+                .sorted(Comparator.comparingInt(row -> row.getId().getFeeNo()))
+                .map(row -> new RevisionTerms.Fee(row.getName(), row.getBasis(), wholeOrNull(row.getAmount()),
+                        row.getChargeUnit()))
+                .toList();
+        return new RevisionTerms(entity.getTermsSource(), entity.getTermsPendingStartDate(), entity.getTermsCapturedAt(),
+                entity.getTermsMonthlyRent().longValueExact(),
+                new RevisionTerms.Deposit(entity.getTermsDepositBasis(), entity.getTermsDepositMonths(),
+                        wholeOrNull(entity.getTermsDepositAmount())),
+                entity.getTermsMinimumTermMonths(), entity.getTermsPaymentPeriodMonths(), fees);
+    }
+
+    private static UnitSnapshot unit(ListingRevisionEntity entity) {
+        if (entity.getUnitBedrooms() == null) {
+            return null;
+        }
+        return new UnitSnapshot(entity.getUnitAssetType(), entity.getUnitProvinceCode(), entity.getUnitProvinceName(),
+                entity.getUnitWardCode(), entity.getUnitWardName(), entity.getUnitBedrooms(), entity.getUnitBathrooms(),
+                entity.getUnitAreaSqm());
+    }
+
+    private static Long wholeOrNull(BigDecimal amountOrNull) {
+        return amountOrNull == null ? null : amountOrNull.longValueExact();
+    }
+
+    private static ListingHistoryEntity toHistoryEntity(String listingId, ListingHistoryEntry entry) {
+        return ListingHistoryEntity.builder()
+                .id(entry.id())
+                .listingId(listingId)
+                .action(entry.action())
+                .revisionNo(entry.revisionNoOrNull())
+                .actorUserId(entry.actorIdOrNull())
+                .occurredAt(entry.occurredAt())
+                .build();
+    }
+}
