@@ -9,7 +9,9 @@ import java.time.Instant;
  * and its content accessors throw, so no code can take a header for an empty revision. A Pending review revision holds
  * a title, a description, terms, a unit snapshot and its submission (listing-publish US-2 AC-4, AC-5). Other statuses
  * carry no content rule here: later slices make them. A revision copied from another names that revision's number,
- * always below its own (listing-publish E06-S4 spec E06S4-D14, D18), so a chain of copies ends.
+ * always below its own (listing-publish E06-S4 spec E06S4-D14, D18), so a chain of copies ends. A Live or Replaced
+ * revision carries the time it went live and a Replaced one the time it was replaced (E06-S6 spec E06S6-D6 "Times");
+ * the stored rows' CHECKs guard that rule, and a stored revision loaded without its times keeps none.
  */
 public final class ListingRevision {
 
@@ -26,11 +28,13 @@ public final class ListingRevision {
     private final Instant submittedAtOrNull;
     private final String submittedByOrNull;
     private final Integer copiedFromRevisionNoOrNull;
+    private final Instant wentLiveAtOrNull;
+    private final Instant replacedAtOrNull;
 
     private ListingRevision(String id, int revisionNo, RevisionStatus status, String createdBy, Instant createdAt,
                             Instant updatedAt, boolean fullForm, RevisionContent content, RevisionTerms termsOrNull,
                             UnitSnapshot unitSnapshotOrNull, Instant submittedAtOrNull, String submittedByOrNull,
-                            Integer copiedFromRevisionNoOrNull) {
+                            Integer copiedFromRevisionNoOrNull, Instant wentLiveAtOrNull, Instant replacedAtOrNull) {
         if (id == null || status == null || createdBy == null || createdAt == null || updatedAt == null) {
             throw new IllegalStateException("a listing revision needs its id, status, creator and times");
         }
@@ -69,12 +73,14 @@ public final class ListingRevision {
         this.submittedAtOrNull = submittedAtOrNull;
         this.submittedByOrNull = submittedByOrNull;
         this.copiedFromRevisionNoOrNull = copiedFromRevisionNoOrNull;
+        this.wentLiveAtOrNull = wentLiveAtOrNull;
+        this.replacedAtOrNull = replacedAtOrNull;
     }
 
     /** A new revision, in the status {@code DRAFT}, empty, created and last changed at {@code now}. */
     public static ListingRevision create(String id, int revisionNo, String createdBy, Instant now) {
         return new ListingRevision(id, revisionNo, RevisionStatus.DRAFT, createdBy, now, now, true,
-                RevisionContent.EMPTY, null, null, null, null, null);
+                RevisionContent.EMPTY, null, null, null, null, null, null, null);
     }
 
     /**
@@ -86,14 +92,21 @@ public final class ListingRevision {
                                          Instant now) {
         source.requireFullForm();
         return new ListingRevision(id, revisionNo, RevisionStatus.DRAFT, createdBy, now, now, true, source.content,
-                source.termsOrNull, null, null, null, source.revisionNo);
+                source.termsOrNull, null, null, null, source.revisionNo, null, null);
     }
 
     /** A stored revision in its header form: number, status, creator and times; no content loaded. */
     public static ListingRevision load(String id, int revisionNo, RevisionStatus status, String createdBy,
                                        Instant createdAt, Instant updatedAt) {
+        return load(id, revisionNo, status, createdBy, createdAt, updatedAt, null, null);
+    }
+
+    /** A stored revision in its header form with the time it went live and the time it was replaced, if any. */
+    public static ListingRevision load(String id, int revisionNo, RevisionStatus status, String createdBy,
+                                       Instant createdAt, Instant updatedAt, Instant wentLiveAtOrNull,
+                                       Instant replacedAtOrNull) {
         return new ListingRevision(id, revisionNo, status, createdBy, createdAt, updatedAt, false, null, null, null,
-                null, null, null);
+                null, null, null, wentLiveAtOrNull, replacedAtOrNull);
     }
 
     /** A stored revision in its full form, not copied from another. */
@@ -111,36 +124,55 @@ public final class ListingRevision {
                                        RevisionTerms termsOrNull, UnitSnapshot unitSnapshotOrNull,
                                        Instant submittedAtOrNull, String submittedByOrNull,
                                        Integer copiedFromRevisionNoOrNull) {
+        return load(id, revisionNo, status, createdBy, createdAt, updatedAt, content, termsOrNull, unitSnapshotOrNull,
+                submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, null, null);
+    }
+
+    /**
+     * A stored revision in its full form, with the number of the revision it was copied from, the time it went live and
+     * the time it was replaced, if any.
+     */
+    public static ListingRevision load(String id, int revisionNo, RevisionStatus status, String createdBy,
+                                       Instant createdAt, Instant updatedAt, RevisionContent content,
+                                       RevisionTerms termsOrNull, UnitSnapshot unitSnapshotOrNull,
+                                       Instant submittedAtOrNull, String submittedByOrNull,
+                                       Integer copiedFromRevisionNoOrNull, Instant wentLiveAtOrNull,
+                                       Instant replacedAtOrNull) {
         return new ListingRevision(id, revisionNo, status, createdBy, createdAt, updatedAt, true, content, termsOrNull,
-                unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull);
+                unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, wentLiveAtOrNull,
+                replacedAtOrNull);
     }
 
     /** The same revision with a new title, description and features. */
     ListingRevision withContent(RevisionContent newContent, Instant now) {
         requireFullForm();
         return new ListingRevision(id, revisionNo, status, createdBy, createdAt, now, true, newContent, termsOrNull,
-                unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull);
+                unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, wentLiveAtOrNull,
+                replacedAtOrNull);
     }
 
     /** The same revision with a new terms snapshot, which replaces the earlier one and its fees. */
     ListingRevision withTerms(RevisionTerms terms, Instant now) {
         requireFullForm();
         return new ListingRevision(id, revisionNo, status, createdBy, createdAt, now, true, content, terms,
-                unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull);
+                unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, wentLiveAtOrNull,
+                replacedAtOrNull);
     }
 
     /** Submitted for review: Pending review, with the unit snapshot, the submitter and the time. */
     ListingRevision submitted(UnitSnapshot unitSnapshot, String submitterId, Instant now) {
         requireFullForm();
         return new ListingRevision(id, revisionNo, RevisionStatus.PENDING_REVIEW, createdBy, createdAt, now, true,
-                content, termsOrNull, unitSnapshot, now, submitterId, copiedFromRevisionNoOrNull);
+                content, termsOrNull, unitSnapshot, now, submitterId, copiedFromRevisionNoOrNull, wentLiveAtOrNull,
+                replacedAtOrNull);
     }
 
     /** Withdrawn before a decision (listing section 3.3): Cancelled, its content and snapshots kept for history. */
     ListingRevision withdrawn(Instant now) {
         requireFullForm();
         return new ListingRevision(id, revisionNo, RevisionStatus.CANCELLED, createdBy, createdAt, now, true, content,
-                termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull);
+                termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
+                wentLiveAtOrNull, replacedAtOrNull);
     }
 
     /**
@@ -150,7 +182,8 @@ public final class ListingRevision {
     ListingRevision decided(ReviewOutcome outcome, Instant now) {
         requireFullForm();
         return new ListingRevision(id, revisionNo, outcome.status(), createdBy, createdAt, now, true, content,
-                termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull);
+                termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
+                wentLiveAtOrNull, replacedAtOrNull);
     }
 
     /**
@@ -160,7 +193,8 @@ public final class ListingRevision {
     ListingRevision cancelled(Instant now) {
         requireFullForm();
         return new ListingRevision(id, revisionNo, RevisionStatus.CANCELLED, createdBy, createdAt, now, true, content,
-                termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull);
+                termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
+                wentLiveAtOrNull, replacedAtOrNull);
     }
 
     public String id() {
@@ -221,6 +255,16 @@ public final class ListingRevision {
     public Integer copiedFromRevisionNoOrNull() {
         requireFullForm();
         return copiedFromRevisionNoOrNull;
+    }
+
+    /** The time the revision went live; null for a revision that never did, or one loaded without its times. */
+    public Instant wentLiveAtOrNull() {
+        return wentLiveAtOrNull;
+    }
+
+    /** The time the revision was replaced by a newer live one; null otherwise. */
+    public Instant replacedAtOrNull() {
+        return replacedAtOrNull;
     }
 
     private void requireFullForm() {

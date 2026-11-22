@@ -58,8 +58,12 @@ class ListingRevisionMigrationPostgresTest {
 
 	private static final SecureRandom RANDOM = new SecureRandom();
 
-	/** E06-S1's two CHECKs, the eleven of migration 1 and the five of the fee table (plan E06S2-P2). */
+	/**
+	 * E06-S1's two CHECKs, the eleven of migration 1 and the five of the fee table (plan E06S2-P2), and the two revision
+	 * times of E06-S6 (spec E06S6-D6).
+	 */
 	private static final Set<String> CHECKS = Set.of("ck_listing_revisions_number", "ck_listing_revisions_status",
+			"ck_listing_revisions_went_live_at", "ck_listing_revisions_replaced_at",
 			"ck_listing_revisions_feature_furnishing", "ck_listing_revisions_feature_washing_machine",
 			"ck_listing_revisions_feature_kitchen", "ck_listing_revisions_feature_pets",
 			"ck_listing_revisions_terms_source", "ck_listing_revisions_terms_shape", "ck_listing_revisions_terms_deposit",

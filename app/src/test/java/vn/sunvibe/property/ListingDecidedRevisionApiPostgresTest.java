@@ -167,7 +167,12 @@ class ListingDecidedRevisionApiPostgresTest extends ListingRevisionApiTestBase {
 		completeDraft(drafting);
 		Result submitted = submit(sale, listingId, "1", dataVersion(listingId));
 		assertEquals(200, submitted.status(), submitted.rawBody());
-		jdbc.update("update listing_revisions set status = ? where listing_id = ? and revision_no = 1", status, listingId);
+		// listing-publish E06-S6 spec E06S6-D6: a Live or Replaced row holds the time it went live, a Replaced one also
+		// the time it was replaced (JVM clock, testing.md)
+		java.sql.Timestamp now = java.sql.Timestamp.from(java.time.Instant.now());
+		jdbc.update("update listing_revisions set status = ?, went_live_at = ?, replaced_at = ? where listing_id = ?"
+				+ " and revision_no = 1", status, "LIVE".equals(status) || "REPLACED".equals(status) ? now : null,
+				"REPLACED".equals(status) ? now : null, listingId);
 		return listingId;
 	}
 
