@@ -3,7 +3,10 @@ package vn.sunvibe.listing.core.presentation.exception;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import vn.sunvibe.listing.core.application.exception.ListingRefusedException;
 import vn.sunvibe.listing.core.domain.exception.RevisionStateException;
+import vn.sunvibe.listing.core.domain.model.listing.AgreementReasonGroup;
+import vn.sunvibe.listing.core.domain.model.listing.DisplayReason;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
 import vn.sunvibe.shared.dto.response.error.ValidationError;
 
@@ -28,5 +31,24 @@ class ListingExceptionHandlerPublicationTest {
         assertEquals("REVISION_NOT_APPROVED", answer.getBody().code());
         assertEquals("The revision is not approved.", answer.getBody().message());
         assertEquals(List.of(), answer.getBody().errors());
+    }
+
+    @Test
+    void putLiveRefused_reasonsAndGroupsInOrder_fixedMessages() {
+        ResponseEntity<ErrorResponse<ValidationError>> answer = handler.handleRefused(
+                ListingRefusedException.putLiveRefused(List.of(DisplayReason.LISTING_STATE,
+                        DisplayReason.ADVERTISING_RIGHT, DisplayReason.FRESHNESS),
+                        List.of(AgreementReasonGroup.SUSPENDED, AgreementReasonGroup.ENDED)));
+
+        assertEquals(HttpStatus.CONFLICT, answer.getStatusCode());
+        assertEquals("PUT_LIVE_REFUSED", answer.getBody().code());
+        assertEquals("The revision cannot go live now.", answer.getBody().message());
+        assertEquals(List.of(
+                ValidationError.of("reasons.LISTING_STATE", "This reason stops the put live."),
+                ValidationError.of("reasons.ADVERTISING_RIGHT", "This reason stops the put live."),
+                ValidationError.of("reasonGroups.SUSPENDED", ListingExceptionHandler.GROUP_MESSAGE),
+                ValidationError.of("reasonGroups.ENDED", ListingExceptionHandler.GROUP_MESSAGE),
+                ValidationError.of("reasons.FRESHNESS", "This reason stops the put live.")),
+                answer.getBody().errors());
     }
 }

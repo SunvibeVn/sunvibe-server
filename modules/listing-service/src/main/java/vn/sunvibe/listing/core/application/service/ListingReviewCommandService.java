@@ -204,8 +204,7 @@ public class ListingReviewCommandService implements ListingReviewCommandUseCase 
             return RevisionTermsMatchPolicy.match(revision.termsOrNull(), null, null);
         }
         AgreementTermsFacts facts = answer.get();
-        RevisionTerms inEffect = facts.inEffectOrNull() == null ? null
-                : ListingCommandService.snapshotOf(facts.inEffectOrNull(), TermsSource.IN_EFFECT, null, now);
+        RevisionTerms inEffect = ListingCommandService.inEffectSnapshotOrNull(facts.inEffectOrNull(), now);
         RevisionTerms pending = facts.pendingOrNull() == null ? null
                 : ListingCommandService.snapshotOf(facts.pendingOrNull(), TermsSource.PENDING_START,
                 facts.pendingStartDateOrNull(), now);

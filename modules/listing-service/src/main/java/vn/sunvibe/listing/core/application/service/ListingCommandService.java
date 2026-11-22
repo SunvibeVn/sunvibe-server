@@ -287,6 +287,15 @@ public class ListingCommandService implements ListingCommandUseCase {
     }
 
     /**
+     * E05's terms in effect as the snapshot every terms comparison reads (listing-publish E06-S6 spec E06S6-D20): none
+     * for none, else {@link #snapshotOf} with the source {@code IN_EFFECT}. The approval's terms check, the review read
+     * and the put live's display facts call this one conversion, so they compare the same value.
+     */
+    static RevisionTerms inEffectSnapshotOrNull(AgreementTermsFacts.Terms termsOrNull, Instant now) {
+        return termsOrNull == null ? null : snapshotOf(termsOrNull, TermsSource.IN_EFFECT, null, now);
+    }
+
+    /**
      * E05's terms as a snapshot (listing-publish E06-S2 spec E06S2-D6, plan E06S2-P4): E05's codes mapped by explicit
      * switches and its values checked against E05's own bounds by {@link RevisionTerms}. An absent term, an unknown code
      * or a value outside the bounds is a broken contract: {@link IllegalStateException}, whose message names no value.

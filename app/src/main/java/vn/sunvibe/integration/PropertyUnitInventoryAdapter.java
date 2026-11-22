@@ -23,7 +23,10 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class PropertyUnitInventoryAdapter implements UnitInventoryPort {
 
-    /** property-service's reason of a unit whose intake marked another availability than the unit's (display only). */
+    /**
+     * property-service's reason of a unit whose intake marked another availability than the unit's; listing reads it as
+     * failing display condition (d) of listing BR-4 (listing-publish E06-S6 spec E06S6-D4).
+     */
     private static final String AVAILABILITY_DIFFERS = "AVAILABILITY_DIFFERS";
 
     private final UnitIntakeUseCase intakes;

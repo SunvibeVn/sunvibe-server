@@ -69,6 +69,15 @@ public final class ListingAccessPolicy {
     }
 
     /**
+     * Only the assigned Sale puts an approved revision live (listing BR-16; listing-publish US-5 AC-1; E06-S6 spec
+     * E06S6-D2): a SALE or SALE_LEADER who is the current assignee of the agreement's basis lead, the rule of
+     * {@link #mayDraft}.
+     */
+    public static boolean mayPutLive(Set<String> authorities, String viewerId, String assigneeIdOrNull) {
+        return holdsAny(authorities, CREATORS) && isAssignee(viewerId, assigneeIdOrNull);
+    }
+
+    /**
      * Who sees every listing to reconfirm (listing-publish E06-S3 spec E06S3-D2): the managers of E05's agreement scope;
      * a SALE sees only the listings whose basis lead they hold.
      */
