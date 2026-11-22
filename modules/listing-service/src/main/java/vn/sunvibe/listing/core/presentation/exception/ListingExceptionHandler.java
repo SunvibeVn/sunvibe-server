@@ -21,6 +21,7 @@ import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.ListingCodeTakenException;
 import vn.sunvibe.listing.core.domain.exception.RevisionNotSubmittableException;
 import vn.sunvibe.listing.core.domain.exception.RevisionStateException;
+import vn.sunvibe.listing.core.domain.model.listing.DisplayReason;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionRule;
 import vn.sunvibe.listing.core.presentation.controller.ListingController;
 import vn.sunvibe.shared.constant.error.ErrorCode;
@@ -51,15 +52,30 @@ public class ListingExceptionHandler {
     static final String NOT_SUBMITTABLE = "REVISION_NOT_SUBMITTABLE";
     static final String NOT_INDEPENDENT = "REVIEWER_NOT_INDEPENDENT";
     static final String REASON_MESSAGE = "This reason stops the decision.";
+    static final String DISPLAY_REASON_MESSAGE = "This reason stops the put live.";
     private static final HttpStatusCode UNPROCESSABLE = HttpStatusCode.valueOf(422);
 
-    /** A refused listing command: the reason's status, code and message, and one entry per reason group in order. */
+    /**
+     * A refused listing command: the reason's status, code and message, and one entry per reason group in order; a
+     * refused put live (E06-S6 spec E06S6-D19) has one entry per display reason in its fixed order, E05's groups right
+     * after {@code reasons.ADVERTISING_RIGHT}. Every other refusal's body is as before.
+     */
     @ExceptionHandler(ListingRefusedException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleRefused(ListingRefusedException e) {
         ListingRefusedException.Reason reason = e.reason();
-        List<ValidationError> entries = e.groups().stream()
+        List<ValidationError> groups = e.groups().stream()
                 .map(group -> ValidationError.of("reasonGroups." + group.name(), GROUP_MESSAGE))
                 .toList();
+        List<ValidationError> entries = groups;
+        if (!e.displayReasons().isEmpty()) {
+            entries = new ArrayList<>();
+            for (DisplayReason displayReason : e.displayReasons()) {
+                entries.add(ValidationError.of("reasons." + displayReason.name(), DISPLAY_REASON_MESSAGE));
+                if (displayReason == DisplayReason.ADVERTISING_RIGHT) {
+                    entries.addAll(groups);
+                }
+            }
+        }
         return ResponseEntity.status(reason.status()).body(ErrorResponse.of(reason.name(), reason.message(), entries));
     }
 
@@ -87,6 +103,7 @@ public class ListingExceptionHandler {
             case REVISION_NOT_PENDING -> "The revision is not waiting for review.";
             case OPEN_REVISION_EXISTS -> "The listing already has an open revision.";
             case REVISION_NOT_COPYABLE -> "The revision cannot be copied.";
+            case REVISION_NOT_APPROVED -> "The revision is not approved.";
         };
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ErrorResponse.of(e.reason().name(), message, List.of()));

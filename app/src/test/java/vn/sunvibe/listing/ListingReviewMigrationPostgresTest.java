@@ -46,8 +46,12 @@ class ListingReviewMigrationPostgresTest {
 
 	private static final SecureRandom RANDOM = new SecureRandom();
 
-	/** The CHECKs of listing_revisions before this slice: it adds none (E06S4-D18). */
+	/**
+	 * The CHECKs of listing_revisions: this slice adds none (E06S4-D18); E06-S6 later adds the two revision times
+	 * (spec E06S6-D6).
+	 */
 	private static final Set<String> REVISION_CHECKS = Set.of("ck_listing_revisions_number",
+			"ck_listing_revisions_went_live_at", "ck_listing_revisions_replaced_at",
 			"ck_listing_revisions_status", "ck_listing_revisions_feature_furnishing",
 			"ck_listing_revisions_feature_washing_machine", "ck_listing_revisions_feature_kitchen",
 			"ck_listing_revisions_feature_pets", "ck_listing_revisions_terms_source", "ck_listing_revisions_terms_shape",

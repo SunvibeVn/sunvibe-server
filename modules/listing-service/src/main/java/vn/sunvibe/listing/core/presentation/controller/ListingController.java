@@ -319,14 +319,15 @@ public class ListingController {
     }
 
     /**
-     * listing-publish US-2 AC-6, BR-6: a Needs changes revision copied into a new Draft by the assigned Sale (E06-S4
-     * spec E06S4-D14).
+     * listing-publish US-2 AC-6, AC-7, BR-6: a Live, Approved or Needs changes revision copied into a new Draft by the
+     * assigned Sale (E06-S4 spec E06S4-D14; E06-S6 spec E06S6-D10).
      */
     @PostMapping("/{listingId}/revisions/{revisionNo}/copies")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SALE','SALE_LEADER')")
     @Operation(operationId = "copyListingRevision",
-            summary = "Copy a Needs changes revision into a new Draft with its content and terms snapshot")
+            summary = "Copy a Live, Approved or Needs changes revision into a new Draft with its content and terms"
+                    + " snapshot")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "The new Draft, numbered after the greatest number, and"
                     + " the listing's new data version"),
@@ -339,8 +340,8 @@ public class ListingController {
             @ApiResponse(responseCode = "404", description = NOT_THE_DRAFTER,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data"
-                    + " version is stale), REVISION_NOT_COPYABLE (the revision is not Needs changes) or"
-                    + " OPEN_REVISION_EXISTS",
+                    + " version is stale), REVISION_NOT_COPYABLE (the revision is not Live, Approved or Needs changes)"
+                    + " or OPEN_REVISION_EXISTS",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -377,7 +378,8 @@ public class ListingController {
 
     /**
      * listing-publish US-6 AC-1, BR-9: a contact with the person letting the unit, for the assigned Sale only (E06-S3
-     * spec E06S3-D1 to E06S3-D4); the server dates it today in Vietnam time and the listing's state does not change.
+     * spec E06S3-D1 to E06S3-D4); the server dates it today in Vietnam time. A valid confirmation tries to put the
+     * approved revision live (E06-S6 spec E06S6-D7), which may change the listing's state.
      */
     @PostMapping("/{listingId}/freshness-records")
     @ResponseStatus(HttpStatus.CREATED)
@@ -399,9 +401,11 @@ public class ListingController {
                     + " malformed, or the caller does not hold its agreement's basis lead now: one answer for all",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "LISTING_ARCHIVED or CONCURRENT_MODIFICATION (the data"
-                    + " version is stale)",
+                    + " version is stale, or another command moved it meanwhile)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR (also when the put live a valid"
+                    + " confirmation tries meets an E05 group or availability code listing does not know; nothing is"
+                    + " written)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ListingFreshnessRecordedResponse recordFreshness(

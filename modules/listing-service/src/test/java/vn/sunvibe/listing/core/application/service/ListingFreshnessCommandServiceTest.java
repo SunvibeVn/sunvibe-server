@@ -21,8 +21,10 @@ import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.domain.policy.listing.FreshnessPolicy;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingRepository;
+import vn.sunvibe.listing.core.testsupport.RecordingEventOutboxPort;
 import vn.sunvibe.listing.core.testsupport.RevisionFixtures;
 import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
+import vn.sunvibe.listing.core.testsupport.StubUnitInventoryPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitProfilePort;
 
 import java.time.Instant;
@@ -67,7 +69,8 @@ class ListingFreshnessCommandServiceTest {
     private final StubUnitProfilePort units = new StubUnitProfilePort();
     private final AtomicInteger nextId = new AtomicInteger();
     private final ListingCommandService service = new ListingCommandService(listings, rights, units,
-            () -> "01ID" + nextId.incrementAndGet(), RandomGenerator.of("L64X128MixRandom"));
+            () -> "01ID" + nextId.incrementAndGet(), RandomGenerator.of("L64X128MixRandom"),
+            new DisplayConditionsAssembler(rights, new StubUnitInventoryPort(), listings), new RecordingEventOutboxPort());
 
     @Test
     void recordFreshness_assignedSaleValid_recordSummaryHistoryAndVersion() {
@@ -99,8 +102,8 @@ class ListingFreshnessCommandServiceTest {
                         + entry.actorIdOrNull() + " " + entry.occurredAt()).toList());
         assertEquals(VERSION + 1, result.dataVersion());
         assertTrue(result.valid());
-        assertEquals(List.of("findRow " + LISTING, "findFreshnessSummary " + LISTING, "recordFreshness " + LISTING),
-                added);
+        assertEquals(List.of("findRow " + LISTING, "findFreshnessSummary " + LISTING, "findApprovedRevisionNo " + LISTING,
+                "recordFreshness " + LISTING), added);
     }
 
     @Test

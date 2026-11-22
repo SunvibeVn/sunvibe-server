@@ -16,7 +16,8 @@ public interface UnitInventoryPort {
 
     /**
      * The code and availability of each known unit, and whether any intake entry of it lists
-     * {@code AVAILABILITY_DIFFERS}; an unknown unit is left out.
+     * {@code AVAILABILITY_DIFFERS} (display condition (d) of listing BR-4, E06-S6 spec E06S6-D4); an unknown unit is
+     * left out.
      *
      * @throws IllegalArgumentException more than {@link #MAX_UNITS} ids, before any read
      */

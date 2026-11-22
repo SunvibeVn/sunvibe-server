@@ -115,6 +115,34 @@ class ListingRevisionStatementsPostgresTest extends ListingRevisionApiTestBase {
 	}
 
 	/**
+	 * Pin P-4b of listing-publish E06-S6 (spec section 8, S-2): a command that changes no listing state sends the guarded
+	 * version update it sends today and never writes the state it loaded. The stored state is changed by SQL after the
+	 * load, without moving the row version: after the content save the stored state is still the one SQL wrote, the row
+	 * version moved by one, and {@code update} sent the statements it sends today.
+	 */
+	@Test
+	void update_storedStateChangedBySql_stateKeptOneVersionMove() throws Exception {
+		String listingId = listingInEffect().listingId();
+		long versionBefore = dataVersion(listingId);
+		AtomicReference<Long> statements = new AtomicReference<>();
+
+		tx(() -> {
+			Listing listing = listings.findForCommand(listingId, null).orElseThrow();
+			jdbc.update("update listings set state = 'PAUSED' where id = ?", listingId);
+			listing.saveContent(1, new RevisionContent(TITLE, DESCRIPTION, FEATURES), ids.generateId(), sale.userId(),
+					Instant.now().truncatedTo(ChronoUnit.MICROS));
+			statements.set(counter.count(() -> listings.update(listing)));
+			return null;
+		});
+
+		assertEquals("PAUSED", jdbc.queryForObject("select state from listings where id = ?", String.class, listingId));
+		assertEquals(versionBefore + 1, dataVersion(listingId));
+		// measured on the pin commit of E06-S6 (Task A0): the guarded version update, the revision's merge read and
+		// write, and the history row's merge read and insert
+		assertEquals(5, statements.get());
+	}
+
+	/**
 	 * A listing created over HTTP, then by SQL: revision 1 Cancelled, 2 to 20 added Cancelled, 21 added as a Draft with
 	 * content, terms in effect and three fee rows, so one revision is open.
 	 */

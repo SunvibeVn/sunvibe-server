@@ -3,6 +3,7 @@ package vn.sunvibe.listing.core.presentation.converter;
 import org.springframework.stereotype.Component;
 import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
+import vn.sunvibe.listing.core.application.command.PutLiveCommand;
 import vn.sunvibe.listing.core.application.command.RevisionCopyCommand;
 import vn.sunvibe.listing.core.application.command.RevisionDecisionCommand;
 import vn.sunvibe.listing.core.application.command.RevisionFeaturesInput;
@@ -103,6 +104,11 @@ public class ListingRequestConverter {
     public RevisionCopyCommand toCopyCommand(String listingId, Integer revisionNoOrNull,
                                              ListingRevisionCommandRequest request) {
         return new RevisionCopyCommand(listingId, revisionNoOrNull, request.dataVersion());
+    }
+
+    public PutLiveCommand toPutLiveCommand(String listingId, Integer revisionNoOrNull,
+                                           ListingRevisionCommandRequest request) {
+        return new PutLiveCommand(listingId, revisionNoOrNull, request.dataVersion());
     }
 
     /** The codes the request constraints checked as domain values; the note as typed, which the record normalizes. */

@@ -29,6 +29,7 @@ import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingAccessLogRepository;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingRepository;
+import vn.sunvibe.listing.core.testsupport.RecordingEventOutboxPort;
 import vn.sunvibe.listing.core.testsupport.RevisionFixtures;
 import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitInventoryPort;
@@ -47,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static vn.sunvibe.listing.core.testsupport.RevisionFixtures.CODE;
@@ -78,11 +80,13 @@ class ListingReviewCommandServiceTest {
     private final InMemoryListingAccessLogRepository accessLogs = new InMemoryListingAccessLogRepository();
     private StubAdvertisingRightPort rights = new StubAdvertisingRightPort();
     private final StubUnitInventoryPort units = new StubUnitInventoryPort();
+    private final RecordingEventOutboxPort events = new RecordingEventOutboxPort();
     private final AtomicInteger nextId = new AtomicInteger();
 
     private ListingReviewCommandService service() {
         return new ListingReviewCommandService(listings, accessLogs, rights, units,
-                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> LOG_ID);
+                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> LOG_ID,
+                new DisplayConditionsAssembler(rights, units, listings), events);
     }
 
     @Test
@@ -288,11 +292,13 @@ class ListingReviewCommandServiceTest {
         service().decide(new RevisionDecisionCommand(LISTING, 1, VERSION, ReviewOutcome.REJECTED, List.of(), List.of(),
                 RejectionGroup.WRONG_UNIT, NOTE), REVIEWER_VIEWER);
 
-        assertTrue(rights.calls().stream().allMatch(call -> call.startsWith("standings") || call.startsWith("terms")),
-                rights.calls().toString());
-        assertEquals(List.of(), units.calls());
+        // listing-publish E06-S6 spec E06S6-D7: the approval's try reads E05 under its share lock and the availability
+        assertTrue(rights.calls().stream().allMatch(call -> call.startsWith("standings") || call.startsWith("terms")
+                || call.startsWith("answerUnderShareLock")), rights.calls().toString());
+        assertTrue(units.calls().stream().allMatch(call -> call.startsWith("availability")), units.calls().toString());
         assertEquals(List.of(), accessLogs.recorded());
         assertEquals(ListingState.UNPUBLISHED, listings.stored(LISTING).orElseThrow().state());
+        assertEquals(List.of(), events.events());
     }
 
     @Test
@@ -370,6 +376,31 @@ class ListingReviewCommandServiceTest {
 
         assertEquals(List.of(), accessLogs.recorded());
         assertEquals(List.of("address " + UNIT), units.calls());
+    }
+
+    /**
+     * Pin P-14 of listing-publish E06-S6 (spec section 8): the location is answered only after its access log row is
+     * recorded (listing-publish BR-17); a log that fails answers no location and records nothing.
+     */
+    @Test
+    void openUnitLocation_accessLogFails_noLocationNothingRecorded() {
+        world(RevisionFixtures.pending(1), false, SALE, Set.of(SALE), true);
+        units.address(new UnitAddressFacts(UNIT, "P101", "P101 · Floor 1", "12 Tran Phu", "Hai Chau"));
+        RuntimeException thrown = new RuntimeException("the access log is unavailable");
+        InMemoryListingAccessLogRepository failingLogs = new InMemoryListingAccessLogRepository() {
+            @Override
+            public void record(ListingAccessLog log) {
+                throw thrown;
+            }
+        };
+        ListingReviewCommandService service = new ListingReviewCommandService(listings, failingLogs, rights, units,
+                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> LOG_ID,
+                new DisplayConditionsAssembler(rights, units, listings), events);
+
+        assertSame(thrown, assertThrows(RuntimeException.class,
+                () -> service.openUnitLocation(new UnitLocationOpenCommand(LISTING, 1), REVIEWER_VIEWER)));
+
+        assertEquals(List.of(), failingLogs.recorded());
     }
 
     /** A 403 REVIEWER_NOT_INDEPENDENT of an approval by the reviewer. */

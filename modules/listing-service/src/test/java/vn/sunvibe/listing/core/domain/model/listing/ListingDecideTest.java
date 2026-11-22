@@ -88,7 +88,8 @@ class ListingDecideTest {
 
     @Test
     void decide_notPending_revisionNotPendingNothingPending() {
-        for (RevisionStatus status : List.of(RevisionStatus.DRAFT, RevisionStatus.CANCELLED, RevisionStatus.APPROVED)) {
+        for (RevisionStatus status : List.of(RevisionStatus.DRAFT, RevisionStatus.CANCELLED, RevisionStatus.APPROVED,
+                RevisionStatus.LIVE, RevisionStatus.REPLACED)) {
             Listing listing = forCommand(2, withStatus(2, status));
             RevisionDecision decision = RevisionDecision.approved("R2", 2, ReviewCheck.VERSION_1, "V1", NOW);
 

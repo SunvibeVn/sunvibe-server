@@ -18,7 +18,10 @@ public enum ListingHistoryAction {
     REVISION_WITHDRAWN,
     /** listing-publish US-6 AC-1: a contact with the person letting the unit recorded; no revision, outcome or note. */
     FRESHNESS_RECORDED,
-    /** listing-publish US-4 AC-3: a Pending review revision approved; nothing goes live (E06-S4 spec E06S4-D9). */
+    /**
+     * listing-publish US-4 AC-3: a Pending review revision approved (E06-S4 spec E06S4-D9); its try to go live records
+     * its own row (E06-S6 spec E06S6-D7).
+     */
     REVISION_APPROVED,
     /** listing-publish US-4 AC-3: a Pending review revision returned as Needs changes; no reason or note here. */
     REVISION_RETURNED,
@@ -26,6 +29,17 @@ public enum ListingHistoryAction {
     REVISION_REJECTED,
     /** listing-publish BR-6: an approved revision still waiting, cancelled by a later approval (E06S4-D9). */
     APPROVAL_CANCELLED,
-    /** listing-publish US-2 AC-6: a Needs changes revision copied into a new Draft (E06-S4 spec E06S4-D14). */
-    REVISION_COPIED
+    /**
+     * listing-publish US-2 AC-6: a Live, Approved or Needs changes revision copied into a new Draft (E06-S4 spec
+     * E06S4-D14; E06-S6 spec E06S6-D10).
+     */
+    REVISION_COPIED,
+    /** listing-publish US-5 AC-1, AC-4: an approved revision put live by the assigned Sale, who is the actor. */
+    REVISION_PUT_LIVE,
+    /** listing-publish US-5 AC-3: an approved revision put live by its approval's try; no actor (E06S6-D6). */
+    REVISION_PUT_LIVE_ON_APPROVAL,
+    /** listing-publish US-5 AC-3: an approved revision put live by a valid freshness confirmation's try; no actor. */
+    REVISION_PUT_LIVE_ON_CONFIRMATION,
+    /** listing-publish BR-6: the live revision replaced by a newer one going live; the actor of that put live. */
+    REVISION_REPLACED
 }

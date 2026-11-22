@@ -95,7 +95,9 @@ public class ListingEntityMapper {
                 .featureNoSharedLandlord(features.noSharedLandlord())
                 .submittedAt(revision.submittedAtOrNull())
                 .submittedBy(revision.submittedByOrNull())
-                .copiedFromRevisionNo(revision.copiedFromRevisionNoOrNull());
+                .copiedFromRevisionNo(revision.copiedFromRevisionNoOrNull())
+                .wentLiveAt(revision.wentLiveAtOrNull())
+                .replacedAt(revision.replacedAtOrNull());
         if (terms != null) {
             builder.termsSource(terms.source())
                     .termsPendingStartDate(terms.pendingStartDateOrNull())
@@ -154,7 +156,7 @@ public class ListingEntityMapper {
     /** The header form of the newest-revisions read: no content, no fee row. */
     public ListingRevision toRevision(ListingRevisionEntity entity) {
         return ListingRevision.load(entity.getId(), entity.getRevisionNo(), entity.getStatus(), entity.getCreatedBy(),
-                entity.getCreatedAt(), entity.getUpdatedAt());
+                entity.getCreatedAt(), entity.getUpdatedAt(), entity.getWentLiveAt(), entity.getReplacedAt());
     }
 
     /**
@@ -171,7 +173,8 @@ public class ListingEntityMapper {
         RevisionContent content = new RevisionContent(entity.getTitle(), entity.getDescription(), features);
         return ListingRevision.load(entity.getId(), entity.getRevisionNo(), entity.getStatus(), entity.getCreatedBy(),
                 entity.getCreatedAt(), entity.getUpdatedAt(), content, terms(entity, feeRows), unit(entity),
-                entity.getSubmittedAt(), entity.getSubmittedBy(), entity.getCopiedFromRevisionNo());
+                entity.getSubmittedAt(), entity.getSubmittedBy(), entity.getCopiedFromRevisionNo(), entity.getWentLiveAt(),
+                entity.getReplacedAt());
     }
 
     /**

@@ -9,6 +9,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 
+import vn.sunvibe.shared.outbox.ListingChangedEvent;
 import vn.sunvibe.shared.outbox.OutboxEvent;
 import vn.sunvibe.shared.outbox.UnitAdvertisingChangedEvent;
 
@@ -20,8 +21,12 @@ import vn.sunvibe.shared.outbox.UnitAdvertisingChangedEvent;
  */
 public final class OutboxSubscriptions {
 
-    /** Every key any type may declare; a new key needs a review that it names no person (S5b-D3). */
-    public static final Set<String> ALLOWED_PAYLOAD_KEYS = Set.of(UnitAdvertisingChangedEvent.UNIT_ID);
+    /**
+     * Every key any type may declare; a new key needs a review that it names no person (S5b-D3). A listing names no
+     * person (listing-publish E06-S6 spec E06S6-D9).
+     */
+    public static final Set<String> ALLOWED_PAYLOAD_KEYS = Set.of(UnitAdvertisingChangedEvent.UNIT_ID,
+            ListingChangedEvent.LISTING_ID);
 
     private static final Pattern CONSUMER_NAME = Pattern.compile("^[a-z][a-z0-9-]{0,99}$");
     private static final Pattern PAYLOAD_VALUE = Pattern.compile("^[0-9A-Za-z-]{1,64}$");
@@ -73,10 +78,15 @@ public final class OutboxSubscriptions {
         return new OutboxSubscriptions(Map.copyOf(copy), List.copyOf(new ArrayList<>(all)));
     }
 
-    /** The list of this release: E05's event with its unit id and no consumer yet (E06-S7 subscribes the listing). */
+    /**
+     * The list of this release: E05's event with its unit id and the listing's event with its listing id (E06-S6 spec
+     * E06S6-D9), each declared with no consumer yet (E06-S7 subscribes the first ones).
+     */
     public static OutboxSubscriptions production() {
         return of(Map.of(UnitAdvertisingChangedEvent.TYPE,
-                new Subscription(Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of())));
+                new Subscription(Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of()),
+                ListingChangedEvent.TYPE,
+                new Subscription(Set.of(ListingChangedEvent.LISTING_ID), List.of())));
     }
 
     /** Refuses an unknown type, a missing or undeclared payload key, or a value outside {@code [0-9A-Za-z-]{1,64}}. */

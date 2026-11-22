@@ -12,7 +12,10 @@ import vn.sunvibe.listing.core.application.query.UnitLocationResult;
  */
 public interface ListingReviewCommandUseCase {
 
-    /** Decides the revision once; answers the revision's new status and the listing's new data version. */
+    /**
+     * Decides the revision once; an approval then tries to put it live (listing-publish E06-S6 spec E06S6-D7). Answers
+     * the revision's new status ({@code LIVE} when the approval put it live) and the listing's new data version.
+     */
     RevisionCommandResult decide(RevisionDecisionCommand command, ListingViewer viewer);
 
     /** Answers the real location of the revision's unit to a reviewer who may decide it now, and logs the opening. */

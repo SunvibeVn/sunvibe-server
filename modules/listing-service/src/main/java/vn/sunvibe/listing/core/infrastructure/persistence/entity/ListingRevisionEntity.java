@@ -170,6 +170,14 @@ public class ListingRevisionEntity {
     @Column(name = "copied_from_revision_no")
     private Integer copiedFromRevisionNo;
 
+    /** The time the revision went live (listing-publish E06-S6 spec E06S6-D6); set for a Live or Replaced one only. */
+    @Column(name = "went_live_at")
+    private Instant wentLiveAt;
+
+    /** The time the revision was replaced by a newer live one (E06S6-D6); set for a Replaced one only. */
+    @Column(name = "replaced_at")
+    private Instant replacedAt;
+
     @Override
     public String toString() {
         return "ListingRevisionEntity[" + id + "]";

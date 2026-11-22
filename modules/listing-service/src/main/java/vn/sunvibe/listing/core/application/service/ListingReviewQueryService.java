@@ -192,8 +192,7 @@ public class ListingReviewQueryService implements ListingReviewQueryUseCase {
      * {@link AgreementReasonGroup#ofCode}, the two versions as the snapshot command converts them; an unknown code fails.
      */
     private static RevisionReviewView.Advertising advertisingOf(AdvertisingReviewFacts facts, Instant now) {
-        RevisionTerms inEffect = facts.inEffectOrNull() == null ? null
-                : ListingCommandService.snapshotOf(facts.inEffectOrNull(), TermsSource.IN_EFFECT, null, now);
+        RevisionTerms inEffect = ListingCommandService.inEffectSnapshotOrNull(facts.inEffectOrNull(), now);
         RevisionTerms pending = facts.pendingOrNull() == null ? null
                 : ListingCommandService.snapshotOf(facts.pendingOrNull(), TermsSource.PENDING_START,
                 facts.pendingStartDateOrNull(), now);

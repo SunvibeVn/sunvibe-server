@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,7 +29,7 @@ import static vn.sunvibe.listing.core.testsupport.RevisionFixtures.withStatus;
 class ListingDecidedRevisionTest {
 
     @ParameterizedTest
-    @EnumSource(value = RevisionStatus.class, names = {"NEEDS_CHANGES", "REJECTED", "APPROVED"})
+    @EnumSource(value = RevisionStatus.class, names = {"NEEDS_CHANGES", "REJECTED", "APPROVED", "LIVE", "REPLACED"})
     void commands_decidedTarget_refusedNothingPending(RevisionStatus decided) {
         Map<String, Executable> commands = new LinkedHashMap<>();
         Map<String, RevisionStateException.Reason> expected = new LinkedHashMap<>();
@@ -64,11 +65,11 @@ class ListingDecidedRevisionTest {
     }
 
     @ParameterizedTest
-    @EnumSource(value = RevisionStatus.class, names = {"APPROVED", "NEEDS_CHANGES"})
+    @EnumSource(value = RevisionStatus.class, names = {"APPROVED", "NEEDS_CHANGES", "LIVE", "REPLACED"})
     void startRevision_besideApprovedOrNeedsChanges_nextDraftByActor(RevisionStatus decided) {
         Listing listing = forCommand(3, withStatus(3, decided));
 
-        ListingRevision started = listing.startRevision("R4", "H1", "S2", NOW);
+        ListingRevision started = assertDoesNotThrow(() -> listing.startRevision("R4", "H1", "S2", NOW));
 
         assertAll(
                 () -> assertEquals(4, started.revisionNo()),

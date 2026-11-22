@@ -287,9 +287,13 @@ class ListingPersistencePostgresTest {
 					ids.generateId(), listingId, number, status, ids.generateId(), now, now, now, now, ids.generateId());
 			return;
 		}
+		// listing-publish E06-S6 spec E06S6-D6: a Live or Replaced row holds the time it went live, a Replaced one also
+		// the time it was replaced
+		Timestamp wentLiveAt = "LIVE".equals(status) || "REPLACED".equals(status) ? now : null;
+		Timestamp replacedAt = "REPLACED".equals(status) ? now : null;
 		jdbc.update("INSERT INTO listing_revisions (id, listing_id, revision_no, status, created_by, created_at,"
-				+ " updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)", ids.generateId(), listingId, number, status,
-				ids.generateId(), now, now);
+				+ " updated_at, went_live_at, replaced_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", ids.generateId(),
+				listingId, number, status, ids.generateId(), now, now, wentLiveAt, replacedAt);
 	}
 
 	/** One case: the insert is refused by the named constraint. */
