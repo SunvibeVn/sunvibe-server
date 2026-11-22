@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * Whether a revision's display conditions hold now (listing-publish BR-11; E06-S6 spec E06S6-D3, section 4.2): the
  * reasons that stop it in their fixed order, and E05's groups when the advertising right is one of them. Internal to
- * staff.
+ * staff; its text names neither.
  */
 @Schema(name = "ListingDisplayAnswer")
 public record ListingDisplayAnswerResponse(
@@ -23,4 +23,10 @@ public record ListingDisplayAnswerResponse(
                 requiredMode = Schema.RequiredMode.REQUIRED,
                 description = "E05's reason groups, in E05's order; empty unless reasons holds ADVERTISING_RIGHT"))
         List<String> reasonGroups) {
+
+    /** Its text names no reason or group (listing-publish BR-17), as {@link ListingReviewAdvertisingResponse} does. */
+    @Override
+    public String toString() {
+        return "ListingDisplayAnswerResponse[hidden]";
+    }
 }

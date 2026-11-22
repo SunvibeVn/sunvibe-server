@@ -30,13 +30,19 @@ public record ListingPublicationView(String listingId, ListingState state, long 
 
     /**
      * The answer of the display rule (E06S6-D3): {@code holds} exactly when no reason stops it; the reasons in their fixed
-     * order; E05's groups only when the advertising right is one of the reasons.
+     * order; E05's groups only when the advertising right is one of the reasons. Its text names no reason or group
+     * (listing-publish BR-17), as the review's {@code Advertising} hides E05's answer.
      */
     public record DisplayAnswer(boolean holds, List<DisplayReason> reasons, List<AgreementReasonGroup> reasonGroups) {
 
         public DisplayAnswer {
             reasons = List.copyOf(reasons);
             reasonGroups = List.copyOf(reasonGroups);
+        }
+
+        @Override
+        public String toString() {
+            return "DisplayAnswer[" + holds + "]";
         }
     }
 }

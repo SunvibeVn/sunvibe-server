@@ -66,6 +66,28 @@ class ListingPublicationConverterTest {
                         responses.toPublication(archived)));
     }
 
+    /**
+     * E05's reason groups stay out of every text of the publication (listing-publish BR-17; ADR-014 decision 4), as the
+     * review hides E05's answer ({@code Advertising[hidden]}, {@code ListingReviewAdvertisingResponse[hidden]}).
+     */
+    @Test
+    void toResponse_publication_textsNameNoReasonGroup() {
+        ListingPublicationView.DisplayAnswer answer = new ListingPublicationView.DisplayAnswer(false,
+                List.of(DisplayReason.ADVERTISING_RIGHT), List.of(AgreementReasonGroup.SUSPENDED));
+        ListingPublicationView view = new ListingPublicationView(LISTING, ListingState.PUBLISHED, 9L,
+                new ListingPublicationView.Live(1, WENT_LIVE, answer),
+                new ListingPublicationView.Approved(2, TermsSource.IN_EFFECT, answer), true, true);
+
+        ListingPublicationResponse response = responses.toPublication(view);
+
+        List<String> texts = List.of(view.toString(), answer.toString(), response.toString(),
+                response.live().display().toString());
+        assertAll(
+                () -> assertEquals("DisplayAnswer[false]", answer.toString()),
+                () -> assertEquals("ListingDisplayAnswerResponse[hidden]", response.live().display().toString()),
+                () -> assertFalse(texts.stream().anyMatch(text -> text.contains("SUSPENDED")), texts.toString()));
+    }
+
     @Test
     void toResponse_liveDifference_everyField() {
         RevisionTerms terms = RevisionFixtures.inEffectTerms();
