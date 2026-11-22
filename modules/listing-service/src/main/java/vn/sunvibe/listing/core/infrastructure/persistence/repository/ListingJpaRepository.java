@@ -48,6 +48,36 @@ public interface ListingJpaRepository extends JpaRepository<ListingEntity, Strin
     int recordFreshness(@Param("id") String id, @Param("loaded") long loadedVersion, @Param("now") Instant now,
                         @Param("confirmedOn") LocalDate confirmedOnOrNull, @Param("latestValid") Boolean latestValidOrNull);
 
+    /**
+     * The guarded write of a command that changed the listing's state (listing-publish E06-S6 spec E06S6-D6): the SQL of
+     * {@link #advanceVersion} with the state; answers the rows written (0 or 1).
+     */
+    @Modifying
+    @Query(value = "UPDATE listings SET updated_at = :now, row_version = row_version + 1, state = :state"
+            + " WHERE id = :id AND row_version = :loaded", nativeQuery = true)
+    int advanceVersionAndState(@Param("id") String id, @Param("loaded") long loadedVersion, @Param("now") Instant now,
+                               @Param("state") String state);
+
+    /**
+     * The guarded write of a valid freshness record that put the approved revision live (E06-S6 spec E06S6-D6): the SQL
+     * of {@link #recordFreshness} with the state; answers the rows written (0 or 1).
+     */
+    @Modifying
+    @Query(value = "UPDATE listings SET updated_at = :now, row_version = row_version + 1,"
+            + " freshness_confirmed_on = CAST(:confirmedOn AS DATE),"
+            + " freshness_latest_valid = CAST(:latestValid AS BOOLEAN), state = :state"
+            + " WHERE id = :id AND row_version = :loaded", nativeQuery = true)
+    int recordFreshnessAndState(@Param("id") String id, @Param("loaded") long loadedVersion, @Param("now") Instant now,
+                                @Param("confirmedOn") LocalDate confirmedOnOrNull,
+                                @Param("latestValid") Boolean latestValidOrNull, @Param("state") String state);
+
+    /**
+     * The listing row locked until the transaction ends (E06-S6 spec E06S6-D5 step (8)): its row version; one statement
+     * on the primary key, empty for an unknown listing.
+     */
+    @Query(value = "SELECT row_version FROM listings WHERE id = :id FOR UPDATE", nativeQuery = true)
+    Optional<Long> lockRow(@Param("id") String id);
+
     /** The listing's two freshness columns, unmapped on {@link ListingEntity}; one statement on the primary key. */
     @Query(value = "SELECT freshness_confirmed_on AS \"confirmedOn\", freshness_latest_valid AS \"latestValid\""
             + " FROM listings WHERE id = :id", nativeQuery = true)

@@ -62,14 +62,43 @@ public interface ListingDomainRepository {
 
     /**
      * Writes a revision command (listing-publish E06-S2 spec E06S2-D19): the listing row's guarded version update
-     * first, then only the revision rows the commands changed in their order (fee rows replaced only with the terms,
-     * written with a copy), then the pending decisions (E06-S4 spec E06S4-D8), then the pending history; no entity stays
-     * managed.
+     * first, with the stored state when the command changed it (E06-S6 spec E06S6-D6), then only the revision rows the
+     * commands changed in their order (fee rows replaced only with the terms, written with a copy), then the pending
+     * decisions (E06-S4 spec E06S4-D8), then the pending history; no entity stays managed.
      *
      * @throws ListingChangedException another command moved the row version since the load, or a revision index or the
      *                                 decision's key refused a row as the backstop
      */
     void update(Listing listing);
+
+    /**
+     * The listing row locked {@code FOR UPDATE} until the transaction ends (listing-publish E06-S6 spec E06S6-D5 step
+     * (8)): its row version as locked; empty for an unknown listing. One statement.
+     */
+    Optional<Long> lockRow(String listingId);
+
+    /** The number of the listing's Approved revision still waiting, if any (E06-S6 spec E06S6-D7); one statement. */
+    Optional<Integer> findApprovedRevisionNo(String listingId);
+
+    /**
+     * The listing loaded for a put live (listing-publish E06-S6 spec E06S6-D5 step (6)): its row, the target revision when
+     * one is named, the Approved revision still waiting and the live revision, each in its full form with its fees, and
+     * its greatest revision number, unlocked, in the four statements of {@link #findForCommand}. Empty for an unknown
+     * listing; a target the listing lacks is not in the set.
+     */
+    Optional<Listing> findForPutLive(String listingId, Integer targetRevisionNoOrNull);
+
+    /**
+     * Writes a valid freshness record that put the approved revision live (listing-publish E06-S6 spec E06S6-D6, D7):
+     * checks that the listing was loaded on {@code loadedRowVersion} and that the record stores the next version; then
+     * the listing row's guarded update of {@link #recordFreshness} with the listing's state, then the listing's revision
+     * rows, then the record, its history row and the listing's pending history; one flush, no entity stays managed.
+     *
+     * @throws IllegalStateException   the caller broke one of the two version invariants; nothing is written
+     * @throws ListingChangedException another command moved the row version since {@code loadedRowVersion} was read
+     */
+    void recordFreshnessWithPutLive(Listing listing, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                    FreshnessRecord record, ListingHistoryEntry entry);
 
     /**
      * The listing's freshness summary, from its row (listing-publish E06-S3 spec E06S3-D6); {@link FreshnessSummary#none()}
@@ -84,7 +113,8 @@ public interface ListingDomainRepository {
      * Writes a freshness record (listing-publish E06-S3 spec E06S3-D6): the listing row's guarded update first, which
      * moves the row version, {@code updated_at} and the two summary columns together; then the record and its history
      * row, two inserts and one flush; no entity stays managed. A violation of the record's unique row version is not
-     * translated: only a broken guard can produce one (plan E06S3-P14).
+     * translated: only a broken guard can produce one (plan E06S3-P14). A valid record that puts the approved revision
+     * live is written by {@link #recordFreshnessWithPutLive} instead (E06-S6 spec E06S6-D6).
      *
      * @throws ListingChangedException another command moved the row version since {@code loadedRowVersion} was read
      */
@@ -100,9 +130,10 @@ public interface ListingDomainRepository {
                                                                ReconfirmationCandidate afterOrNull, int limit);
 
     /**
-     * The listing loaded for a review decision (listing-publish E06-S4 plan E06S4-P2): its row, the target revision and
-     * the approved revision still waiting, each in its full form with its fees, and its greatest revision number, read
-     * as {@link #findForCommand} reads them. Empty for an unknown listing; a target the listing lacks is not in the set.
+     * The listing loaded for a review decision (listing-publish E06-S4 plan E06S4-P2): its row, the target, the approved
+     * revision still waiting and the live revision (E06-S6 spec E06S6-D7), each in its full form with its fees, and its
+     * greatest revision number, read as {@link #findForCommand} reads them. Empty for an unknown listing; a target the
+     * listing lacks is not in the set.
      */
     Optional<Listing> findForReview(String listingId, int revisionNo);
 

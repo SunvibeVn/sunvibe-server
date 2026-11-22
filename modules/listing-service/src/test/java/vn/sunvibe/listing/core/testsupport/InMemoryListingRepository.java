@@ -156,7 +156,7 @@ public class InMemoryListingRepository implements ListingDomainRepository {
 
     /**
      * Enforces the row version and the one-open rule as the adapter and the unique index do, then stores the listing
-     * with its changed revisions, the version plus one and the pending history.
+     * with its state, its changed revisions, the version plus one and the pending history.
      */
     @Override
     public void update(Listing listing) {
@@ -165,21 +165,84 @@ public class InMemoryListingRepository implements ListingDomainRepository {
         if (current.rowVersion() != listing.rowVersion()) {
             throw new ListingChangedException();
         }
+        store(current, listing, listing.updatedAt());
+        writtenHistory.addAll(listing.pendingHistory());
+        writtenDecisions.addAll(listing.pendingDecisions());
+    }
+
+    /** The listing row's version as the lock answers it; a test subclass may answer another (E06S6-D5 step (8)). */
+    @Override
+    public Optional<Long> lockRow(String listingId) {
+        calls.add("lockRow " + listingId);
+        return lockedVersion(listingId);
+    }
+
+    /** The stored row version; override to answer what a concurrent command left behind the lock. */
+    protected Optional<Long> lockedVersion(String listingId) {
+        return stored(listingId).map(Listing::rowVersion);
+    }
+
+    @Override
+    public Optional<Integer> findApprovedRevisionNo(String listingId) {
+        calls.add("findApprovedRevisionNo " + listingId);
+        return stored(listingId).flatMap(listing -> listing.revisions().stream()
+                .filter(revision -> revision.status() == RevisionStatus.APPROVED)
+                .map(ListingRevision::revisionNo).findFirst());
+    }
+
+    /** The working set of a put live as the adapter loads it: the target, the approved and the live revisions. */
+    @Override
+    public Optional<Listing> findForPutLive(String listingId, Integer targetRevisionNoOrNull) {
+        calls.add("findForPutLive " + listingId + " " + targetRevisionNoOrNull);
+        return stored(listingId).map(listing -> Listing.loadForCommand(listing.id(), listing.code(), listing.unitId(),
+                listing.transactionType(), listing.agreementId(), listing.state(), listing.createdBy(),
+                listing.createdAt(), listing.updatedAt(), listing.rowVersion(),
+                listing.revisions().stream().mapToInt(ListingRevision::revisionNo).max().orElse(0),
+                listing.revisions().stream()
+                        .filter(revision -> revision.status() == RevisionStatus.APPROVED
+                                || revision.status() == RevisionStatus.LIVE
+                                || targetRevisionNoOrNull != null && revision.revisionNo() == targetRevisionNoOrNull)
+                        .toList()));
+    }
+
+    /**
+     * Checks the two version invariants and the row version as the adapter does, then stores the listing with its state
+     * and revisions, the summary and the record, and the record's entry then the listing's pending history.
+     */
+    @Override
+    public void recordFreshnessWithPutLive(Listing listing, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                           FreshnessRecord record, ListingHistoryEntry entry) {
+        calls.add("recordFreshnessWithPutLive " + listing.id());
+        if (listing.rowVersion() != loadedRowVersion || record.listingRowVersion() != loadedRowVersion + 1) {
+            throw new IllegalStateException("a record that puts live is written on the version its listing was loaded with");
+        }
+        Listing current = stored(listing.id()).orElseThrow(ListingChangedException::new);
+        if (current.rowVersion() != loadedRowVersion) {
+            throw new ListingChangedException();
+        }
+        store(current, listing, now);
+        summaries.put(listing.id(), next);
+        latestRecords.put(listing.id(), record);
+        writtenRecords.add(record);
+        writtenHistory.add(entry);
+        writtenHistory.addAll(listing.pendingHistory());
+    }
+
+    private void store(Listing current, Listing listing, Instant updatedAt) {
         Map<Integer, ListingRevision> byNumber = new TreeMap<>();
         current.revisions().forEach(revision -> byNumber.put(revision.revisionNo(), revision));
         listing.pendingRevisionChanges().forEach(change ->
                 byNumber.put(change.revision().revisionNo(), change.revision()));
         long open = byNumber.values().stream().filter(revision -> revision.status() == RevisionStatus.DRAFT
                 || revision.status() == RevisionStatus.PENDING_REVIEW).count();
-        if (open > 1) {
+        long live = byNumber.values().stream().filter(revision -> revision.status() == RevisionStatus.LIVE).count();
+        if (open > 1 || live > 1) {
             throw new ListingChangedException();
         }
         Listing next = Listing.load(current.id(), current.code(), current.unitId(), current.transactionType(),
-                current.agreementId(), current.state(), current.createdBy(), current.createdAt(), listing.updatedAt(),
+                current.agreementId(), listing.state(), current.createdBy(), current.createdAt(), updatedAt,
                 current.rowVersion() + 1, List.copyOf(byNumber.values()));
         stored.replaceAll(candidate -> candidate.id().equals(listing.id()) ? next : candidate);
-        writtenHistory.addAll(listing.pendingHistory());
-        writtenDecisions.addAll(listing.pendingDecisions());
     }
 
     /** The history rows the updates wrote, in order. */
@@ -288,7 +351,10 @@ public class InMemoryListingRepository implements ListingDomainRepository {
         return List.copyOf(writtenDecisions);
     }
 
-    /** The working set of a decision as the adapter loads it: the target and the approved revision, and the greatest number. */
+    /**
+     * The working set of a decision as the adapter loads it: the target, the approved and the live revisions, and the
+     * greatest number.
+     */
     @Override
     public Optional<Listing> findForReview(String listingId, int revisionNo) {
         calls.add("findForReview " + listingId + " " + revisionNo);
@@ -298,6 +364,7 @@ public class InMemoryListingRepository implements ListingDomainRepository {
                 listing.revisions().stream().mapToInt(ListingRevision::revisionNo).max().orElse(0),
                 listing.revisions().stream()
                         .filter(revision -> revision.status() == RevisionStatus.APPROVED
+                                || revision.status() == RevisionStatus.LIVE
                                 || revision.revisionNo() == revisionNo)
                         .toList()));
     }

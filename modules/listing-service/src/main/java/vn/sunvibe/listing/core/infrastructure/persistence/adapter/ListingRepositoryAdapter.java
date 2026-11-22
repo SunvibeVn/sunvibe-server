@@ -67,15 +67,26 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
     private static final String REVISION_NUMBER_INDEX = "uq_listing_revisions_number";
     /** listing-publish BR-6, E06-S4 spec E06S4-D9: at most one Approved revision per listing. */
     private static final String APPROVED_REVISION_INDEX = "uq_listing_revisions_approved";
+    /** listing-publish BR-6, E06-S6 spec E06S6-D6: at most one Live revision per listing. */
+    private static final String LIVE_REVISION_INDEX = "uq_listing_revisions_live";
     /** listing-publish US-4 AC-3, E06-S4 spec E06S4-D8: one decision per revision. */
     private static final String DECISION_KEY = "listing_revision_reviews_pkey";
     private static final int MAX_CAUSE_DEPTH = 20;
-    /** E06S2-D19: the open revision and the target, two rows at most; the limit bounds it anyway. */
+    /**
+     * E06S2-D19: the open revision and the target, or for a decision or a put live the target, the waiting approval and
+     * the live revision: three rows at most.
+     */
     private static final int WORKING_SET_LIMIT = 3;
     private static final List<RevisionStatus> OPEN_STATUSES = List.of(RevisionStatus.DRAFT,
             RevisionStatus.PENDING_REVIEW);
-    /** E06-S4 plan E06S4-P2: a decision's working set is its target and the approved revision still waiting. */
-    private static final List<RevisionStatus> REVIEW_STATUSES = List.of(RevisionStatus.APPROVED);
+    /**
+     * E06-S4 plan E06S4-P2, E06-S6 spec E06S6-D7: a decision's working set is its target, the approved revision still
+     * waiting and the live revision.
+     */
+    private static final List<RevisionStatus> REVIEW_STATUSES = List.of(RevisionStatus.APPROVED, RevisionStatus.LIVE);
+    /** E06-S6 spec E06S6-D5 step (6): a put live's working set is its target, the approved and the live revision. */
+    private static final List<RevisionStatus> PUT_LIVE_STATUSES = List.of(RevisionStatus.APPROVED,
+            RevisionStatus.LIVE);
 
     private final ListingJpaRepository listings;
     private final ListingRevisionJpaRepository revisions;
@@ -188,18 +199,90 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
     }
 
     /**
-     * listing-publish E06-S2 spec E06S2-D19, plan E06S2-P7: the listing row's guarded update first, then each changed
-     * revision written as a whole in the aggregate's order (an added or copied one inserted), its fee rows replaced only
-     * when its terms were and written with a copy (E06-S4 spec E06S4-D14), then each pending decision (E06S4-D8), then
-     * the pending history; every entity detached. A revision index or decision key violation here means a row was
-     * written without moving the listing's version: the backstop answers it as a concurrent change. A command without a
-     * copy or a decision sends the statements it sent before E06-S4.
+     * listing-publish E06-S2 spec E06S2-D19, plan E06S2-P7: the listing row's guarded update first, with the stored
+     * state when the command changed it (E06-S6 spec E06S6-D6: {@code advanceVersion} otherwise, the statement every
+     * other command sends), then each changed revision written as a whole in the aggregate's order (an added or copied
+     * one inserted), its fee rows replaced only when its terms were and written with a copy (E06-S4 spec E06S4-D14), then
+     * each pending decision (E06S4-D8), then the pending history; every entity detached. A revision index or decision key
+     * violation here means a row was written without moving the listing's version: the backstop answers it as a
+     * concurrent change. A command without a copy or a decision sends the statements it sent before E06-S4.
      */
     @Override
     public void update(Listing listing) {
-        if (listings.advanceVersion(listing.id(), listing.rowVersion(), listing.updatedAt()) == 0) {
+        int written = listing.stateChanged()
+                ? listings.advanceVersionAndState(listing.id(), listing.rowVersion(), listing.updatedAt(),
+                listing.state().name())
+                : listings.advanceVersion(listing.id(), listing.rowVersion(), listing.updatedAt());
+        if (written == 0) {
             throw new ListingChangedException();
         }
+        writeRevisionChanges(listing);
+        for (RevisionDecision decision : listing.pendingDecisions()) {
+            insertDecision(listing.id(), decision);
+        }
+        history.saveAllAndFlush(mapper.toHistoryEntities(listing)).forEach(entityManager::detach);
+    }
+
+    /** One statement on the primary key, {@code FOR UPDATE} (E06-S6 spec E06S6-D5 step (8)). */
+    @Override
+    public Optional<Long> lockRow(String listingId) {
+        return listings.lockRow(listingId);
+    }
+
+    /** One statement on uq_listing_revisions_approved (E06-S6 spec E06S6-D7). */
+    @Override
+    public Optional<Integer> findApprovedRevisionNo(String listingId) {
+        return revisions.findApprovedNumber(listingId);
+    }
+
+    /**
+     * Four statements, as {@link #findForCommand} reads them (E06-S6 spec E06S6-D5 step (6)): the listing row, the
+     * target, the approved and the live revisions, their fee rows, the greatest number. Every entity is detached.
+     */
+    @Override
+    public Optional<Listing> findForPutLive(String listingId, Integer targetRevisionNoOrNull) {
+        Optional<ListingEntity> found = listings.findById(listingId);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        ListingEntity row = found.get();
+        entityManager.detach(row);
+        // no revision is numbered below 1, so 0 selects the approved and live revisions only
+        int target = targetRevisionNoOrNull == null ? 0 : targetRevisionNoOrNull;
+        return Optional.of(loaded(row, PUT_LIVE_STATUSES, target));
+    }
+
+    /**
+     * listing-publish E06-S6 spec E06S6-D6, D7: the two invariants of the caller first, nothing written when one fails;
+     * then the listing row's guarded update with the summary and the state, then the listing's revision rows in the
+     * aggregate's order, then the record, its history row and the listing's pending history by {@code persist}, one
+     * flush, every entity detached.
+     */
+    @Override
+    public void recordFreshnessWithPutLive(Listing listing, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                           FreshnessRecord record, ListingHistoryEntry entry) {
+        if (listing.rowVersion() != loadedRowVersion || record.listingRowVersion() != loadedRowVersion + 1) {
+            throw new IllegalStateException("a record that puts live is written on the version its listing was loaded with");
+        }
+        if (listings.recordFreshnessAndState(listing.id(), loadedRowVersion, now, next.confirmedOnOrNull(),
+                next.latestValidOrNull(), listing.state().name()) == 0) {
+            throw new ListingChangedException();
+        }
+        writeRevisionChanges(listing);
+        ListingFreshnessRecordEntity recordRow = mapper.toFreshnessRecordEntity(record);
+        ListingHistoryEntity historyRow = ListingEntityMapper.toHistoryEntity(listing.id(), entry);
+        List<ListingHistoryEntity> pendingHistory = mapper.toHistoryEntities(listing);
+        entityManager.persist(recordRow);
+        entityManager.persist(historyRow);
+        pendingHistory.forEach(entityManager::persist);
+        entityManager.flush();
+        entityManager.detach(recordRow);
+        entityManager.detach(historyRow);
+        pendingHistory.forEach(entityManager::detach);
+    }
+
+    /** Each changed revision written as a whole in the aggregate's order, its fee rows as {@link #update} writes them. */
+    private void writeRevisionChanges(Listing listing) {
         for (RevisionChange change : listing.pendingRevisionChanges()) {
             ListingRevision revision = change.revision();
             entityManager.detach(saveRevision(mapper.toRevisionEntity(listing.id(), revision)));
@@ -211,10 +294,6 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
                 fees.saveAllAndFlush(mapper.toFeeEntities(revision)).forEach(entityManager::detach);
             }
         }
-        for (RevisionDecision decision : listing.pendingDecisions()) {
-            insertDecision(listing.id(), decision);
-        }
-        history.saveAllAndFlush(mapper.toHistoryEntities(listing)).forEach(entityManager::detach);
     }
 
     /** One statement on the primary key: the two unmapped columns (plan E06S3-P2). */
@@ -273,7 +352,8 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
 
     /**
      * Four statements, as {@link #findForCommand} reads them (listing-publish E06-S4 plan E06S4-P2): the listing row, the
-     * target and the approved revision still waiting, their fee rows, the greatest number. Every entity is detached.
+     * target, the approved revision still waiting and the live revision, their fee rows, the greatest number. Every
+     * entity is detached.
      */
     @Override
     public Optional<Listing> findForReview(String listingId, int revisionNo) {
@@ -363,7 +443,7 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
             return revisions.saveAndFlush(entity);
         } catch (DataIntegrityViolationException e) {
             if (violates(e, OPEN_REVISION_INDEX) || violates(e, REVISION_NUMBER_INDEX)
-                    || violates(e, APPROVED_REVISION_INDEX)) {
+                    || violates(e, APPROVED_REVISION_INDEX) || violates(e, LIVE_REVISION_INDEX)) {
                 throw new ListingChangedException();
             }
             throw e;
