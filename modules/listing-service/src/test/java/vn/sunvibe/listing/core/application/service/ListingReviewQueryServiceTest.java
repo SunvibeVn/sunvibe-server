@@ -296,7 +296,7 @@ class ListingReviewQueryServiceTest {
     @Test
     void review_decidedOrWithdrawn_notPendingReason() {
         for (RevisionStatus status : List.of(RevisionStatus.NEEDS_CHANGES, RevisionStatus.REJECTED,
-                RevisionStatus.APPROVED, RevisionStatus.DRAFT)) {
+                RevisionStatus.APPROVED, RevisionStatus.DRAFT, RevisionStatus.LIVE, RevisionStatus.REPLACED)) {
             world(RevisionFixtures.withStatus(1, status), ListingState.UNPUBLISHED, standing(false, SALE),
                     Set.of(SALE));
 

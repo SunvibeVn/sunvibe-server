@@ -99,6 +99,67 @@ class ListingDecidedRevisionApiPostgresTest extends ListingRevisionApiTestBase {
 		}
 	}
 
+	/**
+	 * Pin P-8 of listing-publish E06-S6 (spec section 8, S-1, S-9): a Live or Replaced revision is locked as a decided
+	 * one is; save, terms capture and submission answer REVISION_NOT_DRAFT, withdrawal REVISION_NOT_PENDING; nothing
+	 * written.
+	 */
+	@Test
+	void commands_liveOrReplacedRevision_refusedNothingWritten() throws Exception {
+		for (String status : List.of("LIVE", "REPLACED")) {
+			String listingId = decided(status);
+			long version = dataVersion(listingId);
+			String row = revisionRow(listingId);
+			int history = count("select count(*) from listing_history where listing_id = ?", listingId);
+			Map<String, Result> answers = new LinkedHashMap<>();
+			answers.put("save", saveContent(sale, listingId, "1", completeContentBody(version)));
+			answers.put("terms", captureTerms(sale, listingId, "1", version, "IN_EFFECT"));
+			answers.put("submit", submit(sale, listingId, "1", version));
+			answers.put("withdraw", withdraw(sale, listingId, "1", version));
+
+			for (Map.Entry<String, Result> answer : answers.entrySet()) {
+				assertCode(409, "withdraw".equals(answer.getKey()) ? "REVISION_NOT_PENDING" : "REVISION_NOT_DRAFT",
+						answer.getValue());
+			}
+			assertEquals(version, dataVersion(listingId), status);
+			assertEquals(row, revisionRow(listingId), status);
+			assertEquals(history, count("select count(*) from listing_history where listing_id = ?", listingId), status);
+		}
+	}
+
+	/**
+	 * Pin P-8 of listing-publish E06-S6: the revision read answers a Live or Replaced revision with its content and no
+	 * problem; the listing read lists it and has no open revision.
+	 */
+	@Test
+	void reads_liveOrReplacedRevision_contentAndNoOpenRevision() throws Exception {
+		for (String status : List.of("LIVE", "REPLACED")) {
+			String listingId = decided(status);
+
+			Result read = getRevision(sale, listingId, "1");
+
+			assertEquals(200, read.status(), read.rawBody());
+			JsonNode revision = read.body();
+			assertEquals(status, revision.path("status").asString());
+			assertEquals(TITLE, revision.path("title").asString());
+			assertEquals(DESCRIPTION, revision.path("description").asString());
+			assertFalse(revision.path("termsSnapshot").isNull(), revision.toString());
+			assertFalse(revision.path("termsSnapshot").isMissingNode(), revision.toString());
+			assertFalse(revision.path("unitSnapshot").isNull(), revision.toString());
+			assertFalse(revision.path("unitSnapshot").isMissingNode(), revision.toString());
+			assertFalse(revision.path("submittedAt").isNull(), revision.toString());
+			assertTrue(revision.path("problems").isArray(), revision.toString());
+			assertEquals(0, revision.path("problems").size(), revision.toString());
+			Result listingRead = getListing(sale, listingId);
+			assertEquals(200, listingRead.status(), listingRead.rawBody());
+			JsonNode listing = listingRead.body();
+			assertTrue(listing.path("openRevisionNo").isNull(), listing.toString());
+			assertEquals(1, listing.path("revisions").size(), listing.toString());
+			assertEquals(1, listing.path("revisions").path(0).path("revisionNo").asInt());
+			assertEquals(status, listing.path("revisions").path(0).path("status").asString());
+		}
+	}
+
 	/** A listing whose revision 1 was completed and submitted over HTTP, then set by SQL to the decided status. */
 	private String decided(String status) throws Exception {
 		Drafting drafting = listingInEffect();

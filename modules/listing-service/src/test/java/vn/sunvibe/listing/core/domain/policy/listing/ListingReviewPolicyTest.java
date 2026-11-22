@@ -42,7 +42,8 @@ class ListingReviewPolicyTest {
         assertEquals(List.of(ReviewIneligibility.LISTING_ARCHIVED),
                 ListingReviewPolicy.ineligibility(REVIEWER, "R1", null, Set.of("S1"), RevisionStatus.PENDING_REVIEW,
                         true));
-        for (RevisionStatus status : List.of(RevisionStatus.DRAFT, RevisionStatus.APPROVED, RevisionStatus.REJECTED)) {
+        for (RevisionStatus status : List.of(RevisionStatus.DRAFT, RevisionStatus.APPROVED, RevisionStatus.REJECTED,
+                RevisionStatus.LIVE, RevisionStatus.REPLACED)) {
             assertEquals(List.of(ReviewIneligibility.NOT_PENDING),
                     ListingReviewPolicy.ineligibility(REVIEWER, "R1", "S1", Set.of("S1"), status, false), status.name());
         }

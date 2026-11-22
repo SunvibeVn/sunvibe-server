@@ -47,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static vn.sunvibe.listing.core.testsupport.RevisionFixtures.CODE;
@@ -370,6 +371,30 @@ class ListingReviewCommandServiceTest {
 
         assertEquals(List.of(), accessLogs.recorded());
         assertEquals(List.of("address " + UNIT), units.calls());
+    }
+
+    /**
+     * Pin P-14 of listing-publish E06-S6 (spec section 8): the location is answered only after its access log row is
+     * recorded (listing-publish BR-17); a log that fails answers no location and records nothing.
+     */
+    @Test
+    void openUnitLocation_accessLogFails_noLocationNothingRecorded() {
+        world(RevisionFixtures.pending(1), false, SALE, Set.of(SALE), true);
+        units.address(new UnitAddressFacts(UNIT, "P101", "P101 · Floor 1", "12 Tran Phu", "Hai Chau"));
+        RuntimeException thrown = new RuntimeException("the access log is unavailable");
+        InMemoryListingAccessLogRepository failingLogs = new InMemoryListingAccessLogRepository() {
+            @Override
+            public void record(ListingAccessLog log) {
+                throw thrown;
+            }
+        };
+        ListingReviewCommandService service = new ListingReviewCommandService(listings, failingLogs, rights, units,
+                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> LOG_ID);
+
+        assertSame(thrown, assertThrows(RuntimeException.class,
+                () -> service.openUnitLocation(new UnitLocationOpenCommand(LISTING, 1), REVIEWER_VIEWER)));
+
+        assertEquals(List.of(), failingLogs.recorded());
     }
 
     /** A 403 REVIEWER_NOT_INDEPENDENT of an approval by the reviewer. */
