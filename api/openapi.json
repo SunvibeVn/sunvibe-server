@@ -4664,7 +4664,7 @@
                 }
               }
             },
-            "description" : "LISTING_ARCHIVED or CONCURRENT_MODIFICATION (the data version is stale)"
+            "description" : "LISTING_ARCHIVED or CONCURRENT_MODIFICATION (the data version is stale, or another command moved it meanwhile)"
           },
           "500" : {
             "content" : {
@@ -4674,10 +4674,77 @@
                 }
               }
             },
-            "description" : "INTERNAL_ERROR"
+            "description" : "INTERNAL_ERROR (also when the put live a valid confirmation tries meets an E05 group or availability code listing does not know; nothing is written)"
           }
         },
         "summary" : "Record a contact with the person letting the unit; dated today in Vietnam time by the server",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/publication" : {
+      "get" : {
+        "operationId" : "getListingPublication",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingPublication"
+                }
+              }
+            },
+            "description" : "The publication; a listing read as archived has neither revision and permits nothing"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller may not read it: one answer for all three"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, also for a reason group of the advertising answer, an availability of the unit or terms this server does not know; nothing is shown"
+          }
+        },
+        "summary" : "The live revision and the Approved revision waiting, each with whether its display conditions hold now, and what the caller may do",
         "tags" : [ "Listing" ]
       }
     },
@@ -5013,7 +5080,7 @@
                 }
               }
             },
-            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data version is stale), REVISION_NOT_COPYABLE (the revision is not Needs changes) or OPEN_REVISION_EXISTS"
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data version is stale), REVISION_NOT_COPYABLE (the revision is not Live, Approved or Needs changes) or OPEN_REVISION_EXISTS"
           },
           "500" : {
             "content" : {
@@ -5026,7 +5093,7 @@
             "description" : "INTERNAL_ERROR"
           }
         },
-        "summary" : "Copy a Needs changes revision into a new Draft with its content and terms snapshot",
+        "summary" : "Copy a Live, Approved or Needs changes revision into a new Draft with its content and terms snapshot",
         "tags" : [ "Listing" ]
       }
     },
@@ -5129,7 +5196,7 @@
                 }
               }
             },
-            "description" : "Decided: the revision's new status and the listing's new data version"
+            "description" : "Decided: status is the revision's status after the command (APPROVED, or LIVE when the approval put it live; NEEDS_CHANGES or REJECTED) and dataVersion the listing's new data version"
           },
           "400" : {
             "content" : {
@@ -5189,10 +5256,188 @@
                 }
               }
             },
-            "description" : "INTERNAL_ERROR: the agreement's terms break the contract; nothing is written"
+            "description" : "INTERNAL_ERROR: the agreement's terms break the contract, or the put live meets an E05 group or availability code listing does not know; nothing is written"
           }
         },
-        "summary" : "Approve, return or reject a Pending review revision; nothing goes live",
+        "summary" : "Approve, return or reject a Pending review revision; an approval tries to put it live",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/live-difference" : {
+      "get" : {
+        "operationId" : "getListingRevisionLiveDifference",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingLiveDifference"
+                }
+              }
+            },
+            "description" : "COMPARED with the live revision and the parts that differ, NO_LIVE_REVISION or IS_LIVE_REVISION"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER (SALE alone included); the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, or the listing has no such revision: one answer for all"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR (also for a live revision read without its terms snapshot)"
+          }
+        },
+        "summary" : "What a revision changes against the live revision: its title, description, features and terms by value",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/publication" : {
+      "post" : {
+        "operationId" : "putListingRevisionLive",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingRevisionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "Live: status LIVE and the listing's new data version; the former live revision is Replaced and an Unpublished listing Published"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion missing or negative) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller does not hold the agreement's basis lead now, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data version is stale, or another command moved it between the command's reads), REVISION_NOT_APPROVED or PUT_LIVE_REFUSED (one entry per reason that stops it, in the order reasons.LISTING_STATE, reasons.ADVERTISING_RIGHT, reasons.TERMS_NOT_IN_EFFECT, reasons.UNIT_NOT_AVAILABLE, reasons.FRESHNESS, each reasonGroups.<GROUP> of E05 right after reasons.ADVERTISING_RIGHT; nothing is written)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR (also for an E05 group, an availability code or terms this server does not know or that break the contract; nothing is written)"
+          }
+        },
+        "summary" : "Put an Approved revision live when every display condition holds now",
         "tags" : [ "Listing" ]
       }
     },
@@ -19620,6 +19865,32 @@
         },
         "required" : [ "agreementId", "code", "createdAt", "dataVersion", "hasOlderRevisions", "listingId", "openRevisionNo", "revisions", "state", "transactionType", "unitId", "viewerIsAssignedSale" ]
       },
+      "ListingDisplayAnswer" : {
+        "type" : "object",
+        "properties" : {
+          "holds" : {
+            "type" : "boolean",
+            "description" : "True exactly when reasons is empty"
+          },
+          "reasonGroups" : {
+            "type" : "array",
+            "description" : "E05's reason groups, in E05's order; empty unless reasons holds ADVERTISING_RIGHT",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NO_AGREEMENT", "NOT_IN_EFFECT", "NOT_STARTED", "SUSPENDED", "ENDED", "BASIS", "PROPERTY", "UNIT", "OWNER" ]
+            }
+          },
+          "reasons" : {
+            "type" : "array",
+            "description" : "What stops it, in this order",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "LISTING_STATE", "ADVERTISING_RIGHT", "TERMS_NOT_IN_EFFECT", "UNIT_NOT_AVAILABLE", "FRESHNESS" ]
+            }
+          }
+        },
+        "required" : [ "holds", "reasonGroups", "reasons" ]
+      },
       "ListingFeatures" : {
         "type" : "object",
         "properties" : {
@@ -19916,6 +20187,64 @@
         },
         "required" : [ "code", "createdAt", "listingId", "state" ]
       },
+      "ListingLiveDifference" : {
+        "type" : "object",
+        "properties" : {
+          "changedParts" : {
+            "type" : "array",
+            "description" : "The parts of the asked revision that differ from the live one by value, in this order; TERMS when the values of the two snapshots differ, not their source or capture time; empty unless comparison is COMPARED",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "TITLE", "DESCRIPTION", "FEATURES", "TERMS" ]
+            }
+          },
+          "comparison" : {
+            "type" : "string",
+            "description" : "COMPARED when another revision is live",
+            "enum" : [ "COMPARED", "NO_LIVE_REVISION", "IS_LIVE_REVISION" ]
+          },
+          "live" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingLiveRevision"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The live revision; null unless comparison is COMPARED"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The revision asked"
+          }
+        },
+        "required" : [ "changedParts", "comparison", "live", "revisionNo" ]
+      },
+      "ListingLiveRevision" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "features" : {
+            "$ref" : "#/components/schemas/ListingFeatures"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/ListingTermsSnapshot"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "wentLiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "description", "features", "revisionNo", "terms", "title", "wentLiveAt" ]
+      },
       "ListingPendingTerms" : {
         "type" : "object",
         "properties" : {
@@ -19928,6 +20257,86 @@
           }
         },
         "required" : [ "startDate", "terms" ]
+      },
+      "ListingPublication" : {
+        "type" : "object",
+        "properties" : {
+          "approved" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingPublicationApproved"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The Approved revision waiting; null when none waits or the listing is archived"
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version a put live sends back"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "live" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingPublicationLive"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The live revision; null when none is live or the listing is archived"
+          },
+          "state" : {
+            "type" : "string",
+            "description" : "ARCHIVED also when the listing's agreement has ended",
+            "enum" : [ "UNPUBLISHED", "PUBLISHED", "PAUSED", "URGENTLY_UNPUBLISHED", "ARCHIVED" ]
+          },
+          "viewerMayCopy" : {
+            "type" : "boolean",
+            "description" : "The caller is the assigned Sale, no Draft or Pending review revision is open and the listing is not archived"
+          },
+          "viewerMayPutLive" : {
+            "type" : "boolean",
+            "description" : "The caller is the assigned Sale, a revision is Approved and the listing is Unpublished or Published"
+          }
+        },
+        "required" : [ "approved", "dataVersion", "listingId", "live", "state", "viewerMayCopy", "viewerMayPutLive" ]
+      },
+      "ListingPublicationApproved" : {
+        "type" : "object",
+        "properties" : {
+          "display" : {
+            "$ref" : "#/components/schemas/ListingDisplayAnswer",
+            "description" : "The conditions of a put live: the listing must be Unpublished or Published"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "termsSource" : {
+            "type" : "string",
+            "description" : "Which version of the agreement its terms snapshot copied",
+            "enum" : [ "IN_EFFECT", "PENDING_START" ]
+          }
+        },
+        "required" : [ "display", "revisionNo", "termsSource" ]
+      },
+      "ListingPublicationLive" : {
+        "type" : "object",
+        "properties" : {
+          "display" : {
+            "$ref" : "#/components/schemas/ListingDisplayAnswer",
+            "description" : "The conditions of a shown revision: the listing must be Published"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "wentLiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "display", "revisionNo", "wentLiveAt" ]
       },
       "ListingReconfirmationItem" : {
         "type" : "object",

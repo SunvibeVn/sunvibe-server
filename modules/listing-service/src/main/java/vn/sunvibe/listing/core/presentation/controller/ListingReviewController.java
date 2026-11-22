@@ -107,10 +107,11 @@ public class ListingReviewController {
     @PostMapping("/{listingId}/revisions/{revisionNo}/decision")
     @PreAuthorize("hasAnyRole('LISTING_REVIEWER','ADMIN')")
     @Operation(operationId = "decideListingRevision",
-            summary = "Approve, return or reject a Pending review revision; nothing goes live")
+            summary = "Approve, return or reject a Pending review revision; an approval tries to put it live")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Decided: the revision's new status and the listing's new"
-                    + " data version"),
+            @ApiResponse(responseCode = "200", description = "Decided: status is the revision's status after the"
+                    + " command (APPROVED, or LIVE when the approval put it live; NEEDS_CHANGES or REJECTED) and"
+                    + " dataVersion the listing's new data version"),
             @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (one entry per broken rule:"
                     + " dataVersion, outcome, checks or changeReasons alone for a list above five elements, checks[i],"
                     + " changeReasons[i], rejectionGroup, note, or decisionMatchesOutcome when the fields are not"
@@ -128,7 +129,8 @@ public class ListingReviewController {
                     + " REVISION_TERMS_MISMATCH (an approval of terms equal to no version of the agreement)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR: the agreement's terms break the"
-                    + " contract; nothing is written",
+                    + " contract, or the put live meets an E05 group or availability code listing does not know;"
+                    + " nothing is written",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ListingRevisionChangeResponse decide(@PathVariable("listingId") String listingId,

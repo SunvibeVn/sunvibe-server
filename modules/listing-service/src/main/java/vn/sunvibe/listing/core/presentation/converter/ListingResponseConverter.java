@@ -5,8 +5,10 @@ import vn.sunvibe.listing.core.application.query.AgreementListingsView;
 import vn.sunvibe.listing.core.application.query.FreshnessRecordResult;
 import vn.sunvibe.listing.core.application.query.ListingCreateResult;
 import vn.sunvibe.listing.core.application.query.ListingFreshnessView;
+import vn.sunvibe.listing.core.application.query.ListingPublicationView;
 import vn.sunvibe.listing.core.application.query.ListingRevisionView;
 import vn.sunvibe.listing.core.application.query.ListingView;
+import vn.sunvibe.listing.core.application.query.LiveDifferenceView;
 import vn.sunvibe.listing.core.application.query.ReconfirmationListView;
 import vn.sunvibe.listing.core.application.query.ReviewQueueView;
 import vn.sunvibe.listing.core.application.query.RevisionCommandResult;
@@ -22,13 +24,19 @@ import vn.sunvibe.listing.core.presentation.dto.response.ListingCreatedResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingCreationResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingDepositResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingDetailResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingDisplayAnswerResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFeaturesResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFeeResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessRecordResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessRecordedResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingItemResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingLiveDifferenceResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingLiveRevisionResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingPendingTermsResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingPublicationApprovedResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingPublicationLiveResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingPublicationResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingReconfirmationItemResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingReconfirmationsResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRentResponse;
@@ -185,6 +193,38 @@ public class ListingResponseConverter {
     public ListingUnitLocationResponse toUnitLocation(UnitLocationResult result) {
         return new ListingUnitLocationResponse(result.unitCodeOrNull(), result.locationLabelOrNull(),
                 result.streetOrNull(), result.wardNameOrNull());
+    }
+
+    /** The publication read; each revision's display answer as codes (E06S6-D11). */
+    public ListingPublicationResponse toPublication(ListingPublicationView view) {
+        ListingPublicationView.Live live = view.liveOrNull();
+        ListingPublicationView.Approved approved = view.approvedOrNull();
+        return new ListingPublicationResponse(view.listingId(), view.state().name(), view.dataVersion(),
+                live == null ? null : new ListingPublicationLiveResponse(live.revisionNo(), live.wentLiveAt(),
+                        toDisplay(live.display())),
+                approved == null ? null : new ListingPublicationApprovedResponse(approved.revisionNo(),
+                        approved.termsSource().name(), toDisplay(approved.display())),
+                view.viewerMayPutLive(), view.viewerMayCopy());
+    }
+
+    /** The live difference read; the live revision in the revision read's schemas of features and terms (E06S6-D12). */
+    public ListingLiveDifferenceResponse toLiveDifference(LiveDifferenceView view) {
+        LiveDifferenceView.LiveRevision live = view.liveOrNull();
+        return new ListingLiveDifferenceResponse(view.revisionNo(), view.comparison().name(),
+                live == null ? null : new ListingLiveRevisionResponse(live.revisionNo(), live.wentLiveAt(),
+                        live.content().titleOrNull(), live.content().descriptionOrNull(),
+                        toFeatures(live.content().features()), toSnapshot(live.terms())),
+                view.changedParts().stream().map(Enum::name).toList());
+    }
+
+    private static ListingDisplayAnswerResponse toDisplay(ListingPublicationView.DisplayAnswer display) {
+        return new ListingDisplayAnswerResponse(display.holds(), display.reasons().stream().map(Enum::name).toList(),
+                display.reasonGroups().stream().map(Enum::name).toList());
+    }
+
+    private ListingTermsSnapshotResponse toSnapshot(RevisionTerms terms) {
+        return new ListingTermsSnapshotResponse(terms.source().name(), terms.pendingStartDateOrNull(),
+                terms.capturedAt(), toTerms(terms));
     }
 
     private ListingReviewAdvertisingResponse toAdvertising(RevisionReviewView.Advertising advertising) {

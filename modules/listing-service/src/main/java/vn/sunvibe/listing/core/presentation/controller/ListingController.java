@@ -326,7 +326,8 @@ public class ListingController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('SALE','SALE_LEADER')")
     @Operation(operationId = "copyListingRevision",
-            summary = "Copy a Needs changes revision into a new Draft with its content and terms snapshot")
+            summary = "Copy a Live, Approved or Needs changes revision into a new Draft with its content and terms"
+                    + " snapshot")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "The new Draft, numbered after the greatest number, and"
                     + " the listing's new data version"),
@@ -339,8 +340,8 @@ public class ListingController {
             @ApiResponse(responseCode = "404", description = NOT_THE_DRAFTER,
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data"
-                    + " version is stale), REVISION_NOT_COPYABLE (the revision is not Needs changes) or"
-                    + " OPEN_REVISION_EXISTS",
+                    + " version is stale), REVISION_NOT_COPYABLE (the revision is not Live, Approved or Needs changes)"
+                    + " or OPEN_REVISION_EXISTS",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -400,9 +401,11 @@ public class ListingController {
                     + " malformed, or the caller does not hold its agreement's basis lead now: one answer for all",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "409", description = "LISTING_ARCHIVED or CONCURRENT_MODIFICATION (the data"
-                    + " version is stale)",
+                    + " version is stale, or another command moved it meanwhile)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR (also when the put live a valid"
+                    + " confirmation tries meets an E05 group or availability code listing does not know; nothing is"
+                    + " written)",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ListingFreshnessRecordedResponse recordFreshness(
