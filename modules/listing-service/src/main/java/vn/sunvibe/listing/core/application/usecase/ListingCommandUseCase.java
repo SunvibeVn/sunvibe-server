@@ -75,8 +75,9 @@ public interface ListingCommandUseCase {
     RevisionCommandResult withdraw(RevisionWithdrawCommand command, ListingViewer viewer);
 
     /**
-     * Copies a Needs changes revision into a new Draft numbered after the greatest number, by the caller, with the
-     * source's content and terms snapshot (listing-publish US-2 AC-6, BR-6; E06-S4 spec 3.6, E06S4-D14).
+     * Copies a Live, Approved or Needs changes revision into a new Draft numbered after the greatest number, by the
+     * caller, with the source's content and terms snapshot; the source stays as it is (listing-publish US-2 AC-6, AC-7,
+     * BR-6; E06-S4 spec 3.6, E06S4-D14; E06-S6 spec E06S6-D10).
      *
      * @throws RevisionStateException {@code REVISION_NOT_COPYABLE} for a source of any other status, then
      *                                {@code OPEN_REVISION_EXISTS} while a Draft or Pending review revision is open

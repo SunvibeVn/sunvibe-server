@@ -1,6 +1,11 @@
 package vn.sunvibe.listing.core.domain.model.listing;
 
+import vn.sunvibe.listing.core.domain.policy.listing.RevisionTermsMatchPolicy;
+
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * A revision of a listing (listing BR-2: the listing is a stable shell and its revisions are its content; section 3.3
@@ -195,6 +200,60 @@ public final class ListingRevision {
         return new ListingRevision(id, revisionNo, RevisionStatus.CANCELLED, createdBy, createdAt, now, true, content,
                 termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
                 wentLiveAtOrNull, replacedAtOrNull);
+    }
+
+    /**
+     * Put live (listing-publish US-5 AC-4; E06-S6 spec E06S6-D6): an Approved revision becomes Live with the time it went
+     * live; its content, snapshots and submission kept.
+     */
+    ListingRevision wentLive(Instant now) {
+        requireFullForm();
+        if (status != RevisionStatus.APPROVED) {
+            throw new IllegalStateException("only an approved revision goes live");
+        }
+        return new ListingRevision(id, revisionNo, RevisionStatus.LIVE, createdBy, createdAt, now, true, content,
+                termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, now,
+                null);
+    }
+
+    /**
+     * Replaced by a newer live revision (listing-publish BR-6; E06-S6 spec E06S6-D6): the Live revision becomes Replaced
+     * with the time it was replaced, keeping the time it went live.
+     */
+    ListingRevision replaced(Instant now) {
+        requireFullForm();
+        if (status != RevisionStatus.LIVE) {
+            throw new IllegalStateException("only the live revision is replaced");
+        }
+        return new ListingRevision(id, revisionNo, RevisionStatus.REPLACED, createdBy, createdAt, now, true, content,
+                termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
+                wentLiveAtOrNull, now);
+    }
+
+    /**
+     * The parts of this revision that differ from the live revision (listing-publish US-4 AC-2; E06-S6 spec E06S6-D12),
+     * in the fixed order of {@link ComparedPart}: the title and the description when the stored texts differ (null
+     * equals only null), the features when any of the thirteen values differs, and the terms exactly when the terms
+     * match rule does not read this snapshot as equal to the live one by value; a change of the source, the pending start
+     * date or the capture time alone is no change, and no snapshot differs.
+     */
+    public List<ComparedPart> changedPartsFrom(ListingRevision live) {
+        requireFullForm();
+        live.requireFullForm();
+        List<ComparedPart> parts = new ArrayList<>();
+        if (!Objects.equals(content.titleOrNull(), live.content.titleOrNull())) {
+            parts.add(ComparedPart.TITLE);
+        }
+        if (!Objects.equals(content.descriptionOrNull(), live.content.descriptionOrNull())) {
+            parts.add(ComparedPart.DESCRIPTION);
+        }
+        if (!Objects.equals(content.features(), live.content.features())) {
+            parts.add(ComparedPart.FEATURES);
+        }
+        if (RevisionTermsMatchPolicy.match(termsOrNull, live.termsOrNull, null) != TermsMatch.IN_EFFECT) {
+            parts.add(ComparedPart.TERMS);
+        }
+        return List.copyOf(parts);
     }
 
     public String id() {

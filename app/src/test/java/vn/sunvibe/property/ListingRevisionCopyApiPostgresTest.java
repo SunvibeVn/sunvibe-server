@@ -3,6 +3,8 @@ package vn.sunvibe.property;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,25 +57,64 @@ class ListingRevisionCopyApiPostgresTest extends ListingReviewApiTestBase {
 		assertEquals("REVISION_COPIED 2 " + sale.userId(), history(listingId).getLast());
 	}
 
-	/** RV-10, RV-6: a rejected, a withdrawn and an approved revision answer REVISION_NOT_COPYABLE; nothing written. */
+	/**
+	 * RV-10, RV-6: a rejected, a withdrawn and a replaced revision answer REVISION_NOT_COPYABLE; nothing written
+	 * (E06-S6 spec E06S6-D10: an Approved revision is a source now, so the third is a Replaced one, set by SQL).
+	 */
 	@Test
 	void copy_rejectedCancelledOrOther_notCopyableNothingWritten() throws Exception {
 		String rejected = pending();
 		decided(reviewer, rejected, "1", rejection(dataVersion(rejected), "WRONG_UNIT", NOTE));
 		String withdrawn = pending();
 		assertEquals(200, withdraw(sale, withdrawn, "1", dataVersion(withdrawn)).status());
-		String approved = pending();
-		decided(reviewer, approved, "1", approval(dataVersion(approved)));
+		String replaced = pending();
+		Timestamp now = Timestamp.from(Instant.now());
+		jdbc.update("update listing_revisions set status = 'REPLACED', went_live_at = ?, replaced_at = ? where"
+				+ " listing_id = ? and revision_no = 1", now, now, replaced);
 		Written before = written();
 
 		List<String> answers = new ArrayList<>();
-		for (String listingId : List.of(rejected, withdrawn, approved)) {
+		for (String listingId : List.of(rejected, withdrawn, replaced)) {
 			answers.add(codeOf(copy(sale, listingId, "1", dataVersion(listingId))));
 		}
 
 		assertEquals(List.of("409 REVISION_NOT_COPYABLE", "409 REVISION_NOT_COPYABLE", "409 REVISION_NOT_COPYABLE"),
 				answers);
 		assertEquals(before, written());
+	}
+
+	/**
+	 * listing-publish US-2 AC-6, AC-7 (E06-S6 spec E06S6-D10; PL-10): a Live revision (set by SQL with its time) and an
+	 * Approved one (approved over HTTP) are each copied by the assigned Sale: 201, Draft 2 with the source's title,
+	 * description, features and terms with their fee rows, no unit snapshot; the source row unchanged.
+	 */
+	@Test
+	void copy_liveOrApprovedSource_draftAndSourcesUnchanged() throws Exception {
+		String live = pending();
+		jdbc.update("update listing_revisions set status = 'LIVE', went_live_at = ? where listing_id = ?"
+				+ " and revision_no = 1", Timestamp.from(Instant.now()), live);
+		String approved = pending();
+		decided(reviewer, approved, "1", approval(dataVersion(approved)));
+
+		for (String listingId : List.of(live, approved)) {
+			String sourceRow = revisionRow(listingId, 1);
+
+			Result answer = copy(sale, listingId, "1", dataVersion(listingId));
+
+			assertEquals(201, answer.status(), answer.rawBody());
+			assertEquals(List.of("2", "DRAFT"), List.of(answer.body().path("revisionNo").asString(),
+					answer.body().path("status").asString()));
+			JsonNode source = getRevision(sale, listingId, "1").body();
+			JsonNode copied = getRevision(sale, listingId, "2").body();
+			for (String part : List.of("title", "description", "features")) {
+				assertEquals(source.path(part), copied.path(part), part);
+			}
+			assertEquals(source.path("termsSnapshot").path("terms"), copied.path("termsSnapshot").path("terms"));
+			assertTrue(copied.path("unitSnapshot").isNull(), copied.toString());
+			assertEquals(fees(listingId, 1), fees(listingId, 2));
+			assertTrue(fees(listingId, 1) > 0);
+			assertEquals(sourceRow, revisionRow(listingId, 1));
+		}
 	}
 
 	/** RV-10, BR-6: a Draft open beside the returned revision: OPEN_REVISION_EXISTS. */
@@ -138,6 +179,12 @@ class ListingRevisionCopyApiPostgresTest extends ListingReviewApiTestBase {
 		String listingId = pending();
 		decided(reviewer, listingId, "1", returnBody(dataVersion(listingId), List.of("TEXT_RULE_VIOLATION"), NOTE));
 		return listingId;
+	}
+
+	/** A revision row read whole as text. */
+	private String revisionRow(String listingId, int revisionNo) {
+		return jdbc.queryForObject("select r::text from listing_revisions r where listing_id = ? and revision_no = ?",
+				String.class, listingId, revisionNo);
 	}
 
 	private int fees(String listingId, int revisionNo) {

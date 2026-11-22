@@ -57,7 +57,9 @@ class ListingRevisionCopyTest {
 
     @Test
     void copyRevision_rejectedCancelledOrOther_notCopyable() {
-        for (RevisionStatus status : EnumSet.complementOf(EnumSet.of(RevisionStatus.NEEDS_CHANGES))) {
+        // listing-publish E06-S6 spec E06S6-D10: a Live or Approved revision is a copy source too
+        for (RevisionStatus status : List.of(RevisionStatus.REJECTED, RevisionStatus.REPLACED, RevisionStatus.CANCELLED,
+                RevisionStatus.DRAFT, RevisionStatus.PENDING_REVIEW)) {
             Listing listing = forCommand(2, status == RevisionStatus.PENDING_REVIEW ? pending(2)
                     : withStatus(2, status));
 
@@ -69,7 +71,38 @@ class ListingRevisionCopyTest {
             assertTrue(listing.pendingRevisionChanges().isEmpty(), status.name());
             assertEquals(2, listing.newestRevisionNo());
         }
-        assertEquals(7, EnumSet.complementOf(EnumSet.of(RevisionStatus.NEEDS_CHANGES)).size());
+        assertEquals(5, EnumSet.complementOf(EnumSet.of(RevisionStatus.NEEDS_CHANGES, RevisionStatus.LIVE,
+                RevisionStatus.APPROVED)).size());
+    }
+
+    /**
+     * listing-publish US-2 AC-6, AC-7 (E06-S6 spec E06S6-D10): a Live or Approved revision is copied into Draft n + 1 with
+     * its title, description, features and terms with fees, no unit snapshot; the source stays as it was.
+     */
+    @Test
+    void copyRevision_liveOrApprovedSource_draftAndSourceUnchanged() {
+        for (RevisionStatus status : List.of(RevisionStatus.LIVE, RevisionStatus.APPROVED)) {
+            ListingRevision source = ListingRevision.load("R2", 2, status, "S1", CREATED, CREATED,
+                    RevisionFixtures.completeContent(), RevisionFixtures.inEffectTerms(), RevisionFixtures.unitSnapshot(),
+                    CREATED, "S1", null, status == RevisionStatus.LIVE ? CREATED : null, null);
+            Listing listing = forCommand(3, source);
+
+            ListingRevision copy = listing.copyRevision(2, "R4", "H1", "S2", NOW);
+
+            assertAll(status.name(),
+                    () -> assertEquals(4, copy.revisionNo()),
+                    () -> assertEquals(RevisionStatus.DRAFT, copy.status()),
+                    () -> assertEquals(source.content(), copy.content()),
+                    () -> assertEquals(source.termsOrNull(), copy.termsOrNull()),
+                    () -> assertEquals(3, copy.termsOrNull().fees().size()),
+                    () -> assertNull(copy.unitSnapshotOrNull()),
+                    () -> assertNull(copy.wentLiveAtOrNull()),
+                    () -> assertEquals(2, copy.copiedFromRevisionNoOrNull()),
+                    () -> assertSame(source, listing.revision(2).orElseThrow()),
+                    () -> assertEquals(status, listing.revision(2).orElseThrow().status()),
+                    () -> assertEquals(List.of(new RevisionChange(copy, RevisionChangeKind.COPIED)),
+                            listing.pendingRevisionChanges()));
+        }
     }
 
     @Test

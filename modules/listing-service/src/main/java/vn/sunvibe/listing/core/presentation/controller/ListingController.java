@@ -319,8 +319,8 @@ public class ListingController {
     }
 
     /**
-     * listing-publish US-2 AC-6, BR-6: a Needs changes revision copied into a new Draft by the assigned Sale (E06-S4
-     * spec E06S4-D14).
+     * listing-publish US-2 AC-6, AC-7, BR-6: a Live, Approved or Needs changes revision copied into a new Draft by the
+     * assigned Sale (E06-S4 spec E06S4-D14; E06-S6 spec E06S6-D10).
      */
     @PostMapping("/{listingId}/revisions/{revisionNo}/copies")
     @ResponseStatus(HttpStatus.CREATED)
