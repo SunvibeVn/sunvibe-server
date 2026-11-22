@@ -29,12 +29,12 @@ import vn.sunvibe.listing.core.application.shared.external.property.UnitAvailabi
 import vn.sunvibe.listing.core.application.shared.external.property.UnitInventoryPort;
 
 /**
- * An E05 reason group or an availability code listing does not know fails the two tries and the publication read
- * (listing-publish E06-S6 spec E06S6-D7, D11, section 4.2; PL-3, PL-4, PL-11; plan E06S6-P4): 500 INTERNAL_ERROR, nothing
- * written and nothing shown, never a code read as a known one. E05's and property's answers are the real ones, with the
- * group {@code SCRATCH_GROUP} or the availability {@code SCRATCH} in their place while the class's switch says so, through
- * primary ports that delegate every other call; a context of its own. The switch is turned on after the fixture, so the
- * fixture reads known codes. Needs Docker.
+ * An E05 reason group or an availability code listing does not know fails the Sale's put live, the two tries and the
+ * publication read (listing-publish E06-S6 spec E06S6-D3, D7, D11, section 4.2; PL-3, PL-4, PL-11; plan E06S6-P4): 500
+ * INTERNAL_ERROR, nothing written and nothing shown, never a code read as a known one. E05's and property's answers are
+ * the real ones, with the group {@code SCRATCH_GROUP} or the availability {@code SCRATCH} in their place while the
+ * class's switch says so, through primary ports that delegate every other call; a context of its own. The switch is
+ * turned on after the fixture, so the fixture reads known codes. Needs Docker.
  */
 @Import(ListingPutLiveUnknownCodeApiPostgresTest.ScratchCodes.class)
 class ListingPutLiveUnknownCodeApiPostgresTest extends ListingPublicationApiTestBase {
@@ -78,6 +78,21 @@ class ListingPutLiveUnknownCodeApiPostgresTest extends ListingPublicationApiTest
 	@Test
 	void record_unknownAvailability_internalErrorNoRecord() throws Exception {
 		assertRecordFails(Scratch.AVAILABILITY);
+	}
+
+	/**
+	 * E06S6-D3, D5 step (9): the group E05 answers under the share lock to the Sale's put live is unknown: 500, no code in
+	 * the body, nothing written, the revision still Approved.
+	 */
+	@Test
+	void putLive_unknownGroupUnderShareLock_internalErrorNothingWritten() throws Exception {
+		assertPutLiveFails(Scratch.GROUP);
+	}
+
+	/** E06S6-D3, D5 step (9): the unit's availability is unknown: 500, nothing written, the revision still Approved. */
+	@Test
+	void putLive_unknownAvailability_internalErrorNothingWritten() throws Exception {
+		assertPutLiveFails(Scratch.AVAILABILITY);
 	}
 
 	/** PL-11, E06S6-D11: E05's review answers an unknown group: 500 and the error envelope only. */
@@ -125,6 +140,24 @@ class ListingPutLiveUnknownCodeApiPostgresTest extends ListingPublicationApiTest
 				() -> assertEquals(history, count("select count(*) from listing_history where listing_id = ?",
 						listingId)),
 				() -> assertEquals("APPROVED", revisionStatus(listingId, 1)),
+				() -> assertEquals(before, written()));
+	}
+
+	private void assertPutLiveFails(Scratch code) throws Exception {
+		String listingId = waitingApproval().listingId();
+		long version = dataVersion(listingId);
+		Written before = written();
+		scratch = code;
+
+		Result answer = putLive(sale, listingId, "1", version);
+
+		assertAll(
+				() -> assertEquals("500 INTERNAL_ERROR", codeOf(answer)),
+				() -> assertFalse(answer.rawBody().contains("SCRATCH"), answer.rawBody()),
+				() -> assertEquals("APPROVED", revisionStatus(listingId, 1)),
+				() -> assertEquals("UNPUBLISHED", state(listingId)),
+				() -> assertEquals(version, dataVersion(listingId)),
+				() -> assertEquals(List.of(), listingEventRows(listingId)),
 				() -> assertEquals(before, written()));
 	}
 

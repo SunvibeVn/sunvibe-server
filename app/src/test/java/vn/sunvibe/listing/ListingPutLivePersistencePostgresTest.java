@@ -260,6 +260,42 @@ class ListingPutLivePersistencePostgresTest {
 						"REVISION_PUT_LIVE_ON_CONFIRMATION 2 -"), Set.copyOf(history(listingId))));
 	}
 
+	/**
+	 * listing BR-3 (E06S6-D6, D7): a version moved after the load, by a command that committed in between, answers a
+	 * concurrent change from the guarded statement; nothing of the record, the summary or the put live is written.
+	 */
+	@Test
+	void recordFreshnessWithPutLive_movedVersion_listingChangedNothingWritten() {
+		String listingId = insertListingRow("UNPUBLISHED");
+		insertFull(listingId, 1, "APPROVED", null);
+		long version = rowVersion(listingId);
+		Instant now = now();
+		LocalDate today = FreshnessPolicy.today(now);
+		String sale = ids.generateId();
+		Listing listing = tx(() -> listings.findForPutLive(listingId, null).orElseThrow());
+		listing.tryPutLive(1, holding(listing, 1, ListingState.UNPUBLISHED, now), PutLiveMoment.VALID_CONFIRMATION, null,
+				now, ids.generateId(), ids.generateId());
+		jdbc.update("UPDATE listings SET row_version = row_version + 1 WHERE id = ?", listingId);
+		long moved = rowVersion(listingId);
+
+		assertThrows(ListingChangedException.class, () -> tx(() -> {
+			listings.recordFreshnessWithPutLive(listing, version, now, new FreshnessSummary(today, true),
+					record(listingId, version + 1, today, now, sale), entry(sale, now));
+			return null;
+		}));
+
+		assertAll(
+				() -> assertEquals("UNPUBLISHED", state(listingId)),
+				() -> assertEquals(moved, rowVersion(listingId)),
+				() -> assertEquals("APPROVED", status(listingId, 1)),
+				() -> assertNull(time(listingId, 1, "went_live_at")),
+				() -> assertEquals(0, count("SELECT count(*) FROM listing_freshness_records WHERE listing_id = ?",
+						listingId)),
+				() -> assertEquals(0, count("SELECT count(*) FROM listings WHERE id = ? AND (freshness_confirmed_on IS NOT"
+						+ " NULL OR freshness_latest_valid IS NOT NULL)", listingId)),
+				() -> assertEquals(List.of(), history(listingId)));
+	}
+
 	/** E06S6-D6: a caller that breaks either invariant of the record's version is a defect; nothing is written. */
 	@Test
 	void recordFreshnessWithPutLive_versionNotLoaded_illegalStateNothingWritten() {
