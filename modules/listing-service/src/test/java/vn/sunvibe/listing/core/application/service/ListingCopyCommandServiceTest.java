@@ -17,8 +17,10 @@ import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingRepository;
+import vn.sunvibe.listing.core.testsupport.RecordingEventOutboxPort;
 import vn.sunvibe.listing.core.testsupport.RevisionFixtures;
 import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
+import vn.sunvibe.listing.core.testsupport.StubUnitInventoryPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitProfilePort;
 
 import java.util.List;
@@ -53,7 +55,9 @@ class ListingCopyCommandServiceTest {
 
     private ListingCommandService service() {
         return new ListingCommandService(listings, rights, new StubUnitProfilePort(),
-                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), RandomGenerator.of("L64X128MixRandom"));
+                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), RandomGenerator.of("L64X128MixRandom"),
+                new DisplayConditionsAssembler(rights, new StubUnitInventoryPort(), listings),
+                new RecordingEventOutboxPort());
     }
 
     @Test

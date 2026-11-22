@@ -86,12 +86,15 @@ public interface ListingCommandUseCase {
 
     /**
      * Records a contact of the assigned Sale with the person letting the unit, dated today in Vietnam time
-     * (listing-publish US-6 AC-1, AC-2, BR-9, BR-11; E06-S3 spec 3.1, E06S3-D3). The listing's state does not change.
+     * (listing-publish US-6 AC-1, AC-2, BR-9, BR-11; E06-S3 spec 3.1, E06S3-D3). A valid confirmation tries to put the
+     * approved revision live (E06-S6 spec E06S6-D7), which may change the listing's state.
      *
      * @throws ListingNotFoundException the listing is unknown or malformed, or the caller is not a SALE or SALE_LEADER
      *                                  holding its agreement's basis lead now: one answer for all
      * @throws ListingRefusedException  {@code LISTING_ARCHIVED}, stored or because the agreement ended
      * @throws ListingChangedException  the data version is stale, or another command moved it meanwhile
+     * @throws IllegalStateException    the put live a valid confirmation tries meets an E05 group or availability code
+     *                                  listing does not know; nothing written
      */
     FreshnessRecordResult recordFreshness(FreshnessRecordCommand command, ListingViewer viewer);
 }

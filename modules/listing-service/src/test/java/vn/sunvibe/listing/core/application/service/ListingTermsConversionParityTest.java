@@ -22,6 +22,7 @@ import vn.sunvibe.listing.core.domain.policy.listing.ListingDisplayPolicy;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingAccessLogRepository;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingRepository;
+import vn.sunvibe.listing.core.testsupport.RecordingEventOutboxPort;
 import vn.sunvibe.listing.core.testsupport.RevisionFixtures;
 import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitInventoryPort;
@@ -93,7 +94,8 @@ class ListingTermsConversionParityTest {
 
     private vn.sunvibe.listing.core.application.query.RevisionCommandResult approval() {
         return new ListingReviewCommandService(listings, new InMemoryListingAccessLogRepository(), rights, units,
-                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> 7L)
+                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> 7L,
+                new DisplayConditionsAssembler(rights, units, listings), new RecordingEventOutboxPort())
                 .decide(new RevisionDecisionCommand(LISTING, 1, 7L, ReviewOutcome.APPROVED, ReviewCheck.VERSION_1,
                         List.of(), null, null), REVIEWER_VIEWER);
     }

@@ -19,10 +19,12 @@ import vn.sunvibe.listing.core.application.usecase.ListingReviewCommandUseCase;
 import vn.sunvibe.listing.core.application.usecase.ListingViewer;
 import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.RevisionStateException;
+import vn.sunvibe.listing.core.domain.model.listing.DisplayConditions;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingAccessLog;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
+import vn.sunvibe.listing.core.domain.model.listing.PutLiveMoment;
 import vn.sunvibe.listing.core.domain.model.listing.ReviewIneligibility;
 import vn.sunvibe.listing.core.domain.model.listing.ReviewNote;
 import vn.sunvibe.listing.core.domain.model.listing.ReviewOutcome;
@@ -37,6 +39,8 @@ import vn.sunvibe.listing.core.domain.repository.ListingAccessLogDomainRepositor
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.outbox.EventOutboxPort;
+import vn.sunvibe.shared.outbox.ListingChangedEvent;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.time.Instant;
@@ -54,8 +58,9 @@ import java.util.regex.Pattern;
  * version; the revision; its status; the reviewer's independence from its authors and from the assigned Sale read from
  * E05 now; for an approval only, the terms check against E05's versions read without a lock. The first failing check
  * answers. The location runs the same checks without a data version, then property's address and one access log row.
- * Nothing else: no outbox event, no row of another module, no listing state change, no share lock on E05, and no log
- * line holds a note, a reason, the terms or the location.
+ * An approval then tries the put live (E06S6-D7): the listing row lock, E05's share lock and terms, property's
+ * availability, and, when the revision goes live, the listing's state and the listing event. Nothing else: no row of
+ * another module, and no log line holds a note, a reason, the terms, a display fact or the location.
  */
 @Service
 @Transactional
@@ -69,24 +74,30 @@ public class ListingReviewCommandService implements ListingReviewCommandUseCase 
     private final UnitInventoryPort units;
     private final IdGenerator<String> ids;
     private final IdGenerator<Long> logIds;
+    private final DisplayConditionsAssembler assembler;
+    private final EventOutboxPort events;
 
     /** The access log's id is a Snowflake the application draws (ADR-006, E06S4-D18). */
     public ListingReviewCommandService(ListingDomainRepository listings, ListingAccessLogDomainRepository accessLogs,
                                        AdvertisingRightPort rights, UnitInventoryPort units, IdGenerator<String> ids,
-                                       @Qualifier("Snowflake") IdGenerator<Long> logIds) {
+                                       @Qualifier("Snowflake") IdGenerator<Long> logIds,
+                                       DisplayConditionsAssembler assembler, EventOutboxPort events) {
         this.listings = listings;
         this.accessLogs = accessLogs;
         this.rights = rights;
         this.units = units;
         this.ids = ids;
         this.logIds = logIds;
+        this.assembler = assembler;
+        this.events = events;
     }
 
     /**
      * listing-publish US-4 AC-3 to AC-5 (E06S4-D5 to D9, plan E06S4-P1): the steps (3) to (9) of E06S4-D5 from the listing
      * row, the data version compared again with the loaded working set, so a command committed between the two reads is
-     * refused and nothing is decided on a newer version than the one the reviewer read; then the aggregate's decision and
-     * the guarded write.
+     * refused and nothing is decided on a newer version than the one the reviewer read; then the aggregate's decision, an
+     * approval's try to put the revision live (E06-S6 spec E06S6-D7), the one guarded write and, when it went live, the
+     * listing's event.
      */
     @Override
     public RevisionCommandResult decide(RevisionDecisionCommand command, ListingViewer viewer) {
@@ -117,9 +128,37 @@ public class ListingReviewCommandService implements ListingReviewCommandUseCase 
         }
         RevisionDecision decision = decisionOf(command, target, viewer.userId(), now);
         listing.decide(revisionNo, decision, ids.generateId(), ids.generateId(), now);
+        boolean wentLive = command.outcome() == ReviewOutcome.APPROVED && tryPutLive(listing, row, revisionNo,
+                command.dataVersion(), now);
         listings.update(listing);
-        return new RevisionCommandResult(row.listingId(), revisionNo, command.outcome().status(),
-                listing.rowVersion() + 1);
+        if (wentLive) {
+            // ADR-014 decision 3: the listing's event in the transaction of the write
+            events.append(ListingChangedEvent.now(row.listingId()));
+        }
+        return new RevisionCommandResult(row.listingId(), revisionNo,
+                wentLive ? RevisionStatus.LIVE : command.outcome().status(), listing.rowVersion() + 1);
+    }
+
+    /**
+     * listing-publish US-5 AC-3 moment 1 (E06-S6 spec E06S6-D7): an approval on an Unpublished or Published listing tries
+     * the put live without actor. The listing row is locked and its locked version compared with the one the reviewer
+     * read, before E05's share lock on the agreement row (lock order: the listing row, then the agreement row); any
+     * display reason leaves the revision Approved and is not reported. A paused listing is not tried and reads nothing
+     * more of another module.
+     *
+     * @return true when the revision went live
+     */
+    private boolean tryPutLive(Listing listing, ListingRow row, int revisionNo, long dataVersion, Instant now) {
+        if (row.storedState() != ListingState.UNPUBLISHED && row.storedState() != ListingState.PUBLISHED) {
+            return false;
+        }
+        long locked = listings.lockRow(row.listingId()).orElseThrow(ListingChangedException::new);
+        if (locked != dataVersion) {
+            throw new ListingChangedException();
+        }
+        DisplayConditions conditions = assembler.underShareLock(row, listing.state(), now);
+        return listing.tryPutLive(revisionNo, conditions, PutLiveMoment.APPROVAL, null, now, ids.generateId(),
+                ids.generateId()).isEmpty();
     }
 
     /**

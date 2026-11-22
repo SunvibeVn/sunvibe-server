@@ -37,8 +37,10 @@ import vn.sunvibe.listing.core.domain.model.listing.TermsSource;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingRepository;
+import vn.sunvibe.listing.core.testsupport.RecordingEventOutboxPort;
 import vn.sunvibe.listing.core.testsupport.RevisionFixtures;
 import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
+import vn.sunvibe.listing.core.testsupport.StubUnitInventoryPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitProfilePort;
 
 import java.time.LocalDate;
@@ -88,7 +90,8 @@ class ListingRevisionCommandServiceTest {
     private final StubUnitProfilePort units = new StubUnitProfilePort();
     private final AtomicInteger nextId = new AtomicInteger();
     private final ListingCommandService service = new ListingCommandService(listings, rights, units,
-            () -> "01ID" + nextId.incrementAndGet(), RandomGenerator.of("L64X128MixRandom"));
+            () -> "01ID" + nextId.incrementAndGet(), RandomGenerator.of("L64X128MixRandom"),
+            new DisplayConditionsAssembler(rights, new StubUnitInventoryPort(), listings), new RecordingEventOutboxPort());
 
     @Test
     void commands_otherSaleUnknownOrMalformed_notFoundNothingWritten() {

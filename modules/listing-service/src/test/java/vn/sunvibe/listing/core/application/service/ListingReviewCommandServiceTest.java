@@ -29,6 +29,7 @@ import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingAccessLogRepository;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingRepository;
+import vn.sunvibe.listing.core.testsupport.RecordingEventOutboxPort;
 import vn.sunvibe.listing.core.testsupport.RevisionFixtures;
 import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitInventoryPort;
@@ -79,11 +80,13 @@ class ListingReviewCommandServiceTest {
     private final InMemoryListingAccessLogRepository accessLogs = new InMemoryListingAccessLogRepository();
     private StubAdvertisingRightPort rights = new StubAdvertisingRightPort();
     private final StubUnitInventoryPort units = new StubUnitInventoryPort();
+    private final RecordingEventOutboxPort events = new RecordingEventOutboxPort();
     private final AtomicInteger nextId = new AtomicInteger();
 
     private ListingReviewCommandService service() {
         return new ListingReviewCommandService(listings, accessLogs, rights, units,
-                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> LOG_ID);
+                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> LOG_ID,
+                new DisplayConditionsAssembler(rights, units, listings), events);
     }
 
     @Test
@@ -289,11 +292,13 @@ class ListingReviewCommandServiceTest {
         service().decide(new RevisionDecisionCommand(LISTING, 1, VERSION, ReviewOutcome.REJECTED, List.of(), List.of(),
                 RejectionGroup.WRONG_UNIT, NOTE), REVIEWER_VIEWER);
 
-        assertTrue(rights.calls().stream().allMatch(call -> call.startsWith("standings") || call.startsWith("terms")),
-                rights.calls().toString());
-        assertEquals(List.of(), units.calls());
+        // listing-publish E06-S6 spec E06S6-D7: the approval's try reads E05 under its share lock and the availability
+        assertTrue(rights.calls().stream().allMatch(call -> call.startsWith("standings") || call.startsWith("terms")
+                || call.startsWith("answerUnderShareLock")), rights.calls().toString());
+        assertTrue(units.calls().stream().allMatch(call -> call.startsWith("availability")), units.calls().toString());
         assertEquals(List.of(), accessLogs.recorded());
         assertEquals(ListingState.UNPUBLISHED, listings.stored(LISTING).orElseThrow().state());
+        assertEquals(List.of(), events.events());
     }
 
     @Test
@@ -389,7 +394,8 @@ class ListingReviewCommandServiceTest {
             }
         };
         ListingReviewCommandService service = new ListingReviewCommandService(listings, failingLogs, rights, units,
-                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> LOG_ID);
+                () -> "01ID" + String.format("%022d", nextId.incrementAndGet()), () -> LOG_ID,
+                new DisplayConditionsAssembler(rights, units, listings), events);
 
         assertSame(thrown, assertThrows(RuntimeException.class,
                 () -> service.openUnitLocation(new UnitLocationOpenCommand(LISTING, 1), REVIEWER_VIEWER)));

@@ -377,7 +377,8 @@ public class ListingController {
 
     /**
      * listing-publish US-6 AC-1, BR-9: a contact with the person letting the unit, for the assigned Sale only (E06-S3
-     * spec E06S3-D1 to E06S3-D4); the server dates it today in Vietnam time and the listing's state does not change.
+     * spec E06S3-D1 to E06S3-D4); the server dates it today in Vietnam time. A valid confirmation tries to put the
+     * approved revision live (E06-S6 spec E06S6-D7), which may change the listing's state.
      */
     @PostMapping("/{listingId}/freshness-records")
     @ResponseStatus(HttpStatus.CREATED)
