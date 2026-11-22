@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import vn.sunvibe.listing.core.application.query.RevisionCommandResult;
+import vn.sunvibe.listing.core.application.usecase.ListingPublicationCommandUseCase;
 import vn.sunvibe.listing.core.domain.model.listing.DisplayConditions;
 import vn.sunvibe.listing.core.domain.model.listing.FreshnessChannel;
 import vn.sunvibe.listing.core.domain.model.listing.FreshnessOutcome;
@@ -29,6 +31,7 @@ import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.PutLiveMoment;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.model.listing.UnitAvailability;
 import vn.sunvibe.listing.core.domain.policy.listing.FreshnessPolicy;
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
@@ -43,13 +46,16 @@ import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
  * over HTTP; its fixture records no freshness confirmation. Needs Docker.
  */
 @Import(StatementCounter.Config.class)
-class ListingPutLiveStatementsPostgresTest extends ListingReviewApiTestBase {
+class ListingPutLiveStatementsPostgresTest extends ListingPublicationApiTestBase {
 
 	@Autowired
 	private ListingDomainRepository listings;
 
 	@Autowired
 	private StatementCounter counter;
+
+	@Autowired
+	private ListingPublicationCommandUseCase publications;
 
 	@Override
 	String phonePrefix() {
@@ -132,6 +138,34 @@ class ListingPutLiveStatementsPostgresTest extends ListingReviewApiTestBase {
 		});
 
 		assertEquals(1, updates);
+	}
+
+	/**
+	 * PL-1, A-2: the Sale's put live in the test's read-write transaction, which the use case joins: one UPDATE of the
+	 * listing row (the row lock {@code SELECT ... FOR UPDATE} moves no counter), and the statements of the whole command
+	 * as measured on the first green run.
+	 */
+	@Test
+	void putLive_statementCount_measured() throws Exception {
+		String listingId = waitingApproval().listingId();
+		long version = dataVersion(listingId);
+		AtomicReference<RevisionCommandResult> answer = new AtomicReference<>();
+
+		List<Long> measured = tx(() -> {
+			long before = listingUpdates();
+			long statements = counter.count(() -> answer.set(publications.putLive(putLiveCommand(listingId, 1, version),
+					saleViewer())));
+			long after = listingUpdates();
+			return List.of(after - before, statements);
+		});
+
+		assertEquals(new RevisionCommandResult(listingId, 1, RevisionStatus.LIVE, version + 1), answer.get());
+		assertEquals(1, measured.get(0));
+		// A-2, measured on the first green run (2026-11-22): the row and the standings, the working set (four), the row
+		// lock, E05's evaluation under its share lock and its terms, property's availability, the freshness summary, the
+		// guarded write with the revision rows and the history row, and the event row
+		assertEquals(89L, measured.get(1));
+		assertEquals("PUBLISHED", state(listingId));
 	}
 
 	/** A listing of {@code sale} whose revision 1 was submitted and approved over HTTP; no freshness confirmation. */
