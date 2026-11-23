@@ -2,18 +2,27 @@ package vn.sunvibe.listing.core.testsupport;
 
 import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.OpenListingExistsException;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionDecision;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
 import vn.sunvibe.listing.core.domain.repository.ListingRevisionPage;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.listing.core.domain.repository.ListingRowPage;
+import vn.sunvibe.listing.core.domain.repository.ReconfirmationCandidate;
+import vn.sunvibe.listing.core.domain.repository.ReviewCandidate;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +41,13 @@ public class InMemoryListingRepository implements ListingDomainRepository {
     private final Set<String> takenCodes = new HashSet<>();
     private final List<String> calls = new ArrayList<>();
     private final List<ListingHistoryEntry> writtenHistory = new ArrayList<>();
+    private final Map<String, FreshnessSummary> summaries = new HashMap<>();
+    private final Map<String, FreshnessRecord> latestRecords = new HashMap<>();
+    private final List<FreshnessRecord> writtenRecords = new ArrayList<>();
+    private final List<ReconfirmationCandidate> candidates = new ArrayList<>();
+    private final List<RevisionDecision> writtenDecisions = new ArrayList<>();
+    private final Map<String, Set<String>> authors = new HashMap<>();
+    private final List<ReviewCandidate> reviewCandidates = new ArrayList<>();
     private boolean refuseNextInsertAsOpen;
 
     /** Stores a listing as if an earlier command had, without recording an insert. */
@@ -140,7 +156,7 @@ public class InMemoryListingRepository implements ListingDomainRepository {
 
     /**
      * Enforces the row version and the one-open rule as the adapter and the unique index do, then stores the listing
-     * with its changed revisions, the version plus one and the pending history.
+     * with its state, its changed revisions, the version plus one and the pending history.
      */
     @Override
     public void update(Listing listing) {
@@ -149,20 +165,84 @@ public class InMemoryListingRepository implements ListingDomainRepository {
         if (current.rowVersion() != listing.rowVersion()) {
             throw new ListingChangedException();
         }
+        store(current, listing, listing.updatedAt());
+        writtenHistory.addAll(listing.pendingHistory());
+        writtenDecisions.addAll(listing.pendingDecisions());
+    }
+
+    /** The listing row's version as the lock answers it; a test subclass may answer another (E06S6-D5 step (8)). */
+    @Override
+    public Optional<Long> lockRow(String listingId) {
+        calls.add("lockRow " + listingId);
+        return lockedVersion(listingId);
+    }
+
+    /** The stored row version; override to answer what a concurrent command left behind the lock. */
+    protected Optional<Long> lockedVersion(String listingId) {
+        return stored(listingId).map(Listing::rowVersion);
+    }
+
+    @Override
+    public Optional<Integer> findApprovedRevisionNo(String listingId) {
+        calls.add("findApprovedRevisionNo " + listingId);
+        return stored(listingId).flatMap(listing -> listing.revisions().stream()
+                .filter(revision -> revision.status() == RevisionStatus.APPROVED)
+                .map(ListingRevision::revisionNo).findFirst());
+    }
+
+    /** The working set of a put live as the adapter loads it: the target, the approved and the live revisions. */
+    @Override
+    public Optional<Listing> findForPutLive(String listingId, Integer targetRevisionNoOrNull) {
+        calls.add("findForPutLive " + listingId + " " + targetRevisionNoOrNull);
+        return stored(listingId).map(listing -> Listing.loadForCommand(listing.id(), listing.code(), listing.unitId(),
+                listing.transactionType(), listing.agreementId(), listing.state(), listing.createdBy(),
+                listing.createdAt(), listing.updatedAt(), listing.rowVersion(),
+                listing.revisions().stream().mapToInt(ListingRevision::revisionNo).max().orElse(0),
+                listing.revisions().stream()
+                        .filter(revision -> revision.status() == RevisionStatus.APPROVED
+                                || revision.status() == RevisionStatus.LIVE
+                                || targetRevisionNoOrNull != null && revision.revisionNo() == targetRevisionNoOrNull)
+                        .toList()));
+    }
+
+    /**
+     * Checks the two version invariants and the row version as the adapter does, then stores the listing with its state
+     * and revisions, the summary and the record, and the record's entry then the listing's pending history.
+     */
+    @Override
+    public void recordFreshnessWithPutLive(Listing listing, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                           FreshnessRecord record, ListingHistoryEntry entry) {
+        calls.add("recordFreshnessWithPutLive " + listing.id());
+        if (listing.rowVersion() != loadedRowVersion || record.listingRowVersion() != loadedRowVersion + 1) {
+            throw new IllegalStateException("a record that puts live is written on the version its listing was loaded with");
+        }
+        Listing current = stored(listing.id()).orElseThrow(ListingChangedException::new);
+        if (current.rowVersion() != loadedRowVersion) {
+            throw new ListingChangedException();
+        }
+        store(current, listing, now);
+        summaries.put(listing.id(), next);
+        latestRecords.put(listing.id(), record);
+        writtenRecords.add(record);
+        writtenHistory.add(entry);
+        writtenHistory.addAll(listing.pendingHistory());
+    }
+
+    private void store(Listing current, Listing listing, Instant updatedAt) {
         Map<Integer, ListingRevision> byNumber = new TreeMap<>();
         current.revisions().forEach(revision -> byNumber.put(revision.revisionNo(), revision));
         listing.pendingRevisionChanges().forEach(change ->
                 byNumber.put(change.revision().revisionNo(), change.revision()));
         long open = byNumber.values().stream().filter(revision -> revision.status() == RevisionStatus.DRAFT
                 || revision.status() == RevisionStatus.PENDING_REVIEW).count();
-        if (open > 1) {
+        long live = byNumber.values().stream().filter(revision -> revision.status() == RevisionStatus.LIVE).count();
+        if (open > 1 || live > 1) {
             throw new ListingChangedException();
         }
         Listing next = Listing.load(current.id(), current.code(), current.unitId(), current.transactionType(),
-                current.agreementId(), current.state(), current.createdBy(), current.createdAt(), listing.updatedAt(),
+                current.agreementId(), listing.state(), current.createdBy(), current.createdAt(), updatedAt,
                 current.rowVersion() + 1, List.copyOf(byNumber.values()));
         stored.replaceAll(candidate -> candidate.id().equals(listing.id()) ? next : candidate);
-        writtenHistory.addAll(listing.pendingHistory());
     }
 
     /** The history rows the updates wrote, in order. */
@@ -182,6 +262,150 @@ public class InMemoryListingRepository implements ListingDomainRepository {
                 current.agreementId(), current.state(), current.createdBy(), current.createdAt(), current.updatedAt(),
                 current.rowVersion() + 1, current.revisions());
         stored.replaceAll(candidate -> candidate.id().equals(listingId) ? moved : candidate);
+    }
+
+    /** A listing's stored summary and latest record, as if earlier records had made them; nothing is recorded. */
+    public void putFreshness(String listingId, FreshnessSummary summary, FreshnessRecord latestOrNull) {
+        summaries.put(listingId, summary);
+        if (latestOrNull == null) {
+            latestRecords.remove(listingId);
+        } else {
+            latestRecords.put(listingId, latestOrNull);
+        }
+    }
+
+    /** A row the candidate query reads; the candidates are these rows only, whatever is stored. */
+    public void putCandidate(ReconfirmationCandidate candidate) {
+        candidates.add(candidate);
+    }
+
+    /** The records {@link #recordFreshness} wrote for the listing, in order. */
+    public List<FreshnessRecord> freshnessRecords(String listingId) {
+        return writtenRecords.stream().filter(record -> record.listingId().equals(listingId)).toList();
+    }
+
+    @Override
+    public FreshnessSummary findFreshnessSummary(String listingId) {
+        calls.add("findFreshnessSummary " + listingId);
+        return summaries.getOrDefault(listingId, FreshnessSummary.none());
+    }
+
+    @Override
+    public Optional<FreshnessRecord> findLatestFreshnessRecord(String listingId) {
+        calls.add("findLatestFreshnessRecord " + listingId);
+        return Optional.ofNullable(latestRecords.get(listingId));
+    }
+
+    /**
+     * Enforces the row version as {@link #update} does, then stores the listing with the version plus one and the time,
+     * keeps the next summary and the record as the latest, and adds the history entry.
+     */
+    @Override
+    public void recordFreshness(String listingId, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                FreshnessRecord record, ListingHistoryEntry entry) {
+        calls.add("recordFreshness " + listingId);
+        Listing current = stored(listingId).orElseThrow(ListingChangedException::new);
+        if (current.rowVersion() != loadedRowVersion) {
+            throw new ListingChangedException();
+        }
+        Listing moved = Listing.load(current.id(), current.code(), current.unitId(), current.transactionType(),
+                current.agreementId(), current.state(), current.createdBy(), current.createdAt(), now,
+                current.rowVersion() + 1, current.revisions());
+        stored.replaceAll(candidate -> candidate.id().equals(listingId) ? moved : candidate);
+        summaries.put(listingId, next);
+        latestRecords.put(listingId, record);
+        writtenRecords.add(record);
+        writtenHistory.add(entry);
+    }
+
+    /** The rows of {@link #putCandidate} with the SQL's filter, order, cursor and limit. */
+    @Override
+    public List<ReconfirmationCandidate> findReconfirmationCandidates(LocalDate confirmedOnOrBefore,
+                                                                      ReconfirmationCandidate afterOrNull, int limit) {
+        calls.add("findReconfirmationCandidates " + confirmedOnOrBefore + " " + limit);
+        Comparator<ReconfirmationCandidate> keyOrder = Comparator
+                .comparing((ReconfirmationCandidate candidate) -> candidate.summary().confirmedOnOrNull())
+                .thenComparing(ReconfirmationCandidate::listingId);
+        return candidates.stream()
+                .filter(candidate -> candidate.storedState() != ListingState.ARCHIVED)
+                .filter(candidate -> candidate.summary().confirmedOnOrNull() != null
+                        && !candidate.summary().confirmedOnOrNull().isAfter(confirmedOnOrBefore))
+                .filter(candidate -> afterOrNull == null || keyOrder.compare(candidate, afterOrNull) > 0)
+                .sorted(keyOrder)
+                .limit(limit)
+                .toList();
+    }
+
+    /** The authors of a revision, as the recursive statement would answer them; nobody by default. */
+    public void putAuthors(String revisionId, Set<String> authorIds) {
+        authors.put(revisionId, Set.copyOf(authorIds));
+    }
+
+    /** A row the review candidate query reads; the candidates are these rows only, whatever is stored. */
+    public void putReviewCandidate(ReviewCandidate candidate) {
+        reviewCandidates.add(candidate);
+    }
+
+    /** The decisions {@link #update} stored, in order. */
+    public List<RevisionDecision> decisions() {
+        return List.copyOf(writtenDecisions);
+    }
+
+    /**
+     * The working set of a decision as the adapter loads it: the target, the approved and the live revisions, and the
+     * greatest number.
+     */
+    @Override
+    public Optional<Listing> findForReview(String listingId, int revisionNo) {
+        calls.add("findForReview " + listingId + " " + revisionNo);
+        return stored(listingId).map(listing -> Listing.loadForCommand(listing.id(), listing.code(), listing.unitId(),
+                listing.transactionType(), listing.agreementId(), listing.state(), listing.createdBy(),
+                listing.createdAt(), listing.updatedAt(), listing.rowVersion(),
+                listing.revisions().stream().mapToInt(ListingRevision::revisionNo).max().orElse(0),
+                listing.revisions().stream()
+                        .filter(revision -> revision.status() == RevisionStatus.APPROVED
+                                || revision.status() == RevisionStatus.LIVE
+                                || revision.revisionNo() == revisionNo)
+                        .toList()));
+    }
+
+    /** The authors of {@link #putAuthors} for the ids asked, one call recorded; none for an empty set. */
+    @Override
+    public Map<String, Set<String>> findAuthors(Collection<String> revisionIds) {
+        if (revisionIds.isEmpty()) {
+            return Map.of();
+        }
+        calls.add("findAuthors " + revisionIds);
+        Map<String, Set<String>> answer = new HashMap<>();
+        revisionIds.forEach(id -> answer.put(id, authors.getOrDefault(id, Set.of())));
+        return answer;
+    }
+
+    /** The rows of {@link #putReviewCandidate} in (submission time, revision id) order, after the cursor, limited. */
+    @Override
+    public List<ReviewCandidate> findReviewCandidates(Instant afterSubmittedAtOrNull, String afterRevisionIdOrNull,
+                                                      int limit) {
+        calls.add("findReviewCandidates " + afterSubmittedAtOrNull + " " + afterRevisionIdOrNull + " " + limit);
+        Comparator<ReviewCandidate> keyOrder = Comparator.comparing(ReviewCandidate::submittedAt)
+                .thenComparing(ReviewCandidate::revisionId);
+        return reviewCandidates.stream()
+                .filter(candidate -> afterSubmittedAtOrNull == null || keyOrder.compare(candidate,
+                        new ReviewCandidate(null, null, null, afterRevisionIdOrNull, 1, afterSubmittedAtOrNull, null,
+                                null)) > 0)
+                .sorted(keyOrder)
+                .limit(limit)
+                .toList();
+    }
+
+    /** The decision {@link #update} stored for the listing's revision of that number. */
+    @Override
+    public Optional<RevisionDecision> findDecision(String listingId, int revisionNo) {
+        calls.add("findDecision " + listingId + " " + revisionNo);
+        Optional<String> revisionId = stored(listingId).flatMap(listing -> listing.revision(revisionNo))
+                .map(ListingRevision::id);
+        return revisionId.flatMap(id -> writtenDecisions.stream()
+                .filter(decision -> decision.revisionId().equals(id))
+                .findFirst());
     }
 
     private static ListingRow toRow(Listing listing) {

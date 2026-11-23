@@ -2,11 +2,20 @@ package vn.sunvibe.listing.core.presentation.converter;
 
 import org.springframework.stereotype.Component;
 import vn.sunvibe.listing.core.application.query.AgreementListingsView;
+import vn.sunvibe.listing.core.application.query.FreshnessRecordResult;
 import vn.sunvibe.listing.core.application.query.ListingCreateResult;
+import vn.sunvibe.listing.core.application.query.ListingFreshnessView;
+import vn.sunvibe.listing.core.application.query.ListingPublicationView;
 import vn.sunvibe.listing.core.application.query.ListingRevisionView;
 import vn.sunvibe.listing.core.application.query.ListingView;
+import vn.sunvibe.listing.core.application.query.LiveDifferenceView;
+import vn.sunvibe.listing.core.application.query.ReconfirmationListView;
+import vn.sunvibe.listing.core.application.query.ReviewQueueView;
 import vn.sunvibe.listing.core.application.query.RevisionCommandResult;
+import vn.sunvibe.listing.core.application.query.RevisionDecisionView;
+import vn.sunvibe.listing.core.application.query.RevisionReviewView;
 import vn.sunvibe.listing.core.application.query.TermsSourcesView;
+import vn.sunvibe.listing.core.application.query.UnitLocationResult;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionFeatures;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionTerms;
 import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
@@ -15,18 +24,37 @@ import vn.sunvibe.listing.core.presentation.dto.response.ListingCreatedResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingCreationResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingDepositResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingDetailResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingDisplayAnswerResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFeaturesResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingFeeResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessRecordResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessRecordedResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingItemResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingLiveDifferenceResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingLiveRevisionResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingPendingTermsResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingPublicationApprovedResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingPublicationLiveResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingPublicationResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReconfirmationItemResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReconfirmationsResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRentResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReviewAdvertisingResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReviewFreshnessResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReviewQueueItemResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReviewQueueResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReviewUnitResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionChangeResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionDecisionResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionDetailResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionItemResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionProblemResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionReviewResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingTermsResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingTermsSnapshotResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingTermsSourcesResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingUnitLocationResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingUnitSnapshotResponse;
 
 /** Result and views to response DTOs, the codes as strings: a pure function of its arguments. */
@@ -103,6 +131,110 @@ public class ListingResponseConverter {
                                 fee.amountOrNull() == null ? null : VND,
                                 fee.chargeUnitOrNull() == null ? null : fee.chargeUnitOrNull().name()))
                         .toList());
+    }
+
+    public ListingFreshnessRecordedResponse toFreshnessRecorded(FreshnessRecordResult result) {
+        return new ListingFreshnessRecordedResponse(result.listingId(), result.dataVersion(), result.valid());
+    }
+
+    /** The freshness read with its latest record, the note included; no user id (E06S3-D8). */
+    public ListingFreshnessResponse toFreshness(ListingFreshnessView view) {
+        ListingFreshnessView.LatestRecord latest = view.latestOrNull();
+        return new ListingFreshnessResponse(view.listingId(), view.confirmedOnOrNull(), view.reconfirmFromOrNull(),
+                view.validThroughOrNull(), view.reconfirmationDue(), view.deadlinePassed(),
+                latest == null ? null : new ListingFreshnessRecordResponse(latest.contactDate(), latest.recordedAt(),
+                        latest.channel().name(), latest.outcome().name(), latest.termsStillApplyOrNull(),
+                        latest.unitUnchangedOrNull(), latest.valid(), latest.noteOrNull()));
+    }
+
+    public ListingReconfirmationsResponse toReconfirmations(ReconfirmationListView view) {
+        return new ListingReconfirmationsResponse(
+                view.items().stream()
+                        .map(item -> new ListingReconfirmationItemResponse(item.listingId(), item.code(),
+                                item.state().name(), item.confirmedOn(), item.reconfirmFrom(), item.validThrough(),
+                                item.deadlinePassed(), item.latestRecordValid()))
+                        .toList(),
+                view.hasMore());
+    }
+
+    /** The queue; each row's unit in the revision read's snapshot schema (E06S4-D10). */
+    public ListingReviewQueueResponse toReviewQueue(ReviewQueueView view) {
+        return new ListingReviewQueueResponse(
+                view.items().stream()
+                        .map(item -> new ListingReviewQueueItemResponse(item.listingId(), item.code(),
+                                item.revisionNo(), item.submittedAt(), item.title(), toUnitSnapshot(item.unitOrNull()),
+                                item.viewerMayReview(), item.reasons().stream().map(Enum::name).toList()))
+                        .toList(),
+                view.hasMore());
+    }
+
+    /** The review read; E05's terms in the schemas of the terms sources (E06S4-D11). */
+    public ListingRevisionReviewResponse toRevisionReview(RevisionReviewView view) {
+        RevisionReviewView.Advertising advertising = view.advertisingOrNull();
+        RevisionReviewView.Unit unit = view.unit();
+        RevisionReviewView.Freshness freshness = view.freshness();
+        return new ListingRevisionReviewResponse(view.listingId(), view.code(), view.revisionNo(), view.status().name(),
+                view.dataVersion(), view.viewerMayReview(), view.reasons().stream().map(Enum::name).toList(),
+                advertising == null ? null : toAdvertising(advertising), view.termsMatch().name(),
+                new ListingReviewUnitResponse(unit.unitCodeOrNull(), nameOrNull(unit.availabilityOrNull()),
+                        unit.availabilityDiffers()),
+                new ListingReviewFreshnessResponse(freshness.confirmedOnOrNull(), freshness.validThroughOrNull(),
+                        freshness.deadlinePassed(), freshness.latestValidOrNull()),
+                view.checklist().stream().map(Enum::name).toList());
+    }
+
+    /** The decision read; no decider (E06S4-D15). */
+    public ListingRevisionDecisionResponse toRevisionDecision(RevisionDecisionView view) {
+        return new ListingRevisionDecisionResponse(view.outcome().name(), view.decidedAt(),
+                view.checklistVersionOrNull(), view.changeReasons().stream().map(Enum::name).toList(),
+                nameOrNull(view.rejectionGroupOrNull()), view.noteOrNull());
+    }
+
+    public ListingUnitLocationResponse toUnitLocation(UnitLocationResult result) {
+        return new ListingUnitLocationResponse(result.unitCodeOrNull(), result.locationLabelOrNull(),
+                result.streetOrNull(), result.wardNameOrNull());
+    }
+
+    /** The publication read; each revision's display answer as codes (E06S6-D11). */
+    public ListingPublicationResponse toPublication(ListingPublicationView view) {
+        ListingPublicationView.Live live = view.liveOrNull();
+        ListingPublicationView.Approved approved = view.approvedOrNull();
+        return new ListingPublicationResponse(view.listingId(), view.state().name(), view.dataVersion(),
+                live == null ? null : new ListingPublicationLiveResponse(live.revisionNo(), live.wentLiveAt(),
+                        toDisplay(live.display())),
+                approved == null ? null : new ListingPublicationApprovedResponse(approved.revisionNo(),
+                        approved.termsSource().name(), toDisplay(approved.display())),
+                view.viewerMayPutLive(), view.viewerMayCopy());
+    }
+
+    /** The live difference read; the live revision in the revision read's schemas of features and terms (E06S6-D12). */
+    public ListingLiveDifferenceResponse toLiveDifference(LiveDifferenceView view) {
+        LiveDifferenceView.LiveRevision live = view.liveOrNull();
+        return new ListingLiveDifferenceResponse(view.revisionNo(), view.comparison().name(),
+                live == null ? null : new ListingLiveRevisionResponse(live.revisionNo(), live.wentLiveAt(),
+                        live.content().titleOrNull(), live.content().descriptionOrNull(),
+                        toFeatures(live.content().features()), toSnapshot(live.terms())),
+                view.changedParts().stream().map(Enum::name).toList());
+    }
+
+    private static ListingDisplayAnswerResponse toDisplay(ListingPublicationView.DisplayAnswer display) {
+        return new ListingDisplayAnswerResponse(display.holds(), display.reasons().stream().map(Enum::name).toList(),
+                display.reasonGroups().stream().map(Enum::name).toList());
+    }
+
+    private ListingTermsSnapshotResponse toSnapshot(RevisionTerms terms) {
+        return new ListingTermsSnapshotResponse(terms.source().name(), terms.pendingStartDateOrNull(),
+                terms.capturedAt(), toTerms(terms));
+    }
+
+    private ListingReviewAdvertisingResponse toAdvertising(RevisionReviewView.Advertising advertising) {
+        RevisionTerms pending = advertising.pendingOrNull();
+        return new ListingReviewAdvertisingResponse(advertising.allowed(), advertising.ended(),
+                advertising.reasonGroups().stream().map(Enum::name).toList(), advertising.endDateOrNull(),
+                advertising.interiorPhotos(), advertising.exteriorPhotos(),
+                advertising.termsInEffectOrNull() == null ? null : toTerms(advertising.termsInEffectOrNull()),
+                pending == null ? null : new ListingPendingTermsResponse(pending.pendingStartDateOrNull(),
+                        toTerms(pending)));
     }
 
     private static ListingFeaturesResponse toFeatures(RevisionFeatures features) {

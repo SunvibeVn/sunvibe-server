@@ -2,6 +2,7 @@ package vn.sunvibe.listing.core.infrastructure.persistence.adapter;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.PersistenceException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
@@ -9,30 +10,46 @@ import org.springframework.stereotype.Service;
 import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
 import vn.sunvibe.listing.core.domain.exception.ListingCodeTakenException;
 import vn.sunvibe.listing.core.domain.exception.OpenListingExistsException;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionChange;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionChangeKind;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionDecision;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
 import vn.sunvibe.listing.core.domain.repository.ListingRevisionPage;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.listing.core.domain.repository.ListingRowPage;
+import vn.sunvibe.listing.core.domain.repository.ReconfirmationCandidate;
+import vn.sunvibe.listing.core.domain.repository.ReviewCandidate;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingFreshnessRecordEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingHistoryEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionReviewEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.mapper.manual.ListingEntityMapper;
+import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingFreshnessRecordJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingHistoryJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionFeeJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionJpaRepository;
+import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionReviewJpaRepository;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Repository Implementation - listings, their revisions and history. No entity stays managed after a call. */
@@ -48,16 +65,35 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
     private static final String OPEN_REVISION_INDEX = "uq_listing_revisions_open";
     /** listing section 3.3: the revisions of a listing have distinct numbers. */
     private static final String REVISION_NUMBER_INDEX = "uq_listing_revisions_number";
+    /** listing-publish BR-6, E06-S4 spec E06S4-D9: at most one Approved revision per listing. */
+    private static final String APPROVED_REVISION_INDEX = "uq_listing_revisions_approved";
+    /** listing-publish BR-6, E06-S6 spec E06S6-D6: at most one Live revision per listing. */
+    private static final String LIVE_REVISION_INDEX = "uq_listing_revisions_live";
+    /** listing-publish US-4 AC-3, E06-S4 spec E06S4-D8: one decision per revision. */
+    private static final String DECISION_KEY = "listing_revision_reviews_pkey";
     private static final int MAX_CAUSE_DEPTH = 20;
-    /** E06S2-D19: the open revision and the target, two rows at most; the limit bounds it anyway. */
+    /**
+     * E06S2-D19: the open revision and the target, or for a decision or a put live the target, the waiting approval and
+     * the live revision: three rows at most.
+     */
     private static final int WORKING_SET_LIMIT = 3;
     private static final List<RevisionStatus> OPEN_STATUSES = List.of(RevisionStatus.DRAFT,
             RevisionStatus.PENDING_REVIEW);
+    /**
+     * E06-S4 plan E06S4-P2, E06-S6 spec E06S6-D7: a decision's working set is its target, the approved revision still
+     * waiting and the live revision.
+     */
+    private static final List<RevisionStatus> REVIEW_STATUSES = List.of(RevisionStatus.APPROVED, RevisionStatus.LIVE);
+    /** E06-S6 spec E06S6-D5 step (6): a put live's working set is its target, the approved and the live revision. */
+    private static final List<RevisionStatus> PUT_LIVE_STATUSES = List.of(RevisionStatus.APPROVED,
+            RevisionStatus.LIVE);
 
     private final ListingJpaRepository listings;
     private final ListingRevisionJpaRepository revisions;
     private final ListingRevisionFeeJpaRepository fees;
     private final ListingHistoryJpaRepository history;
+    private final ListingFreshnessRecordJpaRepository freshnessRecords;
+    private final ListingRevisionReviewJpaRepository reviews;
     private final ListingEntityMapper mapper;
 
     @PersistenceContext
@@ -141,18 +177,7 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
         entityManager.detach(row);
         // no revision is numbered below 1, so 0 selects the open revisions only (plan E06S2-P3)
         int target = targetRevisionNoOrNull == null ? 0 : targetRevisionNoOrNull;
-        List<ListingRevisionEntity> workingSet = revisions.findWorkingSet(listingId, OPEN_STATUSES, target,
-                PageRequest.of(0, WORKING_SET_LIMIT));
-        workingSet.forEach(entityManager::detach);
-        Map<String, List<ListingRevisionFeeEntity>> feesByRevision = feesOf(workingSet);
-        Integer newest = revisions.findNewestNumber(listingId);
-        List<ListingRevision> loaded = workingSet.stream()
-                .map(entity -> mapper.toFullRevision(entity, feesByRevision.getOrDefault(entity.getId(), List.of())))
-                .toList();
-        return Optional.of(Listing.loadForCommand(row.getId(), ListingCode.of(row.getCode()), row.getUnitId(),
-                row.getTransactionType(), row.getAgreementId(), row.getState(), row.getCreatedBy(), row.getCreatedAt(),
-                row.getUpdatedAt(), row.getRowVersion() == null ? 0L : row.getRowVersion(),
-                newest == null ? 0 : newest, loaded));
+        return Optional.of(loaded(row, OPEN_STATUSES, target));
     }
 
     /** Two statements: the revision on uq_listing_revisions_number, then its fee rows. */
@@ -174,16 +199,90 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
     }
 
     /**
-     * listing-publish E06-S2 spec E06S2-D19, plan E06S2-P7: the listing row's guarded update first, then each changed
-     * revision written as a whole (an added one inserted), its fee rows replaced only when its terms were, then the
-     * pending history; every entity detached. A revision index violation here means a row was written without moving
-     * the listing's version: the backstop answers it as a concurrent change.
+     * listing-publish E06-S2 spec E06S2-D19, plan E06S2-P7: the listing row's guarded update first, with the stored
+     * state when the command changed it (E06-S6 spec E06S6-D6: {@code advanceVersion} otherwise, the statement every
+     * other command sends), then each changed revision written as a whole in the aggregate's order (an added or copied
+     * one inserted), its fee rows replaced only when its terms were and written with a copy (E06-S4 spec E06S4-D14), then
+     * each pending decision (E06S4-D8), then the pending history; every entity detached. A revision index or decision key
+     * violation here means a row was written without moving the listing's version: the backstop answers it as a
+     * concurrent change. A command without a copy or a decision sends the statements it sent before E06-S4.
      */
     @Override
     public void update(Listing listing) {
-        if (listings.advanceVersion(listing.id(), listing.rowVersion(), listing.updatedAt()) == 0) {
+        int written = listing.stateChanged()
+                ? listings.advanceVersionAndState(listing.id(), listing.rowVersion(), listing.updatedAt(),
+                listing.state().name())
+                : listings.advanceVersion(listing.id(), listing.rowVersion(), listing.updatedAt());
+        if (written == 0) {
             throw new ListingChangedException();
         }
+        writeRevisionChanges(listing);
+        for (RevisionDecision decision : listing.pendingDecisions()) {
+            insertDecision(listing.id(), decision);
+        }
+        history.saveAllAndFlush(mapper.toHistoryEntities(listing)).forEach(entityManager::detach);
+    }
+
+    /** One statement on the primary key, {@code FOR UPDATE} (E06-S6 spec E06S6-D5 step (8)). */
+    @Override
+    public Optional<Long> lockRow(String listingId) {
+        return listings.lockRow(listingId);
+    }
+
+    /** One statement on uq_listing_revisions_approved (E06-S6 spec E06S6-D7). */
+    @Override
+    public Optional<Integer> findApprovedRevisionNo(String listingId) {
+        return revisions.findApprovedNumber(listingId);
+    }
+
+    /**
+     * Four statements, as {@link #findForCommand} reads them (E06-S6 spec E06S6-D5 step (6)): the listing row, the
+     * target, the approved and the live revisions, their fee rows, the greatest number. Every entity is detached.
+     */
+    @Override
+    public Optional<Listing> findForPutLive(String listingId, Integer targetRevisionNoOrNull) {
+        Optional<ListingEntity> found = listings.findById(listingId);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        ListingEntity row = found.get();
+        entityManager.detach(row);
+        // no revision is numbered below 1, so 0 selects the approved and live revisions only
+        int target = targetRevisionNoOrNull == null ? 0 : targetRevisionNoOrNull;
+        return Optional.of(loaded(row, PUT_LIVE_STATUSES, target));
+    }
+
+    /**
+     * listing-publish E06-S6 spec E06S6-D6, D7: the two invariants of the caller first, nothing written when one fails;
+     * then the listing row's guarded update with the summary and the state, then the listing's revision rows in the
+     * aggregate's order, then the record, its history row and the listing's pending history by {@code persist}, one
+     * flush, every entity detached.
+     */
+    @Override
+    public void recordFreshnessWithPutLive(Listing listing, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                           FreshnessRecord record, ListingHistoryEntry entry) {
+        if (listing.rowVersion() != loadedRowVersion || record.listingRowVersion() != loadedRowVersion + 1) {
+            throw new IllegalStateException("a record that puts live is written on the version its listing was loaded with");
+        }
+        if (listings.recordFreshnessAndState(listing.id(), loadedRowVersion, now, next.confirmedOnOrNull(),
+                next.latestValidOrNull(), listing.state().name()) == 0) {
+            throw new ListingChangedException();
+        }
+        writeRevisionChanges(listing);
+        ListingFreshnessRecordEntity recordRow = mapper.toFreshnessRecordEntity(record);
+        ListingHistoryEntity historyRow = ListingEntityMapper.toHistoryEntity(listing.id(), entry);
+        List<ListingHistoryEntity> pendingHistory = mapper.toHistoryEntities(listing);
+        entityManager.persist(recordRow);
+        entityManager.persist(historyRow);
+        pendingHistory.forEach(entityManager::persist);
+        entityManager.flush();
+        entityManager.detach(recordRow);
+        entityManager.detach(historyRow);
+        pendingHistory.forEach(entityManager::detach);
+    }
+
+    /** Each changed revision written as a whole in the aggregate's order, its fee rows as {@link #update} writes them. */
+    private void writeRevisionChanges(Listing listing) {
         for (RevisionChange change : listing.pendingRevisionChanges()) {
             ListingRevision revision = change.revision();
             entityManager.detach(saveRevision(mapper.toRevisionEntity(listing.id(), revision)));
@@ -191,15 +290,160 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
                 fees.deleteByRevisionId(revision.id());
                 fees.saveAllAndFlush(mapper.toFeeEntities(revision)).forEach(entityManager::detach);
             }
+            if (change.kind() == RevisionChangeKind.COPIED) {
+                fees.saveAllAndFlush(mapper.toFeeEntities(revision)).forEach(entityManager::detach);
+            }
         }
-        history.saveAllAndFlush(mapper.toHistoryEntities(listing)).forEach(entityManager::detach);
+    }
+
+    /** One statement on the primary key: the two unmapped columns (plan E06S3-P2). */
+    @Override
+    public FreshnessSummary findFreshnessSummary(String listingId) {
+        return listings.findFreshnessColumns(listingId)
+                .map(columns -> new FreshnessSummary(columns.getConfirmedOn(), columns.getLatestValid()))
+                .orElse(FreshnessSummary.none());
+    }
+
+    /** One statement on uq_listing_freshness_records_version; the entity is detached. */
+    @Override
+    public Optional<FreshnessRecord> findLatestFreshnessRecord(String listingId) {
+        return freshnessRecords.findFirstByListingIdOrderByListingRowVersionDesc(listingId).map(entity -> {
+            entityManager.detach(entity);
+            return mapper.toFreshnessRecord(entity);
+        });
+    }
+
+    /**
+     * listing-publish E06-S3 spec E06S3-D6: the listing row's guarded update first, which takes the row's lock and moves
+     * its version, time and summary together; then the record and the history row by {@code persist}, so no merge
+     * SELECT precedes them, one flush, both detached: three statements. A violation of the record's unique row version
+     * is not translated (plan E06S3-P14): the guarded update alone decides a concurrent record.
+     */
+    @Override
+    public void recordFreshness(String listingId, long loadedRowVersion, Instant now, FreshnessSummary next,
+                                FreshnessRecord record, ListingHistoryEntry entry) {
+        if (listings.recordFreshness(listingId, loadedRowVersion, now, next.confirmedOnOrNull(),
+                next.latestValidOrNull()) == 0) {
+            throw new ListingChangedException();
+        }
+        ListingFreshnessRecordEntity recordRow = mapper.toFreshnessRecordEntity(record);
+        ListingHistoryEntity historyRow = ListingEntityMapper.toHistoryEntity(listingId, entry);
+        entityManager.persist(recordRow);
+        entityManager.persist(historyRow);
+        entityManager.flush();
+        entityManager.detach(recordRow);
+        entityManager.detach(historyRow);
+    }
+
+    /** One statement on idx_listings_freshness_due: the first chunk, or the chunk after the cursor's (date, id). */
+    @Override
+    public List<ReconfirmationCandidate> findReconfirmationCandidates(LocalDate confirmedOnOrBefore,
+                                                                      ReconfirmationCandidate afterOrNull, int limit) {
+        List<ListingJpaRepository.ReconfirmationRow> rows = afterOrNull == null
+                ? listings.findDueFirst(confirmedOnOrBefore, limit)
+                : listings.findDueAfter(confirmedOnOrBefore, afterOrNull.summary().confirmedOnOrNull(),
+                afterOrNull.listingId(), limit);
+        return rows.stream()
+                .map(row -> new ReconfirmationCandidate(row.getId(), row.getCode(), row.getAgreementId(),
+                        ListingState.valueOf(row.getState()),
+                        new FreshnessSummary(row.getConfirmedOn(), row.getLatestValid())))
+                .toList();
+    }
+
+    /**
+     * Four statements, as {@link #findForCommand} reads them (listing-publish E06-S4 plan E06S4-P2): the listing row, the
+     * target, the approved revision still waiting and the live revision, their fee rows, the greatest number. Every
+     * entity is detached.
+     */
+    @Override
+    public Optional<Listing> findForReview(String listingId, int revisionNo) {
+        Optional<ListingEntity> found = listings.findById(listingId);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        ListingEntity row = found.get();
+        entityManager.detach(row);
+        return Optional.of(loaded(row, REVIEW_STATUSES, revisionNo));
+    }
+
+    /** One statement for the set, none for an empty one (plan E06S4-P4). */
+    @Override
+    public Map<String, Set<String>> findAuthors(Collection<String> revisionIds) {
+        if (revisionIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Set<String>> authors = new HashMap<>();
+        for (ListingRevisionJpaRepository.AuthorRow row : revisions.findAuthorRows(List.copyOf(revisionIds))) {
+            authors.computeIfAbsent(row.getRevisionId(), id -> new HashSet<>()).add(row.getAuthorId());
+        }
+        Map<String, Set<String>> answer = new HashMap<>();
+        authors.forEach((revisionId, authorIds) -> answer.put(revisionId, Set.copyOf(authorIds)));
+        return Map.copyOf(answer);
+    }
+
+    /** One statement on idx_listing_revisions_review_queue: the first chunk, or the chunk after the cursor. */
+    @Override
+    public List<ReviewCandidate> findReviewCandidates(Instant afterSubmittedAtOrNull, String afterRevisionIdOrNull,
+                                                      int limit) {
+        List<ListingRevisionJpaRepository.ReviewRow> rows = afterSubmittedAtOrNull == null || afterRevisionIdOrNull == null
+                ? revisions.findReviewFirst(limit)
+                : revisions.findReviewAfter(afterSubmittedAtOrNull, afterRevisionIdOrNull, limit);
+        return rows.stream().map(mapper::toCandidate).toList();
+    }
+
+    /** One statement; the entity is detached. */
+    @Override
+    public Optional<RevisionDecision> findDecision(String listingId, int revisionNo) {
+        return reviews.findOne(listingId, revisionNo).map(entity -> {
+            entityManager.detach(entity);
+            return mapper.toDecision(entity, revisionNo);
+        });
+    }
+
+    /**
+     * The working set of {@code row} at the statuses given and the target, with their fees and the greatest number, in
+     * that statement order: the working set's revisions, their fee rows, the greatest number last.
+     */
+    private Listing loaded(ListingEntity row, List<RevisionStatus> statuses, int target) {
+        List<ListingRevisionEntity> workingSet = revisions.findWorkingSet(row.getId(), statuses, target,
+                PageRequest.of(0, WORKING_SET_LIMIT));
+        workingSet.forEach(entityManager::detach);
+        Map<String, List<ListingRevisionFeeEntity>> feesByRevision = feesOf(workingSet);
+        Integer newest = revisions.findNewestNumber(row.getId());
+        List<ListingRevision> loaded = workingSet.stream()
+                .map(entity -> mapper.toFullRevision(entity, feesByRevision.getOrDefault(entity.getId(), List.of())))
+                .toList();
+        return Listing.loadForCommand(row.getId(), ListingCode.of(row.getCode()), row.getUnitId(),
+                row.getTransactionType(), row.getAgreementId(), row.getState(), row.getCreatedBy(), row.getCreatedAt(),
+                row.getUpdatedAt(), row.getRowVersion() == null ? 0L : row.getRowVersion(),
+                newest == null ? 0 : newest, loaded);
+    }
+
+    /**
+     * Inserts the decision by {@code persist}, so no merge SELECT precedes it, and flushes, so the primary key refuses a
+     * second decision here: a row written without moving the listing's version, answered as a concurrent change (spec
+     * 3.3's backstop). Any other failure is rethrown.
+     */
+    private void insertDecision(String listingId, RevisionDecision decision) {
+        ListingRevisionReviewEntity row = mapper.toReviewEntity(listingId, decision);
+        try {
+            entityManager.persist(row);
+            entityManager.flush();
+        } catch (PersistenceException | DataIntegrityViolationException e) {
+            if (violates(e, DECISION_KEY)) {
+                throw new ListingChangedException();
+            }
+            throw e;
+        }
+        entityManager.detach(row);
     }
 
     private ListingRevisionEntity saveRevision(ListingRevisionEntity entity) {
         try {
             return revisions.saveAndFlush(entity);
         } catch (DataIntegrityViolationException e) {
-            if (violates(e, OPEN_REVISION_INDEX) || violates(e, REVISION_NUMBER_INDEX)) {
+            if (violates(e, OPEN_REVISION_INDEX) || violates(e, REVISION_NUMBER_INDEX)
+                    || violates(e, APPROVED_REVISION_INDEX) || violates(e, LIVE_REVISION_INDEX)) {
                 throw new ListingChangedException();
             }
             throw e;
@@ -217,7 +461,7 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
         return rows.stream().collect(Collectors.groupingBy(row -> row.getId().getRevisionId()));
     }
 
-    private static boolean violates(DataIntegrityViolationException e, String constraintName) {
+    private static boolean violates(RuntimeException e, String constraintName) {
         Throwable current = e;
         for (int depth = 0; current != null && depth < MAX_CAUSE_DEPTH; depth++) {
             if (current instanceof org.hibernate.exception.ConstraintViolationException violation

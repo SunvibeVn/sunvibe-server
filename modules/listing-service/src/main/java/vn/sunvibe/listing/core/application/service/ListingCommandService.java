@@ -3,7 +3,9 @@ package vn.sunvibe.listing.core.application.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
+import vn.sunvibe.listing.core.application.command.RevisionCopyCommand;
 import vn.sunvibe.listing.core.application.command.RevisionFeaturesInput;
 import vn.sunvibe.listing.core.application.command.RevisionSaveCommand;
 import vn.sunvibe.listing.core.application.command.RevisionStartCommand;
@@ -12,6 +14,7 @@ import vn.sunvibe.listing.core.application.command.RevisionWithdrawCommand;
 import vn.sunvibe.listing.core.application.command.TermsCaptureCommand;
 import vn.sunvibe.listing.core.application.exception.ListingNotFoundException;
 import vn.sunvibe.listing.core.application.exception.ListingRefusedException;
+import vn.sunvibe.listing.core.application.query.FreshnessRecordResult;
 import vn.sunvibe.listing.core.application.query.ListingCreateResult;
 import vn.sunvibe.listing.core.application.query.RevisionCommandResult;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingAnswerFacts;
@@ -27,13 +30,21 @@ import vn.sunvibe.listing.core.domain.exception.OpenListingExistsException;
 import vn.sunvibe.listing.core.domain.model.listing.AgreementReasonGroup;
 import vn.sunvibe.listing.core.domain.model.listing.ChargeUnit;
 import vn.sunvibe.listing.core.domain.model.listing.DepositBasis;
+import vn.sunvibe.listing.core.domain.model.listing.DisplayConditions;
+import vn.sunvibe.listing.core.domain.model.listing.DisplayReason;
 import vn.sunvibe.listing.core.domain.model.listing.FeeBasis;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessNote;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
+import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Furnishing;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryAction;
+import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.Pets;
+import vn.sunvibe.listing.core.domain.model.listing.PutLiveMoment;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionContent;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionFeatures;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionTerms;
@@ -41,11 +52,14 @@ import vn.sunvibe.listing.core.domain.model.listing.ShareMode;
 import vn.sunvibe.listing.core.domain.model.listing.TermsSource;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
+import vn.sunvibe.listing.core.domain.policy.listing.FreshnessPolicy;
 import vn.sunvibe.listing.core.domain.policy.listing.ListingAccessPolicy;
 import vn.sunvibe.listing.core.domain.policy.listing.ListingCreatePolicy;
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.shared.generator.id.IdGenerator;
+import vn.sunvibe.shared.outbox.EventOutboxPort;
+import vn.sunvibe.shared.outbox.ListingChangedEvent;
 import vn.sunvibe.shared.time.AppClock;
 
 import java.security.SecureRandom;
@@ -53,6 +67,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.random.RandomGenerator;
 import java.util.regex.Pattern;
 
@@ -63,7 +78,9 @@ import java.util.regex.Pattern;
  * (E06S2-D3): the listing exists and the agreement's standing names the caller as the assignee; the listing is not
  * archived; the data version; the revision; the status; and only then reads E05's terms or property's profile. No
  * revision command reads E05's right or takes its share lock. Nothing else: no outbox event, no row of another module,
- * no access log, no log of a value.
+ * no access log, no log of a value. A valid freshness record with an approved revision waiting tries the put live
+ * (E06S6-D7): the listing row lock, E05's share lock and terms, property's availability, and, when the revision goes
+ * live, the listing's state and the listing event.
  */
 @Service
 @Transactional
@@ -79,21 +96,27 @@ public class ListingCommandService implements ListingCommandUseCase {
     private final UnitProfilePort units;
     private final IdGenerator<String> ids;
     private final RandomGenerator random;
+    private final DisplayConditionsAssembler assembler;
+    private final EventOutboxPort events;
 
     /** The code is drawn from one SecureRandom this service owns (listing-detail BR-15; security.md). */
     @Autowired
     public ListingCommandService(ListingDomainRepository listings, AdvertisingRightPort rights, UnitProfilePort units,
-                                 IdGenerator<String> ids) {
-        this(listings, rights, units, ids, new SecureRandom());
+                                 IdGenerator<String> ids, DisplayConditionsAssembler assembler,
+                                 EventOutboxPort events) {
+        this(listings, rights, units, ids, new SecureRandom(), assembler, events);
     }
 
     ListingCommandService(ListingDomainRepository listings, AdvertisingRightPort rights, UnitProfilePort units,
-                          IdGenerator<String> ids, RandomGenerator random) {
+                          IdGenerator<String> ids, RandomGenerator random, DisplayConditionsAssembler assembler,
+                          EventOutboxPort events) {
         this.listings = listings;
         this.rights = rights;
         this.units = units;
         this.ids = ids;
         this.random = random;
+        this.assembler = assembler;
+        this.events = events;
     }
 
     @Override
@@ -207,6 +230,124 @@ public class ListingCommandService implements ListingCommandUseCase {
         int revisionNo = targetOf(listing, command.revisionNoOrNull());
         ListingRevision withdrawn = listing.withdraw(revisionNo, ids.generateId(), viewer.userId(), now);
         return written(listing, withdrawn);
+    }
+
+    /**
+     * listing-publish US-2 AC-6, BR-6 (E06-S4 spec 3.6, E06S4-D14): the revision commands' checks on the working set
+     * with the source, then the source named in the path; the aggregate refuses a source not Needs changes, then an open
+     * revision, and adds the copy by the caller.
+     */
+    @Override
+    public RevisionCommandResult copyRevision(RevisionCopyCommand command, ListingViewer viewer) {
+        Instant now = now();
+        Listing listing = loadForDrafting(command.listingId(), command.revisionNoOrNull(), command.dataVersion(),
+                viewer);
+        int sourceNo = targetOf(listing, command.revisionNoOrNull());
+        ListingRevision copy = listing.copyRevision(sourceNo, ids.generateId(), ids.generateId(), viewer.userId(),
+                now);
+        return written(listing, copy);
+    }
+
+    /**
+     * listing-publish US-6 AC-1, AC-2, BR-9, BR-11 (E06-S3 spec 3.1, E06S3-D3): the scope and the archived check of
+     * {@link #loadForRecording}, the data version, then the record dated today in Vietnam time, the summary only a valid
+     * record moves forward, and one history row, written with the listing row's guarded update. A valid confirmation
+     * tries to put the approved revision live (E06S6-D7), which may change the listing's state: then the record, the
+     * listing's state and revisions go in the one guarded write, and the listing's event is appended. An invalid record,
+     * or one with no approved revision waiting, reads no E05 right, terms or share lock and no unit.
+     */
+    @Override
+    public FreshnessRecordResult recordFreshness(FreshnessRecordCommand command, ListingViewer viewer) {
+        Instant now = now();
+        ListingRow row = loadForRecording(command.listingId(), viewer);
+        // listing BR-3: a command acts on the version its caller read
+        if (row.rowVersion() != command.dataVersion()) {
+            throw new ListingChangedException();
+        }
+        FreshnessSummary previous = listings.findFreshnessSummary(row.listingId());
+        FreshnessNote note = FreshnessNote.ofOrNull(command.noteOrNull());
+        long nextVersion = row.rowVersion() + 1;
+        FreshnessRecord record = new FreshnessRecord(ids.generateId(), row.listingId(), nextVersion,
+                FreshnessPolicy.today(now), now, viewer.userId(), command.channel(), command.outcome(),
+                command.termsStillApplyOrNull(), command.unitUnchangedOrNull(), note == null ? null : note.text());
+        // listing BR-3: the record leaves one history row; it holds no revision, outcome or note (E06S3-D9)
+        ListingHistoryEntry entry = new ListingHistoryEntry(ids.generateId(), ListingHistoryAction.FRESHNESS_RECORDED,
+                null, viewer.userId(), now);
+        FreshnessSummary next = previous.after(record);
+        Listing wentLive = record.valid() ? putLiveOnConfirmation(row, next, now).orElse(null) : null;
+        if (wentLive == null) {
+            listings.recordFreshness(row.listingId(), row.rowVersion(), now, next, record, entry);
+        } else {
+            listings.recordFreshnessWithPutLive(wentLive, row.rowVersion(), now, next, record, entry);
+            // ADR-014 decision 3: the listing's event in the transaction of the write
+            events.append(ListingChangedEvent.now(row.listingId()));
+        }
+        return new FreshnessRecordResult(row.listingId(), nextVersion, record.valid());
+    }
+
+    /**
+     * listing-publish US-5 AC-3 moment 2, US-6 AC-4 (E06-S6 spec E06S6-D7): a valid record on an Unpublished or Published
+     * listing with an Approved revision waiting tries the put live without actor, with the summary the record moves to.
+     * The working set read after the row and the locked row must both still be on the version the caller read, the
+     * listing row locked before E05's share lock on the agreement row (lock order: the listing row, then the agreement
+     * row). Any display reason leaves the revision Approved and is not reported.
+     *
+     * @return the listing whose revision went live, to be written with the record; empty when nothing went live
+     */
+    private Optional<Listing> putLiveOnConfirmation(ListingRow row, FreshnessSummary next, Instant now) {
+        if (row.storedState() != ListingState.UNPUBLISHED && row.storedState() != ListingState.PUBLISHED) {
+            return Optional.empty();
+        }
+        Optional<Integer> approvedNo = listings.findApprovedRevisionNo(row.listingId());
+        if (approvedNo.isEmpty()) {
+            return Optional.empty();
+        }
+        Listing listing = listings.findForPutLive(row.listingId(), null).orElseThrow(ListingChangedException::new);
+        if (listing.rowVersion() != row.rowVersion()) {
+            throw new ListingChangedException();
+        }
+        long locked = listings.lockRow(row.listingId()).orElseThrow(ListingChangedException::new);
+        if (locked != row.rowVersion()) {
+            throw new ListingChangedException();
+        }
+        DisplayConditions conditions = assembler.underShareLock(row, row.storedState(), next, now);
+        List<DisplayReason> reasons = listing.tryPutLive(approvedNo.get(), conditions, PutLiveMoment.VALID_CONFIRMATION,
+                null, now, ids.generateId(), ids.generateId());
+        return reasons.isEmpty() ? Optional.of(listing) : Optional.empty();
+    }
+
+    /**
+     * The checks of the record before its own (listing-publish E06-S3 spec E06S3-D3, plan E06S3-P1): a malformed id
+     * reads nothing; the listing and its agreement's standing name the caller as the assignee (a standing E05 no longer
+     * returns names nobody); not archived, stored or because the agreement ended.
+     */
+    private ListingRow loadForRecording(String listingId, ListingViewer viewer) {
+        if (listingId == null || !ID.matcher(listingId).matches()) {
+            throw new ListingNotFoundException();
+        }
+        ListingRow row = listings.findRow(listingId).orElseThrow(ListingNotFoundException::new);
+        // listing BR-16, listing-publish section 2: only the SALE or SALE_LEADER who holds the basis lead now records;
+        // anyone else in those roles reads "not found" (listing BR-5)
+        AgreementStandingFacts standing = rights.standings(List.of(row.agreementId())).stream()
+                .filter(found -> row.agreementId().equals(found.agreementId()))
+                .findFirst()
+                .filter(found -> ListingAccessPolicy.mayRecordFreshness(viewer.expandedAuthorities(), viewer.userId(),
+                        found.basisLeadAssigneeIdOrNull()))
+                .orElseThrow(ListingNotFoundException::new);
+        // listing-publish US-9 AC-3: an archived listing takes no command, its archive stored or effective
+        if (row.storedState().effective(standing.ended()) == ListingState.ARCHIVED) {
+            throw ListingRefusedException.archived();
+        }
+        return row;
+    }
+
+    /**
+     * E05's terms in effect as the snapshot every terms comparison reads (listing-publish E06-S6 spec E06S6-D20): none
+     * for none, else {@link #snapshotOf} with the source {@code IN_EFFECT}. The approval's terms check, the review read
+     * and the put live's display facts call this one conversion, so they compare the same value.
+     */
+    static RevisionTerms inEffectSnapshotOrNull(AgreementTermsFacts.Terms termsOrNull, Instant now) {
+        return termsOrNull == null ? null : snapshotOf(termsOrNull, TermsSource.IN_EFFECT, null, now);
     }
 
     /**

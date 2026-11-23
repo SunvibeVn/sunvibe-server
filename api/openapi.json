@@ -4362,6 +4362,104 @@
         "tags" : [ "Listing" ]
       }
     },
+    "/api/v1/staff/listings/reconfirmations" : {
+      "get" : {
+        "operationId" : "getListingReconfirmations",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingReconfirmations"
+                }
+              }
+            },
+            "description" : "At most 50 listings, oldest confirmation first, and whether more may need reconfirmation"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN (LISTING_REVIEWER alone included)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "The listings whose reconfirmation is due, oldest confirmation first",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/review-queue" : {
+      "get" : {
+        "operationId" : "getListingReviewQueue",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingReviewQueue"
+                }
+              }
+            },
+            "description" : "At most 50 Pending review revisions of listings not archived, oldest submission first, and whether more wait"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER (SALE alone included); the same for every id"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "The revisions waiting for review, oldest submission first, with whether the caller may review each",
+        "tags" : [ "Listing" ]
+      }
+    },
     "/api/v1/staff/listings/{listingId}" : {
       "get" : {
         "operationId" : "getListing",
@@ -4416,6 +4514,237 @@
           }
         },
         "summary" : "A listing with its newest revisions; nothing of it is public",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/freshness" : {
+      "get" : {
+        "operationId" : "getListingFreshness",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingFreshness"
+                }
+              }
+            },
+            "description" : "The freshness; every date null until a valid confirmation, the latest record null before any"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller may not read it: one answer for all three"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "A listing's latest valid confirmation, its reconfirmation and last valid days, and its latest contact",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/freshness-records" : {
+      "post" : {
+        "operationId" : "recordListingFreshness",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingFreshnessRecordRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingFreshnessRecorded"
+                }
+              }
+            },
+            "description" : "Recorded; the listing's new data version and whether the contact is a valid confirmation"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion, channel, outcome, note, or answersMatchOutcome when the two answers are not set exactly for AVAILABLE) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller does not hold its agreement's basis lead now: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED or CONCURRENT_MODIFICATION (the data version is stale, or another command moved it meanwhile)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR (also when the put live a valid confirmation tries meets an E05 group or availability code listing does not know; nothing is written)"
+          }
+        },
+        "summary" : "Record a contact with the person letting the unit; dated today in Vietnam time by the server",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/publication" : {
+      "get" : {
+        "operationId" : "getListingPublication",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingPublication"
+                }
+              }
+            },
+            "description" : "The publication; a listing read as archived has neither revision and permits nothing"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, the id is malformed, or the caller may not read it: one answer for all three"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, also for a reason group of the advertising answer, an availability of the unit or terms this server does not know; nothing is shown"
+          }
+        },
+        "summary" : "The live revision and the Approved revision waiting, each with whether its display conditions hold now, and what the caller may do",
         "tags" : [ "Listing" ]
       }
     },
@@ -4664,6 +4993,528 @@
         "tags" : [ "Listing" ]
       }
     },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/copies" : {
+      "post" : {
+        "operationId" : "copyListingRevision",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingRevisionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "The new Draft, numbered after the greatest number, and the listing's new data version"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion missing or negative, or a field of the body) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller does not hold the agreement's basis lead now, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data version is stale), REVISION_NOT_COPYABLE (the revision is not Live, Approved or Needs changes) or OPEN_REVISION_EXISTS"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR"
+          }
+        },
+        "summary" : "Copy a Live, Approved or Needs changes revision into a new Draft with its content and terms snapshot",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/decision" : {
+      "get" : {
+        "operationId" : "getListingRevisionDecision",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionDecision"
+                }
+              }
+            },
+            "description" : "The decision"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE, SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller may not read the listing, it has no such revision, or the revision has no decision: one answer for all"
+          }
+        },
+        "summary" : "The decision of a revision with its reasons and note; no reviewer id",
+        "tags" : [ "Listing" ]
+      },
+      "post" : {
+        "operationId" : "decideListingRevision",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingRevisionDecisionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "Decided: status is the revision's status after the command (APPROVED, or LIVE when the approval put it live; NEEDS_CHANGES or REJECTED) and dataVersion the listing's new data version"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per broken rule: dataVersion, outcome, checks or changeReasons alone for a list above five elements, checks[i], changeReasons[i], rejectionGroup, note, or decisionMatchesOutcome when the fields are not exactly those of the outcome) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither LISTING_REVIEWER nor ADMIN; the same for every id. REVIEWER_NOT_INDEPENDENT: the caller is an author of the revision or its agreement's assigned Sale now, whatever roles they hold; one entry per reason, reasons.AUTHOR then reasons.ASSIGNED_SALE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data version is stale, or another command moved it meanwhile), REVISION_NOT_PENDING or REVISION_TERMS_MISMATCH (an approval of terms equal to no version of the agreement)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR: the agreement's terms break the contract, or the put live meets an E05 group or availability code listing does not know; nothing is written"
+          }
+        },
+        "summary" : "Approve, return or reject a Pending review revision; an approval tries to put it live",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/live-difference" : {
+      "get" : {
+        "operationId" : "getListingRevisionLiveDifference",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingLiveDifference"
+                }
+              }
+            },
+            "description" : "COMPARED with the live revision and the parts that differ, NO_LIVE_REVISION or IS_LIVE_REVISION"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER (SALE alone included); the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, or the listing has no such revision: one answer for all"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR (also for a live revision read without its terms snapshot)"
+          }
+        },
+        "summary" : "What a revision changes against the live revision: its title, description, features and terms by value",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/publication" : {
+      "post" : {
+        "operationId" : "putListingRevisionLive",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ListingRevisionCommand"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionChange"
+                }
+              }
+            },
+            "description" : "Live: status LIVE and the listing's new data version; the former live revision is Replaced and an Unpublished listing Published"
+          },
+          "400" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "VALIDATION_FAILED (one entry per field: dataVersion missing or negative) or MALFORMED_REQUEST (the body cannot be read); answered before the role"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither SALE nor SALE_LEADER; the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, the caller does not hold the agreement's basis lead now, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data version is stale, or another command moved it between the command's reads), REVISION_NOT_APPROVED or PUT_LIVE_REFUSED (one entry per reason that stops it, in the order reasons.LISTING_STATE, reasons.ADVERTISING_RIGHT, reasons.TERMS_NOT_IN_EFFECT, reasons.UNIT_NOT_AVAILABLE, reasons.FRESHNESS, each reasonGroups.<GROUP> of E05 right after reasons.ADVERTISING_RIGHT; nothing is written)"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR (also for an E05 group, an availability code or terms this server does not know or that break the contract; nothing is written)"
+          }
+        },
+        "summary" : "Put an Approved revision live when every display condition holds now",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/review" : {
+      "get" : {
+        "operationId" : "getListingRevisionReview",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingRevisionReview"
+                }
+              }
+            },
+            "description" : "The review context; never the real location"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds none of SALE_LEADER, SALES_MANAGER, ADMIN, LISTING_REVIEWER (SALE alone included); the same for every id"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, or the listing has no such revision: one answer for all"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR, also for a reason group of the advertising answer, an availability of the unit or terms this server does not know; nothing is shown"
+          }
+        },
+        "summary" : "What a reviewer reads beside a revision: eligibility, the advertising answer, the terms check, the unit, the freshness and the checklist",
+        "tags" : [ "Listing" ]
+      }
+    },
     "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/submission" : {
       "post" : {
         "operationId" : "submitListingRevision",
@@ -4879,6 +5730,90 @@
           }
         },
         "summary" : "Take a Draft's terms snapshot from the agreement's version in effect or waiting to start",
+        "tags" : [ "Listing" ]
+      }
+    },
+    "/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/unit-location" : {
+      "post" : {
+        "operationId" : "openListingUnitLocation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "listingId",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "revisionNo",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingUnitLocation"
+                }
+              }
+            },
+            "description" : "The unit's code, its location label, the street and the ward; one access log row is written"
+          },
+          "401" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "Authentication required"
+          },
+          "403" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "FORBIDDEN: the caller holds neither LISTING_REVIEWER nor ADMIN; the same for every id. REVIEWER_NOT_INDEPENDENT: the caller is an author of the revision or its agreement's assigned Sale now, whatever roles they hold; one entry per reason, reasons.AUTHOR then reasons.ASSIGNED_SALE"
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the listing does not exist, an id or the revision number is malformed, or the listing has no such revision: one answer for all"
+          },
+          "409" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "LISTING_ARCHIVED or REVISION_NOT_PENDING"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR: the unit's location cannot be read; nothing is logged"
+          }
+        },
+        "summary" : "Open the real location of a Pending review revision's unit; the opening is logged",
         "tags" : [ "Listing" ]
       }
     },
@@ -18930,6 +19865,32 @@
         },
         "required" : [ "agreementId", "code", "createdAt", "dataVersion", "hasOlderRevisions", "listingId", "openRevisionNo", "revisions", "state", "transactionType", "unitId", "viewerIsAssignedSale" ]
       },
+      "ListingDisplayAnswer" : {
+        "type" : "object",
+        "properties" : {
+          "holds" : {
+            "type" : "boolean",
+            "description" : "True exactly when reasons is empty"
+          },
+          "reasonGroups" : {
+            "type" : "array",
+            "description" : "E05's reason groups, in E05's order; empty unless reasons holds ADVERTISING_RIGHT",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NO_AGREEMENT", "NOT_IN_EFFECT", "NOT_STARTED", "SUSPENDED", "ENDED", "BASIS", "PROPERTY", "UNIT", "OWNER" ]
+            }
+          },
+          "reasons" : {
+            "type" : "array",
+            "description" : "What stops it, in this order",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "LISTING_STATE", "ADVERTISING_RIGHT", "TERMS_NOT_IN_EFFECT", "UNIT_NOT_AVAILABLE", "FRESHNESS" ]
+            }
+          }
+        },
+        "required" : [ "holds", "reasonGroups", "reasons" ]
+      },
       "ListingFeatures" : {
         "type" : "object",
         "properties" : {
@@ -19071,6 +20032,139 @@
         },
         "required" : [ "amount", "basis", "chargeUnit", "currency", "name" ]
       },
+      "ListingFreshness" : {
+        "type" : "object",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The Vietnam date of the latest valid confirmation; null until one"
+          },
+          "deadlinePassed" : {
+            "type" : "boolean",
+            "description" : "The last valid day has passed"
+          },
+          "latest" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingFreshnessRecord"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The latest record; null before any"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "reconfirmFrom" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "From this day reconfirmation is due; null until a valid confirmation"
+          },
+          "reconfirmationDue" : {
+            "type" : "boolean",
+            "description" : "Reconfirmation is due; stays on until a new valid confirmation"
+          },
+          "validThrough" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The last day the confirmation holds; null until a valid confirmation"
+          }
+        },
+        "required" : [ "confirmedOn", "deadlinePassed", "latest", "listingId", "reconfirmFrom", "reconfirmationDue", "validThrough" ]
+      },
+      "ListingFreshnessRecord" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "enum" : [ "CALL", "MESSAGE", "IN_PERSON" ]
+          },
+          "contactDate" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The Vietnam date of the contact"
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Private; null for none"
+          },
+          "outcome" : {
+            "type" : "string",
+            "enum" : [ "AVAILABLE", "NOT_AVAILABLE", "UNREACHABLE" ]
+          },
+          "recordedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "termsStillApply" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "Set exactly for AVAILABLE"
+          },
+          "unitUnchanged" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "Set exactly for AVAILABLE"
+          },
+          "valid" : {
+            "type" : "boolean",
+            "description" : "Still available with both answers yes (listing-publish BR-9)"
+          }
+        },
+        "required" : [ "channel", "contactDate", "note", "outcome", "recordedAt", "termsStillApply", "unitUnchanged", "valid" ]
+      },
+      "ListingFreshnessRecordRequest" : {
+        "type" : "object",
+        "properties" : {
+          "channel" : {
+            "type" : "string",
+            "enum" : [ "CALL", "MESSAGE", "IN_PERSON" ],
+            "pattern" : "CALL|MESSAGE|IN_PERSON"
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version the caller read (listing BR-3)",
+            "minimum" : 0
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Private: at most 500 characters (code points after NFC, trimmed), line feeds allowed, no other control or format character; null or blank is none",
+            "maxLength" : 2000,
+            "minLength" : 0
+          },
+          "outcome" : {
+            "type" : "string",
+            "enum" : [ "AVAILABLE", "NOT_AVAILABLE", "UNREACHABLE" ],
+            "pattern" : "AVAILABLE|NOT_AVAILABLE|UNREACHABLE"
+          },
+          "termsStillApply" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "The person still lets the unit on the agreement's terms; set exactly for AVAILABLE"
+          },
+          "unitUnchanged" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "No significant change to the unit since the listing's content; set exactly for AVAILABLE"
+          }
+        },
+        "required" : [ "channel", "dataVersion", "note", "outcome", "termsStillApply", "unitUnchanged" ]
+      },
+      "ListingFreshnessRecorded" : {
+        "type" : "object",
+        "properties" : {
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's new data version"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "valid" : {
+            "type" : "boolean",
+            "description" : "Still available with both answers yes (listing-publish BR-9)"
+          }
+        },
+        "required" : [ "dataVersion", "listingId", "valid" ]
+      },
       "ListingItem" : {
         "type" : "object",
         "properties" : {
@@ -19093,6 +20187,64 @@
         },
         "required" : [ "code", "createdAt", "listingId", "state" ]
       },
+      "ListingLiveDifference" : {
+        "type" : "object",
+        "properties" : {
+          "changedParts" : {
+            "type" : "array",
+            "description" : "The parts of the asked revision that differ from the live one by value, in this order; TERMS when the values of the two snapshots differ, not their source or capture time; empty unless comparison is COMPARED",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "TITLE", "DESCRIPTION", "FEATURES", "TERMS" ]
+            }
+          },
+          "comparison" : {
+            "type" : "string",
+            "description" : "COMPARED when another revision is live",
+            "enum" : [ "COMPARED", "NO_LIVE_REVISION", "IS_LIVE_REVISION" ]
+          },
+          "live" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingLiveRevision"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The live revision; null unless comparison is COMPARED"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "description" : "The revision asked"
+          }
+        },
+        "required" : [ "changedParts", "comparison", "live", "revisionNo" ]
+      },
+      "ListingLiveRevision" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "features" : {
+            "$ref" : "#/components/schemas/ListingFeatures"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/ListingTermsSnapshot"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "wentLiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "description", "features", "revisionNo", "terms", "title", "wentLiveAt" ]
+      },
       "ListingPendingTerms" : {
         "type" : "object",
         "properties" : {
@@ -19105,6 +20257,141 @@
           }
         },
         "required" : [ "startDate", "terms" ]
+      },
+      "ListingPublication" : {
+        "type" : "object",
+        "properties" : {
+          "approved" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingPublicationApproved"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The Approved revision waiting; null when none waits or the listing is archived"
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version a put live sends back"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "live" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingPublicationLive"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The live revision; null when none is live or the listing is archived"
+          },
+          "state" : {
+            "type" : "string",
+            "description" : "ARCHIVED also when the listing's agreement has ended",
+            "enum" : [ "UNPUBLISHED", "PUBLISHED", "PAUSED", "URGENTLY_UNPUBLISHED", "ARCHIVED" ]
+          },
+          "viewerMayCopy" : {
+            "type" : "boolean",
+            "description" : "The caller is the assigned Sale, no Draft or Pending review revision is open and the listing is not archived"
+          },
+          "viewerMayPutLive" : {
+            "type" : "boolean",
+            "description" : "The caller is the assigned Sale, a revision is Approved and the listing is Unpublished or Published"
+          }
+        },
+        "required" : [ "approved", "dataVersion", "listingId", "live", "state", "viewerMayCopy", "viewerMayPutLive" ]
+      },
+      "ListingPublicationApproved" : {
+        "type" : "object",
+        "properties" : {
+          "display" : {
+            "$ref" : "#/components/schemas/ListingDisplayAnswer",
+            "description" : "The conditions of a put live: the listing must be Unpublished or Published"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "termsSource" : {
+            "type" : "string",
+            "description" : "Which version of the agreement its terms snapshot copied",
+            "enum" : [ "IN_EFFECT", "PENDING_START" ]
+          }
+        },
+        "required" : [ "display", "revisionNo", "termsSource" ]
+      },
+      "ListingPublicationLive" : {
+        "type" : "object",
+        "properties" : {
+          "display" : {
+            "$ref" : "#/components/schemas/ListingDisplayAnswer",
+            "description" : "The conditions of a shown revision: the listing must be Published"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "wentLiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        },
+        "required" : [ "display", "revisionNo", "wentLiveAt" ]
+      },
+      "ListingReconfirmationItem" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The public code"
+          },
+          "confirmedOn" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The Vietnam date of the latest valid confirmation"
+          },
+          "deadlinePassed" : {
+            "type" : "boolean",
+            "description" : "The last valid day has passed"
+          },
+          "latestRecordValid" : {
+            "type" : "boolean",
+            "description" : "The latest record is a valid confirmation"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "reconfirmFrom" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "UNPUBLISHED", "PUBLISHED", "PAUSED", "URGENTLY_UNPUBLISHED" ]
+          },
+          "validThrough" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        },
+        "required" : [ "code", "confirmedOn", "deadlinePassed", "latestRecordValid", "listingId", "reconfirmFrom", "state", "validThrough" ]
+      },
+      "ListingReconfirmations" : {
+        "type" : "object",
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean",
+            "description" : "More listings may need reconfirmation than the list shows"
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "At most 50, oldest confirmation first, then by listing id",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingReconfirmationItem"
+            }
+          }
+        },
+        "required" : [ "hasMore", "items" ]
       },
       "ListingRent" : {
         "type" : "object",
@@ -19125,6 +20412,151 @@
           }
         },
         "required" : [ "amount", "currency", "unit" ]
+      },
+      "ListingReviewAdvertising" : {
+        "type" : "object",
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "endDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The agreement's end date; null without one"
+          },
+          "ended" : {
+            "type" : "boolean"
+          },
+          "exteriorPhotos" : {
+            "type" : "boolean"
+          },
+          "interiorPhotos" : {
+            "type" : "boolean"
+          },
+          "pending" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingPendingTerms"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "E05's activated version waiting to start; null without one"
+          },
+          "reasonGroups" : {
+            "type" : "array",
+            "description" : "E05's reason groups, in E05's order",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NO_AGREEMENT", "NOT_IN_EFFECT", "NOT_STARTED", "SUSPENDED", "ENDED", "BASIS", "PROPERTY", "UNIT", "OWNER" ]
+            }
+          },
+          "termsInEffect" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingTerms"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "The terms of E05's version in effect; null without one"
+          }
+        },
+        "required" : [ "allowed", "endDate", "ended", "exteriorPhotos", "interiorPhotos", "pending", "reasonGroups", "termsInEffect" ]
+      },
+      "ListingReviewFreshness" : {
+        "type" : "object",
+        "properties" : {
+          "confirmedOn" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The Vietnam date of the latest valid confirmation; null until one"
+          },
+          "deadlinePassed" : {
+            "type" : "boolean",
+            "description" : "The last valid day has passed"
+          },
+          "latestValid" : {
+            "type" : [ "boolean", "null" ],
+            "description" : "The latest record is a valid confirmation; null before any record"
+          },
+          "validThrough" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "The last day the confirmation holds; null until a valid confirmation"
+          }
+        },
+        "required" : [ "confirmedOn", "deadlinePassed", "latestValid", "validThrough" ]
+      },
+      "ListingReviewQueue" : {
+        "type" : "object",
+        "properties" : {
+          "hasMore" : {
+            "type" : "boolean",
+            "description" : "More pending revisions exist than are answered"
+          },
+          "items" : {
+            "type" : "array",
+            "description" : "At most 50, oldest submission first, then by revision id",
+            "items" : {
+              "$ref" : "#/components/schemas/ListingReviewQueueItem"
+            }
+          }
+        },
+        "required" : [ "hasMore", "items" ]
+      },
+      "ListingReviewQueueItem" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "description" : "The public code, TD-XXXX-XXXX"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "notEligibleReasons" : {
+            "type" : "array",
+            "description" : "Why the caller may not review it, in this order; empty exactly when viewerMayReview",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NOT_A_REVIEWER", "AUTHOR", "ASSIGNED_SALE" ]
+            }
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "unit" : {
+            "$ref" : "#/components/schemas/ListingUnitSnapshot",
+            "description" : "The unit and property fields taken at the submission"
+          },
+          "viewerMayReview" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "code", "listingId", "notEligibleReasons", "revisionNo", "submittedAt", "title", "unit", "viewerMayReview" ]
+      },
+      "ListingReviewUnit" : {
+        "type" : "object",
+        "properties" : {
+          "availability" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null when property answers no unit",
+            "enum" : [ "AVAILABLE", "OCCUPIED", "MAINTENANCE", "BLOCKED", null ]
+          },
+          "availabilityDiffers" : {
+            "type" : "boolean",
+            "description" : "An intake entry of the unit lists AVAILABILITY_DIFFERS"
+          },
+          "unitCode" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "availability", "availabilityDiffers", "unitCode" ]
       },
       "ListingRevisionChange" : {
         "type" : "object",
@@ -19186,6 +20618,91 @@
           }
         },
         "required" : [ "dataVersion", "description", "features", "title" ]
+      },
+      "ListingRevisionDecision" : {
+        "type" : "object",
+        "properties" : {
+          "changeReasons" : {
+            "type" : "array",
+            "description" : "Empty unless NEEDS_CHANGES",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "CONTENT_MISMATCH", "TEXT_RULE_VIOLATION", "MISSING_INFORMATION", "TERMS_MISMATCH", "OTHER" ]
+            }
+          },
+          "checklistVersion" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "The checklist version; set for APPROVED"
+          },
+          "decidedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Private; set for NEEDS_CHANGES and REJECTED"
+          },
+          "outcome" : {
+            "type" : "string",
+            "enum" : [ "APPROVED", "NEEDS_CHANGES", "REJECTED" ]
+          },
+          "rejectionGroup" : {
+            "type" : [ "string", "null" ],
+            "description" : "Set for REJECTED",
+            "enum" : [ "SUSPECTED_FRAUD", "WRONG_UNIT", "SERIOUS_VIOLATION", "OTHER", null ]
+          }
+        },
+        "required" : [ "changeReasons", "checklistVersion", "decidedAt", "note", "outcome", "rejectionGroup" ]
+      },
+      "ListingRevisionDecisionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "changeReasons" : {
+            "type" : [ "array", "null" ],
+            "description" : "NEEDS_CHANGES: 1 to 5 distinct reasons; otherwise absent",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "CONTENT_MISMATCH", "TEXT_RULE_VIOLATION", "MISSING_INFORMATION", "TERMS_MISMATCH", "OTHER" ],
+              "pattern" : "CONTENT_MISMATCH|TEXT_RULE_VIOLATION|MISSING_INFORMATION|TERMS_MISMATCH|OTHER"
+            },
+            "maxItems" : 5
+          },
+          "checks" : {
+            "type" : [ "array", "null" ],
+            "description" : "APPROVED: each of the five checklist codes once, in any order; otherwise absent",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "CONTENT_MATCHES_UNIT", "TEXT_FOLLOWS_RULES", "TERMS_MATCH_AGREEMENT", "NO_FRAUD_SIGNS", "AGREEMENT_END_AND_RIGHT" ],
+              "pattern" : "CONTENT_MATCHES_UNIT|TEXT_FOLLOWS_RULES|TERMS_MATCH_AGREEMENT|NO_FRAUD_SIGNS|AGREEMENT_END_AND_RIGHT"
+            },
+            "maxItems" : 5
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version the reviewer read (listing BR-3)",
+            "minimum" : 0
+          },
+          "note" : {
+            "type" : [ "string", "null" ],
+            "description" : "Private. NEEDS_CHANGES and REJECTED: 1 to 1,000 characters (code points after NFC, trimmed), line feeds allowed, no other control or format character; APPROVED: absent; blank is none",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "outcome" : {
+            "type" : "string",
+            "enum" : [ "APPROVED", "NEEDS_CHANGES", "REJECTED" ],
+            "pattern" : "APPROVED|NEEDS_CHANGES|REJECTED"
+          },
+          "rejectionGroup" : {
+            "type" : [ "string", "null" ],
+            "description" : "REJECTED: required; otherwise absent",
+            "enum" : [ "SUSPECTED_FRAUD", "WRONG_UNIT", "SERIOUS_VIOLATION", "OTHER", null ],
+            "pattern" : "SUSPECTED_FRAUD|WRONG_UNIT|SERIOUS_VIOLATION|OTHER"
+          }
+        },
+        "required" : [ "dataVersion", "outcome" ]
       },
       "ListingRevisionDetail" : {
         "type" : "object",
@@ -19289,6 +20806,70 @@
         },
         "required" : [ "part", "rule" ]
       },
+      "ListingRevisionReview" : {
+        "type" : "object",
+        "properties" : {
+          "advertising" : {
+            "anyOf" : [ {
+              "$ref" : "#/components/schemas/ListingReviewAdvertising"
+            }, {
+              "type" : "null"
+            } ],
+            "description" : "E05's answer for the listing's unit and agreement; null when E05 answers nothing"
+          },
+          "checklist" : {
+            "type" : "array",
+            "description" : "The checklist, version 1, in this order",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "CONTENT_MATCHES_UNIT", "TEXT_FOLLOWS_RULES", "TERMS_MATCH_AGREEMENT", "NO_FRAUD_SIGNS", "AGREEMENT_END_AND_RIGHT" ]
+            }
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "The listing's public code, TD-XXXX-XXXX"
+          },
+          "dataVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The listing's data version a decision sends back"
+          },
+          "freshness" : {
+            "$ref" : "#/components/schemas/ListingReviewFreshness"
+          },
+          "listingId" : {
+            "type" : "string"
+          },
+          "notEligibleReasons" : {
+            "type" : "array",
+            "description" : "Why the caller may not decide it, in this order; empty exactly when viewerMayReview",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "NOT_A_REVIEWER", "AUTHOR", "ASSIGNED_SALE", "NOT_PENDING", "LISTING_ARCHIVED" ]
+            }
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "DRAFT", "PENDING_REVIEW", "NEEDS_CHANGES", "REJECTED", "APPROVED", "LIVE", "REPLACED", "CANCELLED" ]
+          },
+          "termsMatch" : {
+            "type" : "string",
+            "description" : "Which version of the agreement the revision's terms equal",
+            "enum" : [ "IN_EFFECT", "PENDING_START", "NONE", "NO_SNAPSHOT" ]
+          },
+          "unit" : {
+            "$ref" : "#/components/schemas/ListingReviewUnit"
+          },
+          "viewerMayReview" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "advertising", "checklist", "code", "dataVersion", "freshness", "listingId", "notEligibleReasons", "revisionNo", "status", "termsMatch", "unit", "viewerMayReview" ]
+      },
       "ListingTerms" : {
         "type" : "object",
         "properties" : {
@@ -19385,6 +20966,26 @@
           }
         },
         "required" : [ "ended", "inEffect", "pending" ]
+      },
+      "ListingUnitLocation" : {
+        "type" : "object",
+        "properties" : {
+          "locationLabel" : {
+            "type" : [ "string", "null" ],
+            "description" : "The unit's location inside the property"
+          },
+          "street" : {
+            "type" : [ "string", "null" ],
+            "description" : "The property's street"
+          },
+          "unitCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "wardName" : {
+            "type" : [ "string", "null" ]
+          }
+        },
+        "required" : [ "locationLabel", "street", "unitCode", "wardName" ]
       },
       "ListingUnitSnapshot" : {
         "type" : "object",

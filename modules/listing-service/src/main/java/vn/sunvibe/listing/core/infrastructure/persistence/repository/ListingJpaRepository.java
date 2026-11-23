@@ -9,7 +9,9 @@ import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingEntity;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /** Spring Data JPA Repository - the listings' own rows (listing-publish E06-S1 spec 5.3). */
 public interface ListingJpaRepository extends JpaRepository<ListingEntity, String> {
@@ -31,4 +33,97 @@ public interface ListingJpaRepository extends JpaRepository<ListingEntity, Strin
     @Query(value = "UPDATE listings SET updated_at = :now, row_version = row_version + 1"
             + " WHERE id = :id AND row_version = :loaded", nativeQuery = true)
     int advanceVersion(@Param("id") String id, @Param("loaded") long loadedVersion, @Param("now") Instant now);
+
+    /**
+     * The guarded write of a freshness record (listing-publish E06-S3 spec E06S3-D6, plan E06S3-P2): the row version, the
+     * time and the two freshness columns move together only if no other command moved the row version since the load;
+     * answers the rows written (0 or 1). The revision commands take the same row version through
+     * {@link #advanceVersion}, so each refuses a load the other has moved. A null binds with its type through the cast.
+     */
+    @Modifying
+    @Query(value = "UPDATE listings SET updated_at = :now, row_version = row_version + 1,"
+            + " freshness_confirmed_on = CAST(:confirmedOn AS DATE),"
+            + " freshness_latest_valid = CAST(:latestValid AS BOOLEAN)"
+            + " WHERE id = :id AND row_version = :loaded", nativeQuery = true)
+    int recordFreshness(@Param("id") String id, @Param("loaded") long loadedVersion, @Param("now") Instant now,
+                        @Param("confirmedOn") LocalDate confirmedOnOrNull, @Param("latestValid") Boolean latestValidOrNull);
+
+    /**
+     * The guarded write of a command that changed the listing's state (listing-publish E06-S6 spec E06S6-D6): the SQL of
+     * {@link #advanceVersion} with the state; answers the rows written (0 or 1).
+     */
+    @Modifying
+    @Query(value = "UPDATE listings SET updated_at = :now, row_version = row_version + 1, state = :state"
+            + " WHERE id = :id AND row_version = :loaded", nativeQuery = true)
+    int advanceVersionAndState(@Param("id") String id, @Param("loaded") long loadedVersion, @Param("now") Instant now,
+                               @Param("state") String state);
+
+    /**
+     * The guarded write of a valid freshness record that put the approved revision live (E06-S6 spec E06S6-D6): the SQL
+     * of {@link #recordFreshness} with the state; answers the rows written (0 or 1).
+     */
+    @Modifying
+    @Query(value = "UPDATE listings SET updated_at = :now, row_version = row_version + 1,"
+            + " freshness_confirmed_on = CAST(:confirmedOn AS DATE),"
+            + " freshness_latest_valid = CAST(:latestValid AS BOOLEAN), state = :state"
+            + " WHERE id = :id AND row_version = :loaded", nativeQuery = true)
+    int recordFreshnessAndState(@Param("id") String id, @Param("loaded") long loadedVersion, @Param("now") Instant now,
+                                @Param("confirmedOn") LocalDate confirmedOnOrNull,
+                                @Param("latestValid") Boolean latestValidOrNull, @Param("state") String state);
+
+    /**
+     * The listing row locked until the transaction ends (E06-S6 spec E06S6-D5 step (8)): its row version; one statement
+     * on the primary key, empty for an unknown listing.
+     */
+    @Query(value = "SELECT row_version FROM listings WHERE id = :id FOR UPDATE", nativeQuery = true)
+    Optional<Long> lockRow(@Param("id") String id);
+
+    /** The listing's two freshness columns, unmapped on {@link ListingEntity}; one statement on the primary key. */
+    @Query(value = "SELECT freshness_confirmed_on AS \"confirmedOn\", freshness_latest_valid AS \"latestValid\""
+            + " FROM listings WHERE id = :id", nativeQuery = true)
+    Optional<FreshnessColumns> findFreshnessColumns(@Param("id") String id);
+
+    /**
+     * The first chunk of listings to reconfirm (listing-publish E06-S3 spec E06S3-D7): not stored as archived, confirmed
+     * on or before the date, in (date, id) order; served by idx_listings_freshness_due.
+     */
+    @Query(value = "SELECT id AS \"id\", code AS \"code\", agreement_id AS \"agreementId\", state AS \"state\","
+            + " freshness_confirmed_on AS \"confirmedOn\", freshness_latest_valid AS \"latestValid\" FROM listings"
+            + " WHERE state <> 'ARCHIVED' AND freshness_confirmed_on <= :onOrBefore"
+            + " ORDER BY freshness_confirmed_on, id LIMIT :limit", nativeQuery = true)
+    List<ReconfirmationRow> findDueFirst(@Param("onOrBefore") LocalDate onOrBefore, @Param("limit") int limit);
+
+    /** The next chunk of {@link #findDueFirst}: the rows after the keyset cursor (date, id). */
+    @Query(value = "SELECT id AS \"id\", code AS \"code\", agreement_id AS \"agreementId\", state AS \"state\","
+            + " freshness_confirmed_on AS \"confirmedOn\", freshness_latest_valid AS \"latestValid\" FROM listings"
+            + " WHERE state <> 'ARCHIVED' AND freshness_confirmed_on <= :onOrBefore"
+            + " AND (freshness_confirmed_on, id) > (CAST(:afterDate AS DATE), CAST(:afterId AS VARCHAR))"
+            + " ORDER BY freshness_confirmed_on, id LIMIT :limit", nativeQuery = true)
+    List<ReconfirmationRow> findDueAfter(@Param("onOrBefore") LocalDate onOrBefore,
+                                         @Param("afterDate") LocalDate afterDate, @Param("afterId") String afterId,
+                                         @Param("limit") int limit);
+
+    /** The two freshness columns of a listing row. */
+    interface FreshnessColumns {
+
+        LocalDate getConfirmedOn();
+
+        Boolean getLatestValid();
+    }
+
+    /** A candidate row of the reconfirmation list. */
+    interface ReconfirmationRow {
+
+        String getId();
+
+        String getCode();
+
+        String getAgreementId();
+
+        String getState();
+
+        LocalDate getConfirmedOn();
+
+        Boolean getLatestValid();
+    }
 }

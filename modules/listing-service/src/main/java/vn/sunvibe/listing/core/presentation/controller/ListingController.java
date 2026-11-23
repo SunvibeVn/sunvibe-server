@@ -23,12 +23,16 @@ import vn.sunvibe.listing.core.application.usecase.ListingQueryUseCase;
 import vn.sunvibe.listing.core.presentation.converter.ListingRequestConverter;
 import vn.sunvibe.listing.core.presentation.converter.ListingResponseConverter;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingCreateRequest;
+import vn.sunvibe.listing.core.presentation.dto.request.ListingFreshnessRecordRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingRevisionCommandRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingRevisionContentRequest;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingTermsCaptureRequest;
 import vn.sunvibe.listing.core.presentation.dto.response.AgreementListingsResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingCreatedResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingDetailResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessRecordedResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingFreshnessResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingReconfirmationsResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionChangeResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionDetailResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingTermsSourcesResponse;
@@ -314,6 +318,42 @@ public class ListingController {
                 viewers.current()));
     }
 
+    /**
+     * listing-publish US-2 AC-6, AC-7, BR-6: a Live, Approved or Needs changes revision copied into a new Draft by the
+     * assigned Sale (E06-S4 spec E06S4-D14; E06-S6 spec E06S6-D10).
+     */
+    @PostMapping("/{listingId}/revisions/{revisionNo}/copies")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SALE','SALE_LEADER')")
+    @Operation(operationId = "copyListingRevision",
+            summary = "Copy a Live, Approved or Needs changes revision into a new Draft with its content and terms"
+                    + " snapshot")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "The new Draft, numbered after the greatest number, and"
+                    + " the listing's new data version"),
+            @ApiResponse(responseCode = "400", description = BAD_BODY,
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = DRAFTER_ROLES,
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = NOT_THE_DRAFTER,
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "LISTING_ARCHIVED, CONCURRENT_MODIFICATION (the data"
+                    + " version is stale), REVISION_NOT_COPYABLE (the revision is not Live, Approved or Needs changes)"
+                    + " or OPEN_REVISION_EXISTS",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ListingRevisionChangeResponse copy(@PathVariable("listingId") String listingId,
+                                              @PathVariable("revisionNo") String revisionNo,
+                                              @Valid @RequestBody ListingRevisionCommandRequest request) {
+        return responses.toChange(commands.copyRevision(
+                requests.toCopyCommand(listingId, ListingRequestConverter.revisionNoOrNull(revisionNo), request),
+                viewers.current()));
+    }
+
     /** listing-publish US-2 AC-2: E05's private terms, for the assigned Sale only (E06S2-D2, E06S2-D14). */
     @GetMapping("/{listingId}/terms-sources")
     @PreAuthorize("hasAnyRole('SALE','SALE_LEADER')")
@@ -334,5 +374,94 @@ public class ListingController {
     })
     public ListingTermsSourcesResponse termsSources(@PathVariable("listingId") String listingId) {
         return responses.toTermsSources(queries.termsSources(listingId, viewers.current()));
+    }
+
+    /**
+     * listing-publish US-6 AC-1, BR-9: a contact with the person letting the unit, for the assigned Sale only (E06-S3
+     * spec E06S3-D1 to E06S3-D4); the server dates it today in Vietnam time. A valid confirmation tries to put the
+     * approved revision live (E06-S6 spec E06S6-D7), which may change the listing's state.
+     */
+    @PostMapping("/{listingId}/freshness-records")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('SALE','SALE_LEADER')")
+    @Operation(operationId = "recordListingFreshness",
+            summary = "Record a contact with the person letting the unit; dated today in Vietnam time by the server")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Recorded; the listing's new data version and whether the"
+                    + " contact is a valid confirmation"),
+            @ApiResponse(responseCode = "400", description = "VALIDATION_FAILED (one entry per field: dataVersion,"
+                    + " channel, outcome, note, or answersMatchOutcome when the two answers are not set exactly for"
+                    + " AVAILABLE) or MALFORMED_REQUEST (the body cannot be read); answered before the role",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = DRAFTER_ROLES,
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the listing does not exist, the id is"
+                    + " malformed, or the caller does not hold its agreement's basis lead now: one answer for all",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "409", description = "LISTING_ARCHIVED or CONCURRENT_MODIFICATION (the data"
+                    + " version is stale, or another command moved it meanwhile)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR (also when the put live a valid"
+                    + " confirmation tries meets an E05 group or availability code listing does not know; nothing is"
+                    + " written)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ListingFreshnessRecordedResponse recordFreshness(
+            @PathVariable("listingId") String listingId,
+            @Valid @RequestBody ListingFreshnessRecordRequest request) {
+        return responses.toFreshnessRecorded(commands.recordFreshness(requests.toCommand(listingId, request),
+                viewers.current()));
+    }
+
+    /**
+     * listing-publish US-6 AC-2, BR-10, BR-17: the gate and scope of the listing read (E06-S3 spec E06S3-D2, E06S3-D8);
+     * the latest record with its private note, no user id.
+     */
+    @GetMapping("/{listingId}/freshness")
+    @PreAuthorize("hasAnyRole('SALE','SALE_LEADER','SALES_MANAGER','ADMIN','LISTING_REVIEWER')")
+    @Operation(operationId = "getListingFreshness",
+            summary = "A listing's latest valid confirmation, its reconfirmation and last valid days, and its latest"
+                    + " contact")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The freshness; every date null until a valid"
+                    + " confirmation, the latest record null before any"),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller holds none of SALE, SALE_LEADER,"
+                    + " SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the listing does not exist, the id is"
+                    + " malformed, or the caller may not read it: one answer for all three",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ListingFreshnessResponse freshness(@PathVariable("listingId") String listingId) {
+        return responses.toFreshness(queries.freshness(listingId, viewers.current()));
+    }
+
+    /**
+     * listing-publish US-6 AC-3, BR-10: the listings to reconfirm (E06-S3 spec E06S3-D2, E06S3-D7); every one for
+     * SALE_LEADER, SALES_MANAGER and ADMIN, a SALE's only for a SALE; LISTING_REVIEWER is not admitted.
+     */
+    @GetMapping("/reconfirmations")
+    @PreAuthorize("hasAnyRole('SALE','SALE_LEADER','SALES_MANAGER','ADMIN')")
+    @Operation(operationId = "getListingReconfirmations",
+            summary = "The listings whose reconfirmation is due, oldest confirmation first")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "At most 50 listings, oldest confirmation first, and"
+                    + " whether more may need reconfirmation"),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller holds none of SALE, SALE_LEADER,"
+                    + " SALES_MANAGER, ADMIN (LISTING_REVIEWER alone included)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ListingReconfirmationsResponse reconfirmations() {
+        return responses.toReconfirmations(queries.reconfirmations(viewers.current()));
     }
 }

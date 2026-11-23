@@ -134,8 +134,18 @@ class FlywayPostgresMigrationTest {
 						"V202611201100__add_listing_revision_content.sql",
 						"V202611201101__create_listing_revision_fees.sql",
 						"V202611201102__validate_listing_revision_checks.sql",
+						"V202611211000__create_listing_freshness_records.sql",
+						"V202611211001__add_listing_freshness_columns.sql",
+						"V202611211002__validate_listing_freshness_check.sql",
+						"V202611211003__index_listings_freshness_due.sql",
+						"V202611220900__create_listing_revision_reviews.sql",
+						"V202611220901__add_listing_revision_copy_source.sql",
+						"V202611220902__index_listing_revisions_review_queue.sql",
+						"V202611220903__create_listing_access_logs.sql",
+						"V202611230900__add_listing_revision_live_times.sql",
+						"V202611230901__validate_listing_revision_live_checks.sql",
 						"R__property_master_data.sql"),
-				applied.subList(applied.size() - 89, applied.size()));
+				applied.subList(applied.size() - 99, applied.size()));
 	}
 
 	/** property-units spec section 4, W8-14: units, ownerships and properties.version come from Flyway. */

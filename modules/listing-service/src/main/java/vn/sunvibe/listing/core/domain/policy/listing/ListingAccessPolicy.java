@@ -24,6 +24,9 @@ public final class ListingAccessPolicy {
     /** listing-publish section 2 "Sale phụ trách tin": a SALE or SALE_LEADER who holds the basis lead. */
     private static final Set<String> CREATORS = Set.of("ROLE_SALE", "ROLE_SALE_LEADER");
 
+    /** listing-publish E06-S4 spec E06S4-D2: who decides a revision and opens its real location. */
+    private static final Set<String> REVIEWERS = Set.of("ROLE_LISTING_REVIEWER", "ROLE_ADMIN");
+
     private static final String SALE = "ROLE_SALE";
 
     private ListingAccessPolicy() {
@@ -54,6 +57,48 @@ public final class ListingAccessPolicy {
      */
     public static boolean mayDraft(Set<String> authorities, String viewerId, String assigneeIdOrNull) {
         return holdsAny(authorities, CREATORS) && isAssignee(viewerId, assigneeIdOrNull);
+    }
+
+    /**
+     * Only the assigned Sale records a contact with the person letting the unit (listing BR-16; listing-publish E06-S3
+     * spec E06S3-D2): a SALE or SALE_LEADER who is the current assignee of the agreement's basis lead, the rule of
+     * {@link #mayDraft}.
+     */
+    public static boolean mayRecordFreshness(Set<String> authorities, String viewerId, String assigneeIdOrNull) {
+        return holdsAny(authorities, CREATORS) && isAssignee(viewerId, assigneeIdOrNull);
+    }
+
+    /**
+     * Only the assigned Sale puts an approved revision live (listing BR-16; listing-publish US-5 AC-1; E06-S6 spec
+     * E06S6-D2): a SALE or SALE_LEADER who is the current assignee of the agreement's basis lead, the rule of
+     * {@link #mayDraft}.
+     */
+    public static boolean mayPutLive(Set<String> authorities, String viewerId, String assigneeIdOrNull) {
+        return holdsAny(authorities, CREATORS) && isAssignee(viewerId, assigneeIdOrNull);
+    }
+
+    /**
+     * Who sees every listing to reconfirm (listing-publish E06-S3 spec E06S3-D2): the managers of E05's agreement scope;
+     * a SALE sees only the listings whose basis lead they hold.
+     */
+    public static boolean seesEveryReconfirmation(Set<String> authorities) {
+        return holdsAny(authorities, EVERY_AGREEMENT);
+    }
+
+    /**
+     * The review queue and the review read (listing-publish E06-S4 spec E06S4-D2): the roles that read every listing
+     * (listing BR-5); a SALE alone reads neither.
+     */
+    public static boolean mayReadReviews(Set<String> authorities) {
+        return holdsAny(authorities, EVERY_LISTING);
+    }
+
+    /**
+     * A listing reviewer (listing-publish section 2 "Người duyệt tin"; E06-S4 spec E06S4-D2): LISTING_REVIEWER or ADMIN
+     * (SUPER_ADMIN through the hierarchy); a manager decides only when also a listing reviewer.
+     */
+    public static boolean holdsReviewerRole(Set<String> authorities) {
+        return holdsAny(authorities, REVIEWERS);
     }
 
     private static boolean isAssignedSale(Set<String> authorities, String viewerId, String assigneeIdOrNull) {

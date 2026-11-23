@@ -2,6 +2,7 @@ package vn.sunvibe.listing.core.domain.model.listing;
 
 import vn.sunvibe.listing.core.domain.exception.RevisionNotSubmittableException;
 import vn.sunvibe.listing.core.domain.exception.RevisionStateException;
+import vn.sunvibe.listing.core.domain.policy.listing.ListingDisplayPolicy;
 import vn.sunvibe.listing.core.domain.policy.listing.RevisionSubmitRules;
 
 import java.time.Instant;
@@ -20,10 +21,12 @@ import java.util.Set;
  * {@code APPROVED}, at most one {@code LIVE}.
  *
  * <p>A listing loaded for a command (listing-publish E06-S2 spec E06S2-D19) holds a bounded working set: its open
- * revision, the command's target and the greatest revision number; the aggregate checks the invariants it can see on
- * that set, and the unique revision indexes guard the rest of the table. Each revision command records one history
- * entry with identifiers only (listing BR-3) and one revision change, which the repository writes after the listing
- * row's versioned update.
+ * revision and the command's target, or, for a decision or a put live, the target, the approved revision still waiting
+ * and the live revision; and the greatest revision number. The aggregate checks the invariants it can see on that set,
+ * and the unique revision indexes guard the rest of the table. Each command records one history entry with identifiers
+ * only (listing BR-3) and one revision change per revision it changes (a put live: the replaced and the live revision),
+ * which the repository writes after the listing row's versioned update. Only a put live changes the listing's state
+ * (E06-S6 spec E06S6-D6); {@link #stateChanged()} tells the repository whether to write it.
  */
 public final class Listing {
 
@@ -32,7 +35,8 @@ public final class Listing {
     private final String unitId;
     private final TransactionType transactionType;
     private final String agreementId;
-    private final ListingState state;
+    private final ListingState loadedState;
+    private ListingState state;
     private final String createdBy;
     private final Instant createdAt;
     private final long rowVersion;
@@ -41,6 +45,7 @@ public final class Listing {
     private List<ListingRevision> revisions;
     private List<ListingHistoryEntry> pendingHistory;
     private List<RevisionChange> pendingRevisionChanges;
+    private List<RevisionDecision> pendingDecisions;
 
     private Listing(String id, ListingCode code, String unitId, TransactionType transactionType, String agreementId,
                     ListingState state, String createdBy, Instant createdAt, Instant updatedAt, long rowVersion,
@@ -79,6 +84,7 @@ public final class Listing {
         this.unitId = unitId;
         this.transactionType = transactionType;
         this.agreementId = agreementId;
+        this.loadedState = state;
         this.state = state;
         this.createdBy = createdBy;
         this.createdAt = createdAt;
@@ -88,6 +94,7 @@ public final class Listing {
         this.revisions = byNumber;
         this.pendingHistory = List.copyOf(pendingHistory);
         this.pendingRevisionChanges = List.of();
+        this.pendingDecisions = List.of();
     }
 
     /**
@@ -115,8 +122,9 @@ public final class Listing {
     }
 
     /**
-     * A stored listing loaded for a command (listing-publish E06-S2 spec E06S2-D19): its working set (the open revision
-     * and the target, each in its full form, possibly none) and its greatest revision number. Checks: a greatest number
+     * A stored listing loaded for a command (listing-publish E06-S2 spec E06S2-D19): its working set (its open revision
+     * and the command's target, or, for a decision or a put live, the target, the approved revision still waiting and the
+     * live revision, each in its full form, possibly none) and its greatest revision number. Checks: a greatest number
      * of at least 1; every revision in its full form, numbered from 1 to the greatest number, numbers distinct; at most
      * one open, one approved and one live revision among them; a Pending review revision complete (by the revision).
      */
@@ -237,6 +245,137 @@ public final class Listing {
         replace(withdrawn);
         record(ListingHistoryAction.REVISION_WITHDRAWN, withdrawn, RevisionChangeKind.UPDATED, historyId, actorId, now);
         return withdrawn;
+    }
+
+    /**
+     * listing-publish US-4 AC-3, BR-6, BR-7 (E06-S4 spec E06S4-D8, D9): the one decision of a Pending review revision.
+     * An approval first cancels an approved revision of the working set still waiting, recorded by the decider, so at
+     * most one revision is approved at any write; then the target takes the outcome's status. Each step records one
+     * history entry with identifiers only and one revision change, the cancelled revision first; the decision waits for
+     * the repository. The decision itself changes no listing state; an approval's service then tries the put live
+     * (E06-S6 spec E06S6-D7, {@link #tryPutLive}).
+     */
+    public ListingRevision decide(int revisionNo, RevisionDecision decision, String historyId, String cancelHistoryId,
+                                  Instant now) {
+        ListingRevision target = target(revisionNo);
+        if (target.status() != RevisionStatus.PENDING_REVIEW) {
+            throw new RevisionStateException(RevisionStateException.Reason.REVISION_NOT_PENDING);
+        }
+        if (decision.revisionNo() != revisionNo || !decision.revisionId().equals(target.id())) {
+            throw new IllegalStateException("a decision names the revision it decides");
+        }
+        if (decision.outcome() == ReviewOutcome.APPROVED) {
+            Optional<ListingRevision> waiting = revisions.stream()
+                    .filter(revision -> revision.status() == RevisionStatus.APPROVED)
+                    .findFirst();
+            if (waiting.isPresent()) {
+                ListingRevision cancelled = waiting.get().cancelled(now);
+                replace(cancelled);
+                record(ListingHistoryAction.APPROVAL_CANCELLED, cancelled, RevisionChangeKind.UPDATED, cancelHistoryId,
+                        decision.decidedBy(), now);
+            }
+        }
+        ListingRevision decided = target.decided(decision.outcome(), now);
+        replace(decided);
+        record(actionOf(decision.outcome()), decided, RevisionChangeKind.UPDATED, historyId, decision.decidedBy(), now);
+        List<RevisionDecision> decisions = new ArrayList<>(pendingDecisions);
+        decisions.add(decision);
+        pendingDecisions = List.copyOf(decisions);
+        return decided;
+    }
+
+    /**
+     * listing-publish US-2 AC-6, AC-7, BR-6 (E06-S4 spec E06S4-D14; E06-S6 spec E06S6-D10): a Live, Approved or Needs
+     * changes revision copied into a new Draft numbered after the greatest number, by the actor, with its content and
+     * terms snapshot; the source stays as it is. Refused for any other source status (a Rejected, Replaced or withdrawn
+     * revision included), then while a Draft or Pending review revision is open.
+     */
+    public ListingRevision copyRevision(int sourceNo, String revisionId, String historyId, String actorId,
+                                        Instant now) {
+        ListingRevision source = target(sourceNo);
+        if (source.status() != RevisionStatus.NEEDS_CHANGES && source.status() != RevisionStatus.LIVE
+                && source.status() != RevisionStatus.APPROVED) {
+            throw new RevisionStateException(RevisionStateException.Reason.REVISION_NOT_COPYABLE);
+        }
+        boolean open = revisions.stream().anyMatch(revision -> revision.status() == RevisionStatus.DRAFT
+                || revision.status() == RevisionStatus.PENDING_REVIEW);
+        if (open) {
+            throw new RevisionStateException(RevisionStateException.Reason.OPEN_REVISION_EXISTS);
+        }
+        ListingRevision copy = ListingRevision.copyOf(revisionId, newestRevisionNo + 1, source, actorId, now);
+        newestRevisionNo = copy.revisionNo();
+        List<ListingRevision> next = new ArrayList<>(revisions);
+        next.add(copy);
+        revisions = List.copyOf(next);
+        record(ListingHistoryAction.REVISION_COPIED, copy, RevisionChangeKind.COPIED, historyId, actorId, now);
+        return copy;
+    }
+
+    /**
+     * listing-publish US-5 AC-1, AC-3, AC-4, BR-6, BR-11 (E06-S6 spec E06S6-D6): the try to put an Approved revision
+     * live. A target not loaded is a defect; a target that is not Approved is refused. Then the display rule answers the
+     * reasons that stop it, and with any reason nothing changes. Without: the live revision of the working set, if any,
+     * becomes Replaced first, then the target becomes Live, so at most one revision is live at any write; an Unpublished
+     * listing becomes Published. Each step records one history entry and one revision change: the replaced revision's
+     * {@code REVISION_REPLACED}, then the target's action of the moment, both with the actor given (none for an automatic
+     * try).
+     *
+     * @return the reasons that stop the put live, in their fixed order; empty when it went live
+     */
+    public List<DisplayReason> tryPutLive(int revisionNo, DisplayConditions conditions, PutLiveMoment moment,
+                                          String actorIdOrNull, Instant now, String replacedHistoryId,
+                                          String liveHistoryId) {
+        ListingRevision target = target(revisionNo);
+        if (target.status() != RevisionStatus.APPROVED) {
+            throw new RevisionStateException(RevisionStateException.Reason.REVISION_NOT_APPROVED);
+        }
+        List<DisplayReason> reasons = ListingDisplayPolicy.putLiveReasons(conditions, target.termsOrNull(), now);
+        if (!reasons.isEmpty()) {
+            return reasons;
+        }
+        Optional<ListingRevision> live = revisions.stream()
+                .filter(revision -> revision.status() == RevisionStatus.LIVE)
+                .findFirst();
+        if (live.isPresent()) {
+            ListingRevision replaced = live.get().replaced(now);
+            replace(replaced);
+            record(ListingHistoryAction.REVISION_REPLACED, replaced, RevisionChangeKind.UPDATED, replacedHistoryId,
+                    actorIdOrNull, now);
+        }
+        ListingRevision wentLive = target.wentLive(now);
+        replace(wentLive);
+        record(actionOf(moment), wentLive, RevisionChangeKind.UPDATED, liveHistoryId, actorIdOrNull, now);
+        // listing section 3.2, US-5 AC-4: an Unpublished listing becomes Published; a Published one stays
+        if (state == ListingState.UNPUBLISHED) {
+            state = ListingState.PUBLISHED;
+        }
+        return List.of();
+    }
+
+    /** True when a command changed the listing's state since it was loaded or created (E06-S6 spec E06S6-D6). */
+    public boolean stateChanged() {
+        return state != loadedState;
+    }
+
+    private static ListingHistoryAction actionOf(PutLiveMoment moment) {
+        return switch (moment) {
+            case SALE_COMMAND -> ListingHistoryAction.REVISION_PUT_LIVE;
+            case APPROVAL -> ListingHistoryAction.REVISION_PUT_LIVE_ON_APPROVAL;
+            case VALID_CONFIRMATION -> ListingHistoryAction.REVISION_PUT_LIVE_ON_CONFIRMATION;
+        };
+    }
+
+    /** The decisions the last command made and the repository has not stored yet; unmodifiable. */
+    public List<RevisionDecision> pendingDecisions() {
+        return pendingDecisions;
+    }
+
+    private static ListingHistoryAction actionOf(ReviewOutcome outcome) {
+        return switch (outcome) {
+            case APPROVED -> ListingHistoryAction.REVISION_APPROVED;
+            case NEEDS_CHANGES -> ListingHistoryAction.REVISION_RETURNED;
+            case REJECTED -> ListingHistoryAction.REVISION_REJECTED;
+        };
     }
 
     /** The service checks that a revision exists before it commands it, so a missing one is a defect. */

@@ -1,6 +1,7 @@
 package vn.sunvibe.listing.core.testsupport;
 
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingAnswerFacts;
+import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingReviewFacts;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingRightPort;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AgreementStandingFacts;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AgreementTermsFacts;
@@ -22,6 +23,7 @@ public class StubAdvertisingRightPort implements AdvertisingRightPort {
     private final Map<String, AgreementStandingFacts> standings = new HashMap<>();
     private final Map<String, AdvertisingAnswerFacts> answers = new HashMap<>();
     private final Map<String, AgreementTermsFacts> terms = new HashMap<>();
+    private final Map<String, AdvertisingReviewFacts> reviews = new HashMap<>();
     private final List<String> calls = new ArrayList<>();
 
     public void standing(AgreementStandingFacts standing) {
@@ -63,6 +65,17 @@ public class StubAdvertisingRightPort implements AdvertisingRightPort {
     public Optional<AgreementTermsFacts> terms(String unitId, String agreementId) {
         calls.add("terms " + unitId + " " + agreementId);
         return Optional.ofNullable(terms.get(unitId + " " + agreementId));
+    }
+
+    /** The whole answer E05 gives the review for its pair; nothing by default. */
+    public void review(AdvertisingReviewFacts facts) {
+        reviews.put(facts.unitId() + " " + facts.agreementId(), facts);
+    }
+
+    @Override
+    public Optional<AdvertisingReviewFacts> review(String unitId, String agreementId) {
+        calls.add("review " + unitId + " " + agreementId);
+        return Optional.ofNullable(reviews.get(unitId + " " + agreementId));
     }
 
     private Optional<AdvertisingAnswerFacts> answerOf(String unitId, String agreementId) {

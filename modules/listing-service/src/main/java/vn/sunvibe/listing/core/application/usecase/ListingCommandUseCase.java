@@ -1,6 +1,8 @@
 package vn.sunvibe.listing.core.application.usecase;
 
+import vn.sunvibe.listing.core.application.command.FreshnessRecordCommand;
 import vn.sunvibe.listing.core.application.command.ListingCreateCommand;
+import vn.sunvibe.listing.core.application.command.RevisionCopyCommand;
 import vn.sunvibe.listing.core.application.command.RevisionSaveCommand;
 import vn.sunvibe.listing.core.application.command.RevisionStartCommand;
 import vn.sunvibe.listing.core.application.command.RevisionSubmitCommand;
@@ -8,6 +10,7 @@ import vn.sunvibe.listing.core.application.command.RevisionWithdrawCommand;
 import vn.sunvibe.listing.core.application.command.TermsCaptureCommand;
 import vn.sunvibe.listing.core.application.exception.ListingNotFoundException;
 import vn.sunvibe.listing.core.application.exception.ListingRefusedException;
+import vn.sunvibe.listing.core.application.query.FreshnessRecordResult;
 import vn.sunvibe.listing.core.application.query.ListingCreateResult;
 import vn.sunvibe.listing.core.application.query.RevisionCommandResult;
 import vn.sunvibe.listing.core.domain.exception.ListingChangedException;
@@ -70,4 +73,28 @@ public interface ListingCommandUseCase {
      * @throws RevisionStateException {@code REVISION_NOT_PENDING}
      */
     RevisionCommandResult withdraw(RevisionWithdrawCommand command, ListingViewer viewer);
+
+    /**
+     * Copies a Live, Approved or Needs changes revision into a new Draft numbered after the greatest number, by the
+     * caller, with the source's content and terms snapshot; the source stays as it is (listing-publish US-2 AC-6, AC-7,
+     * BR-6; E06-S4 spec 3.6, E06S4-D14; E06-S6 spec E06S6-D10).
+     *
+     * @throws RevisionStateException {@code REVISION_NOT_COPYABLE} for a source of any other status, then
+     *                                {@code OPEN_REVISION_EXISTS} while a Draft or Pending review revision is open
+     */
+    RevisionCommandResult copyRevision(RevisionCopyCommand command, ListingViewer viewer);
+
+    /**
+     * Records a contact of the assigned Sale with the person letting the unit, dated today in Vietnam time
+     * (listing-publish US-6 AC-1, AC-2, BR-9, BR-11; E06-S3 spec 3.1, E06S3-D3). A valid confirmation tries to put the
+     * approved revision live (E06-S6 spec E06S6-D7), which may change the listing's state.
+     *
+     * @throws ListingNotFoundException the listing is unknown or malformed, or the caller is not a SALE or SALE_LEADER
+     *                                  holding its agreement's basis lead now: one answer for all
+     * @throws ListingRefusedException  {@code LISTING_ARCHIVED}, stored or because the agreement ended
+     * @throws ListingChangedException  the data version is stale, or another command moved it meanwhile
+     * @throws IllegalStateException    the put live a valid confirmation tries meets an E05 group or availability code
+     *                                  listing does not know; nothing written
+     */
+    FreshnessRecordResult recordFreshness(FreshnessRecordCommand command, ListingViewer viewer);
 }

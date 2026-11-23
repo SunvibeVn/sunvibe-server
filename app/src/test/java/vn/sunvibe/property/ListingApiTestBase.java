@@ -18,7 +18,8 @@ import vn.sunvibe.listing.core.application.usecase.ListingCommandUseCase;
  * What the listing API tests of listing-publish E06-S1 share (plan decision E06S1-P5): the agreements of
  * {@link AgreementStopApiTestBase} (unchanged, with its context, its chain over HTTP and its held locks, E06S1-D13), the
  * three listing calls over HTTP, a LISTING_REVIEWER and a CUSTOMER, the count of the listing tables and of the outbox,
- * and the cleanup of the listing rows of every agreement a test created. Needs Docker.
+ * and the cleanup of the listing rows of every agreement a test created, the outbox rows of the listing event first
+ * (E06-S6 spec E06S6-D21). Needs Docker.
  */
 abstract class ListingApiTestBase extends AgreementStopApiTestBase {
 
@@ -43,6 +44,8 @@ abstract class ListingApiTestBase extends AgreementStopApiTestBase {
 	@AfterEach
 	void deleteListingRows() {
 		for (String agreementId : created) {
+			jdbc.update("delete from outbox_events where aggregate_type = 'listing' and aggregate_id in (select id from"
+					+ " listings where agreement_id = ?)", agreementId);
 			jdbc.update("delete from listing_history where listing_id in (select id from listings where agreement_id = ?)",
 					agreementId);
 			jdbc.update("delete from listing_revisions where listing_id in (select id from listings where agreement_id = ?)",
