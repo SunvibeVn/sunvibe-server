@@ -103,12 +103,14 @@ public final class OutboxSubscriptions {
 
     /**
      * The list of this release: E05's event with its unit id and the listing's event with its listing id (E06-S6 spec
-     * E06S6-D9), each declared with no consumer yet, and each bound to its aggregate (listing-publish E06-S7 spec
-     * E06S7-D14): E05's event to (unit, unitId), the listing's to (listing, listingId).
+     * E06S6-D9), each bound to its aggregate (listing-publish E06-S7 spec E06S7-D14): E05's event to (unit, unitId), the
+     * listing's to (listing, listingId). E05's event goes to listing's consumer {@code listing-unit-advertising}
+     * (E06S7-D13), named here by its literal, as this package uses no integration class; the listing event has no
+     * consumer yet.
      */
     public static OutboxSubscriptions production() {
         return of(Map.of(UnitAdvertisingChangedEvent.TYPE,
-                new Subscription(Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of(),
+                new Subscription(Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of("listing-unit-advertising"),
                         new Binding(UnitAdvertisingChangedEvent.AGGREGATE_TYPE, UnitAdvertisingChangedEvent.UNIT_ID)),
                 ListingChangedEvent.TYPE,
                 new Subscription(Set.of(ListingChangedEvent.LISTING_ID), List.of(),

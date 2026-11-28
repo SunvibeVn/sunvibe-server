@@ -23,8 +23,8 @@ class OutboxSubscriptionsTest {
 	void production_unitAdvertisingChanged_unitIdOnlyAndNoConsumer() {
 		OutboxSubscriptions production = OutboxSubscriptions.production();
 
-		assertThat(production.consumersOf(UnitAdvertisingChangedEvent.TYPE)).isEmpty();
-		assertThat(production.consumers()).isEmpty();
+		assertThat(production.consumersOf(UnitAdvertisingChangedEvent.TYPE)).containsExactly("listing-unit-advertising");
+		assertThat(production.consumers()).containsExactly("listing-unit-advertising");
 		assertThatCode(() -> production.check(UnitAdvertisingChangedEvent.now(UNIT_ID))).doesNotThrowAnyException();
 
 		assertThatThrownBy(() -> production.check(unitEvent(Map.of("unitId", UNIT_ID, "name", "x"))))
@@ -52,8 +52,8 @@ class OutboxSubscriptionsTest {
 	}
 
 	/**
-	 * listing-publish E06-S6 spec E06S6-D9: the listing event is declared with its listing id and no consumer, so an
-	 * append writes no row until E06-S7 subscribes one.
+	 * listing-publish E06-S6 spec E06S6-D9: the listing event is declared with its listing id and still no consumer
+	 * (E06-S7 subscribes only E05's event, to listing-unit-advertising), so an append of it writes no row.
 	 */
 	@Test
 	void production_listingChanged_acceptedWithoutConsumer() {
@@ -61,7 +61,7 @@ class OutboxSubscriptionsTest {
 
 		assertThatCode(() -> production.check(ListingChangedEvent.now(UNIT_ID))).doesNotThrowAnyException();
 		assertThat(production.consumersOf(ListingChangedEvent.TYPE)).isEmpty();
-		assertThat(production.consumers()).isEmpty();
+		assertThat(production.consumers()).containsExactly("listing-unit-advertising");
 		assertThatThrownBy(() -> production.check(new OutboxEvent(ListingChangedEvent.TYPE, 1, "listing", "listing",
 				UNIT_ID, Map.of("unitId", UNIT_ID), null)))
 				.isInstanceOf(IllegalArgumentException.class);

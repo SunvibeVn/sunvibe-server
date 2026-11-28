@@ -75,8 +75,9 @@ class AgreementActivationOutboxPostgresTest extends IntakeApiTestBase {
 		@Bean
 		@Primary
 		OutboxSubscriptions testOutboxSubscriptions() {
+			// listing-publish E06-S7 spec S-5: listing's real consumer is a bean of every context, so it is listed too
 			return OutboxSubscriptions.of(Map.of(UnitAdvertisingChangedEvent.TYPE, new OutboxSubscriptions.Subscription(
-					Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of(CONSUMER))));
+					Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of(CONSUMER, "listing-unit-advertising"))));
 		}
 
 		/** Records nothing: the worker is off in the test profile, so nothing is delivered. */
@@ -254,8 +255,9 @@ class AgreementActivationOutboxPostgresTest extends IntakeApiTestBase {
 		return jdbc.queryForObject("select status from brokerage_agreements where id = ?", String.class, agreementId);
 	}
 
+	/** The unit's rows of the test consumer, each one E05 event (listing-publish E06-S7 spec S-5). */
 	private int outboxRows(String unitId) {
-		return count("select count(*) from outbox_events where aggregate_id = ?", unitId);
+		return count("select count(*) from outbox_events where aggregate_id = ? and consumer = ?", unitId, CONSUMER);
 	}
 
 	/** One outbox row of the unit: when it is due and when it was appended. */
@@ -273,9 +275,9 @@ class AgreementActivationOutboxPostgresTest extends IntakeApiTestBase {
 				+ " and payload = jsonb_build_object('unitId', aggregate_id) and status = 'PENDING' and attempts = 0",
 				unitId, UnitAdvertisingChangedEvent.TYPE, CONSUMER));
 		assertEquals(rows, count("select count(distinct event_id) from outbox_events where aggregate_id = ?", unitId));
-		return jdbc.query("select next_attempt_at, occurred_at from outbox_events where aggregate_id = ?"
+		return jdbc.query("select next_attempt_at, occurred_at from outbox_events where aggregate_id = ? and consumer = ?"
 				+ " order by next_attempt_at, id", (row, index) -> new Row(row.getTimestamp("next_attempt_at").toInstant(),
-				row.getTimestamp("occurred_at").toInstant()), unitId);
+				row.getTimestamp("occurred_at").toInstant()), unitId, CONSUMER);
 	}
 
 	private static void assertWithin(Instant from, Instant to, Instant value) {

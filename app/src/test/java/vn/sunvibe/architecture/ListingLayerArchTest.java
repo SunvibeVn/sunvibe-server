@@ -17,7 +17,8 @@ import com.tngtech.archunit.core.importer.ImportOption;
  * Layer direction inside listing-service (backend-architecture.md, layer-guide.md, domain-layer.md; listing-publish
  * E06-S1 spec E06S1-D14, LC-17), the same rules as {@link BrokerageLayerArchTest}: the domain depends on no other layer,
  * the port's records included, and on no framework (pure Java), the application only on the domain, and infrastructure
- * never on presentation.
+ * never on presentation; the anonymous controller's dependencies and the one caller of the signal use case
+ * (listing-publish E06-S7).
  */
 class ListingLayerArchTest {
 
@@ -90,5 +91,24 @@ class ListingLayerArchTest {
 						.or(name(ROOT + ".application.query.ListingPublicView"))
 						.or(name(ROOT + ".presentation.converter.ListingPublicResponseConverter")))
 				.check(classes);
+	}
+
+	/**
+	 * listing-publish E06-S7 spec E06S7-D13, D6, PB-12: listing's answer to E05's event is called only by the
+	 * integration adapter (and implemented by its service), so no controller can reach it over HTTP.
+	 */
+	@Test
+	void signalUseCase_dependedOnOnlyByIntegrationAndItsService() {
+		String useCase = ROOT + ".application.usecase.ListingSignalUseCase";
+		JavaClasses all = new ClassFileImporter()
+				.withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+				.importPackages("vn.sunvibe");
+		assertThat(all.contain(useCase)).isTrue();
+
+		noClasses().that().resideOutsideOfPackage("vn.sunvibe.integration..")
+				.and().doNotHaveFullyQualifiedName(ROOT + ".application.service.ListingSignalService")
+				.and().doNotHaveFullyQualifiedName(useCase)
+				.should().dependOnClassesThat().haveFullyQualifiedName(useCase)
+				.check(all);
 	}
 }
