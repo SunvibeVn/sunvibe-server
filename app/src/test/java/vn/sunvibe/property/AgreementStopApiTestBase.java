@@ -407,8 +407,10 @@ abstract class AgreementStopApiTestBase extends IntakeApiTestBase {
 				agreementId, type);
 	}
 
+	/** The unit's rows of the test consumer, so each one counts one E05 event (listing-publish E06-S7 spec S-4). */
 	int outboxRows(String unitId) {
-		return count("select count(*) from outbox_events where aggregate_id = ?", unitId);
+		return count("select count(*) from outbox_events where aggregate_id = ? and consumer = ?", unitId,
+				AgreementStopTestSubscription.CONSUMER);
 	}
 
 	int suspensionRows(String agreementId) {

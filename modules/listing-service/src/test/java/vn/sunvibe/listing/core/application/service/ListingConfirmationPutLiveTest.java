@@ -19,6 +19,7 @@ import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
+import vn.sunvibe.listing.core.domain.policy.listing.FreshnessPolicy;
 import vn.sunvibe.listing.core.testsupport.InMemoryListingRepository;
 import vn.sunvibe.listing.core.testsupport.RecordingEventOutboxPort;
 import vn.sunvibe.listing.core.testsupport.RevisionFixtures;
@@ -26,6 +27,7 @@ import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitInventoryPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitProfilePort;
 import vn.sunvibe.shared.outbox.ListingChangedEvent;
+import vn.sunvibe.shared.outbox.OutboxEvent;
 
 import java.util.List;
 import java.util.Optional;
@@ -95,7 +97,7 @@ class ListingConfirmationPutLiveTest {
                         ListingHistoryAction.REVISION_PUT_LIVE_ON_CONFIRMATION + " 2 null"), history()),
                 () -> assertTrue(listings.calls().contains("recordFreshnessWithPutLive " + LISTING)),
                 () -> assertFalse(listings.calls().contains("recordFreshness " + LISTING)),
-                () -> assertEquals(List.of(ListingChangedEvent.now(LISTING)), events.events()));
+                () -> assertEquals(nowAndAtDeadline(), events.events()));
     }
 
     @Test
@@ -115,7 +117,7 @@ class ListingConfirmationPutLiveTest {
                 () -> assertEquals(List.of(ListingHistoryAction.FRESHNESS_RECORDED + " null " + SALE), history()),
                 () -> assertTrue(listings.calls().contains("recordFreshness " + LISTING)),
                 () -> assertFalse(listings.calls().contains("recordFreshnessWithPutLive " + LISTING)),
-                () -> assertEquals(List.of(), events.events()));
+                () -> assertEquals(nowAndAtDeadline(), events.events()));
     }
 
     @Test
@@ -133,7 +135,7 @@ class ListingConfirmationPutLiveTest {
                 () -> assertEquals(List.of(), units.calls()),
                 () -> assertEquals(RevisionStatus.APPROVED,
                         listings.stored(LISTING).orElseThrow().revision(1).orElseThrow().status()),
-                () -> assertEquals(List.of(), events.events()));
+                () -> assertEquals(List.of(ListingChangedEvent.now(LISTING)), events.events()));
     }
 
     @Test
@@ -148,7 +150,7 @@ class ListingConfirmationPutLiveTest {
                         "findApprovedRevisionNo " + LISTING, "recordFreshness " + LISTING), listings.calls()),
                 () -> assertEquals(List.of("standings [" + AGREEMENT + "]"), rights.calls()),
                 () -> assertEquals(List.of(), units.calls()),
-                () -> assertEquals(List.of(), events.events()));
+                () -> assertEquals(nowAndAtDeadline(), events.events()));
     }
 
     @Test
@@ -224,7 +226,16 @@ class ListingConfirmationPutLiveTest {
                 () -> assertEquals(RevisionStatus.APPROVED,
                         listings.stored(LISTING).orElseThrow().revision(1).orElseThrow().status()),
                 () -> assertEquals(ListingState.PAUSED, listings.stored(LISTING).orElseThrow().state()),
-                () -> assertEquals(List.of(), events.events()));
+                () -> assertEquals(nowAndAtDeadline(), events.events()));
+    }
+
+    /**
+     * listing-publish E06-S7 spec E06S7-D12 (S-7): a valid record's two signals, due now and at the deadline of its
+     * contact date; a put live of the record has no third.
+     */
+    private List<OutboxEvent> nowAndAtDeadline() {
+        return List.of(ListingChangedEvent.now(LISTING), ListingChangedEvent.dueAt(LISTING,
+                FreshnessPolicy.deadline(listings.freshnessRecords(LISTING).getLast().contactDate())));
     }
 
     /**

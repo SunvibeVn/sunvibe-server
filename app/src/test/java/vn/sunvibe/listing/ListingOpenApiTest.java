@@ -26,7 +26,8 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * The three listing operations in the contract (listing-publish E06-S1 spec section 4, E06S1-D1, E06S1-P7, LC-14): their
  * explicit and unique operationIds, the tag, their answers, the seven schemas with every property required and the
- * closed values listed, and no public path. Read from {@code /v3/api-docs} with the annotations of
+ * closed values listed, and, of the public paths, only the anonymous listing read of E06-S7. Read from
+ * {@code /v3/api-docs} with the annotations of
  * {@code BrokerageOpenApiTest}, so no database is needed and its context is reused.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -170,15 +171,27 @@ class ListingOpenApiTest {
 		assertEquals("boolean", creation.path("advertisingNotStarted").path("type").asString());
 	}
 
+	/** listing-publish E06-S7 spec S-17, PB-27: of the public paths, only the anonymous listing read names a listing. */
 	@Test
-	void openApi_publicPaths_noListingPath() {
+	void openApi_publicPaths_onlyThePublicListingRead() {
 		List<String> publicPaths = names(contract.path("paths")).stream()
 				.filter(path -> path.startsWith("/api/v1/public"))
 				.toList();
 
 		assertFalse(publicPaths.isEmpty(), "the contract has public paths to check");
+		List<String> listingPaths = publicPaths.stream()
+				.filter(path -> path.toLowerCase(Locale.ROOT).contains("listing"))
+				.toList();
+		assertEquals(List.of("/api/v1/public/listings/{code}"), listingPaths);
+		JsonNode publicRead = contract.path("paths").path("/api/v1/public/listings/{code}");
+		assertEquals(List.of("get"), names(publicRead));
+		assertEquals("getPublicListing", publicRead.path("get").path("operationId").asString());
+		assertEquals("[\"Public listing\"]", publicRead.path("get").path("tags").toString());
+		assertFalse(publicRead.path("get").has("security"), publicRead.toString());
 		for (String path : publicPaths) {
-			assertFalse(path.toLowerCase(Locale.ROOT).contains("listing"), path);
+			if (!listingPaths.contains(path)) {
+				assertFalse(path.toLowerCase(Locale.ROOT).contains("listing"), path);
+			}
 		}
 	}
 

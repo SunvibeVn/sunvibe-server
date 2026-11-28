@@ -23,8 +23,8 @@ class OutboxSubscriptionsTest {
 	void production_unitAdvertisingChanged_unitIdOnlyAndNoConsumer() {
 		OutboxSubscriptions production = OutboxSubscriptions.production();
 
-		assertThat(production.consumersOf(UnitAdvertisingChangedEvent.TYPE)).isEmpty();
-		assertThat(production.consumers()).isEmpty();
+		assertThat(production.consumersOf(UnitAdvertisingChangedEvent.TYPE)).containsExactly("listing-unit-advertising");
+		assertThat(production.consumers()).containsExactly("listing-unit-advertising");
 		assertThatCode(() -> production.check(UnitAdvertisingChangedEvent.now(UNIT_ID))).doesNotThrowAnyException();
 
 		assertThatThrownBy(() -> production.check(unitEvent(Map.of("unitId", UNIT_ID, "name", "x"))))
@@ -52,8 +52,8 @@ class OutboxSubscriptionsTest {
 	}
 
 	/**
-	 * listing-publish E06-S6 spec E06S6-D9: the listing event is declared with its listing id and no consumer, so an
-	 * append writes no row until E06-S7 subscribes one.
+	 * listing-publish E06-S6 spec E06S6-D9: the listing event is declared with its listing id and still no consumer
+	 * (E06-S7 subscribes only E05's event, to listing-unit-advertising), so an append of it writes no row.
 	 */
 	@Test
 	void production_listingChanged_acceptedWithoutConsumer() {
@@ -61,7 +61,7 @@ class OutboxSubscriptionsTest {
 
 		assertThatCode(() -> production.check(ListingChangedEvent.now(UNIT_ID))).doesNotThrowAnyException();
 		assertThat(production.consumersOf(ListingChangedEvent.TYPE)).isEmpty();
-		assertThat(production.consumers()).isEmpty();
+		assertThat(production.consumers()).containsExactly("listing-unit-advertising");
 		assertThatThrownBy(() -> production.check(new OutboxEvent(ListingChangedEvent.TYPE, 1, "listing", "listing",
 				UNIT_ID, Map.of("unitId", UNIT_ID), null)))
 				.isInstanceOf(IllegalArgumentException.class);
@@ -81,6 +81,70 @@ class OutboxSubscriptionsTest {
 		assertThat(OutboxSubscriptions.of(Map.of("test.sample-event",
 				new OutboxSubscriptions.Subscription(Set.of("unitId"), List.of("a" + "b".repeat(99), "test-a"))))
 				.consumers()).containsExactly("a" + "b".repeat(99), "test-a");
+	}
+
+	/**
+	 * listing-publish E06-S7 spec E06S7-D14, criterion PB-17 (register SV-321 (1)): the production list binds E05's event
+	 * to the aggregate (unit, unitId) and the listing event to (listing, listingId); an event whose aggregate type or id
+	 * does not match is refused, the message naming the type and the field, never a value.
+	 */
+	@Test
+	void production_aggregateNotMatchingItsBinding_refusedNamingTypeAndFieldOnly() {
+		OutboxSubscriptions production = OutboxSubscriptions.production();
+		String otherId = "01HZX3M5Q8R2T4V6W8Y0A2C4E7";
+
+		assertThatThrownBy(() -> production.check(new OutboxEvent(UnitAdvertisingChangedEvent.TYPE, 1, "brokerage",
+				"listing", UNIT_ID, Map.of("unitId", UNIT_ID), null)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining(UnitAdvertisingChangedEvent.TYPE)
+				.hasMessageContaining("aggregateType")
+				.hasMessageNotContaining(UNIT_ID)
+				.hasMessageNotContaining(" listing");
+		assertThatThrownBy(() -> production.check(new OutboxEvent(UnitAdvertisingChangedEvent.TYPE, 1, "brokerage",
+				"unit", otherId, Map.of("unitId", UNIT_ID), null)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining(UnitAdvertisingChangedEvent.TYPE)
+				.hasMessageContaining("aggregateId")
+				.hasMessageNotContaining(UNIT_ID)
+				.hasMessageNotContaining(otherId);
+		assertThatThrownBy(() -> production.check(new OutboxEvent(ListingChangedEvent.TYPE, 1, "listing", "unit",
+				UNIT_ID, Map.of("listingId", UNIT_ID), null)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining(ListingChangedEvent.TYPE)
+				.hasMessageContaining("aggregateType")
+				.hasMessageNotContaining(UNIT_ID)
+				.hasMessageNotContaining(" unit");
+		assertThatThrownBy(() -> production.check(new OutboxEvent(ListingChangedEvent.TYPE, 1, "listing", "listing",
+				otherId, Map.of("listingId", UNIT_ID), null)))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining(ListingChangedEvent.TYPE)
+				.hasMessageContaining("aggregateId")
+				.hasMessageNotContaining(UNIT_ID)
+				.hasMessageNotContaining(otherId);
+	}
+
+	/** E06S7-D14: both factories' events match their binding, the due forms included. */
+	@Test
+	void production_factoryEvents_matchTheirBinding() {
+		OutboxSubscriptions production = OutboxSubscriptions.production();
+		java.time.Instant due = java.time.Instant.parse("2026-12-12T17:00:00Z");
+
+		assertThatCode(() -> {
+			production.check(UnitAdvertisingChangedEvent.now(UNIT_ID));
+			production.check(UnitAdvertisingChangedEvent.dueAt(UNIT_ID, due));
+			production.check(ListingChangedEvent.now(UNIT_ID));
+			production.check(ListingChangedEvent.dueAt(UNIT_ID, due));
+		}).doesNotThrowAnyException();
+	}
+
+	/** E06S7-D14: a list built with the two-argument constructor keeps no binding and accepts any aggregate. */
+	@Test
+	void of_subscriptionWithoutBinding_acceptsAnyAggregate() {
+		OutboxSubscriptions list = OutboxSubscriptions.of(Map.of(UnitAdvertisingChangedEvent.TYPE,
+				new OutboxSubscriptions.Subscription(Set.of("unitId"), List.of("test-a"))));
+
+		assertThatCode(() -> list.check(new OutboxEvent(UnitAdvertisingChangedEvent.TYPE, 1, "brokerage", "listing",
+				"01HZX3M5Q8R2T4V6W8Y0A2C4E7", Map.of("unitId", UNIT_ID), null))).doesNotThrowAnyException();
 	}
 
 	private static OutboxEvent unitEvent(Map<String, String> payload) {

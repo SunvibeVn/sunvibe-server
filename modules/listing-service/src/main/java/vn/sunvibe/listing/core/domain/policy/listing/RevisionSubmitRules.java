@@ -13,8 +13,10 @@ import java.util.List;
  * What a revision needs to be submitted for review (listing-publish US-2 AC-4, BR-2, BR-4, E-4; E06-S2 spec E06S2-D7):
  * a title of 15 to 90 characters, a description of 100 to 3,000 characters, a terms snapshot, and title and description
  * passing the machine check. Every violation once, in this order: the title's presence and length, the description's,
- * the terms, then the title's machine rules and the description's, each in {@link RevisionRule} order. Characters are
- * code points. The same list answers a refused submission and the problems of a Draft's read.
+ * the terms, then the title's machine rules and the description's, each in {@link RevisionRule} order, then the machine
+ * rules of each fee name of the terms snapshot, each name alone in E05's order with its 1-based position (E06-S7 spec
+ * E06S7-D10, listing-publish BR-2 with LP-15, E-20; a fee name's length is E05's rule, so none is checked here).
+ * Characters are code points. The same list answers a refused submission and the problems of a Draft's read.
  */
 public final class RevisionSubmitRules {
 
@@ -37,6 +39,14 @@ public final class RevisionSubmitRules {
         }
         machine(violations, RevisionPart.TITLE, content.titleOrNull());
         machine(violations, RevisionPart.DESCRIPTION, content.descriptionOrNull());
+        if (termsOrNull != null) {
+            List<RevisionTerms.Fee> fees = termsOrNull.fees();
+            for (int index = 0; index < fees.size(); index++) {
+                int position = index + 1;
+                ListingTextRules.broken(fees.get(index).name())
+                        .forEach(rule -> violations.add(new RevisionViolation(RevisionPart.FEE_NAME, rule, position)));
+            }
+        }
         return List.copyOf(violations);
     }
 

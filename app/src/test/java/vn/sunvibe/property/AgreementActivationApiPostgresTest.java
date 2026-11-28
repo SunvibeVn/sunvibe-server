@@ -24,6 +24,7 @@ import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.TestUser;
 import vn.sunvibe.brokerage.AgreementFixture;
 import vn.sunvibe.brokerage.core.domain.model.agreement.ActivationStatement;
+import vn.sunvibe.shared.outbox.UnitAdvertisingChangedEvent;
 import vn.sunvibe.survey.PassedRevisionFixture.Passed;
 import vn.sunvibe.survey.SurveyApiTestSupport;
 
@@ -798,9 +799,13 @@ class AgreementActivationApiPostgresTest extends IntakeApiTestBase {
 		assertEquals(200, answer.status(), answer.rawBody());
 	}
 
-	/** EV-1 (ADR-014 decision 3): with no consumer subscribed (the production list) an activation writes no outbox row. */
+	/**
+	 * EV-1 (ADR-014 decision 3), listing-publish E06-S7 spec E06S7-D13, S-6, PB-16: with the production list, which
+	 * subscribes listing-unit-advertising to E05's event, every row an activation writes is that consumer's, one per E05
+	 * event the activation appends: now and at the end of the end date (its start is today, not ahead: S6-D12).
+	 */
 	@Test
-	void activate_noSubscriber_noOutboxRowSucceeds() throws Exception {
+	void activate_productionList_oneListingRowPerEvent() throws Exception {
 		Chain chain = confirmed();
 
 		assertEquals(204, activate(manager, chain.agreementId()).status());
@@ -808,6 +813,11 @@ class AgreementActivationApiPostgresTest extends IntakeApiTestBase {
 		Map<String, Object> version = versionRow(chain.agreementId(), 1);
 		assertEquals("EFFECTIVE", version.get("status"));
 		assertEquals("ACTIVATED", version.get("activation_decision"));
-		assertEquals(0, outboxRows(chain.unitId()));
+		assertEquals(List.of("listing-unit-advertising " + UnitAdvertisingChangedEvent.TYPE,
+						"listing-unit-advertising " + UnitAdvertisingChangedEvent.TYPE),
+				jdbc.queryForList("select consumer || ' ' || event_type from outbox_events where aggregate_id = ?"
+						+ " order by next_attempt_at, id", String.class, chain.unitId()));
+		assertEquals(2, count("select count(distinct event_id) from outbox_events where aggregate_id = ?",
+				chain.unitId()));
 	}
 }

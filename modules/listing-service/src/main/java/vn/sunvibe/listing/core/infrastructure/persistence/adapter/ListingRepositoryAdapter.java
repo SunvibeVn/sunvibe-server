@@ -15,6 +15,7 @@ import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
+import vn.sunvibe.listing.core.domain.model.listing.ListingPublication;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionChange;
@@ -30,6 +31,8 @@ import vn.sunvibe.listing.core.domain.repository.ReviewCandidate;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingFreshnessRecordEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingHistoryEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingPublicationEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingPublicationFeeEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionReviewEntity;
@@ -37,6 +40,8 @@ import vn.sunvibe.listing.core.infrastructure.persistence.mapper.manual.ListingE
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingFreshnessRecordJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingHistoryJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingJpaRepository;
+import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingPublicationFeeJpaRepository;
+import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingPublicationJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionFeeJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionJpaRepository;
 import vn.sunvibe.listing.core.infrastructure.persistence.repository.ListingRevisionReviewJpaRepository;
@@ -87,6 +92,9 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
     /** E06-S6 spec E06S6-D5 step (6): a put live's working set is its target, the approved and the live revision. */
     private static final List<RevisionStatus> PUT_LIVE_STATUSES = List.of(RevisionStatus.APPROVED,
             RevisionStatus.LIVE);
+    /** E06S7-D3: the listing's publication row deleted, its fee rows by the cascade; the row version it held, if any. */
+    private static final String DELETE_PUBLICATION =
+            "DELETE FROM listing_publications WHERE listing_id = ?1 RETURNING row_version";
 
     private final ListingJpaRepository listings;
     private final ListingRevisionJpaRepository revisions;
@@ -94,6 +102,8 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
     private final ListingHistoryJpaRepository history;
     private final ListingFreshnessRecordJpaRepository freshnessRecords;
     private final ListingRevisionReviewJpaRepository reviews;
+    private final ListingPublicationJpaRepository publications;
+    private final ListingPublicationFeeJpaRepository publicationFees;
     private final ListingEntityMapper mapper;
 
     @PersistenceContext
@@ -217,6 +227,7 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
             throw new ListingChangedException();
         }
         writeRevisionChanges(listing);
+        writePublication(listing);
         for (RevisionDecision decision : listing.pendingDecisions()) {
             insertDecision(listing.id(), decision);
         }
@@ -269,6 +280,7 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
             throw new ListingChangedException();
         }
         writeRevisionChanges(listing);
+        writePublication(listing);
         ListingFreshnessRecordEntity recordRow = mapper.toFreshnessRecordEntity(record);
         ListingHistoryEntity historyRow = ListingEntityMapper.toHistoryEntity(listing.id(), entry);
         List<ListingHistoryEntity> pendingHistory = mapper.toHistoryEntities(listing);
@@ -459,6 +471,55 @@ public class ListingRepositoryAdapter implements ListingDomainRepository {
                 revisionRows.stream().map(ListingRevisionEntity::getId).toList());
         rows.forEach(entityManager::detach);
         return rows.stream().collect(Collectors.groupingBy(row -> row.getId().getRevisionId()));
+    }
+
+    /**
+     * Two statements (listing-publish E06-S7 spec E06S7-D5 step (1)): the row on uq_listing_publications_code, then its
+     * fee rows in fee number order on the primary key; every entity detached.
+     */
+    @Override
+    public Optional<ListingPublication> findPublication(String code) {
+        Optional<ListingPublicationEntity> found = publications.findByCode(code);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        ListingPublicationEntity row = found.get();
+        entityManager.detach(row);
+        List<ListingPublicationFeeEntity> feeRows = publicationFees.findOfListing(row.getListingId());
+        feeRows.forEach(entityManager::detach);
+        return Optional.of(mapper.toPublication(row, feeRows));
+    }
+
+    /** One statement on ix_listing_publications_unit (E06S7-D13): at most the listings of one unit, in id order. */
+    @Override
+    public List<String> findPublishedListingIds(String unitId) {
+        return publications.findListingIdsOfUnit(unitId);
+    }
+
+    /**
+     * listing-publish E06-S7 spec E06S7-D3: when a put live succeeded, the listing's publication row is deleted (its fee
+     * rows go by the cascade) and the pending one inserted with its fee rows by {@code persist}, its row version one
+     * above the deleted row's (0 for none), then flushed and detached; with no pending publication (E06S7-D11) none is
+     * written. Nothing else writes the two tables.
+     */
+    private void writePublication(Listing listing) {
+        if (!listing.publicationWriteDue()) {
+            return;
+        }
+        List<?> deleted = entityManager.createNativeQuery(DELETE_PUBLICATION).setParameter(1, listing.id())
+                .getResultList();
+        long rowVersion = deleted.isEmpty() ? 0L : ((Number) deleted.getFirst()).longValue() + 1;
+        Optional<ListingPublication> pending = listing.pendingPublication();
+        if (pending.isEmpty()) {
+            return;
+        }
+        ListingPublicationEntity row = mapper.toPublicationEntity(pending.get(), rowVersion);
+        List<ListingPublicationFeeEntity> feeRows = mapper.toPublicationFeeEntities(pending.get());
+        entityManager.persist(row);
+        feeRows.forEach(entityManager::persist);
+        entityManager.flush();
+        entityManager.detach(row);
+        feeRows.forEach(entityManager::detach);
     }
 
     private static boolean violates(RuntimeException e, String constraintName) {

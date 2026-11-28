@@ -158,6 +158,59 @@ class ListingPutLiveTest {
                 .toList());
     }
 
+    /** listing-publish E06-S7 spec E06S7-D3: a successful try sets the publication of the new live revision, due. */
+    @Test
+    void tryPutLive_success_publicationOfTheNewLiveRevisionDue() {
+        Listing listing = forCommand(ListingState.PUBLISHED, 3, live(1), approved(3));
+
+        listing.tryPutLive(3, holding(ListingState.PUBLISHED), PutLiveMoment.SALE_COMMAND, "S9", NOW, "H1", "H2");
+
+        ListingRevision live = listing.revision(3).orElseThrow();
+        assertAll(
+                () -> assertTrue(listing.publicationWriteDue()),
+                () -> assertEquals(ListingPublication.of(listing, live), listing.pendingPublication()),
+                () -> assertEquals(NOW, listing.pendingPublication().orElseThrow().wentLiveAt()));
+    }
+
+    /** E06S7-D3: a refused try sets neither the write nor a publication. */
+    @Test
+    void tryPutLive_refused_noPublicationNoWrite() {
+        Listing listing = forCommand(ListingState.UNPUBLISHED, 3, live(1), approved(3));
+        DisplayConditions failing = new DisplayConditions(ListingState.UNPUBLISHED, false, false,
+                List.of(AgreementReasonGroup.SUSPENDED), RevisionFixtures.inEffectTerms(), UnitAvailability.AVAILABLE,
+                false, confirmedToday());
+
+        listing.tryPutLive(3, failing, PutLiveMoment.SALE_COMMAND, "S9", NOW, "H1", "H2");
+
+        assertFalse(listing.publicationWriteDue());
+        assertEquals(java.util.Optional.empty(), listing.pendingPublication());
+    }
+
+    /**
+     * E06S7-D11: a revision submitted before the check whose fee name breaks a rule goes live as before; the write is
+     * due with no publication, so the listing's row is deleted and none written.
+     */
+    @Test
+    void tryPutLive_uncheckedBrokenFeeName_liveWriteDueNoPublication() {
+        RevisionTerms terms = new RevisionTerms(TermsSource.IN_EFFECT, null, NOW, 8_000_000L,
+                new RevisionTerms.Deposit(DepositBasis.MONTHS, 2, null), 6, 1,
+                List.of(new RevisionTerms.Fee("Gửi xe, gọi 0905 123 456", FeeBasis.INCLUDED, null, null)));
+        ListingRevision target = ListingRevision.load("R2", 2, RevisionStatus.APPROVED, "S1", CREATED, CREATED,
+                RevisionFixtures.completeContent(), terms, RevisionFixtures.unitSnapshot(), CREATED, "S1");
+        Listing listing = forCommand(ListingState.UNPUBLISHED, 2, target);
+        DisplayConditions holding = new DisplayConditions(ListingState.UNPUBLISHED, false, true, List.of(), terms,
+                UnitAvailability.AVAILABLE, false, confirmedToday());
+
+        List<DisplayReason> reasons = listing.tryPutLive(2, holding, PutLiveMoment.SALE_COMMAND, "S9", NOW, "H1",
+                "H2");
+
+        assertAll(
+                () -> assertEquals(List.of(), reasons),
+                () -> assertEquals(RevisionStatus.LIVE, listing.revision(2).orElseThrow().status()),
+                () -> assertTrue(listing.publicationWriteDue()),
+                () -> assertEquals(java.util.Optional.empty(), listing.pendingPublication()));
+    }
+
     private static Listing forCommand(ListingState state, int newestRevisionNo, ListingRevision... workingSet) {
         return Listing.loadForCommand("L1", CODE, "U1", TransactionType.LONG_TERM_RENT, "A1", state, "S1", CREATED,
                 CREATED, 7L, newestRevisionNo, List.of(workingSet));

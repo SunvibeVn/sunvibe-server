@@ -7,12 +7,15 @@ import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingAccessLog;
 import vn.sunvibe.listing.core.domain.model.listing.ListingCode;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
+import vn.sunvibe.listing.core.domain.model.listing.ListingPublication;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ReviewNote;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionContent;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionDecision;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionFeatures;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionTerms;
+import vn.sunvibe.listing.core.domain.model.listing.TermsSource;
+import vn.sunvibe.listing.core.domain.model.listing.TransactionType;
 import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
 import vn.sunvibe.listing.core.domain.repository.ListingRow;
 import vn.sunvibe.listing.core.domain.repository.ReviewCandidate;
@@ -20,6 +23,9 @@ import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingAccessLo
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingFreshnessRecordEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingHistoryEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingPublicationEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingPublicationFeeEntity;
+import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingPublicationFeeKey;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeEntity;
 import vn.sunvibe.listing.core.infrastructure.persistence.entity.ListingRevisionFeeKey;
@@ -97,7 +103,8 @@ public class ListingEntityMapper {
                 .submittedBy(revision.submittedByOrNull())
                 .copiedFromRevisionNo(revision.copiedFromRevisionNoOrNull())
                 .wentLiveAt(revision.wentLiveAtOrNull())
-                .replacedAt(revision.replacedAtOrNull());
+                .replacedAt(revision.replacedAtOrNull())
+                .feeNamesChecked(revision.feeNamesChecked());
         if (terms != null) {
             builder.termsSource(terms.source())
                     .termsPendingStartDate(terms.pendingStartDateOrNull())
@@ -174,7 +181,7 @@ public class ListingEntityMapper {
         return ListingRevision.load(entity.getId(), entity.getRevisionNo(), entity.getStatus(), entity.getCreatedBy(),
                 entity.getCreatedAt(), entity.getUpdatedAt(), content, terms(entity, feeRows), unit(entity),
                 entity.getSubmittedAt(), entity.getSubmittedBy(), entity.getCopiedFromRevisionNo(), entity.getWentLiveAt(),
-                entity.getReplacedAt());
+                entity.getReplacedAt(), entity.isFeeNamesChecked());
     }
 
     /**
@@ -281,6 +288,97 @@ public class ListingEntityMapper {
         return new FreshnessRecord(entity.getId(), entity.getListingId(), entity.getListingRowVersion(),
                 entity.getContactDate(), entity.getRecordedAt(), entity.getRecordedBy(), entity.getChannel(),
                 entity.getOutcome(), entity.getTermsStillApply(), entity.getUnitUnchanged(), entity.getNote());
+    }
+
+    /**
+     * The publication row of a put live (listing-publish E06-S7 spec E06S7-D2, D3): every public and internal column,
+     * with the row version given.
+     */
+    public ListingPublicationEntity toPublicationEntity(ListingPublication publication, long rowVersion) {
+        RevisionTerms terms = publication.terms();
+        RevisionFeatures features = publication.features();
+        return ListingPublicationEntity.builder()
+                .listingId(publication.listingId())
+                .code(publication.code())
+                .transactionType(TransactionType.valueOf(publication.transactionType()))
+                .propertyType(publication.propertyTypeOrNull())
+                .provinceCode(publication.provinceCodeOrNull())
+                .wardCode(publication.wardCodeOrNull())
+                .bedrooms(publication.bedrooms())
+                .bathrooms(publication.bathrooms())
+                .areaSqm(publication.areaSqm())
+                .monthlyRent(BigDecimal.valueOf(terms.monthlyRent()))
+                .depositBasis(terms.deposit().basis())
+                .depositMonths(terms.deposit().monthsOrNull())
+                .depositAmount(terms.deposit().amountOrNull() == null ? null
+                        : BigDecimal.valueOf(terms.deposit().amountOrNull()))
+                .minimumTermMonths(terms.minimumTermMonths())
+                .paymentPeriodMonths(terms.paymentPeriodMonths())
+                .title(publication.title())
+                .description(publication.description())
+                .featureFurnishing(features.furnishingOrNull())
+                .featureAirConditioner(features.airConditioner())
+                .featureWaterHeater(features.waterHeater())
+                .featureFridge(features.fridge())
+                .featureWashingMachine(features.washingMachineOrNull())
+                .featureKitchen(features.kitchenOrNull())
+                .featureBalcony(features.balcony())
+                .featureElevator(features.elevator())
+                .featureMotorbikeParking(features.motorbikeParking())
+                .featureCarParking(features.carParking())
+                .featureInternet(features.internet())
+                .featurePets(features.petsOrNull())
+                .featureNoSharedLandlord(features.noSharedLandlord())
+                .wentLiveAt(publication.wentLiveAt())
+                .unitId(publication.unitId())
+                .agreementId(publication.agreementId())
+                .termsDigest(publication.termsDigest())
+                .rowVersion(rowVersion)
+                .build();
+    }
+
+    /** The publication's fee rows, numbered 1 to n in E05's order. */
+    public List<ListingPublicationFeeEntity> toPublicationFeeEntities(ListingPublication publication) {
+        List<RevisionTerms.Fee> fees = publication.terms().fees();
+        List<ListingPublicationFeeEntity> rows = new ArrayList<>();
+        for (int index = 0; index < fees.size(); index++) {
+            RevisionTerms.Fee fee = fees.get(index);
+            rows.add(ListingPublicationFeeEntity.builder()
+                    .id(new ListingPublicationFeeKey(publication.listingId(), index + 1))
+                    .name(fee.name())
+                    .basis(fee.basis())
+                    .amount(fee.amountOrNull() == null ? null : BigDecimal.valueOf(fee.amountOrNull()))
+                    .chargeUnit(fee.chargeUnitOrNull())
+                    .build());
+        }
+        return rows;
+    }
+
+    /**
+     * A stored publication with its fee rows in fee number order; its terms have the source {@code IN_EFFECT} taken at
+     * the put-live time (E06S7-D5).
+     */
+    public ListingPublication toPublication(ListingPublicationEntity entity, List<ListingPublicationFeeEntity> feeRows) {
+        List<RevisionTerms.Fee> fees = feeRows.stream()
+                .sorted(Comparator.comparingInt(row -> row.getId().getFeeNo()))
+                .map(row -> new RevisionTerms.Fee(row.getName(), row.getBasis(), wholeOrNull(row.getAmount()),
+                        row.getChargeUnit()))
+                .toList();
+        RevisionTerms terms = new RevisionTerms(TermsSource.IN_EFFECT, null, entity.getWentLiveAt(),
+                entity.getMonthlyRent().longValueExact(),
+                new RevisionTerms.Deposit(entity.getDepositBasis(), entity.getDepositMonths(),
+                        wholeOrNull(entity.getDepositAmount())),
+                entity.getMinimumTermMonths(), entity.getPaymentPeriodMonths(), fees);
+        RevisionFeatures features = new RevisionFeatures(entity.getFeatureFurnishing(),
+                entity.isFeatureAirConditioner(), entity.isFeatureWaterHeater(), entity.isFeatureFridge(),
+                entity.getFeatureWashingMachine(), entity.getFeatureKitchen(), entity.isFeatureBalcony(),
+                entity.isFeatureElevator(), entity.isFeatureMotorbikeParking(), entity.isFeatureCarParking(),
+                entity.isFeatureInternet(), entity.getFeaturePets(), entity.isFeatureNoSharedLandlord());
+        return new ListingPublication(entity.getListingId(), entity.getCode(), entity.getUnitId(),
+                entity.getAgreementId(), entity.getTransactionType().name(), entity.getPropertyType(),
+                entity.getProvinceCode(), entity.getWardCode(), entity.getBedrooms(), entity.getBathrooms(),
+                entity.getAreaSqm(), terms, entity.getTitle(), entity.getDescription(), features,
+                entity.getWentLiveAt(), entity.getTermsDigest());
     }
 
     public static ListingHistoryEntity toHistoryEntity(String listingId, ListingHistoryEntry entry) {

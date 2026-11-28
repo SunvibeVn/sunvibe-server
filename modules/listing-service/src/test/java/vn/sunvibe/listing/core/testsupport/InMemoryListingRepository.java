@@ -6,6 +6,7 @@ import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
 import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
+import vn.sunvibe.listing.core.domain.model.listing.ListingPublication;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionDecision;
@@ -48,6 +49,7 @@ public class InMemoryListingRepository implements ListingDomainRepository {
     private final List<RevisionDecision> writtenDecisions = new ArrayList<>();
     private final Map<String, Set<String>> authors = new HashMap<>();
     private final List<ReviewCandidate> reviewCandidates = new ArrayList<>();
+    private final Map<String, ListingPublication> publications = new HashMap<>();
     private boolean refuseNextInsertAsOpen;
 
     /** Stores a listing as if an earlier command had, without recording an insert. */
@@ -166,6 +168,7 @@ public class InMemoryListingRepository implements ListingDomainRepository {
             throw new ListingChangedException();
         }
         store(current, listing, listing.updatedAt());
+        writePublication(listing);
         writtenHistory.addAll(listing.pendingHistory());
         writtenDecisions.addAll(listing.pendingDecisions());
     }
@@ -221,6 +224,7 @@ public class InMemoryListingRepository implements ListingDomainRepository {
             throw new ListingChangedException();
         }
         store(current, listing, now);
+        writePublication(listing);
         summaries.put(listing.id(), next);
         latestRecords.put(listing.id(), record);
         writtenRecords.add(record);
@@ -406,6 +410,40 @@ public class InMemoryListingRepository implements ListingDomainRepository {
         return revisionId.flatMap(id -> writtenDecisions.stream()
                 .filter(decision -> decision.revisionId().equals(id))
                 .findFirst());
+    }
+
+    /** Stores a publication row as if an earlier put live had written it. */
+    public void putPublication(ListingPublication publication) {
+        publications.put(publication.listingId(), publication);
+    }
+
+    /** The publication rows the put lives left, by listing id. */
+    public Map<String, ListingPublication> publications() {
+        return Map.copyOf(publications);
+    }
+
+    @Override
+    public Optional<ListingPublication> findPublication(String code) {
+        calls.add("findPublication " + code);
+        return publications.values().stream().filter(publication -> publication.code().equals(code)).findFirst();
+    }
+
+    @Override
+    public List<String> findPublishedListingIds(String unitId) {
+        calls.add("findPublishedListingIds " + unitId);
+        return publications.values().stream()
+                .filter(publication -> publication.unitId().equals(unitId))
+                .map(ListingPublication::listingId)
+                .sorted()
+                .toList();
+    }
+
+    /** E06S7-D3, as the adapter writes it: when a write is due, the row deleted, then the pending one stored. */
+    private void writePublication(Listing listing) {
+        if (listing.publicationWriteDue()) {
+            publications.remove(listing.id());
+            listing.pendingPublication().ifPresent(publication -> publications.put(listing.id(), publication));
+        }
     }
 
     private static ListingRow toRow(Listing listing) {

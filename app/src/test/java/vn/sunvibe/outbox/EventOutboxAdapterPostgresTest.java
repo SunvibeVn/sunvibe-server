@@ -19,6 +19,7 @@ import org.slf4j.MDC;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import vn.sunvibe.shared.logging.CorrelationId;
+import vn.sunvibe.shared.outbox.ListingChangedEvent;
 import vn.sunvibe.shared.outbox.OutboxEvent;
 import vn.sunvibe.shared.outbox.UnitAdvertisingChangedEvent;
 
@@ -115,7 +116,8 @@ class EventOutboxAdapterPostgresTest extends OutboxPostgresTestBase {
 		inTransaction(status -> {
 			twoConsumers.append(new OutboxEvent(SAMPLE_TYPE, 1, "test", "unit", UNIT_ID, Map.of("unitId", UNIT_ID),
 					null));
-			adapter(OutboxSubscriptions.production()).append(UnitAdvertisingChangedEvent.now(UNIT_ID));
+			// listing-publish E06-S7 spec S-3: E05's event has a production consumer now; the listing event has none
+			adapter(OutboxSubscriptions.production()).append(ListingChangedEvent.now(UNIT_ID));
 		});
 
 		assertThat(count("outbox_events")).isZero();

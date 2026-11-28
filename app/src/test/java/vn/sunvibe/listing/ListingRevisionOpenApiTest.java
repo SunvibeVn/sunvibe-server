@@ -90,7 +90,8 @@ class ListingRevisionOpenApiTest {
 		schema(properties, nullable, "ListingUnitSnapshot", List.of("areaSqm", "assetType", "bathrooms", "bedrooms",
 				"provinceCode", "provinceName", "wardCode", "wardName"), "assetType", "provinceCode", "provinceName",
 				"wardCode", "wardName");
-		schema(properties, nullable, "ListingRevisionProblem", List.of("part", "rule"));
+		// listing-publish E06-S7 spec 4.3 (S-10): the fee's position, required and nullable
+		schema(properties, nullable, "ListingRevisionProblem", List.of("part", "position", "rule"), "position");
 		schema(properties, nullable, "ListingTermsSources", List.of("ended", "inEffect", "pending"), "inEffect",
 				"pending");
 		schema(properties, nullable, "ListingPendingTerms", List.of("startDate", "terms"));
@@ -146,7 +147,7 @@ class ListingRevisionOpenApiTest {
 				"PER_VEHICLE_PER_MONTH", "ONE_OFF"));
 		lists.put("ListingUnitSnapshot.assetType", List.of("HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL",
 				"APARTMENT"));
-		lists.put("ListingRevisionProblem.part", List.of("TITLE", "DESCRIPTION", "TERMS"));
+		lists.put("ListingRevisionProblem.part", List.of("TITLE", "DESCRIPTION", "TERMS", "FEE_NAME"));
 		lists.put("ListingRevisionProblem.rule", List.of("REQUIRED", "TOO_SHORT", "TOO_LONG", "PHONE_NUMBER", "EMAIL",
 				"LINK", "SOCIAL_HANDLE", "FORBIDDEN_WORD"));
 		for (Map.Entry<String, List<String>> expected : lists.entrySet()) {

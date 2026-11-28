@@ -193,7 +193,8 @@ class ListingPutLiveConcurrencyPostgresTest extends ListingPublicationApiTestBas
 				() -> assertEquals("APPROVED", revisionStatus(listingId, 1)),
 				() -> assertEquals("UNPUBLISHED", state(listingId)),
 				() -> assertEquals(version + 1, dataVersion(listingId)),
-				() -> assertEquals(List.of(), listingEventRows(listingId)));
+				// listing-publish E06-S7 (S-15): the held invalid record's one row; the refused put live appends none
+				() -> assertEquals(List.of(eventRow(listingId)), listingEventRows(listingId)));
 	}
 
 	/** PL-10: the invalid record committed, then the put live on the new version: 409 with the freshness reason. */

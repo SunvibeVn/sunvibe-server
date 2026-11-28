@@ -163,8 +163,10 @@ class ListingPutLiveStatementsPostgresTest extends ListingPublicationApiTestBase
 		assertEquals(1, measured.get(0));
 		// A-2, measured on the first green run (2026-11-22): the row and the standings, the working set (four), the row
 		// lock, E05's evaluation under its share lock and its terms, property's availability, the freshness summary, the
-		// guarded write with the revision rows and the history row, and the event row
-		assertEquals(89L, measured.get(1));
+		// guarded write with the revision rows and the history row, and the event row; listing-publish E06-S7 (S-9, A-2,
+		// measured on the first green run, 2026-11-28): 93, the publication row's delete, its insert and its two fee rows
+		// added to the guarded write
+		assertEquals(93L, measured.get(1));
 		assertEquals("PUBLISHED", state(listingId));
 	}
 

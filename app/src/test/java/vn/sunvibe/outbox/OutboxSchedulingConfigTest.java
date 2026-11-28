@@ -166,7 +166,7 @@ class OutboxSchedulingConfigTest {
 	void productionList_noConsumerThread() throws Exception {
 		OutboxScheduling scheduling = new OutboxScheduling(OutboxSubscriptions.production().consumers());
 		try {
-			assertThat(scheduling.consumers()).isEmpty();
+			assertThat(scheduling.consumers()).containsExactly("listing-unit-advertising");
 			assertThat(scheduling.deliveriesOutlivingTheirRun()).isEmpty();
 			assertThatThrownBy(() -> scheduling.submitRun("x", () -> { }))
 					.isInstanceOf(IllegalArgumentException.class);
@@ -337,7 +337,7 @@ class OutboxSchedulingConfigTest {
 
 	/** {@code subscribed} consumers in a primary list, and beans for the first {@code beans} of them. */
 	private ApplicationContextRunner subscribed(int subscribed, int beans) {
-		return runner.withBean("testSubscriptions", OutboxSubscriptions.class,
+		return withoutConsumers.withBean("testSubscriptions", OutboxSubscriptions.class,
 						() -> OutboxPostgresTestBase.subscriptions(names(subscribed)),
 						definition -> definition.setPrimary(true))
 				.withInitializer(context -> {
@@ -348,7 +348,7 @@ class OutboxSchedulingConfigTest {
 				});
 	}
 
-	private final ApplicationContextRunner runner = new ApplicationContextRunner()
+	private final ApplicationContextRunner withoutConsumers = new ApplicationContextRunner()
 			.withConfiguration(AutoConfigurations.of(TaskSchedulingAutoConfiguration.class))
 			.withUserConfiguration(StandIns.class, OutboxConfig.class)
 			.withPropertyValues("app.outbox.worker.enabled=true", "app.outbox.delivery.poll-interval=5s",
@@ -356,6 +356,13 @@ class OutboxSchedulingConfigTest {
 					"app.outbox.delivery.lease-margin=30s", "app.outbox.cleanup.interval=1h",
 					"app.outbox.cleanup.done-retention=7d", "app.outbox.status.interval=5m",
 					"app.outbox.status.queue-age-alert=5m");
+
+	/**
+	 * The production list subscribes listing-unit-advertising (listing-publish E06-S7 spec E06S7-D13, S-2), so the
+	 * contexts that run it hold a stand-in consumer of that name; {@link #subscribed} builds on the runner without it.
+	 */
+	private final ApplicationContextRunner runner = withoutConsumers.withBean("listingUnitAdvertisingStandIn",
+			OutboxConsumer.class, () -> new OutboxPostgresTestBase.TestConsumer("listing-unit-advertising"));
 
 	private static void ready(ApplicationContext context) {
 		ConfigurableApplicationContext source = ((AssertableApplicationContext) context)

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.sunvibe.listing.core.application.exception.ListingNotFoundException;
+import vn.sunvibe.listing.core.application.query.ListingPublicPreviewView;
 import vn.sunvibe.listing.core.application.query.ListingPublicationView;
 import vn.sunvibe.listing.core.application.query.LiveDifferenceView;
 import vn.sunvibe.listing.core.application.shared.external.brokerage.AdvertisingRightPort;
@@ -15,8 +16,11 @@ import vn.sunvibe.listing.core.domain.model.listing.DisplayReason;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.ListingState;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionContent;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionStatus;
 import vn.sunvibe.listing.core.domain.model.listing.TermsSource;
+import vn.sunvibe.listing.core.domain.model.listing.UnitSnapshot;
+import vn.sunvibe.listing.core.domain.policy.listing.FreshnessPolicy;
 import vn.sunvibe.listing.core.domain.policy.listing.ListingAccessPolicy;
 import vn.sunvibe.listing.core.domain.policy.listing.ListingDisplayPolicy;
 import vn.sunvibe.listing.core.domain.repository.ListingDomainRepository;
@@ -134,6 +138,41 @@ public class ListingPublicationQueryService implements ListingPublicationQueryUs
                 new LiveDifferenceView.LiveRevision(liveRevision.revisionNo(), wentLiveAt(liveRevision),
                         liveRevision.content(), liveRevision.termsOrNull()),
                 asked.changedPartsFrom(liveRevision));
+    }
+
+    /**
+     * listing-publish E06-S7 spec E06S7-D9, US-2 AC-3: the scope of the revision read (listing BR-5: a SALE only while
+     * the current assignee), then the asked revision with its fees, the listing row's code and the freshness summary's
+     * date; any revision of the listing, as it would be published. Data only: no E05 condition, no property value, no
+     * display rule.
+     */
+    @Override
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public ListingPublicPreviewView publicPreview(String listingId, Integer revisionNoOrNull, ListingViewer viewer) {
+        ListingRow row = rowOf(listingId);
+        String assignee = rights.standings(List.of(row.agreementId())).stream()
+                .filter(found -> row.agreementId().equals(found.agreementId()))
+                .findFirst()
+                .map(AgreementStandingFacts::basisLeadAssigneeIdOrNull)
+                .orElse(null);
+        if (!ListingAccessPolicy.mayReadListing(viewer.expandedAuthorities(), viewer.userId(), assignee)
+                || revisionNoOrNull == null) {
+            throw new ListingNotFoundException();
+        }
+        ListingRevision revision = listings.findRevision(row.listingId(), revisionNoOrNull)
+                .orElseThrow(ListingNotFoundException::new);
+        UnitSnapshot unit = revision.unitSnapshotOrNull();
+        RevisionContent content = revision.content();
+        Instant wentLiveAt = revision.wentLiveAtOrNull();
+        return new ListingPublicPreviewView(revision.revisionNo(), revision.status(), row.code().value(),
+                row.transactionType().code(), unit == null ? null : unit.assetTypeOrNull(),
+                unit == null ? null : unit.provinceCodeOrNull(), unit == null ? null : unit.provinceNameOrNull(),
+                unit == null ? null : unit.wardCodeOrNull(), unit == null ? null : unit.wardNameOrNull(),
+                unit == null ? null : unit.bedrooms(), unit == null ? null : unit.bathrooms(),
+                unit == null ? null : unit.areaSqm(), revision.termsOrNull(), content.titleOrNull(),
+                content.descriptionOrNull(), content.features(),
+                wentLiveAt == null ? null : FreshnessPolicy.today(wentLiveAt),
+                listings.findFreshnessSummary(row.listingId()).confirmedOnOrNull());
     }
 
     /** A malformed id reads nothing; an unknown listing answers the one "not found" (listing BR-5). */

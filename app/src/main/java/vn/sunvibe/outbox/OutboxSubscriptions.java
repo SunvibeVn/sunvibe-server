@@ -40,15 +40,38 @@ public final class OutboxSubscriptions {
     }
 
     /**
-     * One event type's declared payload keys and its consumers, in delivery order of the list.
+     * One event type's declared payload keys, its consumers, in delivery order of the list, and the aggregate it is bound
+     * to, if any.
      *
-     * @param consumers fixed codes matching {@code ^[a-z][a-z0-9-]{0,99}$}: they name threads, log values and rows
+     * @param consumers     fixed codes matching {@code ^[a-z][a-z0-9-]{0,99}$}: they name threads, log values and rows
+     * @param bindingOrNull the aggregate type and the payload key that equals the aggregate id (listing-publish E06-S7
+     *                      spec E06S7-D14, register SV-321 (1)); none for a list built without one
      */
-    public record Subscription(Set<String> payloadKeys, List<String> consumers) {
+    public record Subscription(Set<String> payloadKeys, List<String> consumers, Binding bindingOrNull) {
 
         public Subscription {
             payloadKeys = Set.copyOf(payloadKeys);
             consumers = List.copyOf(consumers);
+            if (bindingOrNull != null && !payloadKeys.contains(bindingOrNull.idPayloadKey())) {
+                throw new IllegalArgumentException("a binding names a payload key its type declares");
+            }
+        }
+
+        /** A subscription bound to no aggregate: any aggregate type and id are accepted. */
+        public Subscription(Set<String> payloadKeys, List<String> consumers) {
+            this(payloadKeys, consumers, null);
+        }
+    }
+
+    /**
+     * The aggregate an event type belongs to: its type, and the payload key whose value is the aggregate id (E06S7-D14).
+     */
+    public record Binding(String aggregateType, String idPayloadKey) {
+
+        public Binding {
+            if (aggregateType == null || idPayloadKey == null) {
+                throw new IllegalArgumentException("a binding names an aggregate type and a payload key");
+            }
         }
     }
 
@@ -80,16 +103,25 @@ public final class OutboxSubscriptions {
 
     /**
      * The list of this release: E05's event with its unit id and the listing's event with its listing id (E06-S6 spec
-     * E06S6-D9), each declared with no consumer yet (E06-S7 subscribes the first ones).
+     * E06S6-D9), each bound to its aggregate (listing-publish E06-S7 spec E06S7-D14): E05's event to (unit, unitId), the
+     * listing's to (listing, listingId). E05's event goes to listing's consumer {@code listing-unit-advertising}
+     * (E06S7-D13), named here by its literal, as this package uses no integration class; the listing event has no
+     * consumer yet.
      */
     public static OutboxSubscriptions production() {
         return of(Map.of(UnitAdvertisingChangedEvent.TYPE,
-                new Subscription(Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of()),
+                new Subscription(Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of("listing-unit-advertising"),
+                        new Binding(UnitAdvertisingChangedEvent.AGGREGATE_TYPE, UnitAdvertisingChangedEvent.UNIT_ID)),
                 ListingChangedEvent.TYPE,
-                new Subscription(Set.of(ListingChangedEvent.LISTING_ID), List.of())));
+                new Subscription(Set.of(ListingChangedEvent.LISTING_ID), List.of(),
+                        new Binding(ListingChangedEvent.AGGREGATE_TYPE, ListingChangedEvent.LISTING_ID))));
     }
 
-    /** Refuses an unknown type, a missing or undeclared payload key, or a value outside {@code [0-9A-Za-z-]{1,64}}. */
+    /**
+     * Refuses an unknown type, a missing or undeclared payload key, a value outside {@code [0-9A-Za-z-]{1,64}}, or, for a
+     * bound type, an aggregate type or id that does not match its binding; a refusal names the type and the field, never
+     * a value.
+     */
     public void check(OutboxEvent event) {
         Subscription subscription = byType.get(event.type());
         if (subscription == null) {
@@ -110,6 +142,17 @@ public final class OutboxSubscriptions {
                 throw new IllegalArgumentException(
                         "outbox type " + event.type() + " has a malformed value for the payload key " + key);
             }
+        }
+        Binding binding = subscription.bindingOrNull();
+        if (binding == null) {
+            return;
+        }
+        if (!binding.aggregateType().equals(event.aggregateType())) {
+            throw new IllegalArgumentException("outbox type " + event.type() + " does not match its aggregateType");
+        }
+        if (!event.payload().get(binding.idPayloadKey()).equals(event.aggregateId())) {
+            throw new IllegalArgumentException("outbox type " + event.type()
+                    + " has an aggregateId that differs from the payload key " + binding.idPayloadKey());
         }
     }
 

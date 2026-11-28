@@ -277,7 +277,9 @@ public class ListingController {
                     + " REVISION_NOT_DRAFT",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "422", description = "REVISION_NOT_SUBMITTABLE: one entry per violation, in"
-                    + " order, its field <part>.<rule> (title.TOO_SHORT, terms.REQUIRED); never the matched text",
+                    + " order, its field <part>.<rule> (title.TOO_SHORT, terms.REQUIRED), a fee name's"
+                    + " feeName.<position>.<rule> (feeName.2.PHONE_NUMBER, the fee's position in the terms snapshot);"
+                    + " never the matched text",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
             @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR: the unit's profile cannot be read;"
                     + " nothing is written",

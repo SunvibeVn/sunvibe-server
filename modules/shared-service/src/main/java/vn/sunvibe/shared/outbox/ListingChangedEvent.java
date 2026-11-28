@@ -1,12 +1,16 @@
 package vn.sunvibe.shared.outbox;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
  * The listing's event (listing-publish E06-S6 spec E06S6-D9; ADR-014 decisions 3, 4): what a listing shows may have
  * changed. It carries the listing id only, the same id as its aggregate's; a consumer reads the listing again, so a
- * late, lost or repeated event never makes what it shows wrong. E06-S7 subscribes its first consumer.
+ * late, lost or repeated event never makes what it shows wrong.
+ *
+ * <p>{@link #dueAt(String, Instant)} is for a time the listing's answer changes by itself, such as the deadline of a
+ * valid freshness confirmation (listing-publish E06-S7 spec E06S7-D12).
  */
 public final class ListingChangedEvent {
 
@@ -22,10 +26,22 @@ public final class ListingChangedEvent {
 
     /** The event, due now. */
     public static OutboxEvent now(String listingId) {
+        return build(listingId, null);
+    }
+
+    /** The event, due at {@code dueAt} (required). */
+    public static OutboxEvent dueAt(String listingId, Instant dueAt) {
+        if (dueAt == null) {
+            throw new IllegalArgumentException("dueAt is required");
+        }
+        return build(listingId, dueAt);
+    }
+
+    private static OutboxEvent build(String listingId, Instant dueAt) {
         if (listingId == null || !ULID.matcher(listingId).matches()) {
             throw new IllegalArgumentException("listingId must be a ULID");
         }
         return new OutboxEvent(TYPE, VERSION, SOURCE_MODULE, AGGREGATE_TYPE, listingId, Map.of(LISTING_ID, listingId),
-                null);
+                dueAt);
     }
 }

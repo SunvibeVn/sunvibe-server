@@ -37,7 +37,14 @@ abstract class ListingPublicationApiTestBase extends ListingReviewApiTestBase {
 		decided(reviewer, listingId, "1", approval(dataVersion(listingId)));
 		assertEquals("APPROVED", revisionStatus(listingId, 1));
 		unitAvailability(drafting.chain().unitId(), "AVAILABLE");
+		// listing-publish E06-S7 (S-11, E06S7-D12): the set-up's valid record wrote the listing's two event rows
+		clearListingEventRows(listingId);
 		return drafting;
+	}
+
+	/** The outbox rows of the listing's event, deleted (E06S7-D17 (b): an action's own rows are then the only ones). */
+	void clearListingEventRows(String listingId) {
+		jdbc.update("delete from outbox_events where aggregate_type = 'listing' and aggregate_id = ?", listingId);
 	}
 
 	/** The unit's availability in property's data (PLAN2-D4: tests set it through fixtures). */
@@ -130,6 +137,15 @@ abstract class ListingPublicationApiTestBase extends ListingReviewApiTestBase {
 	static String eventRow(String listingId) {
 		return "listing.listing-changed 1 listing listing " + listingId + " {\"listingId\": \"" + listingId + "\"}"
 				+ " test-listing-changed PENDING true";
+	}
+
+	/**
+	 * The event row a valid freshness record leaves for its deadline (E06S7-D12), as {@link #listingEventRows} reads it:
+	 * the row of {@link #eventRow}, due later than it occurred.
+	 */
+	static String dueEventRow(String listingId) {
+		return "listing.listing-changed 1 listing listing " + listingId + " {\"listingId\": \"" + listingId + "\"}"
+				+ " test-listing-changed PENDING false";
 	}
 
 	/** A revision's status and its two times' presence, as "status wentLive replaced". */

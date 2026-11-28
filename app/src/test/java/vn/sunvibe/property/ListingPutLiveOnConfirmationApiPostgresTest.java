@@ -40,7 +40,8 @@ class ListingPutLiveOnConfirmationApiPostgresTest extends ListingPublicationApiT
 				() -> assertEquals("LIVE true false", revisionTimes(listingId, 1)),
 				() -> assertEquals(1, count("select count(*) from listing_history where listing_id = ? and action ="
 						+ " 'REVISION_PUT_LIVE_ON_CONFIRMATION' and actor_user_id is null", listingId)),
-				() -> assertEquals(List.of(eventRow(listingId)), listingEventRows(listingId)));
+				// listing-publish E06-S7 (S-12, E06S7-D12): the record's two rows; the put live's signal is the due-now one
+				() -> assertEquals(List.of(eventRow(listingId), dueEventRow(listingId)), listingEventRows(listingId)));
 	}
 
 	/** PL-4: the unit OCCUPIED again: 201, the record stored, the revision Approved, Unpublished, no event row. */
@@ -61,6 +62,7 @@ class ListingPutLiveOnConfirmationApiPostgresTest extends ListingPublicationApiT
 				() -> assertEquals((version + 1) + " true", freshnessRecords(listingId).getLast()),
 				() -> assertEquals("APPROVED", revisionStatus(listingId, 1)),
 				() -> assertEquals("UNPUBLISHED", state(listingId)),
-				() -> assertEquals(List.of(), listingEventRows(listingId)));
+				// S-12: the record's two rows; the refused try appends none
+				() -> assertEquals(List.of(eventRow(listingId), dueEventRow(listingId)), listingEventRows(listingId)));
 	}
 }

@@ -26,12 +26,17 @@ class AgreementStopTestSubscription {
 
 	static final String CONSUMER = "test-unit-advertising";
 	static final String LISTING_CONSUMER = "test-listing-changed";
+	/**
+	 * Listing's real consumer of E05's event (listing-publish E06-S7 spec E06S7-D13, S-4): its adapter is a bean of every
+	 * app context, and a consumer bean subscribed to nothing stops the start-up, so this list subscribes it too.
+	 */
+	static final String LISTING_UNIT_ADVERTISING = "listing-unit-advertising";
 
 	@Bean
 	@Primary
 	OutboxSubscriptions testOutboxSubscriptions() {
 		return OutboxSubscriptions.of(Map.of(UnitAdvertisingChangedEvent.TYPE, new OutboxSubscriptions.Subscription(
-				Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of(CONSUMER)),
+				Set.of(UnitAdvertisingChangedEvent.UNIT_ID), List.of(CONSUMER, LISTING_UNIT_ADVERTISING)),
 				ListingChangedEvent.TYPE, new OutboxSubscriptions.Subscription(
 						Set.of(ListingChangedEvent.LISTING_ID), List.of(LISTING_CONSUMER))));
 	}

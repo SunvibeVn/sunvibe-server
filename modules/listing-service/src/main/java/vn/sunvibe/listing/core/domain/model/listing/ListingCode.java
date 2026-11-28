@@ -15,6 +15,8 @@ public record ListingCode(String value) {
     public static final String ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 
     private static final Pattern FORM = Pattern.compile("^TD-[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$");
+    /** {@code TD-}, four, a dash, four. */
+    private static final int LENGTH = 12;
 
     public ListingCode {
         if (value == null || !FORM.matcher(value).matches()) {
@@ -36,5 +38,13 @@ public record ListingCode(String value) {
 
     public static ListingCode of(String value) {
         return new ListingCode(value);
+    }
+
+    /**
+     * Whether a text has the form of a code (listing-publish E06-S7 spec E06S7-D8): the anonymous path answers its one
+     * 404 before any read when it does not. The length is compared first, so a very long text costs no pattern work.
+     */
+    public static boolean isWellFormed(String valueOrNull) {
+        return valueOrNull != null && valueOrNull.length() == LENGTH && FORM.matcher(valueOrNull).matches();
     }
 }

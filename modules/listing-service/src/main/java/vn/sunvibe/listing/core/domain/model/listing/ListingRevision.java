@@ -35,11 +35,13 @@ public final class ListingRevision {
     private final Integer copiedFromRevisionNoOrNull;
     private final Instant wentLiveAtOrNull;
     private final Instant replacedAtOrNull;
+    private final boolean feeNamesChecked;
 
     private ListingRevision(String id, int revisionNo, RevisionStatus status, String createdBy, Instant createdAt,
                             Instant updatedAt, boolean fullForm, RevisionContent content, RevisionTerms termsOrNull,
                             UnitSnapshot unitSnapshotOrNull, Instant submittedAtOrNull, String submittedByOrNull,
-                            Integer copiedFromRevisionNoOrNull, Instant wentLiveAtOrNull, Instant replacedAtOrNull) {
+                            Integer copiedFromRevisionNoOrNull, Instant wentLiveAtOrNull, Instant replacedAtOrNull,
+                            boolean feeNamesChecked) {
         if (id == null || status == null || createdBy == null || createdAt == null || updatedAt == null) {
             throw new IllegalStateException("a listing revision needs its id, status, creator and times");
         }
@@ -80,24 +82,26 @@ public final class ListingRevision {
         this.copiedFromRevisionNoOrNull = copiedFromRevisionNoOrNull;
         this.wentLiveAtOrNull = wentLiveAtOrNull;
         this.replacedAtOrNull = replacedAtOrNull;
+        this.feeNamesChecked = feeNamesChecked;
     }
 
     /** A new revision, in the status {@code DRAFT}, empty, created and last changed at {@code now}. */
     public static ListingRevision create(String id, int revisionNo, String createdBy, Instant now) {
         return new ListingRevision(id, revisionNo, RevisionStatus.DRAFT, createdBy, now, now, true,
-                RevisionContent.EMPTY, null, null, null, null, null, null, null);
+                RevisionContent.EMPTY, null, null, null, null, null, null, null, false);
     }
 
     /**
      * A new Draft copied from a revision (listing-publish US-2 AC-6; E06-S4 spec E06S4-D14): created by the copier at
      * {@code now}, with the source's title, description, features and terms snapshot with its fees, source, pending
-     * start date and capture time, naming the source's number; no unit snapshot and no submission.
+     * start date and capture time, naming the source's number; no unit snapshot and no submission. Its fee names are not
+     * checked: it is a Draft, submitted again (listing-publish E06-S7 spec E06S7-D11).
      */
     public static ListingRevision copyOf(String id, int revisionNo, ListingRevision source, String createdBy,
                                          Instant now) {
         source.requireFullForm();
         return new ListingRevision(id, revisionNo, RevisionStatus.DRAFT, createdBy, now, now, true, source.content,
-                source.termsOrNull, null, null, null, source.revisionNo, null, null);
+                source.termsOrNull, null, null, null, source.revisionNo, null, null, false);
     }
 
     /** A stored revision in its header form: number, status, creator and times; no content loaded. */
@@ -111,7 +115,7 @@ public final class ListingRevision {
                                        Instant createdAt, Instant updatedAt, Instant wentLiveAtOrNull,
                                        Instant replacedAtOrNull) {
         return new ListingRevision(id, revisionNo, status, createdBy, createdAt, updatedAt, false, null, null, null,
-                null, null, null, wentLiveAtOrNull, replacedAtOrNull);
+                null, null, null, wentLiveAtOrNull, replacedAtOrNull, false);
     }
 
     /** A stored revision in its full form, not copied from another. */
@@ -135,7 +139,7 @@ public final class ListingRevision {
 
     /**
      * A stored revision in its full form, with the number of the revision it was copied from, the time it went live and
-     * the time it was replaced, if any.
+     * the time it was replaced, if any; its fee names read as not checked.
      */
     public static ListingRevision load(String id, int revisionNo, RevisionStatus status, String createdBy,
                                        Instant createdAt, Instant updatedAt, RevisionContent content,
@@ -143,9 +147,24 @@ public final class ListingRevision {
                                        Instant submittedAtOrNull, String submittedByOrNull,
                                        Integer copiedFromRevisionNoOrNull, Instant wentLiveAtOrNull,
                                        Instant replacedAtOrNull) {
+        return load(id, revisionNo, status, createdBy, createdAt, updatedAt, content, termsOrNull, unitSnapshotOrNull,
+                submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, wentLiveAtOrNull, replacedAtOrNull,
+                false);
+    }
+
+    /**
+     * A stored revision in its full form with every stored value, whether its fee names passed the machine check at its
+     * submission included (listing-publish E06-S7 spec E06S7-D11).
+     */
+    public static ListingRevision load(String id, int revisionNo, RevisionStatus status, String createdBy,
+                                       Instant createdAt, Instant updatedAt, RevisionContent content,
+                                       RevisionTerms termsOrNull, UnitSnapshot unitSnapshotOrNull,
+                                       Instant submittedAtOrNull, String submittedByOrNull,
+                                       Integer copiedFromRevisionNoOrNull, Instant wentLiveAtOrNull,
+                                       Instant replacedAtOrNull, boolean feeNamesChecked) {
         return new ListingRevision(id, revisionNo, status, createdBy, createdAt, updatedAt, true, content, termsOrNull,
                 unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, wentLiveAtOrNull,
-                replacedAtOrNull);
+                replacedAtOrNull, feeNamesChecked);
     }
 
     /** The same revision with a new title, description and features. */
@@ -153,7 +172,7 @@ public final class ListingRevision {
         requireFullForm();
         return new ListingRevision(id, revisionNo, status, createdBy, createdAt, now, true, newContent, termsOrNull,
                 unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, wentLiveAtOrNull,
-                replacedAtOrNull);
+                replacedAtOrNull, feeNamesChecked);
     }
 
     /** The same revision with a new terms snapshot, which replaces the earlier one and its fees. */
@@ -161,15 +180,18 @@ public final class ListingRevision {
         requireFullForm();
         return new ListingRevision(id, revisionNo, status, createdBy, createdAt, now, true, content, terms,
                 unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, wentLiveAtOrNull,
-                replacedAtOrNull);
+                replacedAtOrNull, feeNamesChecked);
     }
 
-    /** Submitted for review: Pending review, with the unit snapshot, the submitter and the time. */
+    /**
+     * Submitted for review: Pending review, with the unit snapshot, the submitter and the time; its fee names passed the
+     * machine check of the submission (listing-publish E06-S7 spec E06S7-D10, D11).
+     */
     ListingRevision submitted(UnitSnapshot unitSnapshot, String submitterId, Instant now) {
         requireFullForm();
         return new ListingRevision(id, revisionNo, RevisionStatus.PENDING_REVIEW, createdBy, createdAt, now, true,
                 content, termsOrNull, unitSnapshot, now, submitterId, copiedFromRevisionNoOrNull, wentLiveAtOrNull,
-                replacedAtOrNull);
+                replacedAtOrNull, true);
     }
 
     /** Withdrawn before a decision (listing section 3.3): Cancelled, its content and snapshots kept for history. */
@@ -177,7 +199,7 @@ public final class ListingRevision {
         requireFullForm();
         return new ListingRevision(id, revisionNo, RevisionStatus.CANCELLED, createdBy, createdAt, now, true, content,
                 termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
-                wentLiveAtOrNull, replacedAtOrNull);
+                wentLiveAtOrNull, replacedAtOrNull, feeNamesChecked);
     }
 
     /**
@@ -188,7 +210,7 @@ public final class ListingRevision {
         requireFullForm();
         return new ListingRevision(id, revisionNo, outcome.status(), createdBy, createdAt, now, true, content,
                 termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
-                wentLiveAtOrNull, replacedAtOrNull);
+                wentLiveAtOrNull, replacedAtOrNull, feeNamesChecked);
     }
 
     /**
@@ -199,7 +221,7 @@ public final class ListingRevision {
         requireFullForm();
         return new ListingRevision(id, revisionNo, RevisionStatus.CANCELLED, createdBy, createdAt, now, true, content,
                 termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
-                wentLiveAtOrNull, replacedAtOrNull);
+                wentLiveAtOrNull, replacedAtOrNull, feeNamesChecked);
     }
 
     /**
@@ -213,7 +235,7 @@ public final class ListingRevision {
         }
         return new ListingRevision(id, revisionNo, RevisionStatus.LIVE, createdBy, createdAt, now, true, content,
                 termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull, now,
-                null);
+                null, feeNamesChecked);
     }
 
     /**
@@ -227,7 +249,7 @@ public final class ListingRevision {
         }
         return new ListingRevision(id, revisionNo, RevisionStatus.REPLACED, createdBy, createdAt, now, true, content,
                 termsOrNull, unitSnapshotOrNull, submittedAtOrNull, submittedByOrNull, copiedFromRevisionNoOrNull,
-                wentLiveAtOrNull, now);
+                wentLiveAtOrNull, now, feeNamesChecked);
     }
 
     /**
@@ -324,6 +346,14 @@ public final class ListingRevision {
     /** The time the revision was replaced by a newer live one; null otherwise. */
     public Instant replacedAtOrNull() {
         return replacedAtOrNull;
+    }
+
+    /**
+     * True when the revision's fee names passed the machine check at its submission (listing-publish E06-S7 spec
+     * E06S7-D11): set by a submission, false for a new revision, a copy and a revision submitted before the check.
+     */
+    public boolean feeNamesChecked() {
+        return feeNamesChecked;
     }
 
     private void requireFullForm() {

@@ -89,7 +89,11 @@ public class SecurityConfig {
             "/swagger-ui/**",
             // Administrative-area catalog for the owner intake form (acquisition-owner-intake): public data, no login
             "/api/v1/public/provinces",
-            "/api/v1/public/provinces/*/wards"
+            "/api/v1/public/provinces/*/wards",
+            // The anonymous listing read by its public code (listing-publish E06-S7 spec E06S7-D8; ADR-012 decision 4):
+            // a token, valid or not, changes nothing; ListingPublicReadFilter holds the switch and the code's form,
+            // and the path has its own rate rule
+            "/api/v1/public/listings/*"
     };
 
     private static final String ADMIN_FEATURE_PATH = "/features/admin/**";

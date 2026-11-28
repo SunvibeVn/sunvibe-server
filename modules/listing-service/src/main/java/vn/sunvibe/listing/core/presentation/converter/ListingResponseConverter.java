@@ -107,7 +107,8 @@ public class ListingResponseConverter {
                         terms.pendingStartDateOrNull(), terms.capturedAt(), toTerms(terms)),
                 toUnitSnapshot(view.unitSnapshotOrNull()), view.submittedAtOrNull(), view.dataVersion(),
                 view.problems().stream()
-                        .map(problem -> new ListingRevisionProblemResponse(problem.part().name(), problem.rule().name()))
+                        .map(problem -> new ListingRevisionProblemResponse(problem.part().name(), problem.rule().name(),
+                                problem.feePositionOrNull()))
                         .toList());
     }
 
@@ -237,7 +238,8 @@ public class ListingResponseConverter {
                         toTerms(pending)));
     }
 
-    private static ListingFeaturesResponse toFeatures(RevisionFeatures features) {
+    /** The features as their codes; the anonymous answer uses it too (listing-publish E06-S7 spec E06S7-D6). */
+    public static ListingFeaturesResponse toFeatures(RevisionFeatures features) {
         return new ListingFeaturesResponse(nameOrNull(features.furnishingOrNull()), features.airConditioner(),
                 features.waterHeater(), features.fridge(), nameOrNull(features.washingMachineOrNull()),
                 nameOrNull(features.kitchenOrNull()), features.balcony(), features.elevator(),
