@@ -2,6 +2,7 @@ package vn.sunvibe.shared.outbox;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,5 +38,35 @@ class ListingChangedEventTest {
             assertThrows(IllegalArgumentException.class, () -> ListingChangedEvent.now(listingId),
                     String.valueOf(listingId));
         }
+    }
+
+    /** listing-publish E06-S7 spec E06S7-D12: the same event, due at the time given. */
+    @Test
+    void dueAt_listingIdAndTime_typeVersionModuleAggregatePayloadAndDueTime() {
+        Instant due = Instant.parse("2026-12-12T17:00:00Z");
+
+        OutboxEvent event = ListingChangedEvent.dueAt(LISTING_ID, due);
+
+        assertEquals("listing.listing-changed", event.type());
+        assertEquals(1, event.version());
+        assertEquals("listing", event.sourceModule());
+        assertEquals("listing", event.aggregateType());
+        assertEquals(LISTING_ID, event.aggregateId());
+        assertEquals(Map.of("listingId", LISTING_ID), event.payload());
+        assertEquals(due, event.dueAt());
+    }
+
+    @Test
+    void dueAt_notAUlid_refused() {
+        Instant due = Instant.parse("2026-12-12T17:00:00Z");
+        for (String listingId : new String[]{null, "", "01hzx3m5q8r2t4v6w8y0a2c4e6", "01HZX3M5Q8R2T4V6W8Y0A2C4EI"}) {
+            assertThrows(IllegalArgumentException.class, () -> ListingChangedEvent.dueAt(listingId, due),
+                    String.valueOf(listingId));
+        }
+    }
+
+    @Test
+    void dueAt_noTime_refused() {
+        assertThrows(IllegalArgumentException.class, () -> ListingChangedEvent.dueAt(LISTING_ID, null));
     }
 }
