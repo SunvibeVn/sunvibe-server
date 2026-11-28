@@ -238,7 +238,8 @@ public class ListingResponseConverter {
                         toTerms(pending)));
     }
 
-    private static ListingFeaturesResponse toFeatures(RevisionFeatures features) {
+    /** The features as their codes; the anonymous answer uses it too (listing-publish E06-S7 spec E06S7-D6). */
+    public static ListingFeaturesResponse toFeatures(RevisionFeatures features) {
         return new ListingFeaturesResponse(nameOrNull(features.furnishingOrNull()), features.airConditioner(),
                 features.waterHeater(), features.fridge(), nameOrNull(features.washingMachineOrNull()),
                 nameOrNull(features.kitchenOrNull()), features.balcony(), features.elevator(),

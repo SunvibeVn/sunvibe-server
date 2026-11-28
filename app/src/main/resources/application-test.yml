@@ -42,6 +42,11 @@ app:
     # Sending an agreement to its owner is on for the test suite (off by default elsewhere, brokerage-agreement BR-19).
     owner-sending:
       enabled: ${BROKERAGE_OWNER_SENDING_ENABLED:true}
+  listing:
+    # The anonymous listing read is on for the test suite (off by default elsewhere, listing-publish E06-S7 spec
+    # E06S7-D7).
+    public-read:
+      enabled: ${LISTING_PUBLIC_READ_ENABLED:true}
   jwt:
     # Test-only key (public, committed); never use for real data.
     secret: 07zN1TVoUqmFylsMFQ4pwPMcHxwqc/2EZhI44H9DjEkoXA5YSbHzostN8CNOIUi6

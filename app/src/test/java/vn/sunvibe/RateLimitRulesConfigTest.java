@@ -144,6 +144,20 @@ class RateLimitRulesConfigTest {
 		assertEquals(Duration.ofMinutes(15), rule.window());
 	}
 
+	/**
+	 * listing-publish E06-S7 spec E06S7-D8, PB-14: the anonymous public listing read takes 60 GETs a minute per address,
+	 * in its own bucket, declared once.
+	 */
+	@Test
+	void publicListingReadRule_getSixtyPerMinute() throws IOException {
+		List<String> rules = rulesWithBucket(load("application.yml"));
+
+		assertEquals(List.of("GET /api/v1/public/listings/* 60 1m public-listing-read"),
+				rules.stream().filter(rule -> rule.contains("/api/v1/public/listings")).toList());
+		assertEquals(1, rules.stream().filter(rule -> rule.endsWith(" public-listing-read")).count(),
+				"bucket public-listing-read is used by its one path only");
+	}
+
 	/** Each rule as "METHOD path limit window bucket", in file order; the bucket is "null" when absent. */
 	private static List<String> rulesWithBucket(List<PropertySource<?>> sources) {
 		List<String> rules = rules(sources);

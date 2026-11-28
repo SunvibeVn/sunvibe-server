@@ -85,6 +85,9 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 	 */
 	static final String LISTING_SUBRESOURCES_PATTERN = "/api/v1/staff/listings/*/**";
 
+	/** The anonymous listing read by its public code (listing-publish E06-S7 spec E06S7-D8). */
+	static final String PUBLIC_LISTING_PATTERN = "/api/v1/public/listings/*";
+
 	private final EntityManagerFactory entityManagerFactory;
 
 	public OpenInViewExceptMediaContentConfig(EntityManagerFactory entityManagerFactory) {
@@ -107,6 +110,6 @@ public class OpenInViewExceptMediaContentConfig implements WebMvcConfigurer {
 						BROKERAGE_AGREEMENT_HISTORY_PATTERN, BROKERAGE_AGREEMENT_SUSPENSION_PATTERN,
 						BROKERAGE_AGREEMENT_SUSPENSION_RELEASE_PATTERN, BROKERAGE_AGREEMENT_TERMINATION_PATTERN,
 						BROKERAGE_AGREEMENT_CANCELLATION_PATTERN, LISTINGS_PATTERN, LISTING_PATTERN,
-						LISTINGS_BY_AGREEMENT_PATTERN, LISTING_SUBRESOURCES_PATTERN);
+						LISTINGS_BY_AGREEMENT_PATTERN, LISTING_SUBRESOURCES_PATTERN, PUBLIC_LISTING_PATTERN);
 	}
 }

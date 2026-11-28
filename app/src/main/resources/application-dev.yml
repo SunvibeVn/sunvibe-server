@@ -23,6 +23,11 @@ app:
     # BR-19); the env var wins if set.
     owner-sending:
       enabled: ${BROKERAGE_OWNER_SENDING_ENABLED:true}
+  listing:
+    # The anonymous listing read is on for local development (off by default elsewhere, listing-publish E06-S7 spec
+    # E06S7-D7); the env var wins if set.
+    public-read:
+      enabled: ${LISTING_PUBLIC_READ_ENABLED:true}
   jwt:
     # Local-development JWT signing key only. It is committed to git, so it is public:
     # never use it for real data. The env var wins if set.

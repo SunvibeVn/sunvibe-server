@@ -1,5 +1,8 @@
 package vn.sunvibe.architecture;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAnyPackage;
+import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.name;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -66,6 +69,26 @@ class ListingLayerArchTest {
 	void infrastructure_doesNotDependOnPresentation() {
 		noClasses().that().resideInAPackage(INFRASTRUCTURE)
 				.should().dependOnClassesThat().resideInAPackage(PRESENTATION)
+				.check(classes);
+	}
+
+	/**
+	 * listing-publish E06-S7 spec E06S7-D6, PB-12 (ADR-012 decision 1, the architecture test): the anonymous controller
+	 * reaches only its use case and the view it answers, the response DTOs, its converter and shared or framework
+	 * types, so no repository, aggregate or staff read can feed the public answer.
+	 */
+	@Test
+	void publicController_dependsOnItsUseCaseDtosConverterAndSharedTypesOnly() {
+		String controller = ROOT + ".presentation.controller.ListingPublicController";
+		assertThat(classes.contain(controller)).isTrue();
+
+		classes().that().haveFullyQualifiedName(controller)
+				.should().onlyDependOnClassesThat(resideInAnyPackage("java..", "org.springframework..", "io.swagger..",
+						"jakarta..", "lombok..", "vn.sunvibe.shared..", ROOT + ".presentation.dto.response..")
+						.or(name(controller))
+						.or(name(ROOT + ".application.usecase.ListingPublicQueryUseCase"))
+						.or(name(ROOT + ".application.query.ListingPublicView"))
+						.or(name(ROOT + ".presentation.converter.ListingPublicResponseConverter")))
 				.check(classes);
 	}
 }

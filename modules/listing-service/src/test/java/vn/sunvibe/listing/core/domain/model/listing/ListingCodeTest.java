@@ -17,6 +17,30 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class ListingCodeTest {
 
+    /** listing-publish E06-S7 spec E06S7-D5, D8: drawn codes are well formed, whatever their characters. */
+    @Test
+    void isWellFormed_drawnCodes_true() {
+        for (int seed = 0; seed < 50; seed++) {
+            String code = ListingCode.draw(RandomGenerator.of("L64X128MixRandom")).value();
+            assertEquals(true, ListingCode.isWellFormed(code), code);
+        }
+        assertEquals(true, ListingCode.isWellFormed("TD-2345-6789"));
+    }
+
+    /** E06S7-D8, PB-13, Review Focus 1: anything else is not, a 10,000-character string included. */
+    @Test
+    void isWellFormed_otherText_false() {
+        List<String> accepted = new ArrayList<>();
+        for (String text : new String[]{null, "", "td-abcd-efgh", "TD-ABCD-EFG", "TD-IOIO-2345", "TD-ABCD-EFGHJ",
+                "TD-ABCD-EFG1", "XX-ABCD-EFGH", " TD-ABCD-EFGH", "TD-ABCD-EFGH\n", "T".repeat(10_000)}) {
+            if (ListingCode.isWellFormed(text)) {
+                accepted.add(String.valueOf(text).length() > 40 ? "a 10,000-character text" : "'" + text + "'");
+            }
+        }
+
+        assertEquals(List.of(), accepted);
+    }
+
     @Test
     void draw_fixedSequence_formAndAlphabet() {
         SequenceRandom random = new SequenceRandom(0, 1, 2, 3, 4, 5, 6, 7);

@@ -2581,6 +2581,90 @@
         "tags" : [ "property-controller" ]
       }
     },
+    "/api/v1/public/listings/{code}" : {
+      "get" : {
+        "operationId" : "getPublicListing",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "code",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListingPublic"
+                }
+              }
+            },
+            "description" : "The listing is shown now: its public data and the date of its latest valid confirmation",
+            "headers" : {
+              "Cache-Control" : {
+                "description" : "no-store on every answer of the path",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "404" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "NOT_FOUND: the public read is switched off, the code is not of the code's form, or no listing with that code is shown now: one answer for all",
+            "headers" : {
+              "Cache-Control" : {
+                "description" : "no-store on every answer of the path",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "429" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "RATE_LIMITED: too many reads from this address; the Retry-After header gives the seconds to wait"
+          },
+          "500" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description" : "INTERNAL_ERROR: a read failed, or a condition answered a value this server does not know; nothing is shown",
+            "headers" : {
+              "Cache-Control" : {
+                "description" : "no-store on every answer of the path",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          }
+        },
+        "summary" : "The public data of a shown listing, by its public code",
+        "tags" : [ "Public listing" ]
+      }
+    },
     "/api/v1/public/owner-intake-requests" : {
       "post" : {
         "description" : "202 with the request code, also when the same request is sent again (same Idempotency-Key and body within 24 hours, or the same phone, intent, ward and address within 5 minutes); such a replay adds the header Idempotent-Replayed: true. Body at most 16 KB.",
@@ -20257,6 +20341,66 @@
           }
         },
         "required" : [ "startDate", "terms" ]
+      },
+      "ListingPublic" : {
+        "type" : "object",
+        "properties" : {
+          "areaSqm" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "bathrooms" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bedrooms" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "code" : {
+            "type" : "string",
+            "description" : "The public code, TD- and two groups of four"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "features" : {
+            "$ref" : "#/components/schemas/ListingFeatures"
+          },
+          "lastConfirmedOn" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The Vietnam-time date of the latest valid confirmation of the information"
+          },
+          "liveOn" : {
+            "type" : "string",
+            "format" : "date",
+            "description" : "The Vietnam-time date the shown version was put live (listing BR-6 group 9)"
+          },
+          "propertyType" : {
+            "type" : [ "string", "null" ],
+            "description" : "Null on a legacy property",
+            "enum" : [ "HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT", null ]
+          },
+          "provinceCode" : {
+            "type" : [ "string", "null" ]
+          },
+          "terms" : {
+            "$ref" : "#/components/schemas/ListingTerms"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "transactionType" : {
+            "type" : "string",
+            "enum" : [ "LONG_TERM_RENT" ]
+          },
+          "wardCode" : {
+            "type" : [ "string", "null" ],
+            "description" : "The province and ward codes are set together from the catalog, or both null"
+          }
+        },
+        "required" : [ "areaSqm", "bathrooms", "bedrooms", "code", "description", "features", "lastConfirmedOn", "liveOn", "propertyType", "provinceCode", "terms", "title", "transactionType", "wardCode" ]
       },
       "ListingPublication" : {
         "type" : "object",
