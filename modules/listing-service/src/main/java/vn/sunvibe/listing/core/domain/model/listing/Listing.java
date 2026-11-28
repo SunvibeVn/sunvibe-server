@@ -26,7 +26,8 @@ import java.util.Set;
  * and the unique revision indexes guard the rest of the table. Each command records one history entry with identifiers
  * only (listing BR-3) and one revision change per revision it changes (a put live: the replaced and the live revision),
  * which the repository writes after the listing row's versioned update. Only a put live changes the listing's state
- * (E06-S6 spec E06S6-D6); {@link #stateChanged()} tells the repository whether to write it.
+ * (E06-S6 spec E06S6-D6); {@link #stateChanged()} tells the repository whether to write it. A successful put live also
+ * sets the publication of its live revision (E06-S7 spec E06S7-D3), which the repository writes in the same write.
  */
 public final class Listing {
 
@@ -46,6 +47,8 @@ public final class Listing {
     private List<ListingHistoryEntry> pendingHistory;
     private List<RevisionChange> pendingRevisionChanges;
     private List<RevisionDecision> pendingDecisions;
+    private boolean publicationWriteDue;
+    private Optional<ListingPublication> pendingPublication = Optional.empty();
 
     private Listing(String id, ListingCode code, String unitId, TransactionType transactionType, String agreementId,
                     ListingState state, String createdBy, Instant createdAt, Instant updatedAt, long rowVersion,
@@ -349,7 +352,26 @@ public final class Listing {
         if (state == ListingState.UNPUBLISHED) {
             state = ListingState.PUBLISHED;
         }
+        // listing-publish E06-S7 spec E06S7-D3: the publication row of the new live revision, written with this put live
+        pendingPublication = ListingPublication.of(this, wentLive);
+        publicationWriteDue = true;
         return List.of();
+    }
+
+    /**
+     * True when a put live succeeded since the load (listing-publish E06-S7 spec E06S7-D3): the repository then replaces
+     * the listing's publication row with {@link #pendingPublication()}, or deletes it and writes none when that is empty.
+     */
+    public boolean publicationWriteDue() {
+        return publicationWriteDue;
+    }
+
+    /**
+     * The publication of the revision the last successful put live put live (E06S7-D3); empty without one, or when the
+     * live revision's unchecked fee names break a rule (E06S7-D11).
+     */
+    public Optional<ListingPublication> pendingPublication() {
+        return pendingPublication;
     }
 
     /** True when a command changed the listing's state since it was loaded or created (E06-S6 spec E06S6-D6). */

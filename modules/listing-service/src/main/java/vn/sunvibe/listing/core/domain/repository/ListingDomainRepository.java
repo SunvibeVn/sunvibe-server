@@ -7,6 +7,7 @@ import vn.sunvibe.listing.core.domain.model.listing.FreshnessRecord;
 import vn.sunvibe.listing.core.domain.model.listing.FreshnessSummary;
 import vn.sunvibe.listing.core.domain.model.listing.Listing;
 import vn.sunvibe.listing.core.domain.model.listing.ListingHistoryEntry;
+import vn.sunvibe.listing.core.domain.model.listing.ListingPublication;
 import vn.sunvibe.listing.core.domain.model.listing.ListingRevision;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionDecision;
 
@@ -154,4 +155,17 @@ public interface ListingDomainRepository {
 
     /** The stored decision of the listing's revision of that number (E06-S4 spec E06S4-D15); one statement. */
     Optional<RevisionDecision> findDecision(String listingId, int revisionNo);
+
+    /**
+     * The publication row of that code with its fee rows in fee number order (listing-publish E06-S7 spec E06S7-D5 step
+     * (1)); empty for a code no row holds. Two statements. {@link #update} and {@link #recordFreshnessWithPutLive}
+     * replace a listing's row when a put live succeeds (E06S7-D3); nothing else writes it.
+     */
+    Optional<ListingPublication> findPublication(String code);
+
+    /**
+     * The ids of the listings of the unit that have a publication row, in id order (E06S7-D13). One statement, at most
+     * the listings of one unit.
+     */
+    List<String> findPublishedListingIds(String unitId);
 }
