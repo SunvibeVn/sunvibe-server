@@ -2,6 +2,7 @@ package vn.sunvibe.listing.core.domain.policy.listing;
 
 import org.junit.jupiter.api.Test;
 import vn.sunvibe.listing.core.domain.model.listing.DepositBasis;
+import vn.sunvibe.listing.core.domain.model.listing.FeeBasis;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionContent;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionFeatures;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionPart;
@@ -105,6 +106,56 @@ class RevisionSubmitRulesTest {
         assertTrue(ListingTextRulesTest.refusedPhoneVectors().anyMatch(lineFeeds::equals));
         assertEquals(List.of(v(DESCRIPTION, PHONE_NUMBER)),
                 RevisionSubmitRules.violations(content(TITLE_OK, padded(lineFeeds, 100)), TERMS_IN_EFFECT));
+    }
+
+    /**
+     * listing-publish E06-S7 spec E06S7-D10 (LP-15, E-20): after the description's machine rules, each fee name of the
+     * snapshot in E05's order, alone, each broken rule once in rule order, with the fee's 1-based position.
+     */
+    @Test
+    void violations_feeNames_afterDescriptionInFeeOrderWithPosition() {
+        String everyRule = "0905123456 nhatro@gmail.com www.abc.vn zalo uy tín";
+        RevisionTerms terms = withFees("Điện", "Gửi xe, gọi 0905 123 456", "Phí dịch vụ đảm bảo");
+
+        assertEquals(List.of(v(DESCRIPTION, TOO_SHORT), v(TITLE, PHONE_NUMBER), v(TITLE, EMAIL), v(TITLE, LINK),
+                        v(TITLE, SOCIAL_HANDLE), v(TITLE, FORBIDDEN_WORD), v(DESCRIPTION, PHONE_NUMBER),
+                        v(DESCRIPTION, EMAIL), v(DESCRIPTION, LINK), v(DESCRIPTION, SOCIAL_HANDLE),
+                        v(DESCRIPTION, FORBIDDEN_WORD), fee(PHONE_NUMBER, 2), fee(FORBIDDEN_WORD, 3)),
+                RevisionSubmitRules.violations(content(everyRule, "Mô tả: " + everyRule), terms));
+        assertEquals(List.of(fee(PHONE_NUMBER, 2)), RevisionSubmitRules.violations(content(TITLE_OK, DESCRIPTION_OK),
+                withFees("Điện", "Gửi xe, gọi 0905 123 456")));
+    }
+
+    /** E06S7-D10: each machine rule of a fee name once, in rule order, the same patterns as title and description. */
+    @Test
+    void violations_feeNameBreakingEveryMachineRule_eachOnce() {
+        assertEquals(List.of(fee(PHONE_NUMBER, 1), fee(EMAIL, 1), fee(LINK, 1), fee(SOCIAL_HANDLE, 1),
+                        fee(FORBIDDEN_WORD, 1)),
+                RevisionSubmitRules.violations(content(TITLE_OK, DESCRIPTION_OK),
+                        withFees("0905123456 nhatro@gmail.com www.abc.vn zalo uy tín")));
+    }
+
+    /** E06S7-D10: a clean name of 100 characters passes; no length rule applies to a fee name (S3-D8, E05's own). */
+    @Test
+    void violations_cleanFeeNames_none() {
+        String clean100 = "Phí gửi xe máy hằng tháng ".repeat(4).substring(0, 100);
+        assertEquals(100, clean100.codePointCount(0, clean100.length()));
+
+        assertEquals(List.of(), RevisionSubmitRules.violations(content(TITLE_OK, DESCRIPTION_OK),
+                withFees(clean100, "Đ", "Internet")));
+    }
+
+    private static RevisionTerms withFees(String... names) {
+        List<RevisionTerms.Fee> fees = new ArrayList<>();
+        for (String name : names) {
+            fees.add(new RevisionTerms.Fee(name, FeeBasis.INCLUDED, null, null));
+        }
+        return new RevisionTerms(TermsSource.IN_EFFECT, null, Instant.parse("2026-11-20T03:15:00.123456Z"), 8_000_000L,
+                new RevisionTerms.Deposit(DepositBasis.MONTHS, 2, null), 6, 1, fees);
+    }
+
+    private static RevisionViolation fee(RevisionRule rule, int position) {
+        return new RevisionViolation(RevisionPart.FEE_NAME, rule, position);
     }
 
     /** The vector, then a space and letters up to the minimum length. */

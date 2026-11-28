@@ -22,7 +22,9 @@ import vn.sunvibe.listing.core.domain.exception.ListingCodeTakenException;
 import vn.sunvibe.listing.core.domain.exception.RevisionNotSubmittableException;
 import vn.sunvibe.listing.core.domain.exception.RevisionStateException;
 import vn.sunvibe.listing.core.domain.model.listing.DisplayReason;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionPart;
 import vn.sunvibe.listing.core.domain.model.listing.RevisionRule;
+import vn.sunvibe.listing.core.domain.model.listing.RevisionViolation;
 import vn.sunvibe.listing.core.presentation.controller.ListingController;
 import vn.sunvibe.shared.constant.error.ErrorCode;
 import vn.sunvibe.shared.dto.response.error.ErrorResponse;
@@ -46,6 +48,11 @@ import java.util.Set;
 @Slf4j
 public class ListingExceptionHandler {
 
+    /**
+     * listing BR-5: the message of the one "not found" body, which the public path's filter writes too, so a hidden
+     * listing and a refused code answer alike (listing-publish E06-S7 spec E06S7-D8).
+     */
+    public static final String NOT_FOUND_MESSAGE = "The resource was not found.";
     static final String FIELD_MESSAGE = "This value is not accepted.";
     static final String GROUP_MESSAGE = "This group stops the listing.";
     static final String CONFLICT_MESSAGE = "Something changed at the same time. Try again.";
@@ -83,7 +90,7 @@ public class ListingExceptionHandler {
     @ExceptionHandler(ListingNotFoundException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleNotFound(ListingNotFoundException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ErrorResponse.of(ErrorCode.NOT_FOUND, "The resource was not found.", List.of()));
+                .body(ErrorResponse.of(ErrorCode.NOT_FOUND, NOT_FOUND_MESSAGE, List.of()));
     }
 
     /** listing-detail BR-15: a concurrent insert of the same code (one in 10^12) is a conflict the caller may retry. */
@@ -111,14 +118,13 @@ public class ListingExceptionHandler {
 
     /**
      * listing-publish US-2 AC-4, E-4 (E06-S2 spec E06S2-D7, plan E06S2-P8): 422 with one entry per violation, in order,
-     * its field {@code <part>.<rule>} and a fixed message per rule; never the text that broke a rule.
+     * its field {@code <part>.<rule>} and a fixed message per rule; never the text that broke a rule. A fee name's entry
+     * is {@code feeName.<position>.<rule>} (E06-S7 spec 4.3, E06S7-D10, E-20).
      */
     @ExceptionHandler(RevisionNotSubmittableException.class)
     public ResponseEntity<ErrorResponse<ValidationError>> handleNotSubmittable(RevisionNotSubmittableException e) {
         List<ValidationError> entries = e.violations().stream()
-                .map(violation -> ValidationError.of(
-                        violation.part().name().toLowerCase(Locale.ROOT) + "." + violation.rule().name(),
-                        ruleMessage(violation.rule())))
+                .map(violation -> ValidationError.of(fieldOf(violation), ruleMessage(violation.rule())))
                 .toList();
         return ResponseEntity.status(UNPROCESSABLE)
                 .body(ErrorResponse.of(NOT_SUBMITTABLE, "The revision cannot be submitted.", entries));
@@ -188,6 +194,13 @@ public class ListingExceptionHandler {
         log.error("Unexpected error in listing: {} (correlationId={})", e.getClass().getName(), CorrelationId.current());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of(ErrorCode.INTERNAL_ERROR, "Unexpected server error.", List.of()));
+    }
+
+    private static String fieldOf(RevisionViolation violation) {
+        if (violation.part() == RevisionPart.FEE_NAME) {
+            return "feeName." + violation.feePositionOrNull() + "." + violation.rule().name();
+        }
+        return violation.part().name().toLowerCase(Locale.ROOT) + "." + violation.rule().name();
     }
 
     /** One fixed message per submission rule (plan E06S2-P8). */

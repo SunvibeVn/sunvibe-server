@@ -97,7 +97,8 @@ public class ListingEntityMapper {
                 .submittedBy(revision.submittedByOrNull())
                 .copiedFromRevisionNo(revision.copiedFromRevisionNoOrNull())
                 .wentLiveAt(revision.wentLiveAtOrNull())
-                .replacedAt(revision.replacedAtOrNull());
+                .replacedAt(revision.replacedAtOrNull())
+                .feeNamesChecked(revision.feeNamesChecked());
         if (terms != null) {
             builder.termsSource(terms.source())
                     .termsPendingStartDate(terms.pendingStartDateOrNull())
@@ -174,7 +175,7 @@ public class ListingEntityMapper {
         return ListingRevision.load(entity.getId(), entity.getRevisionNo(), entity.getStatus(), entity.getCreatedBy(),
                 entity.getCreatedAt(), entity.getUpdatedAt(), content, terms(entity, feeRows), unit(entity),
                 entity.getSubmittedAt(), entity.getSubmittedBy(), entity.getCopiedFromRevisionNo(), entity.getWentLiveAt(),
-                entity.getReplacedAt());
+                entity.getReplacedAt(), entity.isFeeNamesChecked());
     }
 
     /**

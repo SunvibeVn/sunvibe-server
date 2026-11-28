@@ -76,6 +76,28 @@ class ListingExceptionHandlerRevisionTest {
                 ValidationError.of("description.TOO_LONG", "Too long.")), answer.getBody().errors());
     }
 
+    /**
+     * listing-publish E06-S7 spec 4.3, E06S7-D10 (E-20): a fee-name violation's entry is {@code feeName.<position>.<RULE>}
+     * with the rule's fixed message; the other entries are unchanged.
+     */
+    @Test
+    void notSubmittable_feeNameViolation_entryNamesPositionAndRule() {
+        List<RevisionViolation> violations = List.of(
+                new RevisionViolation(RevisionPart.DESCRIPTION, RevisionRule.LINK),
+                new RevisionViolation(RevisionPart.FEE_NAME, RevisionRule.PHONE_NUMBER, 2),
+                new RevisionViolation(RevisionPart.FEE_NAME, RevisionRule.FORBIDDEN_WORD, 3));
+
+        ResponseEntity<ErrorResponse<ValidationError>> answer =
+                handler.handleNotSubmittable(new RevisionNotSubmittableException(violations));
+
+        assertEquals(422, answer.getStatusCode().value());
+        assertEquals(List.of(
+                ValidationError.of("description.LINK", "Holds a link."),
+                ValidationError.of("feeName.2.PHONE_NUMBER", "Holds what reads as a phone number."),
+                ValidationError.of("feeName.3.FORBIDDEN_WORD", "Holds a word a listing may not use.")),
+                answer.getBody().errors());
+    }
+
     @Test
     void listingChanged_409ConcurrentModification() {
         ResponseEntity<ErrorResponse<ValidationError>> answer = handler.handleListingChanged(new ListingChangedException());

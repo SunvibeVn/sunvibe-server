@@ -178,6 +178,13 @@ public class ListingRevisionEntity {
     @Column(name = "replaced_at")
     private Instant replacedAt;
 
+    /**
+     * Whether the revision's fee names passed the machine check at its submission (listing-publish E06-S7 spec
+     * E06S7-D11); false on every row stored before it.
+     */
+    @Column(name = "fee_names_checked", nullable = false)
+    private boolean feeNamesChecked;
+
     @Override
     public String toString() {
         return "ListingRevisionEntity[" + id + "]";

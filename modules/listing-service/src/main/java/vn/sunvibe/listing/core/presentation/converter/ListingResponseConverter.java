@@ -107,7 +107,8 @@ public class ListingResponseConverter {
                         terms.pendingStartDateOrNull(), terms.capturedAt(), toTerms(terms)),
                 toUnitSnapshot(view.unitSnapshotOrNull()), view.submittedAtOrNull(), view.dataVersion(),
                 view.problems().stream()
-                        .map(problem -> new ListingRevisionProblemResponse(problem.part().name(), problem.rule().name()))
+                        .map(problem -> new ListingRevisionProblemResponse(problem.part().name(), problem.rule().name(),
+                                problem.feePositionOrNull()))
                         .toList());
     }
 

@@ -5612,7 +5612,7 @@
                 }
               }
             },
-            "description" : "REVISION_NOT_SUBMITTABLE: one entry per violation, in order, its field <part>.<rule> (title.TOO_SHORT, terms.REQUIRED); never the matched text"
+            "description" : "REVISION_NOT_SUBMITTABLE: one entry per violation, in order, its field <part>.<rule> (title.TOO_SHORT, terms.REQUIRED), a fee name's feeName.<position>.<rule> (feeName.2.PHONE_NUMBER, the fee's position in the terms snapshot); never the matched text"
           },
           "500" : {
             "content" : {
@@ -20797,14 +20797,19 @@
         "properties" : {
           "part" : {
             "type" : "string",
-            "enum" : [ "TITLE", "DESCRIPTION", "TERMS" ]
+            "enum" : [ "TITLE", "DESCRIPTION", "TERMS", "FEE_NAME" ]
+          },
+          "position" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "The fee's position in the terms snapshot, 1 to 20, for FEE_NAME; null otherwise"
           },
           "rule" : {
             "type" : "string",
             "enum" : [ "REQUIRED", "TOO_SHORT", "TOO_LONG", "PHONE_NUMBER", "EMAIL", "LINK", "SOCIAL_HANDLE", "FORBIDDEN_WORD" ]
           }
         },
-        "required" : [ "part", "rule" ]
+        "required" : [ "part", "position", "rule" ]
       },
       "ListingRevisionReview" : {
         "type" : "object",
