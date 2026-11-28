@@ -297,7 +297,8 @@ class ListingFreshnessApiPostgresTest extends ListingRevisionApiTestBase {
 
 	/**
 	 * FR-10, E06S3-D3, E06S3-D9: a record moves the data version by one, leaves the state, writes one history row
-	 * FRESHNESS_RECORDED with actor and time and no revision, and appends no event.
+	 * FRESHNESS_RECORDED with actor and time and no revision; since listing-publish E06-S7 (E06S7-D12, S-8) the valid
+	 * record appends the listing's two event rows, due now and at its deadline.
 	 */
 	@Test
 	void record_movesDataVersion_stateUnchangedOneHistoryRow() throws Exception {
@@ -318,7 +319,7 @@ class ListingFreshnessApiPostgresTest extends ListingRevisionApiTestBase {
 				+ " revision_no, occurred_at from listing_history where listing_id = ? and action = 'FRESHNESS_RECORDED'",
 				(row, rowNum) -> row.getString("actor_user_id") + " " + row.getObject("revision_no") + " "
 						+ row.getTimestamp("occurred_at").toInstant(), listingId));
-		assertEquals(outboxBefore, listingRows().outbox());
+		assertEquals(outboxBefore + 2, listingRows().outbox());
 	}
 
 	/** FR-9, E06S3-D6: two records the same day are two rows; the latest is the one with the greater row version. */
@@ -529,6 +530,58 @@ class ListingFreshnessApiPostgresTest extends ListingRevisionApiTestBase {
 				ids(okReconfirmations(manager).path("items")).contains(listingId));
 
 		assertEquals(List.of(false, false), listed);
+	}
+
+	/**
+	 * listing-publish E06-S7 spec E06S7-D12, criterion PB-15: a record that is not a valid confirmation appends one
+	 * listing event row, due now.
+	 */
+	@Test
+	void record_invalid_oneListingSignalDueNow() throws Exception {
+		String listingId = listingInEffect().listingId();
+
+		Result answer = record(sale, listingId, body(dataVersion(listingId), "CALL", "NOT_AVAILABLE", null, null, null));
+
+		assertEquals(201, answer.status(), answer.rawBody());
+		assertEquals(List.of("due now"), listingSignals(listingId));
+	}
+
+	/**
+	 * E06S7-D12, PB-15: a valid confirmation appends two listing event rows: due now, and due at its deadline, 00:00
+	 * Vietnam time of day d+15 from the record's contact date.
+	 */
+	@Test
+	void record_valid_signalDueNowAndAtTheDeadline() throws Exception {
+		String listingId = listingInEffect().listingId();
+
+		Result answer = record(sale, listingId, available(dataVersion(listingId)));
+
+		assertEquals(201, answer.status(), answer.rawBody());
+		LocalDate contactDate = jdbc.queryForObject("select contact_date from listing_freshness_records where"
+				+ " listing_id = ?", Date.class, listingId).toLocalDate();
+		Instant deadline = contactDate.plusDays(15).atStartOfDay(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+		assertEquals(List.of("due now", "due " + deadline), listingSignals(listingId));
+	}
+
+	/** E06S7-D12, PB-15: a refused record (a stale data version, 409) appends nothing. */
+	@Test
+	void record_staleDataVersion_noListingSignal() throws Exception {
+		String listingId = listingInEffect().listingId();
+		long read = dataVersion(listingId);
+		Result saved = saveContent(sale, listingId, "1", completeContentBody(read));
+		assertEquals(200, saved.status(), saved.rawBody());
+
+		Result answer = record(sale, listingId, available(read));
+
+		assertCode(409, "CONCURRENT_MODIFICATION", answer);
+		assertEquals(List.of(), listingSignals(listingId));
+	}
+
+	/** The listing's event rows, as "due now" or "due <time>", in id order. */
+	private List<String> listingSignals(String listingId) {
+		return jdbc.query("select next_attempt_at = occurred_at, next_attempt_at from outbox_events where"
+				+ " aggregate_type = 'listing' and aggregate_id = ? order by id", (row, rowNum) -> row.getBoolean(1)
+				? "due now" : "due " + row.getTimestamp(2).toInstant(), listingId);
 	}
 
 	// ==================== the three calls over HTTP ====================

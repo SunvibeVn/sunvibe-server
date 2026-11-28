@@ -31,6 +31,8 @@ class ListingPutLiveOnApprovalApiPostgresTest extends ListingPublicationApiTestB
 		String listingId = drafting.listingId();
 		Result recorded = recordFreshness(sale, listingId, validRecord(dataVersion(listingId)));
 		assertEquals(201, recorded.status(), recorded.rawBody());
+		// listing-publish E06-S7 (S-14): the valid record's two event rows, so the one row below is the approval's
+		clearListingEventRows(listingId);
 		submitted(drafting);
 		long version = dataVersion(listingId);
 		Set<String> history = new HashSet<>(history(listingId));

@@ -26,6 +26,7 @@ import vn.sunvibe.listing.core.testsupport.RevisionFixtures;
 import vn.sunvibe.listing.core.testsupport.StubAdvertisingRightPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitInventoryPort;
 import vn.sunvibe.listing.core.testsupport.StubUnitProfilePort;
+import vn.sunvibe.shared.outbox.ListingChangedEvent;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -51,7 +52,11 @@ import static vn.sunvibe.listing.core.testsupport.RevisionFixtures.draft;
  */
 class ListingFreshnessCommandServiceTest {
 
-    private static final String LISTING = "01JLISTING0000000000000001";
+    /**
+     * A well-formed ULID: since listing-publish E06-S7 (E06S7-D12) a record appends the listing's event, whose factory
+     * refuses any other id (the former "01JLISTING…" holds I and L, which no ULID holds).
+     */
+    private static final String LISTING = "01JFRESHNESS00000000000001";
     private static final String MANAGED_LISTING = "01JLISTING0000000000000002";
     private static final String ORPHAN_LISTING = "01JLISTING0000000000000003";
     private static final String ARCHIVED_LISTING = "01JLISTING0000000000000004";
@@ -71,6 +76,48 @@ class ListingFreshnessCommandServiceTest {
     private final ListingCommandService service = new ListingCommandService(listings, rights, units,
             () -> "01ID" + nextId.incrementAndGet(), RandomGenerator.of("L64X128MixRandom"),
             new DisplayConditionsAssembler(rights, new StubUnitInventoryPort(), listings), new RecordingEventOutboxPort());
+
+    /** listing-publish E06-S7 spec E06S7-D12: the service whose appends these cases read. */
+    private final RecordingEventOutboxPort events = new RecordingEventOutboxPort();
+    private final ListingCommandService signalling = new ListingCommandService(listings, rights, units,
+            () -> "01ID" + nextId.incrementAndGet(), RandomGenerator.of("L64X128MixRandom"),
+            new DisplayConditionsAssembler(rights, new StubUnitInventoryPort(), listings), events);
+
+    /** E06S7-D12: a record that is not a valid confirmation appends the listing's signal due now. */
+    @Test
+    void recordFreshness_invalid_signalDueNow() {
+        stored(LISTING, AGREEMENT, ListingState.UNPUBLISHED);
+        standing(AGREEMENT, false, SALE);
+
+        signalling.recordFreshness(command(LISTING, VERSION, FreshnessOutcome.NOT_AVAILABLE, null, null, null),
+                SALE_VIEWER);
+
+        assertEquals(List.of(ListingChangedEvent.now(LISTING)), events.events());
+    }
+
+    /** E06S7-D12: a valid confirmation appends the signal due now, then the one due at its deadline. */
+    @Test
+    void recordFreshness_valid_signalDueNowThenAtDeadline() {
+        stored(LISTING, AGREEMENT, ListingState.UNPUBLISHED);
+        standing(AGREEMENT, false, SALE);
+
+        signalling.recordFreshness(command(LISTING, VERSION, FreshnessOutcome.AVAILABLE, true, true, null), SALE_VIEWER);
+
+        LocalDate contactDate = listings.freshnessRecords(LISTING).getFirst().contactDate();
+        assertEquals(List.of(ListingChangedEvent.now(LISTING),
+                ListingChangedEvent.dueAt(LISTING, FreshnessPolicy.deadline(contactDate))), events.events());
+    }
+
+    /** E06S7-D12: a refused record (a stale data version) appends nothing, even before it throws. */
+    @Test
+    void recordFreshness_staleDataVersion_noSignal() {
+        stored(LISTING, AGREEMENT, ListingState.UNPUBLISHED);
+        standing(AGREEMENT, false, SALE);
+
+        assertThrows(ListingChangedException.class, () -> signalling.recordFreshness(command(LISTING, VERSION - 1,
+                FreshnessOutcome.AVAILABLE, true, true, null), SALE_VIEWER));
+        assertEquals(List.of(), events.events());
+    }
 
     @Test
     void recordFreshness_assignedSaleValid_recordSummaryHistoryAndVersion() {

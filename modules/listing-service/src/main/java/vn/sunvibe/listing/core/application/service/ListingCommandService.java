@@ -253,8 +253,9 @@ public class ListingCommandService implements ListingCommandUseCase {
      * {@link #loadForRecording}, the data version, then the record dated today in Vietnam time, the summary only a valid
      * record moves forward, and one history row, written with the listing row's guarded update. A valid confirmation
      * tries to put the approved revision live (E06S6-D7), which may change the listing's state: then the record, the
-     * listing's state and revisions go in the one guarded write, and the listing's event is appended. An invalid record,
-     * or one with no approved revision waiting, reads no E05 right, terms or share lock and no unit.
+     * listing's state and revisions go in the one guarded write. Every record then appends the listing's event due now,
+     * and a valid one also the event due at its deadline (E06-S7 spec E06S7-D12). An invalid record, or one with no
+     * approved revision waiting, reads no E05 right, terms or share lock and no unit.
      */
     @Override
     public FreshnessRecordResult recordFreshness(FreshnessRecordCommand command, ListingViewer viewer) {
@@ -279,8 +280,14 @@ public class ListingCommandService implements ListingCommandUseCase {
             listings.recordFreshness(row.listingId(), row.rowVersion(), now, next, record, entry);
         } else {
             listings.recordFreshnessWithPutLive(wentLive, row.rowVersion(), now, next, record, entry);
-            // ADR-014 decision 3: the listing's event in the transaction of the write
-            events.append(ListingChangedEvent.now(row.listingId()));
+        }
+        // listing-publish E06-S7 spec E06S7-D12 (ADR-012 decision 6, ADR-014 decision 3): every record appends the
+        // listing's signal due now in the transaction of its write, after it, so a refused or failed record appends
+        // nothing; a put live of the record has this one signal. A valid confirmation also appends the signal due at its
+        // deadline, when the listing's answer changes by itself.
+        events.append(ListingChangedEvent.now(row.listingId()));
+        if (record.valid()) {
+            events.append(ListingChangedEvent.dueAt(row.listingId(), FreshnessPolicy.deadline(record.contactDate())));
         }
         return new FreshnessRecordResult(row.listingId(), nextVersion, record.valid());
     }

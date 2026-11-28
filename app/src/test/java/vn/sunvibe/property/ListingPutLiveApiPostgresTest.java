@@ -98,6 +98,8 @@ class ListingPutLiveApiPostgresTest extends ListingPublicationApiTestBase {
 		unitAvailability(unitId, "AVAILABLE");
 
 		assertEquals(201, recordFreshness(sale, listingId, invalidRecord(dataVersion(listingId))).status());
+		// listing-publish E06-S7 (S-13): the invalid record's own event row, so the refusal below appends none
+		clearListingEventRows(listingId);
 		assertRefused(listingId, List.of("reasons.FRESHNESS"));
 	}
 
@@ -107,6 +109,8 @@ class ListingPutLiveApiPostgresTest extends ListingPublicationApiTestBase {
 		Drafting drafting = waitingApproval();
 		String listingId = drafting.listingId();
 		assertEquals(201, recordFreshness(sale, listingId, invalidRecord(dataVersion(listingId))).status());
+		// listing-publish E06-S7 (S-13): the invalid record's own event row, so the refusal below appends none
+		clearListingEventRows(listingId);
 		jdbc.update("update listings set state = 'PAUSED' where id = ?", listingId);
 		jdbc.update("update listing_revisions set terms_monthly_rent = terms_monthly_rent + 1000000 where listing_id = ?"
 				+ " and revision_no = 1", listingId);
