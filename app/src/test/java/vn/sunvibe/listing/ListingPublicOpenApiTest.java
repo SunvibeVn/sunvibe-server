@@ -28,7 +28,8 @@ import tools.jackson.databind.json.JsonMapper;
  * 429 and 500 as {@code ErrorResponse}, each with the {@code Cache-Control} header; every property of
  * {@code ListingPublic} required, nullable exactly {@code propertyType}, {@code provinceCode} and {@code wardCode}, the
  * two dates of format {@code date}, the terms and the features by reference to the staff schemas. Read from
- * {@code /v3/api-docs} with the annotations of {@link ListingPublicationOpenApiTest}, so its context is reused.
+ * {@code /v3/api-docs} with the annotations of {@link ListingPublicationOpenApiTest}, so its context is reused. The staff
+ * preview of spec 4.2 too: {@code getListingRevisionPublicPreview}, tag {@code Listing}, no {@code security} entry.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
@@ -39,6 +40,11 @@ class ListingPublicOpenApiTest {
 	private static final List<String> PUBLIC_PROPERTIES = List.of("areaSqm", "bathrooms", "bedrooms", "code",
 			"description", "features", "lastConfirmedOn", "liveOn", "propertyType", "provinceCode", "terms", "title",
 			"transactionType", "wardCode");
+	private static final String PREVIEW_PATH =
+			"/api/v1/staff/listings/{listingId}/revisions/{revisionNo}/public-preview";
+	private static final List<String> PREVIEW_PROPERTIES = List.of("areaSqm", "bathrooms", "bedrooms", "code",
+			"description", "features", "lastConfirmedOn", "liveOn", "propertyType", "provinceCode", "provinceName",
+			"revisionNo", "revisionStatus", "terms", "title", "transactionType", "wardCode", "wardName");
 
 	@Value("${local.server.port}")
 	private int port;
@@ -118,6 +124,51 @@ class ListingPublicOpenApiTest {
 			}
 		});
 		assertEquals(List.of("HOUSE", "WHOLE_BUILDING", "VILLA", "HOMESTAY", "CONDOTEL", "APARTMENT"), types);
+		assertEquals("[\"LONG_TERM_RENT\"]", properties.path("transactionType").path("enum").toString());
+	}
+
+	/** PB-27, spec 4.2: the staff preview, one GET, its id, the tag Listing, no security entry, its five answers. */
+	@Test
+	void publicPreview_oneStaffGetWithItsAnswers() {
+		JsonNode path = contract.path("paths").path(PREVIEW_PATH);
+		assertEquals(List.of("get"), names(path));
+		JsonNode operation = path.path("get");
+
+		assertEquals("getListingRevisionPublicPreview", operation.path("operationId").asString());
+		assertEquals("[\"Listing\"]", operation.path("tags").toString());
+		assertFalse(operation.has("security"), operation.toString());
+		JsonNode responses = operation.path("responses");
+		assertEquals(List.of("200", "401", "403", "404", "500"), names(responses).stream().sorted().toList());
+		List<String> refs = new ArrayList<>();
+		for (String status : List.of("200", "401", "403", "404", "500")) {
+			refs.add(status + " " + schemaRef(responses.path(status)));
+		}
+		assertEquals(List.of("200 #/components/schemas/ListingPublicPreview", "401 #/components/schemas/ErrorResponse",
+				"403 #/components/schemas/ErrorResponse", "404 #/components/schemas/ErrorResponse",
+				"500 #/components/schemas/ErrorResponse"), refs);
+	}
+
+	/** PB-27, spec 4.2: every property required, nullable exactly as 4.2 says, the statuses and the dates. */
+	@Test
+	void listingPublicPreview_everyPropertyRequiredNullableAsSaid() {
+		JsonNode schema = contract.path("components").path("schemas").path("ListingPublicPreview");
+		JsonNode properties = schema.path("properties");
+
+		assertEquals(PREVIEW_PROPERTIES, names(properties).stream().sorted().toList());
+		assertEquals(PREVIEW_PROPERTIES, requiredOf(schema));
+		Set<String> nullable = new TreeSet<>();
+		properties.properties().forEach(property -> {
+			if (isNullable(property.getValue())) {
+				nullable.add(property.getKey());
+			}
+		});
+		assertEquals(new TreeSet<>(Set.of("areaSqm", "bathrooms", "bedrooms", "description", "lastConfirmedOn", "liveOn",
+				"propertyType", "provinceCode", "provinceName", "terms", "title", "wardCode", "wardName")), nullable);
+		assertEquals("[\"DRAFT\",\"PENDING_REVIEW\",\"NEEDS_CHANGES\",\"REJECTED\",\"APPROVED\",\"LIVE\",\"REPLACED\","
+				+ "\"CANCELLED\"]", properties.path("revisionStatus").path("enum").toString());
+		assertEquals(List.of("int32", "date", "date"), List.of(properties.path("revisionNo").path("format").asString(),
+				properties.path("liveOn").path("format").asString(),
+				properties.path("lastConfirmedOn").path("format").asString()));
 		assertEquals("[\"LONG_TERM_RENT\"]", properties.path("transactionType").path("enum").toString());
 	}
 

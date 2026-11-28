@@ -17,10 +17,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.sunvibe.listing.core.application.usecase.ListingPublicationCommandUseCase;
 import vn.sunvibe.listing.core.application.usecase.ListingPublicationQueryUseCase;
+import vn.sunvibe.listing.core.presentation.converter.ListingPublicResponseConverter;
 import vn.sunvibe.listing.core.presentation.converter.ListingRequestConverter;
 import vn.sunvibe.listing.core.presentation.converter.ListingResponseConverter;
 import vn.sunvibe.listing.core.presentation.dto.request.ListingRevisionCommandRequest;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingLiveDifferenceResponse;
+import vn.sunvibe.listing.core.presentation.dto.response.ListingPublicPreviewResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingPublicationResponse;
 import vn.sunvibe.listing.core.presentation.dto.response.ListingRevisionChangeResponse;
 import vn.sunvibe.listing.core.presentation.resolver.ListingViewerResolver;
@@ -31,7 +33,8 @@ import vn.sunvibe.shared.dto.response.error.ErrorResponse;
  * 4, E06S6-D2, D5, D11, D12). Each operation carries the role gate of the operation it sits beside, which answers 403 for
  * every id: the put live the drafting commands', the publication read the listing read's, the difference the review
  * read's; the assignee and the scope are checked in the use cases, and the actor is the principal, never a body field.
- * Every path runs without open-in-view (ADR-012 decision 8). Nothing here is public.
+ * Every path runs without open-in-view (ADR-012 decision 8). Nothing here is public: the staff preview of a revision's
+ * public data (E06-S7 spec E06S7-D9) carries the listing read's gate.
  */
 @RestController
 @RequestMapping(ListingController.PATH)
@@ -49,6 +52,7 @@ public class ListingPublicationController {
     private final ListingViewerResolver viewers;
     private final ListingRequestConverter requests;
     private final ListingResponseConverter responses;
+    private final ListingPublicResponseConverter publicResponses;
 
     /**
      * listing-publish US-5 AC-1, AC-3, AC-4, E-8: the assigned Sale puts the Approved revision live when every display
@@ -118,6 +122,36 @@ public class ListingPublicationController {
     })
     public ListingPublicationResponse publication(@PathVariable("listingId") String listingId) {
         return responses.toPublication(queries.publication(listingId, viewers.current()));
+    }
+
+    /**
+     * listing-publish US-2 AC-3 (E06-S7 spec E06S7-D9): a revision's public data as it would be published; the listing
+     * read's gate and the revision read's scope; data only, no display condition.
+     */
+    @GetMapping("/{listingId}/revisions/{revisionNo}/public-preview")
+    @PreAuthorize("hasAnyRole('SALE','SALE_LEADER','SALES_MANAGER','ADMIN','LISTING_REVIEWER')")
+    @Operation(operationId = "getListingRevisionPublicPreview",
+            summary = "A revision's public data as it would be published: the groups of the public answer from the"
+                    + " revision itself, with its unit snapshot's place names")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "The preview; the unit fields and names are null before"
+                    + " the submission, the terms before a snapshot, liveOn unless the revision went live"),
+            @ApiResponse(responseCode = "401", description = "Authentication required",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "FORBIDDEN: the caller holds none of SALE, SALE_LEADER,"
+                    + " SALES_MANAGER, ADMIN, LISTING_REVIEWER; the same for every id",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "NOT_FOUND: the listing does not exist, an id or the"
+                    + " revision number is malformed, the caller may not read the listing, or it has no such"
+                    + " revision: one answer for all",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "500", description = "INTERNAL_ERROR",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ListingPublicPreviewResponse publicPreview(@PathVariable("listingId") String listingId,
+                                                      @PathVariable("revisionNo") String revisionNo) {
+        return publicResponses.toResponse(queries.publicPreview(listingId,
+                ListingRequestConverter.revisionNoOrNull(revisionNo), viewers.current()));
     }
 
     /** listing-publish US-4 AC-2, BR-7 (E06S6-D12): the review read's gate and scope. */

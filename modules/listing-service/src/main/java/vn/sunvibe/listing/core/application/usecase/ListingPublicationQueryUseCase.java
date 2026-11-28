@@ -1,6 +1,7 @@
 package vn.sunvibe.listing.core.application.usecase;
 
 import vn.sunvibe.listing.core.application.exception.ListingNotFoundException;
+import vn.sunvibe.listing.core.application.query.ListingPublicPreviewView;
 import vn.sunvibe.listing.core.application.query.ListingPublicationView;
 import vn.sunvibe.listing.core.application.query.LiveDifferenceView;
 
@@ -24,4 +25,13 @@ public interface ListingPublicationQueryUseCase {
      * @throws IllegalStateException    the live revision is read without its terms snapshot
      */
     LiveDifferenceView liveDifference(String listingId, Integer revisionNoOrNull, ListingViewer viewer);
+
+    /**
+     * A revision's public data as it would be published (listing-publish E06-S7 spec E06S7-D9), for the readers of the
+     * listing in the scope of the revision read; reads no E05 condition and no property value.
+     *
+     * @throws ListingNotFoundException the listing or the revision is unknown or malformed, or out of the viewer's
+     *                                  scope: one answer for all
+     */
+    ListingPublicPreviewView publicPreview(String listingId, Integer revisionNoOrNull, ListingViewer viewer);
 }

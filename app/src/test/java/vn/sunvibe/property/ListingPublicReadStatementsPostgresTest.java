@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Import;
 
 import vn.sunvibe.acquisition.AcquisitionApiTestSupport.Result;
 import vn.sunvibe.listing.core.application.usecase.ListingPublicQueryUseCase;
+import vn.sunvibe.listing.core.application.usecase.ListingPublicationQueryUseCase;
 
 /**
  * The statements of the public read on PostgreSQL (listing-publish E06-S7 spec PB-21; ADR-012 decision 2: a number that
@@ -26,12 +27,44 @@ class ListingPublicReadStatementsPostgresTest extends ListingPublicationApiTestB
 	@Autowired
 	private StatementCounter counter;
 
+	/** listing-publish E06-S7 spec A-2, Task A9: the preview's count measured on its first green run (2026-11-28). */
+	private static final long MEASURED_PREVIEW = 9;
+
 	@Autowired
 	private ListingPublicQueryUseCase publicReads;
+
+	@Autowired
+	private ListingPublicationQueryUseCase publications;
 
 	@Override
 	String phonePrefix() {
 		return "0988";
+	}
+
+	/** PB-19, A-2: the preview of the live revision 1 of a listing without a fee runs the measured statements. */
+	@Test
+	void publicPreview_zeroFees_measuredCount() throws Exception {
+		String listingId = listingOf(visibleWithFees(0));
+
+		long statements = counter.count(() -> publications.publicPreview(listingId, 1, saleViewer()));
+
+		assertEquals(MEASURED_PREVIEW, statements);
+	}
+
+	/** PB-19, A-2: the preview of a revision with 20 fees runs as many statements as one without a fee. */
+	@Test
+	void publicPreview_twentyFees_sameAsZeroFees() throws Exception {
+		String none = listingOf(visibleWithFees(0));
+		String twenty = listingOf(visibleWithFees(20));
+
+		long withNone = counter.count(() -> publications.publicPreview(none, 1, saleViewer()));
+		long withTwenty = counter.count(() -> publications.publicPreview(twenty, 1, saleViewer()));
+
+		assertEquals(withNone, withTwenty);
+	}
+
+	private String listingOf(String code) {
+		return jdbc.queryForObject("select id from listings where code = ?", String.class, code);
 	}
 
 	/** PB-21, A-2: the public read of a listing without a fee runs the measured number of statements. */

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +20,11 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import org.springframework.web.util.ServletRequestPathUtils;
 
 import vn.sunvibe.listing.core.presentation.controller.ListingPublicController;
+import vn.sunvibe.listing.core.presentation.controller.ListingPublicationController;
 
 /**
- * The anonymous public read runs without open-in-view (listing-publish E06-S7 spec E06S7-D8; criterion PB-14; ADR-012
- * decision 8): asked of the handler mapping of the running context. The annotations of
+ * The anonymous public read and the staff preview run without open-in-view (listing-publish E06-S7 spec E06S7-D8, D9;
+ * criterion PB-14; ADR-012 decision 8): asked of the handler mapping of the running context. The annotations of
  * {@link ListingPublicationOpenInViewTest}, so its context is reused.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -41,6 +44,14 @@ class ListingPublicOpenInViewTest {
 		assertEquals(ListingPublicController.class, handler.getBeanType());
 		assertEquals("publicListing", handler.getMethod().getName());
 		assertEquals(0, openInViewInterceptors(chain));
+
+		// Task A9: the staff preview of a revision's public data, under the listing sub-resources pattern
+		HandlerExecutionChain preview = chain("GET",
+				"/api/v1/staff/listings/01JGLISTING000000000000000/revisions/2/public-preview");
+		HandlerMethod previewHandler = assertInstanceOf(HandlerMethod.class, preview.getHandler());
+		assertEquals(List.of(ListingPublicationController.class.getName(), "publicPreview", "0"),
+				List.of(previewHandler.getBeanType().getName(), previewHandler.getMethod().getName(),
+						String.valueOf(openInViewInterceptors(preview))));
 
 		HandlerExecutionChain intakeBlock = chain("GET",
 				"/api/v1/staff/owner-leads/01JLEAD000000000000000000A/inventory-intake");
